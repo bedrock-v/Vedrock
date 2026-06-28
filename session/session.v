@@ -9,6 +9,7 @@ import nbt
 import logger
 import config
 import world
+import command
 
 pub const resource_response_have_all_packs = 3
 pub const resource_response_completed = 4
@@ -140,6 +141,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_container_close(p)!
 			} else if p is protocol.ItemStackRequestPacket {
 				s.handle_item_stack_request(p)!
+			} else if p is protocol.CommandRequestPacket {
+				s.handle_command_request(p)!
 			}
 		}
 		else {}
@@ -361,12 +364,39 @@ fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
 	if message == '' {
 		return
 	}
+	if message.starts_with('/') {
+		s.run_command(message)!
+		return
+	}
 	s.log.info('<${s.identity.display_name}> ${message}')
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:       int(enums.TextType.chat)
 		source_name: s.identity.display_name
 		message:     message
 	})
+}
+
+fn (mut s NetworkSession) handle_command_request(p protocol.CommandRequestPacket) ! {
+	s.run_command(p.command)!
+}
+
+fn (mut s NetworkSession) run_command(line string) ! {
+	s.log.info('${s.identity.display_name} issued command: ${line}')
+	ctx := command.Context{
+		sender_name:  s.identity.display_name
+		player_count: s.hub.count()
+		max_players:  s.cfg.max_players
+		server_motd:  s.cfg.motd
+	}
+	output := s.hub.commands.dispatch(line, ctx)
+	s.send_message(output)!
+}
+
+fn (mut s NetworkSession) send_message(message string) ! {
+	s.transport.send(&protocol.TextPacket{
+		@type:   int(enums.TextType.raw)
+		message: message
+	})!
 }
 
 fn gamemode_id(name string) int {

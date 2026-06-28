@@ -3,6 +3,7 @@ module session
 import sync
 import protocol
 import gamedata
+import command
 
 @[heap]
 pub struct Hub {
@@ -13,6 +14,7 @@ mut:
 pub mut:
 	world_time int
 	data       gamedata.GameData
+	commands   command.Registry = command.new_registry()
 }
 
 pub fn new_hub(data gamedata.GameData) &Hub {
@@ -20,6 +22,7 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 		sessions: map[u64]&NetworkSession{}
 		mutex:    sync.new_mutex()
 		data:     data
+		commands: command.new_registry()
 	}
 }
 
