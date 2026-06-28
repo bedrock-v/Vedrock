@@ -218,7 +218,7 @@ fn (mut s NetworkSession) start_game() ! {
 		level_id:                    'Vedrock'
 		world_name:                  s.cfg.motd
 		multi_player_correlation_id: '00000000-0000-0000-0000-000000000000'
-		server_authoritative_inventory: true
+		server_authoritative_inventory: false
 		use_block_network_id_hashes:    s.generator.uses_blocks()
 		property_data:               nbt.RootTag{
 			name: ''
