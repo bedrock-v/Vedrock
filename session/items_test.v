@@ -1,6 +1,7 @@
 module session
 
 import protocol
+import protocol.types
 import protocol.serializer
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
@@ -49,6 +50,28 @@ fn test_starter_inventory_roundtrip() {
 
 fn world_stone_id() int {
 	return item_catalog[0].block_network_id
+}
+
+fn test_set_actor_data_flags_roundtrip() {
+	flags := entity_flag_bit(entity_flag_affected_by_gravity) | entity_flag_bit(entity_flag_has_collision)
+	decoded := decode_packet(&protocol.SetActorDataPacket{
+		actor_runtime_id: 1
+		metadata:         [
+			types.MetadataEntry{
+				key:   meta_key_flags
+				value: types.MetaLong{
+					value: flags
+				}
+			},
+		]
+	})!
+	assert decoded.name() == 'SetActorDataPacket'
+	if decoded is protocol.SetActorDataPacket {
+		assert decoded.metadata.len == 1
+		assert decoded.metadata[0].key == meta_key_flags
+	} else {
+		assert false
+	}
 }
 
 fn test_update_attributes_roundtrip() {

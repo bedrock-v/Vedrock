@@ -236,6 +236,7 @@ fn (mut s NetworkSession) start_game() ! {
 		data: s.build_abilities()
 	})!
 	s.transport.send(s.update_attributes())!
+	s.transport.send(s.set_actor_data())!
 	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play
 }
