@@ -100,11 +100,34 @@ fn test_void_chunk_matches_empty_payload() {
 
 fn test_flat_chunk_structure() {
 	chunk := generate_flat()
-	assert chunk.section_count() == 8
+	assert chunk.section_count() == 1
 	payload := chunk.serialize()
 	assert payload[0] == 8
 	assert payload[1] == 1
 	assert payload[payload.len - 1] == 0x00
+}
+
+fn test_generator_selection() {
+	flat := new_generator('flat')
+	assert flat.spawn_y() == flat_spawn_y
+	assert flat.uses_blocks() == true
+	assert flat.generate(0, 0).section_count() == 1
+
+	void := new_generator('void')
+	assert void.uses_blocks() == false
+	assert void.generate(0, 0).section_count() == 0
+
+	normal := new_generator('normal')
+	assert normal.uses_blocks() == true
+	assert normal.generate(2, -3).section_count() >= 1
+}
+
+fn test_block_states_affect_hash() {
+	assert bedrock.network_id != stone.network_id
+	assert dirt.network_id != stone.network_id
+	assert bedrock.network_id != dirt.network_id
+	plain_bedrock := new_block('minecraft:bedrock')
+	assert plain_bedrock.network_id != bedrock.network_id
 }
 
 fn test_fnv1a_32_vector() {

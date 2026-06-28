@@ -13,7 +13,7 @@ pub mut:
 	gamemode              string = 'creative'
 	xbox_auth             bool   = true
 	compression_threshold int    = 256
-	flat_world            bool   = true
+	generator             string = 'flat'
 	debug                 bool
 }
 
@@ -41,7 +41,7 @@ pub fn load_from(path string) !Config {
 	cfg.gamemode = values['gamemode'] or { cfg.gamemode }
 	cfg.xbox_auth = to_bool(values['xbox-auth'] or { cfg.xbox_auth.str() })
 	cfg.compression_threshold = (values['compression-threshold'] or { cfg.compression_threshold.str() }).int()
-	cfg.flat_world = to_bool(values['flat-world'] or { cfg.flat_world.str() })
+	cfg.generator = values['generator'] or { cfg.generator }
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg
 }
@@ -80,7 +80,7 @@ view-distance: ${cfg.view_distance}
 gamemode: "${cfg.gamemode}"
 xbox-auth: ${cfg.xbox_auth}
 compression-threshold: ${cfg.compression_threshold}
-flat-world: ${cfg.flat_world}
+generator: "${cfg.generator}"
 debug: ${cfg.debug}
 '
 	os.write_file(path, content)!

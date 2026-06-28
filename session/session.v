@@ -28,6 +28,7 @@ mut:
 	hub        &Hub             = unsafe { nil }
 	state      State            = .handshake
 	cfg        config.Config
+	generator  world.Generator = world.VoidGenerator{}
 	identity   auth.Identity
 	runtime_id u64
 	position   types.Vector3
@@ -40,12 +41,14 @@ pub mut:
 }
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg config.Config, log &logger.Logger) &NetworkSession {
+	generator := world.new_generator(cfg.generator)
 	return &NetworkSession{
 		transport:  transport
 		hub:        hub
 		cfg:        cfg
+		generator:  generator
 		runtime_id: hub.allocate_runtime_id()
-		position:   types.Vector3{0.0, 64.0, 0.0}
+		position:   types.Vector3{0.0, f32(generator.spawn_y()), 0.0}
 		log:        log
 	}
 }
@@ -191,11 +194,12 @@ fn (mut s NetworkSession) handle_resource_pack_response(p protocol.ResourcePackC
 
 fn (mut s NetworkSession) start_game() ! {
 	game_mode := gamemode_id(s.cfg.gamemode)
+	spawn_y := s.generator.spawn_y()
 	s.transport.send(&protocol.StartGamePacket{
 		entity_unique_id:            i64(s.runtime_id)
 		entity_runtime_id:           s.runtime_id
 		player_game_mode:            game_mode
-		player_position:             types.Vector3{0.0, 64.0, 0.0}
+		player_position:             types.Vector3{0.0, f32(spawn_y), 0.0}
 		pitch:                       0.0
 		yaw:                         0.0
 		world_seed:                  0
@@ -204,7 +208,7 @@ fn (mut s NetworkSession) start_game() ! {
 		generator:                   1
 		world_game_mode:             game_mode
 		difficulty:                  1
-		world_spawn:                 types.BlockPosition{0, 64, 0}
+		world_spawn:                 types.BlockPosition{0, spawn_y, 0}
 		commands_enabled:            true
 		multi_player_game:           true
 		server_chunk_tick_radius:    s.cfg.view_distance
@@ -215,7 +219,7 @@ fn (mut s NetworkSession) start_game() ! {
 		world_name:                  s.cfg.motd
 		multi_player_correlation_id: '00000000-0000-0000-0000-000000000000'
 		server_authoritative_inventory: true
-		use_block_network_id_hashes:    world.uses_block_hashes(s.cfg.flat_world)
+		use_block_network_id_hashes:    s.generator.uses_blocks()
 		property_data:               nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
@@ -259,17 +263,16 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 }
 
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
-	sub_chunk_count, payload_bytes := world.build_chunk(s.cfg.flat_world)
-	payload := payload_bytes.bytestr()
 	for x in -radius .. radius + 1 {
 		for z in -radius .. radius + 1 {
+			chunk := s.generator.generate(x, z)
 			s.transport.queue(&protocol.LevelChunkPacket{
 				chunk_position:  types.ChunkPosition{x, z}
 				dimension_id:    0
 				request_type:    protocol.level_chunk_request_explicit
-				sub_chunk_count: sub_chunk_count
+				sub_chunk_count: u32(chunk.section_count())
 				cache_enabled:   false
-				extra_payload:   payload
+				extra_payload:   chunk.serialize().bytestr()
 			})
 		}
 	}
