@@ -13,6 +13,9 @@ import world
 pub const resource_response_have_all_packs = 3
 pub const resource_response_completed = 4
 
+pub const interact_action_open_inventory = 6
+pub const inventory_container_type = 0xff
+
 pub enum State {
 	handshake
 	login
@@ -36,6 +39,7 @@ mut:
 	yaw        f32
 	head_yaw   f32
 	spawned    bool
+	inv_opened bool
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -130,6 +134,10 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.update_movement(p.position, p.pitch, p.yaw, p.head_yaw)
 			} else if p is protocol.PlayerAuthInputPacket {
 				s.update_movement(p.position, p.pitch, p.yaw, p.head_yaw)
+			} else if p is protocol.InteractPacket {
+				s.handle_interact(p)!
+			} else if p is protocol.ContainerClosePacket {
+				s.handle_container_close(p)!
 			}
 		}
 		else {}
@@ -279,6 +287,31 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 		}
 	}
 	s.transport.flush()!
+}
+
+fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
+	if p.action != interact_action_open_inventory {
+		return
+	}
+	if s.inv_opened {
+		return
+	}
+	s.inv_opened = true
+	s.transport.send(&protocol.ContainerOpenPacket{
+		window_id:       0
+		window_type:     inventory_container_type
+		block_position:  types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
+		actor_unique_id: -1
+	})!
+}
+
+fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket) ! {
+	s.inv_opened = false
+	s.transport.send(&protocol.ContainerClosePacket{
+		window_id:   p.window_id
+		window_type: p.window_type
+		server:      true
+	})!
 }
 
 fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsInitializedPacket) ! {

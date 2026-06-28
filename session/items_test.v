@@ -52,6 +52,22 @@ fn world_stone_id() int {
 	return item_catalog[0].block_network_id
 }
 
+fn test_container_open_roundtrip() {
+	decoded := decode_packet(&protocol.ContainerOpenPacket{
+		window_id:       0
+		window_type:     inventory_container_type
+		block_position:  types.BlockPosition{0, 64, 0}
+		actor_unique_id: -1
+	})!
+	assert decoded.name() == 'ContainerOpenPacket'
+	if decoded is protocol.ContainerOpenPacket {
+		assert decoded.window_id == 0
+		assert decoded.actor_unique_id == -1
+	} else {
+		assert false
+	}
+}
+
 fn test_set_actor_data_flags_roundtrip() {
 	flags := entity_flag_bit(entity_flag_affected_by_gravity) | entity_flag_bit(entity_flag_has_collision)
 	decoded := decode_packet(&protocol.SetActorDataPacket{
