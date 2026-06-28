@@ -13,8 +13,6 @@ import world
 pub const resource_response_have_all_packs = 3
 pub const resource_response_completed = 4
 
-pub const spawn_entity_runtime_id = u64(1)
-
 pub enum State {
 	handshake
 	login
@@ -26,19 +24,32 @@ pub enum State {
 @[heap]
 pub struct NetworkSession {
 mut:
-	transport &network.Session = unsafe { nil }
-	state     State            = .handshake
-	cfg       config.Config
-	identity  auth.Identity
+	transport  &network.Session = unsafe { nil }
+	hub        &Hub             = unsafe { nil }
+	state      State            = .handshake
+	cfg        config.Config
+	identity   auth.Identity
+	runtime_id u64
+	position   types.Vector3
+	spawned    bool
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
 
-pub fn new(mut transport network.Session, cfg config.Config, log &logger.Logger) &NetworkSession {
+pub fn new(mut transport network.Session, mut hub Hub, cfg config.Config, log &logger.Logger) &NetworkSession {
 	return &NetworkSession{
-		transport: transport
-		cfg:       cfg
-		log:       log
+		transport:  transport
+		hub:        hub
+		cfg:        cfg
+		runtime_id: hub.allocate_runtime_id()
+		position:   types.Vector3{0.0, 64.0, 0.0}
+		log:        log
+	}
+}
+
+pub fn (mut s NetworkSession) deliver(p protocol.Packet) {
+	s.transport.send(p) or {
+		s.log.debug('Failed to deliver ${p.name()} to ${s.identity.display_name}: ${err}')
 	}
 }
 
@@ -56,7 +67,21 @@ pub fn (mut s NetworkSession) handle_loop() {
 			}
 		}
 	}
+	s.leave()
 	s.transport.close()
+}
+
+fn (mut s NetworkSession) leave() {
+	if !s.spawned {
+		return
+	}
+	s.spawned = false
+	s.hub.remove(s.runtime_id)
+	s.hub.broadcast(&protocol.TextPacket{
+		@type:   int(enums.TextType.raw)
+		message: '§e${s.identity.display_name} left the game'
+	})
+	s.log.info('${s.identity.display_name} left the game (${s.hub.count()} online)')
 }
 
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {
@@ -81,6 +106,10 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_request_chunk_radius(p)!
 			} else if p is protocol.SetLocalPlayerAsInitializedPacket {
 				s.handle_player_initialized(p)!
+			} else if p is protocol.TextPacket {
+				s.handle_text(p)!
+			} else if p is protocol.MovePlayerPacket {
+				s.position = p.position
 			}
 		}
 		else {}
@@ -146,8 +175,8 @@ fn (mut s NetworkSession) handle_resource_pack_response(p protocol.ResourcePackC
 fn (mut s NetworkSession) start_game() ! {
 	game_mode := gamemode_id(s.cfg.gamemode)
 	s.transport.send(&protocol.StartGamePacket{
-		entity_unique_id:            i64(spawn_entity_runtime_id)
-		entity_runtime_id:           spawn_entity_runtime_id
+		entity_unique_id:            i64(s.runtime_id)
+		entity_runtime_id:           s.runtime_id
 		player_game_mode:            game_mode
 		player_position:             types.Vector3{0.0, 64.0, 0.0}
 		pitch:                       0.0
@@ -232,7 +261,32 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 }
 
 fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsInitializedPacket) ! {
-	s.log.info('${s.identity.display_name} spawned in the world')
+	if s.spawned {
+		return
+	}
+	s.spawned = true
+	s.hub.add(s)
+	s.hub.broadcast(&protocol.TextPacket{
+		@type:   int(enums.TextType.raw)
+		message: '§e${s.identity.display_name} joined the game'
+	})
+	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')
+}
+
+fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
+	if p.@type != int(enums.TextType.chat) {
+		return
+	}
+	message := p.message.trim_space()
+	if message == '' {
+		return
+	}
+	s.log.info('<${s.identity.display_name}> ${message}')
+	s.hub.broadcast(&protocol.TextPacket{
+		@type:       int(enums.TextType.chat)
+		source_name: s.identity.display_name
+		message:     message
+	})
 }
 
 fn gamemode_id(name string) int {

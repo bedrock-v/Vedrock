@@ -9,9 +9,13 @@ import config
 import network
 import session
 
+pub const ticks_per_second = 20
+pub const day_length_ticks = 24000
+
 pub struct Server {
 mut:
 	listener &raknet.Listener = unsafe { nil }
+	hub      &session.Hub     = unsafe { nil }
 	guid     i64
 	running  bool
 pub mut:
@@ -27,6 +31,7 @@ pub fn new(cfg config.Config) &Server {
 	return &Server{
 		log:  logger.new(level)
 		cfg:  cfg
+		hub:  session.new_hub()
 		guid: rand.i64()
 	}
 }
@@ -38,7 +43,24 @@ pub fn (mut s Server) start() ! {
 	s.listener = listener
 	s.running = true
 	s.log.info('Listening on ${s.cfg.bind_address()}')
+	spawn s.tick_loop()
 	s.accept_loop()
+}
+
+fn (mut s Server) tick_loop() {
+	interval := time.second / ticks_per_second
+	mut tick := u64(0)
+	for s.running {
+		time.sleep(interval)
+		tick++
+		s.hub.world_time = int((tick % day_length_ticks))
+		if tick % u64(ticks_per_second) == 0 {
+			s.hub.broadcast(&protocol.SetTimePacket{
+				time: s.hub.world_time
+			})
+			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes())
+		}
+	}
 }
 
 fn (mut s Server) accept_loop() {
@@ -51,7 +73,7 @@ fn (mut s Server) accept_loop() {
 
 fn (mut s Server) handle(mut conn raknet.Conn) {
 	mut transport := network.new_session(mut conn, s.log)
-	mut net_session := session.new(mut transport, s.cfg, s.log)
+	mut net_session := session.new(mut transport, mut s.hub, s.cfg, s.log)
 	net_session.handle_loop()
 }
 

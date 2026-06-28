@@ -1,12 +1,14 @@
 module network
 
 import raknet
+import sync
 import src as protocol
 import src.serializer
 import logger
 
 pub const default_compression_threshold = 256
 
+@[heap]
 pub struct Session {
 mut:
 	conn                &raknet.Conn = unsafe { nil }
@@ -14,15 +16,17 @@ mut:
 	compression_enabled bool
 	threshold           int = default_compression_threshold
 	send_queue          [][]u8
+	write_mutex         &sync.Mutex = sync.new_mutex()
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
 
 pub fn new_session(mut conn raknet.Conn, log &logger.Logger) &Session {
 	return &Session{
-		conn: conn
-		pool: protocol.new_packet_pool()
-		log:  log
+		conn:        conn
+		pool:        protocol.new_packet_pool()
+		write_mutex: sync.new_mutex()
+		log:         log
 	}
 }
 
@@ -46,11 +50,11 @@ pub fn (mut s Session) read() ![]protocol.Packet {
 	return packets
 }
 
-pub fn (mut s Session) queue(p protocol.Packet) {
+fn (mut s Session) queue_locked(p protocol.Packet) {
 	s.send_queue << protocol.encode_packet_to_bytes(p)
 }
 
-pub fn (mut s Session) flush() ! {
+fn (mut s Session) flush_locked() ! {
 	if s.send_queue.len == 0 {
 		return
 	}
@@ -59,9 +63,27 @@ pub fn (mut s Session) flush() ! {
 	s.send_queue.clear()
 }
 
+pub fn (mut s Session) queue(p protocol.Packet) {
+	s.write_mutex.lock()
+	s.queue_locked(p)
+	s.write_mutex.unlock()
+}
+
+pub fn (mut s Session) flush() ! {
+	s.write_mutex.lock()
+	defer {
+		s.write_mutex.unlock()
+	}
+	s.flush_locked()!
+}
+
 pub fn (mut s Session) send(p protocol.Packet) ! {
-	s.queue(p)
-	s.flush()!
+	s.write_mutex.lock()
+	defer {
+		s.write_mutex.unlock()
+	}
+	s.queue_locked(p)
+	s.flush_locked()!
 }
 
 pub fn (mut s Session) remote_addr() string {
