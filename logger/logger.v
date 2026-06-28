@@ -10,6 +10,7 @@ pub enum Level {
 	error = 3
 }
 
+@[heap]
 pub struct Logger {
 pub mut:
 	min_level Level = .info

@@ -6,6 +6,7 @@ import raknet
 import src as protocol
 import logger
 import config
+import network
 
 pub struct Server {
 mut:
@@ -43,8 +44,22 @@ fn (mut s Server) accept_loop() {
 	for s.running {
 		mut conn := s.listener.accept_timeout(time.second) or { continue }
 		s.log.info('Incoming connection from ${conn.remote_addr()}')
-		conn.close() or {}
+		spawn s.handle(mut conn)
 	}
+}
+
+fn (mut s Server) handle(mut conn raknet.Conn) {
+	mut session := network.new_session(mut conn, s.log)
+	for s.running {
+		packets := session.read() or {
+			s.log.debug('Session ${session.remote_addr()} closed: ${err}')
+			break
+		}
+		for p in packets {
+			s.log.debug('Received ${p.name()} (0x${p.pid().hex()}) from ${session.remote_addr()}')
+		}
+	}
+	session.close()
 }
 
 fn (s &Server) pong_data(online int) string {
