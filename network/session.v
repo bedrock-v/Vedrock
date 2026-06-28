@@ -40,6 +40,12 @@ pub fn (mut s Session) read() ![]protocol.Packet {
 	batch := decode_batch(raw, s.compression_enabled)!
 	mut packets := []protocol.Packet{}
 	for b in batch {
+		mut head_reader := serializer.new_reader(b)
+		header := protocol.read_packet_header(mut head_reader) or { continue }
+		if header.pid == protocol.player_auth_input_packet {
+			packets << decode_auth_input_prefix(mut head_reader) or { continue }
+			continue
+		}
 		mut r := serializer.new_reader(b)
 		p := s.pool.decode(mut r) or {
 			s.log.warn('Failed to decode packet: ${err}')
@@ -48,6 +54,17 @@ pub fn (mut s Session) read() ![]protocol.Packet {
 		packets << p
 	}
 	return packets
+}
+
+fn decode_auth_input_prefix(mut r serializer.Reader) !protocol.Packet {
+	pitch := r.le_f32()!
+	yaw := r.le_f32()!
+	position := r.read_vector3()!
+	return &protocol.PlayerAuthInputPacket{
+		pitch:    pitch
+		yaw:      yaw
+		position: position
+	}
 }
 
 fn (mut s Session) queue_locked(p protocol.Packet) {
