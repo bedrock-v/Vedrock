@@ -23,7 +23,9 @@ git clone https://github.com/bedrock-v/nbt ~/.vmodules/nbt
 git clone https://github.com/bedrock-v/protocol ~/.vmodules/protocol 
 git clone https://github.com/bedrock-v/raknet ~/.vmodules/raknet
 
-git clone https://github.com/bedrock-v/Vedrock.git
+HTTPS: git clone https://github.com/bedrock-v/Vedrock.git
+SSH: git@github.com:bedrock-v/Vedrock.git
+CLI: gh repo clone bedrock-v/Vedrock
 cd Vedrock
 v run . (to temp run) / v . (to build)
 ```
