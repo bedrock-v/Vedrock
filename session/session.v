@@ -222,13 +222,8 @@ fn (mut s NetworkSession) start_game() ! {
 		}
 		blocks: []protocol.BlockEntry{}
 	})!
-	s.transport.send(&protocol.ItemRegistryPacket{
-		entries: []types.ItemTypeEntry{}
-	})!
-	s.transport.send(&protocol.CreativeContentPacket{
-		groups: []types.CreativeGroupEntry{}
-		items:  []types.CreativeItemEntry{}
-	})!
+	s.transport.send(item_registry())!
+	s.transport.send(creative_content())!
 	s.transport.send(&protocol.BiomeDefinitionListPacket{
 		biome_definitions: []protocol.BiomeDefinition{}
 		string_list:       []string{}
@@ -297,6 +292,7 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		@type:   int(enums.TextType.raw)
 		message: '§e${s.identity.display_name} joined the game'
 	})
+	s.transport.send(starter_inventory())!
 	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }
 
