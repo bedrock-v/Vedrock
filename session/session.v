@@ -4,12 +4,20 @@ import network
 import auth
 import src as protocol
 import src.enums
+import src.types
+import nbt
 import logger
 import config
+
+pub const resource_response_have_all_packs = 3
+pub const resource_response_completed = 4
+
+pub const spawn_entity_runtime_id = u64(1)
 
 pub enum State {
 	handshake
 	login
+	resource_packs
 	play
 	closed
 }
@@ -62,6 +70,11 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_login(p)!
 			}
 		}
+		.resource_packs {
+			if p is protocol.ResourcePackClientResponsePacket {
+				s.handle_resource_pack_response(p)!
+			}
+		}
 		else {}
 	}
 }
@@ -92,7 +105,90 @@ fn (mut s NetworkSession) handle_login(p protocol.LoginPacket) ! {
 	s.transport.send(&protocol.PlayStatusPacket{
 		status: int(enums.PlayStatus.login_success)
 	})!
+	s.start_resource_packs()!
+}
+
+fn (mut s NetworkSession) start_resource_packs() ! {
+	s.transport.send(&protocol.ResourcePacksInfoPacket{
+		must_accept: false
+		entries:     []protocol.ResourcePackInfoEntry{}
+	})!
+	s.state = .resource_packs
+}
+
+fn (mut s NetworkSession) handle_resource_pack_response(p protocol.ResourcePackClientResponsePacket) ! {
+	match p.status {
+		resource_response_have_all_packs {
+			s.transport.send(&protocol.ResourcePackStackPacket{
+				must_accept:         false
+				resource_pack_stack: []protocol.ResourcePackStackEntry{}
+				base_game_version:   protocol.minecraft_version_network
+				experiments:         types.Experiments{}
+			})!
+		}
+		resource_response_completed {
+			s.start_game()!
+		}
+		else {
+			s.log.debug('Unhandled resource pack response status ${p.status}')
+		}
+	}
+}
+
+fn (mut s NetworkSession) start_game() ! {
+	game_mode := gamemode_id(s.cfg.gamemode)
+	s.transport.send(&protocol.StartGamePacket{
+		entity_unique_id:            i64(spawn_entity_runtime_id)
+		entity_runtime_id:           spawn_entity_runtime_id
+		player_game_mode:            game_mode
+		player_position:             types.Vector3{0.0, 64.0, 0.0}
+		pitch:                       0.0
+		yaw:                         0.0
+		world_seed:                  0
+		spawn_biome_type:            0
+		dimension:                   0
+		generator:                   1
+		world_game_mode:             game_mode
+		difficulty:                  1
+		world_spawn:                 types.BlockPosition{0, 64, 0}
+		commands_enabled:            true
+		multi_player_game:           true
+		server_chunk_tick_radius:    s.cfg.view_distance
+		player_permissions:          2
+		base_game_version:           protocol.minecraft_version_network
+		game_version:                protocol.minecraft_version_network
+		level_id:                    'Vedrock'
+		world_name:                  s.cfg.motd
+		multi_player_correlation_id: '00000000-0000-0000-0000-000000000000'
+		server_authoritative_inventory: true
+		property_data:               nbt.RootTag{
+			name: ''
+			tag:  nbt.Tag(nbt.new_compound())
+		}
+		blocks: []protocol.BlockEntry{}
+	})!
+	s.transport.send(&protocol.ItemRegistryPacket{
+		entries: []types.ItemTypeEntry{}
+	})!
+	s.transport.send(&protocol.CreativeContentPacket{
+		groups: []types.CreativeGroupEntry{}
+		items:  []types.CreativeItemEntry{}
+	})!
+	s.transport.send(&protocol.BiomeDefinitionListPacket{
+		biome_definitions: []protocol.BiomeDefinition{}
+		string_list:       []string{}
+	})!
+	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play
+}
+
+fn gamemode_id(name string) int {
+	return match name.to_lower() {
+		'survival' { 0 }
+		'adventure' { 2 }
+		'spectator' { 6 }
+		else { 1 }
+	}
 }
 
 pub fn (mut s NetworkSession) disconnect(message string) {
