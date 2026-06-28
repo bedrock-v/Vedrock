@@ -8,6 +8,7 @@ import src.types
 import nbt
 import logger
 import config
+import world
 
 pub const resource_response_have_all_packs = 3
 pub const resource_response_completed = 4
@@ -168,6 +169,7 @@ fn (mut s NetworkSession) start_game() ! {
 		world_name:                  s.cfg.motd
 		multi_player_correlation_id: '00000000-0000-0000-0000-000000000000'
 		server_authoritative_inventory: true
+		use_block_network_id_hashes:    world.uses_block_hashes(s.cfg.flat_world)
 		property_data:               nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
@@ -213,7 +215,7 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 }
 
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
-	payload := empty_chunk_payload().bytestr()
+	payload := world.chunk_payload(s.cfg.flat_world).bytestr()
 	for x in -radius .. radius + 1 {
 		for z in -radius .. radius + 1 {
 			s.transport.queue(&protocol.LevelChunkPacket{
