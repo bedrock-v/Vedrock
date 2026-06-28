@@ -23,7 +23,7 @@ const item_catalog = [
 	ItemType{'minecraft:diamond_axe', 5, 0},
 	ItemType{'minecraft:apple', 6, 0},
 	ItemType{'minecraft:bread', 7, 0},
-	ItemType{'minecraft:torch', 8, 0},
+	ItemType{'minecraft:iron_ingot', 8, 0},
 ]
 
 fn empty_component_nbt() nbt.RootTag {
