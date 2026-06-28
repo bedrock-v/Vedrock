@@ -250,6 +250,8 @@ fn (mut s NetworkSession) start_game() ! {
 	})!
 	s.transport.send(s.update_attributes())!
 	s.transport.send(s.set_actor_data())!
+	available := s.hub.commands.available_commands()
+	s.transport.send(&available)!
 	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play
 }
@@ -383,10 +385,12 @@ fn (mut s NetworkSession) handle_command_request(p protocol.CommandRequestPacket
 fn (mut s NetworkSession) run_command(line string) ! {
 	s.log.info('${s.identity.display_name} issued command: ${line}')
 	ctx := command.Context{
-		sender_name:  s.identity.display_name
-		player_count: s.hub.count()
-		max_players:  s.cfg.max_players
-		server_motd:  s.cfg.motd
+		sender_name:    s.identity.display_name
+		player_count:   s.hub.count()
+		max_players:    s.cfg.max_players
+		server_motd:    s.cfg.motd
+		uptime_seconds: s.hub.uptime_seconds()
+		tps:            s.hub.tps
 	}
 	output := s.hub.commands.dispatch(line, ctx)
 	s.send_message(output)!

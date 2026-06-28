@@ -1,12 +1,16 @@
 module command
 
+import protocol
+
 pub struct Context {
 pub:
-	sender_name  string
-	player_count int
-	max_players  int
-	server_motd  string
-	args         []string
+	sender_name    string
+	player_count   int
+	max_players    int
+	server_motd    string
+	uptime_seconds i64
+	tps            f64
+	args           []string
 }
 
 pub interface Command {
@@ -57,11 +61,13 @@ pub fn (r &Registry) dispatch(line string, ctx_base Context) string {
 	args := parts[1..].clone()
 	cmd := r.resolve(name) or { return '§cUnknown command: ${name}' }
 	ctx := Context{
-		sender_name:  ctx_base.sender_name
-		player_count: ctx_base.player_count
-		max_players:  ctx_base.max_players
-		server_motd:  ctx_base.server_motd
-		args:         args
+		sender_name:    ctx_base.sender_name
+		player_count:   ctx_base.player_count
+		max_players:    ctx_base.max_players
+		server_motd:    ctx_base.server_motd
+		uptime_seconds: ctx_base.uptime_seconds
+		tps:            ctx_base.tps
+		args:           args
 	}
 	return cmd.execute(ctx)
 }
@@ -72,4 +78,26 @@ pub fn (r &Registry) names() []string {
 		out << name
 	}
 	return out
+}
+
+pub fn (r &Registry) available_commands() protocol.AvailableCommandsPacket {
+	mut commands := []protocol.CommandData{}
+	for name, cmd in r.commands {
+		commands << protocol.CommandData{
+			name:             name
+			description:      cmd.description()
+			flags:            0
+			permission:       0
+			alias_enum_index: -1
+			overloads:        [
+				protocol.CommandOverload{
+					chaining:   false
+					parameters: []protocol.CommandParameter{}
+				},
+			]
+		}
+	}
+	return protocol.AvailableCommandsPacket{
+		commands: commands
+	}
 }

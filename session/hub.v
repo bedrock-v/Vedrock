@@ -1,6 +1,7 @@
 module session
 
 import sync
+import time
 import protocol
 import gamedata
 import command
@@ -15,15 +16,22 @@ pub mut:
 	world_time int
 	data       gamedata.GameData
 	commands   command.Registry = command.new_registry()
+	started_at i64
+	tps        f64 = 20.0
 }
 
 pub fn new_hub(data gamedata.GameData) &Hub {
 	return &Hub{
-		sessions: map[u64]&NetworkSession{}
-		mutex:    sync.new_mutex()
-		data:     data
-		commands: command.new_registry()
+		sessions:   map[u64]&NetworkSession{}
+		mutex:      sync.new_mutex()
+		data:       data
+		commands:   command.new_registry()
+		started_at: time.now().unix()
 	}
+}
+
+pub fn (h &Hub) uptime_seconds() i64 {
+	return time.now().unix() - h.started_at
 }
 
 pub fn (mut h Hub) allocate_runtime_id() u64 {
