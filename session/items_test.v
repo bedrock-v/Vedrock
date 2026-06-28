@@ -50,3 +50,22 @@ fn test_starter_inventory_roundtrip() {
 fn world_stone_id() int {
 	return item_catalog[0].block_network_id
 }
+
+fn test_update_attributes_roundtrip() {
+	decoded := decode_packet(&protocol.UpdateAttributesPacket{
+		actor_runtime_id: 4
+		entries:          [
+			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
+			player_attribute('minecraft:movement', 0.0, 1.0, 0.1),
+		]
+		tick:             0
+	})!
+	assert decoded.name() == 'UpdateAttributesPacket'
+	if decoded is protocol.UpdateAttributesPacket {
+		assert decoded.entries.len == 2
+		assert decoded.entries[0].id == 'minecraft:health'
+		assert decoded.entries[0].current == 20.0
+	} else {
+		assert false
+	}
+}
