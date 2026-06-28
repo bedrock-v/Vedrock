@@ -2,9 +2,9 @@ module session
 
 import network
 import auth
-import src as protocol
-import src.enums
-import src.types
+import protocol
+import protocol.enums
+import protocol.types
 import nbt
 import logger
 import config

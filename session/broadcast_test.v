@@ -1,9 +1,9 @@
 module session
 
-import src as protocol
-import src.enums
-import src.types
-import src.serializer
+import protocol
+import protocol.enums
+import protocol.types
+import protocol.serializer
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := protocol.new_packet_pool()

@@ -1,7 +1,7 @@
 module session
 
-import src as protocol
-import src.types
+import protocol
+import protocol.types
 import nbt
 import world
 

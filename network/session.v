@@ -2,8 +2,8 @@ module network
 
 import raknet
 import sync
-import src as protocol
-import src.serializer
+import protocol
+import protocol.serializer
 import logger
 
 pub const default_compression_threshold = 256

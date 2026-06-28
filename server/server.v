@@ -3,7 +3,7 @@ module server
 import rand
 import time
 import raknet
-import src as protocol
+import protocol
 import logger
 import config
 import network

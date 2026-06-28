@@ -1,8 +1,8 @@
 module session
 
-import src as protocol
-import src.types
-import src.serializer
+import protocol
+import protocol.types
+import protocol.serializer
 import nbt
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {

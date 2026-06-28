@@ -1,7 +1,7 @@
 module network
 
 import compress.deflate
-import src.serializer
+import protocol.serializer
 
 pub const game_packet_header = u8(0xfe)
 pub const compression_zlib = u8(0x00)

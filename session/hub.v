@@ -1,7 +1,7 @@
 module session
 
 import sync
-import src as protocol
+import protocol
 
 @[heap]
 pub struct Hub {

@@ -1,6 +1,6 @@
 module session
 
-import src as protocol
+import protocol
 
 const ability_build = 0
 const ability_mine = 1
