@@ -74,14 +74,14 @@ fn test_command_request_roundtrip() {
 fn test_available_commands_roundtrip() {
 	r := new_registry()
 	pkt := r.available_commands()
-	assert pkt.commands.len == 2
+	assert pkt.commands.len == 3
 	encoded := protocol.encode_packet_to_bytes(&pkt)
 	mut pool := protocol.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
 	if decoded is protocol.AvailableCommandsPacket {
-		assert decoded.commands.len == 2
+		assert decoded.commands.len == 3
 		assert decoded.commands[0].alias_enum_index == -1
 		assert decoded.commands[0].overloads.len == 1
 	} else {

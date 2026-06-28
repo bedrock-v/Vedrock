@@ -65,6 +65,7 @@ pub fn (mut s Server) start() ! {
 
 fn (mut s Server) tick_loop() {
 	interval := time.second / ticks_per_second
+	loop_start := time.now()
 	mut tick := u64(0)
 	mut window_start := time.now()
 	mut window_ticks := 0
@@ -91,9 +92,10 @@ fn (mut s Server) tick_loop() {
 			window_ticks = 0
 			window_work = 0
 		}
-		remaining := interval - (time.now() - tick_start)
-		if remaining > 0 {
-			time.sleep(remaining)
+		deadline := loop_start.add(time.Duration(i64(interval) * i64(tick)))
+		sleep_for := deadline - time.now()
+		if sleep_for > 0 {
+			time.sleep(sleep_for)
 		}
 	}
 }

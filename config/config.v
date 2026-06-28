@@ -10,7 +10,7 @@ pub mut:
 	port                  int    = 19132
 	max_players           int    = 20
 	view_distance         int    = 8
-	gamemode              string = 'creative'
+	gamemode              string = 'survival'
 	xbox_auth             bool   = true
 	compression_threshold int    = 256
 	generator             string = 'flat'

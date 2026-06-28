@@ -133,7 +133,7 @@ fn (mut s NetworkSession) save_player_data() {
 		z:        s.position.z
 		yaw:      s.yaw
 		pitch:    s.pitch
-		gamemode: gamemode_id(s.cfg.gamemode)
+		gamemode: s.game_mode
 		items:    items
 	}) or { s.log.warn('Failed to save player ${s.player_key()}: ${err}') }
 }

@@ -28,6 +28,24 @@ pub fn (c VersionCommand) execute(ctx Context) string {
 	return lines.join('\n')
 }
 
+pub struct GamemodeCommand {}
+
+pub fn (c GamemodeCommand) name() string {
+	return 'gamemode'
+}
+
+pub fn (c GamemodeCommand) description() string {
+	return 'Sets a player\'s game mode'
+}
+
+pub fn (c GamemodeCommand) aliases() []string {
+	return ['gm']
+}
+
+pub fn (c GamemodeCommand) execute(ctx Context) string {
+	return ''
+}
+
 pub struct StatusCommand {}
 
 pub fn (c StatusCommand) name() string {

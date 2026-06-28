@@ -40,7 +40,7 @@ fn build_ability_layer(creative bool) protocol.AbilitiesLayer {
 }
 
 fn (s &NetworkSession) build_abilities() protocol.AbilitiesData {
-	creative := gamemode_id(s.cfg.gamemode) == 1
+	creative := s.game_mode == 1 || s.game_mode == 6
 	return protocol.AbilitiesData{
 		target_actor_unique_id: i64(s.runtime_id)
 		player_permission:      2

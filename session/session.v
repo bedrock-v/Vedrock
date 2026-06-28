@@ -44,6 +44,7 @@ mut:
 	head_yaw   f32
 	spawned     bool
 	inv_opened  bool
+	game_mode   int
 	inv_stacks       map[int]types.ItemStack
 	inv_next_id      int = 1
 	pending_creative ?types.ItemStack
@@ -99,8 +100,10 @@ fn (mut s NetworkSession) leave() {
 	s.hub.broadcast(s.player_list_remove_packet())
 	s.hub.broadcast(s.remove_actor_packet())
 	s.hub.broadcast(&protocol.TextPacket{
-		@type:   int(enums.TextType.raw)
-		message: '§e${s.identity.display_name} left the game'
+		@type:             int(enums.TextType.translation)
+		needs_translation: true
+		message:           '§e%multiplayer.player.left'
+		parameters:        [s.identity.display_name]
 	})
 	s.log.info('${s.identity.display_name} left the game (${s.hub.count()} online)')
 }
@@ -230,7 +233,7 @@ fn (mut s NetworkSession) player_key() string {
 }
 
 fn (mut s NetworkSession) start_game() ! {
-	game_mode := gamemode_id(s.cfg.gamemode)
+	s.game_mode = gamemode_id(s.cfg.gamemode)
 	spawn_y := s.generator.spawn_y()
 	s.position = types.Vector3{0.0, f32(spawn_y), 0.0}
 	if data := storage.load_player(players_dir, s.player_key()) {
@@ -238,11 +241,12 @@ fn (mut s NetworkSession) start_game() ! {
 		s.pitch = data.pitch
 		s.yaw = data.yaw
 		s.loaded_items = data.items
+		s.game_mode = data.gamemode
 	}
 	s.transport.send(&protocol.StartGamePacket{
 		entity_unique_id:            i64(s.runtime_id)
 		entity_runtime_id:           s.runtime_id
-		player_game_mode:            game_mode
+		player_game_mode:            s.game_mode
 		player_position:             s.position
 		pitch:                       0.0
 		yaw:                         0.0
@@ -250,7 +254,7 @@ fn (mut s NetworkSession) start_game() ! {
 		spawn_biome_type:            0
 		dimension:                   0
 		generator:                   1
-		world_game_mode:             game_mode
+		world_game_mode:             s.game_mode
 		difficulty:                  1
 		world_spawn:                 types.BlockPosition{0, spawn_y, 0}
 		commands_enabled:            true
@@ -369,8 +373,10 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 	s.hub.broadcast(s.player_list_add_packet())
 	s.hub.broadcast_except(s.runtime_id, s.add_player_packet())
 	s.hub.broadcast(&protocol.TextPacket{
-		@type:   int(enums.TextType.raw)
-		message: '§e${s.identity.display_name} joined the game'
+		@type:             int(enums.TextType.translation)
+		needs_translation: true
+		message:           '§e%multiplayer.player.joined'
+		parameters:        [s.identity.display_name]
 	})
 	s.transport.send(s.restore_inventory())!
 	available := s.hub.commands.available_commands()
@@ -404,6 +410,12 @@ fn (mut s NetworkSession) handle_command_request(p protocol.CommandRequestPacket
 
 fn (mut s NetworkSession) run_command(line string) ! {
 	s.log.info('${s.identity.display_name} issued command: ${line}')
+	parts := line.trim_left('/').trim_space().split(' ')
+	name := parts[0].to_lower()
+	if name == 'gamemode' || name == 'gm' {
+		s.send_message(s.run_gamemode(parts[1..]))!
+		return
+	}
 	ctx := command.Context{
 		sender_name:    s.identity.display_name
 		player_count:   s.hub.count()
@@ -431,6 +443,44 @@ fn gamemode_id(name string) int {
 		'spectator' { 6 }
 		else { 1 }
 	}
+}
+
+fn parse_gamemode(arg string) ?int {
+	return match arg.to_lower() {
+		'survival', 's', '0' { 0 }
+		'creative', 'c', '1' { 1 }
+		'adventure', 'a', '2' { 2 }
+		'spectator', 'sp', '6' { 6 }
+		else { none }
+	}
+}
+
+fn gamemode_name(mode int) string {
+	return match mode {
+		0 { 'Survival' }
+		2 { 'Adventure' }
+		6 { 'Spectator' }
+		else { 'Creative' }
+	}
+}
+
+fn (mut s NetworkSession) run_gamemode(args []string) string {
+	if args.len == 0 {
+		return '§cUsage: /gamemode <survival|creative|adventure|spectator>'
+	}
+	mode := parse_gamemode(args[0]) or { return '§cUnknown game mode: ${args[0]}' }
+	s.set_gamemode(mode)
+	return '§aGame mode set to ${gamemode_name(mode)}'
+}
+
+fn (mut s NetworkSession) set_gamemode(mode int) {
+	s.game_mode = mode
+	s.transport.send(&protocol.SetPlayerGameTypePacket{
+		gamemode: mode
+	}) or {}
+	s.transport.send(&protocol.UpdateAbilitiesPacket{
+		data: s.build_abilities()
+	}) or {}
 }
 
 pub fn (mut s NetworkSession) disconnect(message string) {
