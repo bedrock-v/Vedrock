@@ -110,6 +110,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_text(p)!
 			} else if p is protocol.MovePlayerPacket {
 				s.position = p.position
+			} else if p is protocol.PlayerAuthInputPacket {
+				s.position = p.position
 			}
 		}
 		else {}
@@ -215,6 +217,9 @@ fn (mut s NetworkSession) start_game() ! {
 	s.transport.send(&protocol.BiomeDefinitionListPacket{
 		biome_definitions: []protocol.BiomeDefinition{}
 		string_list:       []string{}
+	})!
+	s.transport.send(&protocol.UpdateAbilitiesPacket{
+		data: s.build_abilities()
 	})!
 	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play

@@ -50,6 +50,26 @@ fn test_raw_text_packet_roundtrip() {
 	}
 }
 
+fn test_update_abilities_roundtrip() {
+	layer := build_ability_layer(true)
+	decoded := roundtrip_packet(&protocol.UpdateAbilitiesPacket{
+		data: protocol.AbilitiesData{
+			target_actor_unique_id: 7
+			player_permission:      2
+			command_permission:     0
+			layers:                 [layer]
+		}
+	})!
+	assert decoded.name() == 'UpdateAbilitiesPacket'
+	if decoded is protocol.UpdateAbilitiesPacket {
+		assert decoded.data.target_actor_unique_id == 7
+		assert decoded.data.layers.len == 1
+		assert decoded.data.layers[0].set_ability_values & ability_bit(ability_may_fly) != 0
+	} else {
+		assert false
+	}
+}
+
 fn test_set_time_packet_roundtrip() {
 	decoded := roundtrip_packet(&protocol.SetTimePacket{
 		time: 6000
