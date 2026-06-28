@@ -1,0 +1,10 @@
+*.so
+*.c
+*.o
+*.tmp
+vedrock
+vedrock.exe
+/main
+/inspirations
+/Vedrock
+vedrock.toml
