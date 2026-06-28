@@ -2,6 +2,7 @@ module session
 
 import src as protocol
 import src.enums
+import src.types
 import src.serializer
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
@@ -68,6 +69,68 @@ fn test_update_abilities_roundtrip() {
 	} else {
 		assert false
 	}
+}
+
+fn test_player_list_add_roundtrip_with_skin() {
+	decoded := roundtrip_packet(&protocol.PlayerListPacket{
+		type:    protocol.player_list_type_add
+		entries: [
+			protocol.PlayerListEntry{
+				uuid:            types.uuid_from_bytes(seed_uuid(5))
+				actor_unique_id: 5
+				username:        'Steve'
+				build_platform:  -1
+				skin:            default_skin('Steve')
+				color:           0xffffffff
+				verified:        true
+			},
+		]
+	})!
+	assert decoded.name() == 'PlayerListPacket'
+	if decoded is protocol.PlayerListPacket {
+		assert decoded.entries.len == 1
+		assert decoded.entries[0].username == 'Steve'
+		assert decoded.entries[0].skin.skin_image.width == skin_width
+	} else {
+		assert false
+	}
+}
+
+fn test_add_player_roundtrip() {
+	decoded := roundtrip_packet(&protocol.AddPlayerPacket{
+		uuid:              types.uuid_from_bytes(seed_uuid(9))
+		username:          'Alex'
+		actor_runtime_id:  9
+		position:          types.Vector3{0.0, 64.0, 0.0}
+		game_mode:         1
+		metadata:          []types.MetadataEntry{}
+		synced_properties: types.PropertySyncData{}
+		abilities:         protocol.AbilitiesData{
+			layers: [build_ability_layer(true)]
+		}
+		links:             []types.EntityLink{}
+		build_platform:    -1
+	})!
+	assert decoded.name() == 'AddPlayerPacket'
+	if decoded is protocol.AddPlayerPacket {
+		assert decoded.username == 'Alex'
+		assert decoded.actor_runtime_id == 9
+	} else {
+		assert false
+	}
+}
+
+fn test_move_and_remove_roundtrip() {
+	move := roundtrip_packet(&protocol.MovePlayerPacket{
+		actor_runtime_id: 3
+		position:         types.Vector3{1.0, 65.0, 2.0}
+		on_ground:        true
+	})!
+	assert move.name() == 'MovePlayerPacket'
+	remove := roundtrip_packet(&protocol.RemoveActorPacket{
+		actor_unique_id: 3
+	})!
+	assert remove.name() == 'RemoveActorPacket'
 }
 
 fn test_set_time_packet_roundtrip() {

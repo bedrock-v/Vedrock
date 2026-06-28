@@ -31,6 +31,9 @@ mut:
 	identity   auth.Identity
 	runtime_id u64
 	position   types.Vector3
+	pitch      f32
+	yaw        f32
+	head_yaw   f32
 	spawned    bool
 pub mut:
 	log &logger.Logger = unsafe { nil }
@@ -77,11 +80,23 @@ fn (mut s NetworkSession) leave() {
 	}
 	s.spawned = false
 	s.hub.remove(s.runtime_id)
+	s.hub.broadcast(s.player_list_remove_packet())
+	s.hub.broadcast(s.remove_actor_packet())
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:   int(enums.TextType.raw)
 		message: '§e${s.identity.display_name} left the game'
 	})
 	s.log.info('${s.identity.display_name} left the game (${s.hub.count()} online)')
+}
+
+fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) {
+	s.position = position
+	s.pitch = pitch
+	s.yaw = yaw
+	s.head_yaw = head_yaw
+	if s.spawned {
+		s.hub.broadcast_except(s.runtime_id, s.move_player_packet())
+	}
 }
 
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {
@@ -109,9 +124,9 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 			} else if p is protocol.TextPacket {
 				s.handle_text(p)!
 			} else if p is protocol.MovePlayerPacket {
-				s.position = p.position
+				s.update_movement(p.position, p.pitch, p.yaw, p.head_yaw)
 			} else if p is protocol.PlayerAuthInputPacket {
-				s.position = p.position
+				s.update_movement(p.position, p.pitch, p.yaw, p.head_yaw)
 			}
 		}
 		else {}
@@ -271,7 +286,13 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		return
 	}
 	s.spawned = true
+	for mut other in s.hub.snapshot() {
+		s.deliver(other.player_list_add_packet())
+		s.deliver(other.add_player_packet())
+	}
 	s.hub.add(s)
+	s.hub.broadcast(s.player_list_add_packet())
+	s.hub.broadcast_except(s.runtime_id, s.add_player_packet())
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:   int(enums.TextType.raw)
 		message: '§e${s.identity.display_name} joined the game'
