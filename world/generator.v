@@ -39,9 +39,9 @@ pub fn (g FlatGenerator) generate(chunk_x int, chunk_z int) Chunk {
 	mut c := new_chunk()
 	for x in 0 .. 16 {
 		for z in 0 .. 16 {
-			c.set_block(x, -64, z, bedrock)
-			c.set_block(x, -63, z, dirt)
-			c.set_block(x, -62, z, dirt)
+			c.set_block(x, -64, z, stone)
+			c.set_block(x, -63, z, stone)
+			c.set_block(x, -62, z, stone)
 			c.set_block(x, -61, z, grass_block)
 		}
 	}
@@ -63,12 +63,8 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 	for x in 0 .. 16 {
 		for z in 0 .. 16 {
 			height := surface_height(chunk_x * 16 + x, chunk_z * 16 + z)
-			c.set_block(x, -64, z, bedrock)
-			for y in -63 .. height - 2 {
+			for y in -64 .. height {
 				c.set_block(x, y, z, stone)
-			}
-			for y in height - 2 .. height {
-				c.set_block(x, y, z, dirt)
 			}
 			c.set_block(x, height, z, grass_block)
 		}
