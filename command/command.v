@@ -87,7 +87,7 @@ pub fn (r &Registry) available_commands() protocol.AvailableCommandsPacket {
 			name:             name
 			description:      cmd.description()
 			flags:            0
-			permission:       0
+			permission:       '0'
 			alias_enum_index: -1
 			overloads:        [
 				protocol.CommandOverload{
