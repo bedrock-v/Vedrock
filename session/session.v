@@ -307,10 +307,13 @@ fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
 
 fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket) ! {
 	s.inv_opened = false
+	if p.window_id == inventory_container_type {
+		return
+	}
 	s.transport.send(&protocol.ContainerClosePacket{
 		window_id:   p.window_id
 		window_type: p.window_type
-		server:      true
+		server:      false
 	})!
 }
 

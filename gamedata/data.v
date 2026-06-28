@@ -54,18 +54,21 @@ fn any_int(values map[string]json2.Any, key string) int {
 pub fn load(data_dir string) !GameData {
 	mut entries := []ItemEntry{}
 	mut id_by_name := map[string]int{}
+	mut component_by_name := map[string]bool{}
 	palette_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'item_palette.json'))!)!.as_map()
 	for any_item in (palette_doc['items'] or { json2.Any('') }).as_array() {
 		m := any_item.as_map()
 		name := any_str(m, 'name')
 		runtime_id := any_int(m, 'id')
+		component_based := (m['component_based'] or { json2.Any(false) }).bool()
 		entries << ItemEntry{
 			name:            name
 			runtime_id:      runtime_id
 			version:         any_int(m, 'version')
-			component_based: (m['component_based'] or { json2.Any(false) }).bool()
+			component_based: component_based
 		}
 		id_by_name[name] = runtime_id
+		component_by_name[name] = component_based
 	}
 
 	mut groups := []CreativeGroup{}
@@ -94,6 +97,9 @@ pub fn load(data_dir string) !GameData {
 		m := any_item.as_map()
 		name := any_str(m, 'id')
 		numeric_id := id_by_name[name] or { continue }
+		if component_by_name[name] or { false } {
+			continue
+		}
 		mut block_runtime_id := 0
 		b64 := any_str(m, 'block_state_b64')
 		if b64 != '' {
