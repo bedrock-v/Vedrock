@@ -67,7 +67,7 @@ pub fn (mut s NetworkSession) deliver(p protocol.Packet) {
 pub fn (mut s NetworkSession) handle_loop() {
 	for s.state != .closed {
 		packets := s.transport.read() or {
-			s.log.debug('Connection ${s.transport.remote_addr()} ended: ${err}')
+			s.log.info('Connection ${s.transport.remote_addr()} ended: ${err}')
 			break
 		}
 		for p in packets {
