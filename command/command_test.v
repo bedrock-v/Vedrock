@@ -1,6 +1,7 @@
 module command
 
 import protocol
+import protocol.types
 import protocol.serializer
 
 fn base_ctx() Context {
@@ -43,6 +44,29 @@ fn test_unknown_command() {
 fn test_resolve_missing() {
 	r := new_registry()
 	if _ := r.resolve('ghost') {
+		assert false
+	}
+}
+
+fn test_command_request_roundtrip() {
+	pkt := protocol.CommandRequestPacket{
+		command:     '/version'
+		origin_data: types.CommandOriginData{
+			type:       0
+			request_id: 'req-1'
+		}
+		version:     '1'
+	}
+	encoded := protocol.encode_packet_to_bytes(&pkt)
+	mut pool := protocol.new_packet_pool()
+	mut reader := serializer.new_reader(encoded)
+	decoded := pool.decode(mut reader)!
+	assert decoded.name() == 'CommandRequestPacket'
+	if decoded is protocol.CommandRequestPacket {
+		assert decoded.command == '/version'
+		assert decoded.origin_data.type == 0
+		assert decoded.origin_data.request_id == 'req-1'
+	} else {
 		assert false
 	}
 }
