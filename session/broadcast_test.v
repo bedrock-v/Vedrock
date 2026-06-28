@@ -4,6 +4,7 @@ import protocol
 import protocol.enums
 import protocol.types
 import protocol.serializer
+import gamedata
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := protocol.new_packet_pool()
@@ -13,7 +14,7 @@ fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 }
 
 fn test_allocate_runtime_id_unique() {
-	mut hub := new_hub()
+	mut hub := new_hub(gamedata.GameData{})
 	first := hub.allocate_runtime_id()
 	second := hub.allocate_runtime_id()
 	third := hub.allocate_runtime_id()

@@ -8,6 +8,7 @@ import logger
 import config
 import network
 import session
+import gamedata
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
@@ -28,10 +29,16 @@ pub fn new(cfg config.Config) &Server {
 	if cfg.debug {
 		level = .debug
 	}
+	log := logger.new(level)
+	data := gamedata.load('data') or {
+		log.warn('Failed to load game data from ./data: ${err}')
+		gamedata.GameData{}
+	}
+	log.info('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
 	return &Server{
-		log:  logger.new(level)
+		log:  log
 		cfg:  cfg
-		hub:  session.new_hub()
+		hub:  session.new_hub(data)
 		guid: rand.i64()
 	}
 }

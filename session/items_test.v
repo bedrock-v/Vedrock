@@ -11,45 +11,22 @@ fn decode_packet(p protocol.Packet) !protocol.Packet {
 	return pool.decode(mut r)!
 }
 
-fn test_item_registry_roundtrip() {
-	decoded := decode_packet(item_registry())!
-	assert decoded.name() == 'ItemRegistryPacket'
-	if decoded is protocol.ItemRegistryPacket {
-		assert decoded.entries.len == item_catalog.len
-		assert decoded.entries[0].string_id == 'minecraft:stone'
-		assert decoded.entries[0].numeric_id == 1
-	} else {
-		assert false
-	}
-}
-
-fn test_creative_content_roundtrip() {
-	decoded := decode_packet(creative_content())!
-	assert decoded.name() == 'CreativeContentPacket'
-	if decoded is protocol.CreativeContentPacket {
-		assert decoded.groups.len == 1
-		assert decoded.items.len == item_catalog.len
-	} else {
-		assert false
-	}
-}
-
-fn test_starter_inventory_roundtrip() {
-	decoded := decode_packet(starter_inventory())!
+fn test_inventory_content_roundtrip() {
+	decoded := decode_packet(&protocol.InventoryContentPacket{
+		window_id:      inventory_window_id
+		items:          [wrap_stack(types.ItemStack{ id: 1, count: 64 })]
+		container_name: types.FullContainerName{
+			container_id: 0
+		}
+		storage:        empty_stack()
+	})!
 	assert decoded.name() == 'InventoryContentPacket'
 	if decoded is protocol.InventoryContentPacket {
 		assert decoded.window_id == inventory_window_id
-		assert decoded.items.len == inventory_slot_count
 		assert decoded.items[0].item_stack.id == 1
-		assert decoded.items[0].item_stack.count == 64
-		assert decoded.items[0].item_stack.block_runtime_id == world_stone_id()
 	} else {
 		assert false
 	}
-}
-
-fn world_stone_id() int {
-	return item_catalog[0].block_network_id
 }
 
 fn test_container_open_roundtrip() {

@@ -2,6 +2,7 @@ module session
 
 import sync
 import protocol
+import gamedata
 
 @[heap]
 pub struct Hub {
@@ -11,12 +12,14 @@ mut:
 	next_runtime_id u64 = 1
 pub mut:
 	world_time int
+	data       gamedata.GameData
 }
 
-pub fn new_hub() &Hub {
+pub fn new_hub(data gamedata.GameData) &Hub {
 	return &Hub{
 		sessions: map[u64]&NetworkSession{}
 		mutex:    sync.new_mutex()
+		data:     data
 	}
 }
 
