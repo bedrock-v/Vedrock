@@ -138,6 +138,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_interact(p)!
 			} else if p is protocol.ContainerClosePacket {
 				s.handle_container_close(p)!
+			} else if p is protocol.ItemStackRequestPacket {
+				s.handle_item_stack_request(p)!
 			}
 		}
 		else {}
@@ -302,6 +304,20 @@ fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
 		window_type:     inventory_container_type
 		block_position:  types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
 		actor_unique_id: -1
+	})!
+}
+
+fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
+	mut responses := []protocol.ItemStackResponseEntry{}
+	for request in p.requests {
+		responses << protocol.ItemStackResponseEntry{
+			status:         0
+			request_id:     request.request_id
+			container_info: []protocol.StackResponseContainerInfo{}
+		}
+	}
+	s.transport.send(&protocol.ItemStackResponsePacket{
+		responses: responses
 	})!
 }
 
