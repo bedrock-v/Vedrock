@@ -21,6 +21,13 @@ pub fn new_block(name string) Block {
 	return new_block_with_states(name, [])
 }
 
+pub fn block_from_id(network_id int) Block {
+	return Block{
+		name:       ''
+		network_id: network_id
+	}
+}
+
 pub fn new_block_with_states(name string, states []BlockState) Block {
 	return Block{
 		name:       name

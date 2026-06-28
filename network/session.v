@@ -48,7 +48,7 @@ pub fn (mut s Session) read() ![]protocol.Packet {
 		}
 		mut r := serializer.new_reader(b)
 		p := s.pool.decode(mut r) or {
-			s.log.warn('Failed to decode packet: ${err}')
+			s.log.warn('Failed to decode packet pid=0x${header.pid:02x}: ${err}')
 			continue
 		}
 		packets << p

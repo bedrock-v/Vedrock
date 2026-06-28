@@ -10,6 +10,7 @@ pub:
 	server_motd    string
 	uptime_seconds i64
 	tps            f64
+	load           f64
 	args           []string
 }
 
@@ -67,6 +68,7 @@ pub fn (r &Registry) dispatch(line string, ctx_base Context) string {
 		server_motd:    ctx_base.server_motd
 		uptime_seconds: ctx_base.uptime_seconds
 		tps:            ctx_base.tps
+		load:           ctx_base.load
 		args:           args
 	}
 	return cmd.execute(ctx)
@@ -87,7 +89,7 @@ pub fn (r &Registry) available_commands() protocol.AvailableCommandsPacket {
 			name:             name
 			description:      cmd.description()
 			flags:            0
-			permission:       0
+			permission:       'any'
 			alias_enum_index: -1
 			overloads:        [
 				protocol.CommandOverload{

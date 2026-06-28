@@ -3,6 +3,7 @@ module session
 import protocol
 import protocol.types
 import nbt
+import storage
 
 const inventory_window_id = 0
 const inventory_slot_count = 36
@@ -18,6 +19,14 @@ fn empty_component_nbt() nbt.RootTag {
 fn wrap_stack(stack types.ItemStack) types.ItemStackWrapper {
 	return types.ItemStackWrapper{
 		stack_id:         0
+		stack_id_variant: 0
+		item_stack:       stack
+	}
+}
+
+fn wrap_stack_id(stack types.ItemStack, net_id int) types.ItemStackWrapper {
+	return types.ItemStackWrapper{
+		stack_id:         net_id
 		stack_id_variant: 0
 		item_stack:       stack
 	}
@@ -77,19 +86,20 @@ fn (s &NetworkSession) creative_content() &protocol.CreativeContentPacket {
 	}
 }
 
-fn (s &NetworkSession) starter_inventory() &protocol.InventoryContentPacket {
-	creative := s.hub.data.creative_items
+fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 	mut items := []types.ItemStackWrapper{}
 	for i in 0 .. inventory_slot_count {
-		if i < starter_item_count && i < creative.len {
-			item := creative[i]
-			items << wrap_stack(types.ItemStack{
-				id:               item.numeric_id
-				meta:             item.meta
-				count:            1
-				block_runtime_id: item.block_runtime_id
+		if i < s.loaded_items.len {
+			saved := s.loaded_items[i]
+			stack := types.ItemStack{
+				id:               saved.id
+				meta:             saved.meta
+				count:            saved.count
+				block_runtime_id: saved.block_runtime_id
 				raw_extra_data:   []u8{}
-			})
+			}
+			net_id := s.track_stack(stack)
+			items << wrap_stack_id(stack, net_id)
 		} else {
 			items << empty_stack()
 		}
@@ -102,4 +112,28 @@ fn (s &NetworkSession) starter_inventory() &protocol.InventoryContentPacket {
 		}
 		storage:        empty_stack()
 	}
+}
+
+fn (mut s NetworkSession) save_player_data() {
+	mut items := []storage.InvItem{}
+	for _, stack in s.inv_stacks {
+		if stack.count <= 0 {
+			continue
+		}
+		items << storage.InvItem{
+			id:               stack.id
+			meta:             stack.meta
+			count:            stack.count
+			block_runtime_id: stack.block_runtime_id
+		}
+	}
+	storage.save_player(players_dir, s.player_key(), storage.PlayerData{
+		x:        s.position.x
+		y:        s.position.y
+		z:        s.position.z
+		yaw:      s.yaw
+		pitch:    s.pitch
+		gamemode: gamemode_id(s.cfg.gamemode)
+		items:    items
+	}) or { s.log.warn('Failed to save player ${s.player_key()}: ${err}') }
 }

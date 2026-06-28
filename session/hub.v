@@ -5,6 +5,7 @@ import time
 import protocol
 import gamedata
 import command
+import storage
 
 @[heap]
 pub struct Hub {
@@ -15,9 +16,12 @@ mut:
 pub mut:
 	world_time int
 	data       gamedata.GameData
-	commands   command.Registry = command.new_registry()
-	started_at i64
-	tps        f64 = 20.0
+	commands     command.Registry = command.new_registry()
+	started_at   i64
+	tps          f64 = 20.0
+	load         f64
+	world_blocks map[string]int
+	world_store  &storage.WorldStore = unsafe { nil }
 }
 
 pub fn new_hub(data gamedata.GameData) &Hub {
@@ -32,6 +36,67 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 
 pub fn (h &Hub) uptime_seconds() i64 {
 	return time.now().unix() - h.started_at
+}
+
+fn block_key(x int, y int, z int) string {
+	return '${x}:${y}:${z}'
+}
+
+pub fn (mut h Hub) set_world_block(x int, y int, z int, runtime_id int) {
+	h.mutex.lock()
+	h.world_blocks[block_key(x, y, z)] = runtime_id
+	h.mutex.unlock()
+	if !isnil(h.world_store) {
+		h.world_store.set_block(x, y, z, runtime_id)
+	}
+}
+
+pub fn (mut h Hub) load_world() {
+	if isnil(h.world_store) {
+		return
+	}
+	h.world_store.each_block(fn [mut h] (x int, y int, z int, runtime_id int) {
+		h.world_blocks[block_key(x, y, z)] = runtime_id
+	})
+}
+
+pub fn (h &Hub) world_block_override(x int, y int, z int) ?int {
+	return h.world_blocks[block_key(x, y, z)] or { return none }
+}
+
+pub fn (h &Hub) world_block_count() int {
+	return h.world_blocks.len
+}
+
+pub struct BlockOverride {
+pub:
+	x  int
+	y  int
+	z  int
+	id int
+}
+
+pub fn (mut h Hub) overrides_in_chunk(cx int, cz int) []BlockOverride {
+	mut out := []BlockOverride{}
+	h.mutex.lock()
+	for key, id in h.world_blocks {
+		parts := key.split(':')
+		if parts.len != 3 {
+			continue
+		}
+		x := parts[0].int()
+		z := parts[2].int()
+		if (x >> 4) == cx && (z >> 4) == cz {
+			out << BlockOverride{
+				x:  x
+				y:  parts[1].int()
+				z:  z
+				id: id
+			}
+		}
+	}
+	h.mutex.unlock()
+	return out
 }
 
 pub fn (mut h Hub) allocate_runtime_id() u64 {

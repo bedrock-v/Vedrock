@@ -52,7 +52,7 @@ fn test_command_request_roundtrip() {
 	pkt := protocol.CommandRequestPacket{
 		command:     '/version'
 		origin_data: types.CommandOriginData{
-			type:       0
+			type:       'player'
 			request_id: 'req-1'
 		}
 		version:     '1'
@@ -64,7 +64,7 @@ fn test_command_request_roundtrip() {
 	assert decoded.name() == 'CommandRequestPacket'
 	if decoded is protocol.CommandRequestPacket {
 		assert decoded.command == '/version'
-		assert decoded.origin_data.type == 0
+		assert decoded.origin_data.type == 'player'
 		assert decoded.origin_data.request_id == 'req-1'
 	} else {
 		assert false

@@ -34,7 +34,8 @@ pub:
 	creative_groups []CreativeGroup
 	creative_items  []CreativeItem
 pub mut:
-	item_id_by_name map[string]int
+	item_id_by_name  map[string]int
+	item_id_by_block map[int]int
 }
 
 fn any_str(values map[string]json2.Any, key string) string {
@@ -113,12 +114,24 @@ pub fn load(data_dir string) !GameData {
 		}
 	}
 
-	return GameData{
-		item_entries:    entries
-		creative_groups: groups
-		creative_items:  creative
-		item_id_by_name: id_by_name
+	mut id_by_block := map[int]int{}
+	for item in creative {
+		if item.block_runtime_id != 0 && item.block_runtime_id !in id_by_block {
+			id_by_block[item.block_runtime_id] = item.numeric_id
+		}
 	}
+
+	return GameData{
+		item_entries:     entries
+		creative_groups:  groups
+		creative_items:   creative
+		item_id_by_name:  id_by_name
+		item_id_by_block: id_by_block
+	}
+}
+
+pub fn (d &GameData) item_for_block(block_runtime_id int) int {
+	return d.item_id_by_block[block_runtime_id] or { 0 }
 }
 
 pub fn (d &GameData) item_id(name string) int {

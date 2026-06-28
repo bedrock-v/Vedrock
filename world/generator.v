@@ -9,6 +9,7 @@ pub interface Generator {
 	spawn_y() int
 	uses_blocks() bool
 	generate(chunk_x int, chunk_z int) Chunk
+	block_at(x int, y int, z int) int
 }
 
 pub struct VoidGenerator {}
@@ -23,6 +24,10 @@ pub fn (g VoidGenerator) uses_blocks() bool {
 
 pub fn (g VoidGenerator) generate(chunk_x int, chunk_z int) Chunk {
 	return new_chunk()
+}
+
+pub fn (g VoidGenerator) block_at(x int, y int, z int) int {
+	return air.network_id
 }
 
 pub struct FlatGenerator {}
@@ -48,6 +53,14 @@ pub fn (g FlatGenerator) generate(chunk_x int, chunk_z int) Chunk {
 	return c
 }
 
+pub fn (g FlatGenerator) block_at(x int, y int, z int) int {
+	return match true {
+		y >= -64 && y <= -62 { stone.network_id }
+		y == -61 { grass_block.network_id }
+		else { air.network_id }
+	}
+}
+
 pub struct NormalGenerator {}
 
 pub fn (g NormalGenerator) spawn_y() int {
@@ -70,6 +83,15 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 		}
 	}
 	return c
+}
+
+pub fn (g NormalGenerator) block_at(x int, y int, z int) int {
+	height := surface_height(x, z)
+	return match true {
+		y >= -64 && y < height { stone.network_id }
+		y == height { grass_block.network_id }
+		else { air.network_id }
+	}
 }
 
 fn surface_height(world_x int, world_z int) int {

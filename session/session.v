@@ -10,12 +10,15 @@ import logger
 import config
 import world
 import command
+import storage
 
 pub const resource_response_have_all_packs = 3
 pub const resource_response_completed = 4
 
 pub const interact_action_open_inventory = 6
 pub const inventory_container_type = 0xff
+
+pub const players_dir = 'players'
 
 pub enum State {
 	handshake
@@ -39,8 +42,12 @@ mut:
 	pitch      f32
 	yaw        f32
 	head_yaw   f32
-	spawned    bool
-	inv_opened bool
+	spawned     bool
+	inv_opened  bool
+	inv_stacks       map[int]types.ItemStack
+	inv_next_id      int = 1
+	pending_creative ?types.ItemStack
+	loaded_items     []storage.InvItem
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -86,6 +93,7 @@ fn (mut s NetworkSession) leave() {
 	if !s.spawned {
 		return
 	}
+	s.save_player_data()
 	s.spawned = false
 	s.hub.remove(s.runtime_id)
 	s.hub.broadcast(s.player_list_remove_packet())
@@ -143,6 +151,12 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_item_stack_request(p)!
 			} else if p is protocol.CommandRequestPacket {
 				s.handle_command_request(p)!
+			} else if p is protocol.InventoryTransactionPacket {
+				s.handle_inventory_transaction(p)!
+			} else if p is protocol.PlayerActionPacket {
+				s.handle_player_action(p)!
+			} else if p is protocol.BlockPickRequestPacket {
+				s.handle_block_pick_request(p)!
 			}
 		}
 		else {}
@@ -205,14 +219,31 @@ fn (mut s NetworkSession) handle_resource_pack_response(p protocol.ResourcePackC
 	}
 }
 
+fn (mut s NetworkSession) player_key() string {
+	if s.identity.xuid != '' {
+		return s.identity.xuid
+	}
+	if s.identity.uuid != '' {
+		return s.identity.uuid
+	}
+	return s.identity.display_name
+}
+
 fn (mut s NetworkSession) start_game() ! {
 	game_mode := gamemode_id(s.cfg.gamemode)
 	spawn_y := s.generator.spawn_y()
+	s.position = types.Vector3{0.0, f32(spawn_y), 0.0}
+	if data := storage.load_player(players_dir, s.player_key()) {
+		s.position = types.Vector3{data.x, data.y, data.z}
+		s.pitch = data.pitch
+		s.yaw = data.yaw
+		s.loaded_items = data.items
+	}
 	s.transport.send(&protocol.StartGamePacket{
 		entity_unique_id:            i64(s.runtime_id)
 		entity_runtime_id:           s.runtime_id
 		player_game_mode:            game_mode
-		player_position:             types.Vector3{0.0, f32(spawn_y), 0.0}
+		player_position:             s.position
 		pitch:                       0.0
 		yaw:                         0.0
 		world_seed:                  0
@@ -250,8 +281,6 @@ fn (mut s NetworkSession) start_game() ! {
 	})!
 	s.transport.send(s.update_attributes())!
 	s.transport.send(s.set_actor_data())!
-	available := s.hub.commands.available_commands()
-	s.transport.send(&available)!
 	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play
 }
@@ -282,7 +311,10 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 	for x in -radius .. radius + 1 {
 		for z in -radius .. radius + 1 {
-			chunk := s.generator.generate(x, z)
+			mut chunk := s.generator.generate(x, z)
+			for ov in s.hub.overrides_in_chunk(x, z) {
+				chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
+			}
 			s.transport.queue(&protocol.LevelChunkPacket{
 				chunk_position:  types.ChunkPosition{x, z}
 				dimension_id:    0
@@ -309,20 +341,6 @@ fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
 		window_type:     inventory_container_type
 		block_position:  types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
 		actor_unique_id: -1
-	})!
-}
-
-fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
-	mut responses := []protocol.ItemStackResponseEntry{}
-	for request in p.requests {
-		responses << protocol.ItemStackResponseEntry{
-			status:         0
-			request_id:     request.request_id
-			container_info: []protocol.StackResponseContainerInfo{}
-		}
-	}
-	s.transport.send(&protocol.ItemStackResponsePacket{
-		responses: responses
 	})!
 }
 
@@ -354,7 +372,9 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		@type:   int(enums.TextType.raw)
 		message: '§e${s.identity.display_name} joined the game'
 	})
-	s.transport.send(s.starter_inventory())!
+	s.transport.send(s.restore_inventory())!
+	available := s.hub.commands.available_commands()
+	s.transport.send(&available)!
 	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }
 
@@ -391,6 +411,7 @@ fn (mut s NetworkSession) run_command(line string) ! {
 		server_motd:    s.cfg.motd
 		uptime_seconds: s.hub.uptime_seconds()
 		tps:            s.hub.tps
+		load:           s.hub.load
 	}
 	output := s.hub.commands.dispatch(line, ctx)
 	s.send_message(output)!

@@ -43,14 +43,25 @@ pub fn (c StatusCommand) aliases() []string {
 }
 
 pub fn (c StatusCommand) execute(ctx Context) string {
+	tps_color := tps_format_color(ctx.tps)
 	mut lines := []string{}
-	lines << '§a---- §rServer status§a ----§r'
-	lines << 'Uptime: §c${format_uptime(ctx.uptime_seconds)}§r'
-	lines << 'Current TPS: §a${ctx.tps:.2f}§r'
-	lines << 'Online players: §c${ctx.player_count}§r/§c${ctx.max_players}§r'
-	lines << 'World: §a${ctx.server_motd}§r'
+	lines << '§a---- §6Server status §a----§r'
+	lines << '§6Uptime: §c${format_uptime(ctx.uptime_seconds)}§r'
+	lines << '§6Current TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
+	lines << '§6Average TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
+	lines << '§6Online players: §c${ctx.player_count}§6/§c${ctx.max_players}§r'
+	lines << '§6World: §a${ctx.server_motd}§r'
 	return lines.join('\n')
 }
+
+fn tps_format_color(tps f64) string {
+	return match true {
+		tps < 12.0 { '§c' }
+		tps < 17.0 { '§6' }
+		else { '§a' }
+	}
+}
+
 
 fn format_uptime(total i64) string {
 	seconds := total % 60

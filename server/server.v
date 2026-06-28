@@ -9,6 +9,7 @@ import config
 import network
 import session
 import gamedata
+import storage
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
@@ -35,10 +36,18 @@ pub fn new(cfg config.Config) &Server {
 		gamedata.GameData{}
 	}
 	log.info('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
+	mut hub := session.new_hub(data)
+	if store := storage.open_world('worlds/world/db') {
+		hub.world_store = store
+		hub.load_world()
+		log.info('Loaded world with ${hub.world_block_count()} stored block changes')
+	} else {
+		log.warn('Failed to open world database: ${err}')
+	}
 	return &Server{
 		log:  log
 		cfg:  cfg
-		hub:  session.new_hub(data)
+		hub:  hub
 		guid: rand.i64()
 	}
 }
@@ -57,8 +66,11 @@ pub fn (mut s Server) start() ! {
 fn (mut s Server) tick_loop() {
 	interval := time.second / ticks_per_second
 	mut tick := u64(0)
+	mut window_start := time.now()
+	mut window_ticks := 0
+	mut window_work := i64(0)
 	for s.running {
-		time.sleep(interval)
+		tick_start := time.now()
 		tick++
 		s.hub.world_time = int((tick % day_length_ticks))
 		if tick % u64(ticks_per_second) == 0 {
@@ -66,6 +78,22 @@ fn (mut s Server) tick_loop() {
 				time: s.hub.world_time
 			})
 			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes())
+		}
+		work := time.now() - tick_start
+		window_ticks++
+		window_work += work.nanoseconds()
+		elapsed := time.now() - window_start
+		if elapsed >= time.second {
+			seconds := f64(elapsed.nanoseconds()) / f64(time.second)
+			s.hub.tps = f64(window_ticks) / seconds
+			s.hub.load = f64(window_work) / f64(elapsed.nanoseconds()) * 100.0
+			window_start = time.now()
+			window_ticks = 0
+			window_work = 0
+		}
+		remaining := interval - (time.now() - tick_start)
+		if remaining > 0 {
+			time.sleep(remaining)
 		}
 	}
 }
