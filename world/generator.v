@@ -19,13 +19,9 @@ pub fn generate_flat() Chunk {
 	return c
 }
 
-pub fn chunk_payload(flat bool) []u8 {
-	if flat {
-		chunk := generate_flat()
-		return chunk.serialize()
-	}
-	chunk := generate_void()
-	return chunk.serialize()
+pub fn build_chunk(flat bool) (u32, []u8) {
+	chunk := if flat { generate_flat() } else { generate_void() }
+	return u32(chunk.section_count()), chunk.serialize()
 }
 
 pub fn uses_block_hashes(flat bool) bool {

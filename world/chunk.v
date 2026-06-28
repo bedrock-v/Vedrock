@@ -31,7 +31,7 @@ fn block_index(x int, y int, z int) int {
 	return (x << 8) | (z << 4) | y
 }
 
-fn (c &Chunk) section_count() int {
+pub fn (c &Chunk) section_count() int {
 	for index := dimension_subchunk_count - 1; index >= 0; index-- {
 		if c.sections[index].len != 0 {
 			return index + 1

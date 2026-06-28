@@ -244,14 +244,15 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 }
 
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
-	payload := world.chunk_payload(s.cfg.flat_world).bytestr()
+	sub_chunk_count, payload_bytes := world.build_chunk(s.cfg.flat_world)
+	payload := payload_bytes.bytestr()
 	for x in -radius .. radius + 1 {
 		for z in -radius .. radius + 1 {
 			s.transport.queue(&protocol.LevelChunkPacket{
 				chunk_position:  types.ChunkPosition{x, z}
 				dimension_id:    0
 				request_type:    protocol.level_chunk_request_explicit
-				sub_chunk_count: 0
+				sub_chunk_count: sub_chunk_count
 				cache_enabled:   false
 				extra_payload:   payload
 			})
