@@ -1,21 +1,22 @@
 module config
 
 import os
-import toml
 
 pub struct Config {
 pub mut:
-	motd           string = 'Vedrock Server'
-	sub_motd       string = 'A V Bedrock server'
-	address        string = '0.0.0.0'
-	port           int    = 19132
-	max_players    int    = 20
-	view_distance  int    = 8
-	gamemode       string = 'creative'
-	debug          bool
+	motd                  string = 'Vedrock Server'
+	sub_motd              string = 'A V Bedrock server'
+	address               string = '0.0.0.0'
+	port                  int    = 19132
+	max_players           int    = 20
+	view_distance         int    = 8
+	gamemode              string = 'creative'
+	xbox_auth             bool   = true
+	compression_threshold int    = 256
+	debug                 bool
 }
 
-const default_file = 'vedrock.toml'
+const default_file = 'vedrock.yml'
 
 pub fn load() !Config {
 	return load_from(default_file)
@@ -27,28 +28,57 @@ pub fn load_from(path string) !Config {
 		write_default(path, cfg)!
 		return cfg
 	}
-	doc := toml.parse_file(path)!
+	content := os.read_file(path)!
 	mut cfg := Config{}
-	cfg.motd = doc.value_opt('motd') or { toml.Any(cfg.motd) }.string()
-	cfg.sub_motd = doc.value_opt('sub-motd') or { toml.Any(cfg.sub_motd) }.string()
-	cfg.address = doc.value_opt('address') or { toml.Any(cfg.address) }.string()
-	cfg.port = doc.value_opt('port') or { toml.Any(cfg.port) }.int()
-	cfg.max_players = doc.value_opt('max-players') or { toml.Any(cfg.max_players) }.int()
-	cfg.view_distance = doc.value_opt('view-distance') or { toml.Any(cfg.view_distance) }.int()
-	cfg.gamemode = doc.value_opt('gamemode') or { toml.Any(cfg.gamemode) }.string()
-	cfg.debug = doc.value_opt('debug') or { toml.Any(cfg.debug) }.bool()
+	values := parse_flat_yaml(content)
+	cfg.motd = values['motd'] or { cfg.motd }
+	cfg.sub_motd = values['sub-motd'] or { cfg.sub_motd }
+	cfg.address = values['address'] or { cfg.address }
+	cfg.port = (values['port'] or { cfg.port.str() }).int()
+	cfg.max_players = (values['max-players'] or { cfg.max_players.str() }).int()
+	cfg.view_distance = (values['view-distance'] or { cfg.view_distance.str() }).int()
+	cfg.gamemode = values['gamemode'] or { cfg.gamemode }
+	cfg.xbox_auth = to_bool(values['xbox-auth'] or { cfg.xbox_auth.str() })
+	cfg.compression_threshold = (values['compression-threshold'] or { cfg.compression_threshold.str() }).int()
+	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg
 }
 
+fn parse_flat_yaml(content string) map[string]string {
+	mut values := map[string]string{}
+	for raw_line in content.split_into_lines() {
+		line := raw_line.trim_space()
+		if line == '' || line.starts_with('#') {
+			continue
+		}
+		idx := line.index(':') or { continue }
+		key := line[..idx].trim_space()
+		mut value := line[idx + 1..].trim_space()
+		if comment := value.index(' #') {
+			value = value[..comment].trim_space()
+		}
+		value = value.trim('"').trim("'")
+		values[key] = value
+	}
+	return values
+}
+
+fn to_bool(value string) bool {
+	return value.to_lower() in ['true', 'yes', 'on', '1']
+}
+
 fn write_default(path string, cfg Config) ! {
-	content := 'motd = "${cfg.motd}"
-sub-motd = "${cfg.sub_motd}"
-address = "${cfg.address}"
-port = ${cfg.port}
-max-players = ${cfg.max_players}
-view-distance = ${cfg.view_distance}
-gamemode = "${cfg.gamemode}"
-debug = ${cfg.debug}
+	content := '# Vedrock server configuration
+motd: "${cfg.motd}"
+sub-motd: "${cfg.sub_motd}"
+address: "${cfg.address}"
+port: ${cfg.port}
+max-players: ${cfg.max_players}
+view-distance: ${cfg.view_distance}
+gamemode: "${cfg.gamemode}"
+xbox-auth: ${cfg.xbox_auth}
+compression-threshold: ${cfg.compression_threshold}
+debug: ${cfg.debug}
 '
 	os.write_file(path, content)!
 }
