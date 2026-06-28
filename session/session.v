@@ -75,6 +75,13 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_resource_pack_response(p)!
 			}
 		}
+		.play {
+			if p is protocol.RequestChunkRadiusPacket {
+				s.handle_request_chunk_radius(p)!
+			} else if p is protocol.SetLocalPlayerAsInitializedPacket {
+				s.handle_player_initialized(p)!
+			}
+		}
 		else {}
 	}
 }
@@ -180,6 +187,50 @@ fn (mut s NetworkSession) start_game() ! {
 	})!
 	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play
+}
+
+fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRadiusPacket) ! {
+	mut radius := p.radius
+	if radius > s.cfg.view_distance {
+		radius = s.cfg.view_distance
+	}
+	if radius < 1 {
+		radius = 1
+	}
+	s.transport.send(&protocol.ChunkRadiusUpdatedPacket{
+		radius: radius
+	})!
+	s.transport.send(&protocol.NetworkChunkPublisherUpdatePacket{
+		block_position: types.BlockPosition{0, 64, 0}
+		radius:         radius * 16
+		saved_chunks:   []types.ChunkPosition{}
+	})!
+	s.send_spawn_chunks(radius)!
+	s.transport.send(&protocol.PlayStatusPacket{
+		status: int(enums.PlayStatus.player_spawn)
+	})!
+	s.log.debug('Sent ${(radius * 2 + 1) * (radius * 2 + 1)} chunks to ${s.identity.display_name}')
+}
+
+fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
+	payload := empty_chunk_payload().bytestr()
+	for x in -radius .. radius + 1 {
+		for z in -radius .. radius + 1 {
+			s.transport.queue(&protocol.LevelChunkPacket{
+				chunk_position:  types.ChunkPosition{x, z}
+				dimension_id:    0
+				request_type:    protocol.level_chunk_request_explicit
+				sub_chunk_count: 0
+				cache_enabled:   false
+				extra_payload:   payload
+			})
+		}
+	}
+	s.transport.flush()!
+}
+
+fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsInitializedPacket) ! {
+	s.log.info('${s.identity.display_name} spawned in the world')
 }
 
 fn gamemode_id(name string) int {
