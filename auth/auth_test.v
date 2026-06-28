@@ -92,6 +92,32 @@ fn test_require_xbox_rejects_offline() {
 	}
 }
 
+fn test_identity_token_path() {
+	priv := ecdsa.privkey_from_string(test_private_key_pem)!
+	header := '{"alg":"ES384","x5u":"${test_public_key_spki}"}'
+	payload := '{"xid":"2535412345678901","xname":"Alex","identity":"00000000-0000-0000-0000-0000000000aa","cpk":"${test_public_key_spki}"}'
+	token := make_token(header, payload, priv)!
+	auth_json := '{"AuthenticationType":2,"Token":"${token}","Certificate":""}'
+	identity := parse_login_chain(auth_json, true)!
+	assert identity.display_name == 'Alex'
+	assert identity.xuid == '2535412345678901'
+	assert identity.xbox_authenticated == true
+}
+
+fn test_identity_token_offline_rejected_when_xbox_required() {
+	priv := ecdsa.privkey_from_string(test_private_key_pem)!
+	header := '{"alg":"ES384","x5u":"${test_public_key_spki}"}'
+	payload := '{"xid":"","xname":"Steve","identity":"00000000-0000-0000-0000-0000000000bb","cpk":"${test_public_key_spki}"}'
+	token := make_token(header, payload, priv)!
+	auth_json := '{"AuthenticationType":2,"Token":"${token}"}'
+	if _ := parse_login_chain(auth_json, true) {
+		assert false
+	}
+	identity := parse_login_chain(auth_json, false)!
+	assert identity.display_name == 'Steve'
+	assert identity.xbox_authenticated == false
+}
+
 fn test_tampered_signature_fails() {
 	priv := ecdsa.privkey_from_string(test_private_key_pem)!
 	header := '{"alg":"ES384","x5u":"${test_public_key_spki}"}'

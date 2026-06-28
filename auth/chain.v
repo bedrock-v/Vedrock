@@ -16,14 +16,30 @@ pub:
 pub fn parse_login_chain(auth_info_json string, require_xbox bool) !Identity {
 	root := json2.decode[json2.Any](auth_info_json)!.as_map()
 	chain := extract_chain(root)!
-	if chain.len == 0 {
-		return error('login request contained no certificate chain')
+	mut identity := Identity{}
+	if chain.len > 0 {
+		identity = verify_chain(chain)!
+	} else if 'Token' in root && (root['Token'] or { json2.Any('') }).str() != '' {
+		identity = parse_identity_token((root['Token'] or { json2.Any('') }).str())!
+	} else {
+		return error('login request contained no certificate chain or identity token')
 	}
-	identity := verify_chain(chain)!
 	if require_xbox && !identity.xbox_authenticated {
 		return error('player is not authenticated with Xbox Live')
 	}
 	return identity
+}
+
+fn parse_identity_token(token string) !Identity {
+	payload := decode_jwt(token)!.payload
+	xuid := map_string(payload, 'xid')
+	return Identity{
+		xuid:               xuid
+		uuid:               map_string(payload, 'identity')
+		display_name:       map_string(payload, 'xname')
+		xbox_authenticated: xuid != ''
+		client_public_key:  map_string(payload, 'cpk')
+	}
 }
 
 fn extract_chain(root map[string]json2.Any) ![]string {
@@ -32,9 +48,11 @@ fn extract_chain(root map[string]json2.Any) ![]string {
 	}
 	if 'Certificate' in root {
 		raw := (root['Certificate'] or { json2.Any('') }).str()
-		certificate := json2.decode[json2.Any](raw)!.as_map()
-		if 'chain' in certificate {
-			return to_string_array(certificate['chain'] or { json2.Any('') })
+		if raw != '' {
+			certificate := json2.decode[json2.Any](raw)!.as_map()
+			if 'chain' in certificate {
+				return to_string_array(certificate['chain'] or { json2.Any('') })
+			}
 		}
 	}
 	return []string{}
