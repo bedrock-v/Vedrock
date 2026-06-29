@@ -17,11 +17,14 @@ A Minecraft: Bedrock Edition server software written in V.
 - [nbt](https://github.com/bedrock-v/nbt)
 - [raknet](https://github.com/bedrock-v/raknet)
 - [protocol](https://github.com/bedrock-v/protocol)
+- [i18n](https://github.com/nepinhum/i18n)
 
 ```bash
 git clone https://github.com/bedrock-v/nbt ~/.vmodules/nbt
 git clone https://github.com/bedrock-v/protocol ~/.vmodules/protocol 
 git clone https://github.com/bedrock-v/raknet ~/.vmodules/raknet
+
+v install nepinhum.i18n
 
 HTTPS: git clone https://github.com/bedrock-v/Vedrock.git
 SSH: git@github.com:bedrock-v/Vedrock.git
