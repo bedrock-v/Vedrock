@@ -313,6 +313,9 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 		saved_chunks:   []types.ChunkPosition{}
 	})!
 	s.send_spawn_chunks(radius)!
+	s.transport.send(&protocol.PlayStatusPacket{
+		status: int(enums.PlayStatus.player_spawn)
+	})!
 	s.log.debug('Sent ${(radius * 2 + 1) * (radius * 2 + 1)} chunks to ${s.identity.display_name}')
 }
 
@@ -335,9 +338,6 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 			})
 		}
 	}
-	s.transport.queue(&protocol.PlayStatusPacket{
-		status: int(enums.PlayStatus.player_spawn)
-	})
 	s.transport.flush()!
 }
 
