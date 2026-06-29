@@ -48,14 +48,30 @@ fn (mut r LeReader) read_name() !string {
 
 fn (mut r LeReader) skip_payload(tag_type u8) ! {
 	match tag_type {
-		1 { r.skip(1)! }
-		2 { r.skip(2)! }
-		3 { r.skip(4)! }
-		4 { r.skip(8)! }
-		5 { r.skip(4)! }
-		6 { r.skip(8)! }
-		7 { r.skip(r.i32()!)! }
-		8 { r.skip(r.i16()!)! }
+		1 {
+			r.skip(1)!
+		}
+		2 {
+			r.skip(2)!
+		}
+		3 {
+			r.skip(4)!
+		}
+		4 {
+			r.skip(8)!
+		}
+		5 {
+			r.skip(4)!
+		}
+		6 {
+			r.skip(8)!
+		}
+		7 {
+			r.skip(r.i32()!)!
+		}
+		8 {
+			r.skip(r.i16()!)!
+		}
 		9 {
 			element_type := r.u8()!
 			count := r.i32()!
@@ -73,9 +89,15 @@ fn (mut r LeReader) skip_payload(tag_type u8) ! {
 				r.skip_payload(entry_type)!
 			}
 		}
-		11 { r.skip(r.i32()! * 4)! }
-		12 { r.skip(r.i32()! * 8)! }
-		else { return error('nbt_le: unknown tag ${tag_type}') }
+		11 {
+			r.skip(r.i32()! * 4)!
+		}
+		12 {
+			r.skip(r.i32()! * 8)!
+		}
+		else {
+			return error('nbt_le: unknown tag ${tag_type}')
+		}
 	}
 }
 

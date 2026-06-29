@@ -1,9 +1,11 @@
 module command
 
 import protocol
+import language
 
 pub struct Context {
 pub:
+	lang           &language.Lang = unsafe { nil }
 	sender_name    string
 	player_count   int
 	max_players    int
@@ -56,13 +58,16 @@ pub fn (r &Registry) resolve(name string) ?Command {
 pub fn (r &Registry) dispatch(line string, ctx_base Context) string {
 	trimmed := line.trim_left('/').trim_space()
 	if trimmed == '' {
-		return '§cEmpty command'
+		return ctx_base.lang.t('command.empty')
 	}
 	parts := trimmed.split(' ')
 	name := parts[0]
 	args := parts[1..].clone()
-	cmd := r.resolve(name) or { return '§cUnknown command: ${name}' }
+	cmd := r.resolve(name) or { return ctx_base.lang.tf('command.unknown', {
+		'Name': name
+	}) }
 	ctx := Context{
+		lang:           ctx_base.lang
 		sender_name:    ctx_base.sender_name
 		player_count:   ctx_base.player_count
 		max_players:    ctx_base.max_players

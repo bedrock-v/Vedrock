@@ -54,7 +54,8 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 
 fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! {
 	match p.action {
-		int(enums.PlayerAction.creative_player_destroy_block), int(enums.PlayerAction.predict_destroy_block) {
+		int(enums.PlayerAction.creative_player_destroy_block),
+		int(enums.PlayerAction.predict_destroy_block) {
 			s.break_block(p.block_position)!
 		}
 		int(enums.PlayerAction.start_break) {

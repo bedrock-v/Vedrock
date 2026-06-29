@@ -19,7 +19,8 @@ fn put_i32(mut b []u8, v int) {
 }
 
 fn read_i32(b []u8, offset int) int {
-	return int(u32(b[offset]) | (u32(b[offset + 1]) << 8) | (u32(b[offset + 2]) << 16) | (u32(b[offset + 3]) << 24))
+	return int(u32(b[offset]) | (u32(b[offset + 1]) << 8) | (u32(b[offset + 2]) << 16) | (u32(b[
+		offset + 3]) << 24))
 }
 
 fn block_key(x int, y int, z int) []u8 {

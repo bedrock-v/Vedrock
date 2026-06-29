@@ -51,7 +51,7 @@ fn test_start_game_roundtrip() {
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
 		}
-		blocks: []protocol.BlockEntry{}
+		blocks:                         []protocol.BlockEntry{}
 	})!
 	assert decoded.name() == 'StartGamePacket'
 	if decoded is protocol.StartGamePacket {

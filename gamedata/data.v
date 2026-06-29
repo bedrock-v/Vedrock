@@ -56,7 +56,8 @@ pub fn load(data_dir string) !GameData {
 	mut entries := []ItemEntry{}
 	mut id_by_name := map[string]int{}
 	mut component_by_name := map[string]bool{}
-	palette_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'item_palette.json'))!)!.as_map()
+	palette_doc :=
+		json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'item_palette.json'))!)!.as_map()
 	for any_item in (palette_doc['items'] or { json2.Any('') }).as_array() {
 		m := any_item.as_map()
 		name := any_str(m, 'name')
@@ -74,7 +75,8 @@ pub fn load(data_dir string) !GameData {
 
 	mut groups := []CreativeGroup{}
 	mut creative := []CreativeItem{}
-	creative_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'creative_items.json'))!)!.as_map()
+	creative_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir,
+		'creative_items.json'))!)!.as_map()
 	for any_group in (creative_doc['groups'] or { json2.Any('') }).as_array() {
 		g := any_group.as_map()
 		mut icon_id := 0

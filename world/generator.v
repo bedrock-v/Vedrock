@@ -108,6 +108,7 @@ pub fn new_generator(name string) Generator {
 		'normal' { g = NormalGenerator{} }
 		else {}
 	}
+
 	return g
 }
 

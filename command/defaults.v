@@ -21,11 +21,13 @@ pub fn (c VersionCommand) aliases() []string {
 }
 
 pub fn (c VersionCommand) execute(ctx Context) string {
-	mut lines := []string{}
-	lines << 'This server is running §a${software_name}§r'
-	lines << 'Server version: §a${software_version}§r (git hash: §a${software_git_hash}§r)'
-	lines << 'Compatible Minecraft version: §a${protocol.minecraft_version_network}§r (protocol version: §a${protocol.current_protocol}§r)'
-	return lines.join('\n')
+	return ctx.lang.tf('command.version.body', {
+		'Software':  software_name
+		'Version':   software_version
+		'Hash':      software_git_hash
+		'MCVersion': protocol.minecraft_version_network
+		'Protocol':  protocol.current_protocol.str()
+	})
 }
 
 pub struct GamemodeCommand {}
@@ -35,7 +37,7 @@ pub fn (c GamemodeCommand) name() string {
 }
 
 pub fn (c GamemodeCommand) description() string {
-	return 'Sets a player\'s game mode'
+	return "Sets a player's game mode"
 }
 
 pub fn (c GamemodeCommand) aliases() []string {
@@ -63,7 +65,7 @@ pub fn (c StatusCommand) aliases() []string {
 pub fn (c StatusCommand) execute(ctx Context) string {
 	tps_color := tps_format_color(ctx.tps)
 	mut lines := []string{}
-	lines << '§a---- §6Server status §a----§r'
+	lines << ctx.lang.t('command.status.header')
 	lines << '§6Uptime: §c${format_uptime(ctx.uptime_seconds)}§r'
 	lines << '§6Current TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
 	lines << '§6Average TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
@@ -79,7 +81,6 @@ fn tps_format_color(tps f64) string {
 		else { '§a' }
 	}
 }
-
 
 fn format_uptime(total i64) string {
 	seconds := total % 60

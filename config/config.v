@@ -14,6 +14,7 @@ pub mut:
 	xbox_auth             bool   = true
 	compression_threshold int    = 256
 	generator             string = 'flat'
+	language              string = 'en'
 	debug                 bool
 }
 
@@ -40,7 +41,9 @@ pub fn load_from(path string) !Config {
 	cfg.view_distance = (values['view-distance'] or { cfg.view_distance.str() }).int()
 	cfg.gamemode = values['gamemode'] or { cfg.gamemode }
 	cfg.xbox_auth = to_bool(values['xbox-auth'] or { cfg.xbox_auth.str() })
-	cfg.compression_threshold = (values['compression-threshold'] or { cfg.compression_threshold.str() }).int()
+	cfg.compression_threshold = (values['compression-threshold'] or {
+		cfg.compression_threshold.str()
+	}).int()
 	cfg.generator = values['generator'] or { cfg.generator }
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg

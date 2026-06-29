@@ -12,10 +12,10 @@ pub struct Hub {
 mut:
 	sessions        map[u64]&NetworkSession
 	mutex           &sync.Mutex = sync.new_mutex()
-	next_runtime_id u64 = 1
+	next_runtime_id u64         = 1
 pub mut:
-	world_time int
-	data       gamedata.GameData
+	world_time   int
+	data         gamedata.GameData
 	commands     command.Registry = command.new_registry()
 	started_at   i64
 	tps          f64 = 20.0

@@ -31,20 +31,20 @@ pub enum State {
 @[heap]
 pub struct NetworkSession {
 mut:
-	transport  &network.Session = unsafe { nil }
-	hub        &Hub             = unsafe { nil }
-	state      State            = .handshake
-	cfg        config.Config
-	generator  world.Generator = world.VoidGenerator{}
-	identity   auth.Identity
-	runtime_id u64
-	position   types.Vector3
-	pitch      f32
-	yaw        f32
-	head_yaw   f32
-	spawned     bool
-	inv_opened  bool
-	game_mode   int
+	transport        &network.Session = unsafe { nil }
+	hub              &Hub             = unsafe { nil }
+	state            State            = .handshake
+	cfg              config.Config
+	generator        world.Generator = world.VoidGenerator{}
+	identity         auth.Identity
+	runtime_id       u64
+	position         types.Vector3
+	pitch            f32
+	yaw              f32
+	head_yaw         f32
+	spawned          bool
+	inv_opened       bool
+	game_mode        int
 	inv_stacks       map[int]types.ItemStack
 	inv_next_id      int = 1
 	pending_creative ?types.ItemStack
@@ -244,35 +244,35 @@ fn (mut s NetworkSession) start_game() ! {
 		s.game_mode = data.gamemode
 	}
 	s.transport.send(&protocol.StartGamePacket{
-		entity_unique_id:            i64(s.runtime_id)
-		entity_runtime_id:           s.runtime_id
-		player_game_mode:            s.game_mode
-		player_position:             s.position
-		pitch:                       0.0
-		yaw:                         0.0
-		world_seed:                  0
-		spawn_biome_type:            0
-		dimension:                   0
-		generator:                   1
-		world_game_mode:             s.game_mode
-		difficulty:                  1
-		world_spawn:                 types.BlockPosition{0, spawn_y, 0}
-		commands_enabled:            true
-		multi_player_game:           true
-		server_chunk_tick_radius:    s.cfg.view_distance
-		player_permissions:          2
-		base_game_version:           protocol.minecraft_version_network
-		game_version:                protocol.minecraft_version_network
-		level_id:                    'Vedrock'
-		world_name:                  s.cfg.motd
-		multi_player_correlation_id: '00000000-0000-0000-0000-000000000000'
+		entity_unique_id:               i64(s.runtime_id)
+		entity_runtime_id:              s.runtime_id
+		player_game_mode:               s.game_mode
+		player_position:                s.position
+		pitch:                          0.0
+		yaw:                            0.0
+		world_seed:                     0
+		spawn_biome_type:               0
+		dimension:                      0
+		generator:                      1
+		world_game_mode:                s.game_mode
+		difficulty:                     1
+		world_spawn:                    types.BlockPosition{0, spawn_y, 0}
+		commands_enabled:               true
+		multi_player_game:              true
+		server_chunk_tick_radius:       s.cfg.view_distance
+		player_permissions:             2
+		base_game_version:              protocol.minecraft_version_network
+		game_version:                   protocol.minecraft_version_network
+		level_id:                       'Vedrock'
+		world_name:                     s.cfg.motd
+		multi_player_correlation_id:    '00000000-0000-0000-0000-000000000000'
 		server_authoritative_inventory: true
 		use_block_network_id_hashes:    s.generator.uses_blocks()
-		property_data:               nbt.RootTag{
+		property_data:                  nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
 		}
-		blocks: []protocol.BlockEntry{}
+		blocks:                         []protocol.BlockEntry{}
 	})!
 	s.transport.send(s.item_registry())!
 	s.transport.send(s.creative_content())!

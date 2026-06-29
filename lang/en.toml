@@ -1,0 +1,46 @@
+# en.toml - English (US)
+
+[server.starting]
+other = "Starting Vedrock for Minecraft Bedrock {{.Version}} (protocol {{.Protocol}})"
+
+[server.listening]
+other = "Listening on {{.Address}}"
+
+[server.stopping]
+other = "Stopping server"
+
+[server.gamedata_loaded]
+other = "Loaded {{.Items}} items and {{.CreativeItems}} creative entries"
+
+[server.world_loaded]
+other = "Loaded world with {{.Blocks}} stored block changes"
+
+[player.join_log]
+other = "{{.Name}} joined the game"
+
+[player.leave_log]
+other = "{{.Name}} left the game ({{.Online}} online)"
+
+[player.incoming]
+other = "Incoming connection from {{.Address}}"
+
+[command.unknown]
+other = "§cUnknown command: {{.Name}}"
+
+[command.empty]
+other = "§cEmpty command"
+
+[command.version.body]
+other = "This server is running §a{{.Software}}§r\nServer version: §a{{.Version}}§r (git: §a{{.Hash}}§r)\nCompatible MC: §a{{.MCVersion}}§r (protocol §a{{.Protocol}}§r)"
+
+[command.status.header]
+other = "§a---- §6Server status §a----§r"
+
+[command.gamemode.usage]
+other = "§cUsage: /gamemode <survival|creative|adventure|spectator>"
+
+[command.gamemode.unknown]
+other = "§cUnknown game mode: {{.Mode}}"
+
+[command.gamemode.set]
+other = "Set game mode to §a{{.Mode}}§r"

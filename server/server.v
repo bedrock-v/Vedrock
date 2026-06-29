@@ -5,6 +5,7 @@ import time
 import raknet
 import protocol
 import logger
+import language
 import config
 import network
 import session
@@ -21,8 +22,9 @@ mut:
 	guid     i64
 	running  bool
 pub mut:
-	log &logger.Logger
-	cfg config.Config
+	log  &logger.Logger
+	lang &language.Lang
+	cfg  config.Config
 }
 
 pub fn new(cfg config.Config) &Server {
@@ -31,6 +33,13 @@ pub fn new(cfg config.Config) &Server {
 		level = .debug
 	}
 	log := logger.new(level)
+	lang := language.load(cfg.language) or {
+		log.warn('Failed to load language "${cfg.language}", falling back to en: ${err}')
+		language.load('en') or {
+			log.error('Failed to load fallback language: ${err}')
+			panic(err)
+		}
+	}
 	data := gamedata.load('data') or {
 		log.warn('Failed to load game data from ./data: ${err}')
 		gamedata.GameData{}
@@ -46,6 +55,7 @@ pub fn new(cfg config.Config) &Server {
 	}
 	return &Server{
 		log:  log
+		lang: lang
 		cfg:  cfg
 		hub:  hub
 		guid: rand.i64()
@@ -53,7 +63,11 @@ pub fn new(cfg config.Config) &Server {
 }
 
 pub fn (mut s Server) start() ! {
-	s.log.info('Starting Vedrock for Minecraft Bedrock ${protocol.minecraft_version_network} (protocol ${protocol.current_protocol})')
+	// s.log.info('Starting Vedrock for Minecraft Bedrock ${protocol.minecraft_version_network} (protocol ${protocol.current_protocol})')
+	s.log.info(s.lang.tf('server.starting', {
+		'Version':  protocol.minecraft_version_network
+		'Protocol': protocol.current_protocol.str()
+	}))
 	mut listener := raknet.listen(s.cfg.bind_address())!
 	listener.set_pong_data(s.pong_data(0).bytes())
 	s.listener = listener
@@ -116,20 +130,9 @@ fn (mut s Server) handle(mut conn raknet.Conn) {
 
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
-	return [
-		'MCPE',
-		s.cfg.motd,
-		protocol.current_protocol.str(),
-		protocol.minecraft_version_network,
-		online.str(),
-		s.cfg.max_players.str(),
-		s.guid.str(),
-		s.cfg.sub_motd,
-		gamemode,
-		gamemode_num.str(),
-		s.cfg.port.str(),
-		s.cfg.port.str(),
-	].join(';') + ';'
+	return
+		['MCPE', s.cfg.motd, protocol.current_protocol.str(), protocol.minecraft_version_network, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
+		';'
 }
 
 fn normalize_gamemode(name string) (string, int) {

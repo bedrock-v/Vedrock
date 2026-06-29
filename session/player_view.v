@@ -119,23 +119,23 @@ fn (s &NetworkSession) player_list_remove_packet() &protocol.PlayerListPacket {
 
 fn (s &NetworkSession) add_player_packet() &protocol.AddPlayerPacket {
 	return &protocol.AddPlayerPacket{
-		uuid:             s.uuid()
-		username:         s.identity.display_name
-		actor_runtime_id: s.runtime_id
-		platform_chat_id: ''
-		position:         s.position
-		motion:           types.Vector3{0.0, 0.0, 0.0}
-		pitch:            s.pitch
-		yaw:              s.yaw
-		head_yaw:         s.head_yaw
-		item:             types.ItemStackWrapper{}
-		game_mode:        gamemode_id(s.cfg.gamemode)
-		metadata:         []types.MetadataEntry{}
+		uuid:              s.uuid()
+		username:          s.identity.display_name
+		actor_runtime_id:  s.runtime_id
+		platform_chat_id:  ''
+		position:          s.position
+		motion:            types.Vector3{0.0, 0.0, 0.0}
+		pitch:             s.pitch
+		yaw:               s.yaw
+		head_yaw:          s.head_yaw
+		item:              types.ItemStackWrapper{}
+		game_mode:         gamemode_id(s.cfg.gamemode)
+		metadata:          []types.MetadataEntry{}
 		synced_properties: types.PropertySyncData{}
-		abilities:        s.build_abilities()
-		links:            []types.EntityLink{}
-		device_id:        ''
-		build_platform:   -1
+		abilities:         s.build_abilities()
+		links:             []types.EntityLink{}
+		device_id:         ''
+		build_platform:    -1
 	}
 }
 

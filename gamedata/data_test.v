@@ -10,9 +10,7 @@ fn test_block_network_id_from_nbt() {
 }
 
 fn test_load_game_data() {
-	data := load('../data') or {
-		load('data') or { panic('cannot find data dir: ${err}') }
-	}
+	data := load('../data') or { load('data') or { panic('cannot find data dir: ${err}') } }
 	assert data.item_entries.len > 1000
 	assert data.item_id('minecraft:stone') != 0
 	assert data.creative_items.len > 0
