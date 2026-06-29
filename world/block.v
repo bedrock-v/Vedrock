@@ -35,23 +35,11 @@ pub fn new_block_with_states(name string, states []BlockState) Block {
 	}
 }
 
-pub const air = new_block('minecraft:air')
-pub const stone = new_block('minecraft:stone')
-pub const grass_block = new_block('minecraft:grass_block')
-pub const bedrock = new_block_with_states('minecraft:bedrock', [
-	BlockState{
-		key:        'infiniburn_bit'
-		kind:       state_kind_byte
-		byte_value: 0
-	},
-])
-pub const dirt = new_block_with_states('minecraft:dirt', [
-	BlockState{
-		key:        'dirt_type'
-		kind:       state_kind_string
-		string_val: 'normal'
-	},
-])
+pub const air = Block{name: 'minecraft:air', network_id: 1945873938}
+pub const stone = Block{name: 'minecraft:stone', network_id: -986268119}
+pub const grass_block = Block{name: 'minecraft:grass_block', network_id: -1292152183}
+pub const bedrock = Block{name: 'minecraft:bedrock', network_id: -1328953930}
+pub const dirt = Block{name: 'minecraft:dirt', network_id: 1761264766}
 
 fn block_state_hash(name string, states []BlockState) int {
 	if name == 'minecraft:unknown' {
