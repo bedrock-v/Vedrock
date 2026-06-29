@@ -4,6 +4,7 @@ import sync
 import time
 import protocol
 import gamedata
+import language
 import command
 import storage
 
@@ -16,7 +17,8 @@ mut:
 pub mut:
 	world_time   int
 	data         gamedata.GameData
-	commands     command.Registry = command.new_registry()
+	lang         &language.Lang     = unsafe { nil }
+	commands     command.Registry   = command.new_registry()
 	started_at   i64
 	tps          f64 = 20.0
 	load         f64

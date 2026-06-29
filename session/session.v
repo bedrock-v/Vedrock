@@ -423,6 +423,7 @@ fn (mut s NetworkSession) run_command(line string) ! {
 		return
 	}
 	ctx := command.Context{
+		lang:           s.hub.lang
 		sender_name:    s.identity.display_name
 		player_count:   s.hub.count()
 		max_players:    s.cfg.max_players

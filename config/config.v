@@ -84,6 +84,7 @@ gamemode: "${cfg.gamemode}"
 xbox-auth: ${cfg.xbox_auth}
 compression-threshold: ${cfg.compression_threshold}
 generator: "${cfg.generator}"
+language: "${cfg.language}"
 debug: ${cfg.debug}
 '
 	os.write_file(path, content)!

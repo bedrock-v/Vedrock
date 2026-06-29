@@ -46,6 +46,7 @@ pub fn new(cfg config.Config) &Server {
 	}
 	log.info('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
 	mut hub := session.new_hub(data)
+	hub.lang = lang
 	if store := storage.open_world('worlds/world/db') {
 		hub.world_store = store
 		hub.load_world()
