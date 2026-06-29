@@ -16,11 +16,21 @@ fn player_attribute(id string, min f32, max f32, current f32) types.UpdateAttrib
 	}
 }
 
+fn (s &NetworkSession) health_update() &protocol.UpdateAttributesPacket {
+	return &protocol.UpdateAttributesPacket{
+		actor_runtime_id: s.runtime_id
+		entries:          [
+			player_attribute('minecraft:health', 0.0, 20.0, s.health),
+		]
+		tick:             0
+	}
+}
+
 fn (s &NetworkSession) update_attributes() &protocol.UpdateAttributesPacket {
 	return &protocol.UpdateAttributesPacket{
 		actor_runtime_id: s.runtime_id
 		entries:          [
-			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
+			player_attribute('minecraft:health', 0.0, 20.0, s.health),
 			player_attribute('minecraft:movement', 0.0, 3.4028235e38, 0.1),
 			player_attribute('minecraft:player.hunger', 0.0, 20.0, 20.0),
 			player_attribute('minecraft:player.saturation', 0.0, 20.0, 20.0),

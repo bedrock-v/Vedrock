@@ -136,6 +136,15 @@ pub fn (d &GameData) item_for_block(block_runtime_id int) int {
 	return d.item_id_by_block[block_runtime_id] or { 0 }
 }
 
+pub fn (d &GameData) item_name(id int) string {
+	for name, item_id in d.item_id_by_name {
+		if item_id == id {
+			return name
+		}
+	}
+	return ''
+}
+
 pub fn (d &GameData) item_id(name string) int {
 	return d.item_id_by_name[name] or { 0 }
 }

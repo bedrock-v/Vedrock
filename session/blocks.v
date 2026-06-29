@@ -1,5 +1,6 @@
 module session
 
+import math
 import protocol
 import protocol.types
 import protocol.enums
@@ -32,6 +33,13 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 }
 
 fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTransactionPacket) ! {
+	if p.transaction_type == protocol.inventory_transaction_type_use_item_on_entity {
+		ue := p.use_item_on_entity
+		if ue.action_type == item_use_on_entity_attack {
+			s.handle_attack(ue.target_entity_runtime_id, ue.held_item)!
+		}
+		return
+	}
 	if p.transaction_type != protocol.inventory_transaction_type_use_item {
 		return
 	}
@@ -61,14 +69,36 @@ fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! 
 		int(enums.PlayerAction.start_break) {
 			s.broadcast_swing()
 		}
+		int(enums.PlayerAction.respawn) {
+			s.respawn()
+		}
 		else {}
 	}
 }
 
 fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) ! {
+	if s.block_at(pos.x, pos.y, pos.z) != world.air.network_id || s.intersects_player(pos) {
+		s.transport.send(&protocol.UpdateBlockPacket{
+			block_position:   pos
+			block_runtime_id: s.block_at(pos.x, pos.y, pos.z)
+			flags:            update_block_flag_network
+			data_layer_id:    0
+		})!
+		return
+	}
 	s.hub.set_world_block(pos.x, pos.y, pos.z, runtime_id)
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
+}
+
+fn (s &NetworkSession) intersects_player(pos types.BlockPosition) bool {
+	px := int(math.floor(s.position.x))
+	py := int(math.floor(s.position.y))
+	pz := int(math.floor(s.position.z))
+	if pos.x != px || pos.z != pz {
+		return false
+	}
+	return pos.y == py || pos.y == py + 1
 }
 
 fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {

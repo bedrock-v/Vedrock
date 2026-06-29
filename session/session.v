@@ -1,5 +1,6 @@
 module session
 
+import math
 import network
 import auth
 import protocol
@@ -45,6 +46,10 @@ mut:
 	spawned          bool
 	inv_opened       bool
 	game_mode        int
+	health           f32 = 20.0
+	prev_y           f32
+	vy               f32
+	dead             bool
 	inv_stacks       map[int]types.ItemStack
 	inv_next_id      int = 1
 	pending_creative ?types.ItemStack
@@ -109,6 +114,8 @@ fn (mut s NetworkSession) leave() {
 }
 
 fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) {
+	s.vy = position.y - s.prev_y
+	s.prev_y = position.y
 	s.position = position
 	s.pitch = pitch
 	s.yaw = yaw
@@ -301,7 +308,7 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 		radius: radius
 	})!
 	s.transport.send(&protocol.NetworkChunkPublisherUpdatePacket{
-		block_position: types.BlockPosition{0, 64, 0}
+		block_position: types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
 		radius:         radius * 16
 		saved_chunks:   []types.ChunkPosition{}
 	})!
@@ -313,8 +320,10 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 }
 
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
-	for x in -radius .. radius + 1 {
-		for z in -radius .. radius + 1 {
+	cx := int(math.floor(f64(s.position.x))) >> 4
+	cz := int(math.floor(f64(s.position.z))) >> 4
+	for x in cx - radius .. cx + radius + 1 {
+		for z in cz - radius .. cz + radius + 1 {
 			mut chunk := s.generator.generate(x, z)
 			for ov in s.hub.overrides_in_chunk(x, z) {
 				chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
@@ -344,19 +353,16 @@ fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
 		window_id:       0
 		window_type:     inventory_container_type
 		block_position:  types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
-		actor_unique_id: -1
+		actor_unique_id: i64(s.runtime_id)
 	})!
 }
 
 fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket) ! {
 	s.inv_opened = false
-	if p.window_id == inventory_container_type {
-		return
-	}
 	s.transport.send(&protocol.ContainerClosePacket{
 		window_id:   p.window_id
 		window_type: p.window_type
-		server:      false
+		server:      true
 	})!
 }
 
@@ -413,7 +419,7 @@ fn (mut s NetworkSession) run_command(line string) ! {
 	parts := line.trim_left('/').trim_space().split(' ')
 	name := parts[0].to_lower()
 	if name == 'gamemode' || name == 'gm' {
-		s.send_message(s.run_gamemode(parts[1..]))!
+		s.run_gamemode(parts[1..])!
 		return
 	}
 	ctx := command.Context{
@@ -455,22 +461,35 @@ fn parse_gamemode(arg string) ?int {
 	}
 }
 
-fn gamemode_name(mode int) string {
+fn gamemode_translation_key(mode int) string {
 	return match mode {
-		0 { 'Survival' }
-		2 { 'Adventure' }
-		6 { 'Spectator' }
-		else { 'Creative' }
+		0 { 'gameMode.survival' }
+		2 { 'gameMode.adventure' }
+		6 { 'gameMode.spectator' }
+		else { 'gameMode.creative' }
 	}
 }
 
-fn (mut s NetworkSession) run_gamemode(args []string) string {
+fn (mut s NetworkSession) run_gamemode(args []string) ! {
 	if args.len == 0 {
-		return '§cUsage: /gamemode <survival|creative|adventure|spectator>'
+		s.send_translation('§c%commands.gamemode.usage', [])!
+		return
 	}
-	mode := parse_gamemode(args[0]) or { return '§cUnknown game mode: ${args[0]}' }
+	mode := parse_gamemode(args[0]) or {
+		s.send_translation('§c%commands.gamemode.usage', [])!
+		return
+	}
 	s.set_gamemode(mode)
-	return '§aGame mode set to ${gamemode_name(mode)}'
+	s.send_translation('%commands.gamemode.success.self', ['%${gamemode_translation_key(mode)}'])!
+}
+
+fn (mut s NetworkSession) send_translation(message string, parameters []string) ! {
+	s.transport.send(&protocol.TextPacket{
+		@type:             int(enums.TextType.translation)
+		needs_translation: true
+		message:           message
+		parameters:        parameters
+	})!
 }
 
 fn (mut s NetworkSession) set_gamemode(mode int) {

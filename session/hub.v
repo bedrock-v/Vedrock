@@ -119,6 +119,16 @@ pub fn (mut h Hub) remove(runtime_id u64) {
 	h.mutex.unlock()
 }
 
+pub fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
+	h.mutex.lock()
+	target := h.sessions[runtime_id] or {
+		h.mutex.unlock()
+		return none
+	}
+	h.mutex.unlock()
+	return target
+}
+
 pub fn (mut h Hub) count() int {
 	h.mutex.lock()
 	n := h.sessions.len
