@@ -175,6 +175,19 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 
 fn (mut s NetworkSession) handle_request_network_settings(p protocol.RequestNetworkSettingsPacket) ! {
 	s.log.debug('Client requested network settings (protocol ${p.protocol_version})')
+	if p.protocol_version != protocol.current_protocol {
+		status := if p.protocol_version < protocol.current_protocol {
+			enums.PlayStatus.login_failed_client
+		} else {
+			enums.PlayStatus.login_failed_server
+		}
+		s.log.warn('Rejected client with protocol ${p.protocol_version} (server requires ${protocol.current_protocol})')
+		s.transport.send(&protocol.PlayStatusPacket{
+			status: int(status)
+		})!
+		s.disconnect('Incompatible client version. Server requires ${protocol.minecraft_version_network}.')
+		return
+	}
 	settings := &protocol.NetworkSettingsPacket{
 		compression_threshold:     s.cfg.compression_threshold
 		compression_algorithm:     int(network.compression_zlib)
