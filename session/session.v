@@ -54,6 +54,7 @@ mut:
 	inv_next_id      int = 1
 	pending_creative ?types.ItemStack
 	loaded_items     []storage.InvItem
+	pending_radius   int
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -130,16 +131,26 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 		.handshake {
 			if p is protocol.RequestNetworkSettingsPacket {
 				s.handle_request_network_settings(p)!
+			} else {
+				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state handshake')
 			}
 		}
 		.login {
 			if p is protocol.LoginPacket {
 				s.handle_login(p)!
+			} else if p is protocol.RequestChunkRadiusPacket {
+				s.pending_radius = p.radius
+			} else {
+				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state login')
 			}
 		}
 		.resource_packs {
 			if p is protocol.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
+			} else if p is protocol.RequestChunkRadiusPacket {
+				s.pending_radius = p.radius
+			} else {
+				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state resource_packs')
 			}
 		}
 		.play {
@@ -307,6 +318,11 @@ fn (mut s NetworkSession) start_game() ! {
 	s.transport.send(s.set_actor_data())!
 	s.log.info('${s.identity.display_name} joined the game')
 	s.state = .play
+	if s.pending_radius > 0 {
+		radius := s.pending_radius
+		s.pending_radius = 0
+		s.handle_request_chunk_radius(protocol.RequestChunkRadiusPacket{ radius: radius })!
+	}
 }
 
 fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRadiusPacket) ! {
