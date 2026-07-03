@@ -23,12 +23,12 @@ fn test_batch_roundtrip_nop_below_threshold() {
 	assert decoded[0] == packets[0]
 }
 
-fn test_batch_roundtrip_zlib_above_threshold() {
+fn test_batch_roundtrip_flate_above_threshold() {
 	mut big := []u8{len: 2048, init: u8(0x41)}
 	packets := [big]
 	encoded := encode_batch(packets, true, 256)!
 	assert encoded[0] == game_packet_header
-	assert encoded[1] == compression_zlib
+	assert encoded[1] == compression_flate
 	assert encoded.len < 1 + 1 + big.len
 	decoded := decode_batch(encoded, true)!
 	assert decoded.len == 1

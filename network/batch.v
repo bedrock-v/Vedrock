@@ -4,7 +4,7 @@ import compress.deflate
 import protocol.serializer
 
 pub const game_packet_header = u8(0xfe)
-pub const compression_zlib = u8(0x00)
+pub const compression_flate = u8(0x00)
 pub const compression_none = u8(0xff)
 
 pub fn encode_batch(packets [][]u8, compression_enabled bool, threshold int) ![]u8 {
@@ -25,8 +25,8 @@ pub fn encode_batch(packets [][]u8, compression_enabled bool, threshold int) ![]
 		out << batch
 		return out
 	}
-	out << compression_zlib
-	out << deflate.compress(batch)!
+	out << compression_flate
+	out << deflate.compress_raw(batch)!
 	return out
 }
 
@@ -49,7 +49,7 @@ pub fn decode_batch(payload []u8, compression_enabled bool) ![][]u8 {
 		rest := body[1..]
 		batch = match algorithm {
 			compression_none { rest.clone() }
-			compression_zlib { deflate.decompress(rest)! }
+			compression_flate { deflate.decompress(rest)! }
 			else { return error('unknown compression algorithm 0x${algorithm.hex()}') }
 		}
 	}

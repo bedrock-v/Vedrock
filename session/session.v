@@ -201,7 +201,7 @@ fn (mut s NetworkSession) handle_request_network_settings(p protocol.RequestNetw
 	}
 	settings := &protocol.NetworkSettingsPacket{
 		compression_threshold:     s.cfg.compression_threshold
-		compression_algorithm:     int(network.compression_zlib)
+		compression_algorithm:     int(network.compression_flate)
 		enable_client_throttling:  false
 		client_throttle_threshold: 0
 		client_throttle_scalar:    0.0

@@ -43,7 +43,7 @@ fn test_multiple_packets_compressed_batch() {
 		protocol.encode_packet_to_bytes(settings),
 	]
 	raw := encode_batch(payloads, true, 1)!
-	assert raw[1] == compression_zlib
+	assert raw[1] == compression_flate
 	packets := decode_through_pool(raw, true)!
 	assert packets.len == 2
 	assert packets[0].name() == 'RequestNetworkSettingsPacket'
