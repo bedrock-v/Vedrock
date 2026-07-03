@@ -29,6 +29,9 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64, held types.ItemSt
 	if victim.runtime_id == s.runtime_id || victim.dead || !victim.spawned {
 		return
 	}
+	if victim.game_mode == 1 || victim.game_mode == 6 {
+		return
+	}
 	mut damage := weapon_damage(s.hub.data.item_name(held.item_stack.id))
 	critical := s.is_critical()
 	if critical {

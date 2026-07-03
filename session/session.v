@@ -126,7 +126,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	s.yaw = yaw
 	s.head_yaw = head_yaw
 	if s.spawned {
-		s.hub.broadcast_except(s.runtime_id, s.move_player_packet())
+		s.hub.broadcast_except(s.runtime_id, s.move_actor_packet())
 	}
 }
 
