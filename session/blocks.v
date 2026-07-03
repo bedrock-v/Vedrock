@@ -93,7 +93,7 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 
 fn (s &NetworkSession) intersects_player(pos types.BlockPosition) bool {
 	px := int(math.floor(s.position.x))
-	py := int(math.floor(s.position.y))
+	py := int(math.floor(s.position.y - player_eye_height))
 	pz := int(math.floor(s.position.z))
 	if pos.x != px || pos.z != pz {
 		return false

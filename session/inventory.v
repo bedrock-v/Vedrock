@@ -8,6 +8,17 @@ struct SlotChange {
 	info      protocol.StackResponseSlotInfo
 }
 
+fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! {
+	s.held_item = p.item
+	s.hub.broadcast_except(s.runtime_id, &protocol.MobEquipmentPacket{
+		actor_runtime_id: s.runtime_id
+		item:             p.item
+		inventory_slot:   p.inventory_slot
+		hotbar_slot:      p.hotbar_slot
+		window_id:        p.window_id
+	})
+}
+
 fn (mut s NetworkSession) track_stack(stack types.ItemStack) int {
 	id := s.inv_next_id
 	s.inv_next_id++

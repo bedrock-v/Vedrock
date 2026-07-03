@@ -21,6 +21,9 @@ pub const inventory_container_type = 0xff
 
 pub const players_dir = 'players'
 
+// Network positions for players are eye positions: 1.62 above the feet.
+pub const player_eye_height = f32(1.62)
+
 pub enum State {
 	handshake
 	login
@@ -50,6 +53,7 @@ mut:
 	prev_y           f32
 	vy               f32
 	dead             bool
+	held_item        types.ItemStackWrapper
 	inv_stacks       map[int]types.ItemStack
 	inv_next_id      int = 1
 	pending_creative ?types.ItemStack
@@ -67,7 +71,7 @@ pub fn new(mut transport network.Session, mut hub Hub, cfg config.Config, log &l
 		cfg:        cfg
 		generator:  generator
 		runtime_id: hub.allocate_runtime_id()
-		position:   types.Vector3{0.0, f32(generator.spawn_y()), 0.0}
+		position:   types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}
 		log:        log
 	}
 }
@@ -178,6 +182,10 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_player_action(p)!
 			} else if p is protocol.BlockPickRequestPacket {
 				s.handle_block_pick_request(p)!
+			} else if p is protocol.MobEquipmentPacket {
+				s.handle_mob_equipment(p)!
+			} else if p is protocol.RespawnPacket {
+				s.handle_respawn(p)!
 			}
 		}
 		else {}
@@ -266,7 +274,7 @@ fn (mut s NetworkSession) player_key() string {
 fn (mut s NetworkSession) start_game() ! {
 	s.game_mode = gamemode_id(s.cfg.gamemode)
 	spawn_y := s.generator.spawn_y()
-	s.position = types.Vector3{0.0, f32(spawn_y), 0.0}
+	s.position = types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
 	if data := storage.load_player(players_dir, s.player_key()) {
 		s.position = types.Vector3{data.x, data.y, data.z}
 		s.pitch = data.pitch
@@ -389,7 +397,7 @@ fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
 		window_id:       0
 		window_type:     inventory_container_type
 		block_position:  types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
-		actor_unique_id: i64(s.runtime_id)
+		actor_unique_id: -1
 	})!
 }
 
@@ -398,7 +406,7 @@ fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket
 	s.transport.send(&protocol.ContainerClosePacket{
 		window_id:   p.window_id
 		window_type: p.window_type
-		server:      true
+		server:      false
 	})!
 }
 

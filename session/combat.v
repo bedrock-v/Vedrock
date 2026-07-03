@@ -9,6 +9,10 @@ const item_use_on_entity_interact = 0
 const item_use_on_entity_attack = 1
 
 const actor_event_hurt = 2
+const actor_event_death = 3
+
+const respawn_state_ready_to_spawn = 1
+const respawn_state_client_ready = 2
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -59,7 +63,7 @@ fn (s &NetworkSession) is_critical() bool {
 }
 
 fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
-	if s.dead {
+	if s.dead || s.game_mode == 1 || s.game_mode == 6 {
 		return
 	}
 	s.health -= amount
@@ -79,6 +83,11 @@ fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
 
 fn (mut s NetworkSession) die(attacker_name string) {
 	s.dead = true
+	s.hub.broadcast_except(s.runtime_id, &protocol.ActorEventPacket{
+		actor_runtime_id: s.runtime_id
+		event_id:         actor_event_death
+		event_data:       0
+	})
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:             int(enums.TextType.translation)
 		needs_translation: true
@@ -87,17 +96,26 @@ fn (mut s NetworkSession) die(attacker_name string) {
 	})
 }
 
+fn (mut s NetworkSession) handle_respawn(p protocol.RespawnPacket) ! {
+	if p.respawn_state == respawn_state_client_ready {
+		s.respawn()
+	}
+}
+
 fn (mut s NetworkSession) respawn() {
+	if !s.dead {
+		return
+	}
 	s.dead = false
 	s.health = 20.0
 	spawn_y := s.generator.spawn_y()
-	s.position = types.Vector3{0.0, f32(spawn_y), 0.0}
+	s.position = types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
 	s.prev_y = s.position.y
 	s.vy = 0.0
 	s.transport.send(s.health_update()) or {}
 	s.transport.send(&protocol.RespawnPacket{
 		position:         s.position
-		respawn_state:    1
+		respawn_state:    respawn_state_ready_to_spawn
 		actor_runtime_id: s.runtime_id
 	}) or {}
 	s.transport.send(&protocol.MovePlayerPacket{
@@ -109,6 +127,9 @@ fn (mut s NetworkSession) respawn() {
 		mode:             1
 		on_ground:        false
 	}) or {}
+	// Remote clients played the death animation; respawn the actor for them.
+	s.hub.broadcast_except(s.runtime_id, s.remove_actor_packet())
+	s.hub.broadcast_except(s.runtime_id, s.add_player_packet())
 }
 
 fn (mut s NetworkSession) apply_knockback(from types.Vector3) {
