@@ -5,6 +5,7 @@ import protocol.enums
 import protocol.types
 import protocol.serializer
 import gamedata
+import auth
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := protocol.new_packet_pool()
@@ -116,6 +117,30 @@ fn test_add_player_roundtrip() {
 	if decoded is protocol.AddPlayerPacket {
 		assert decoded.username == 'Alex'
 		assert decoded.actor_runtime_id == 9
+	} else {
+		assert false
+	}
+}
+
+fn test_add_player_visible_nametag_metadata() {
+	s := &NetworkSession{
+		identity:   auth.Identity{
+			display_name: 'Alex'
+		}
+		runtime_id: 9
+	}
+	p := s.add_player_packet()
+	assert p.metadata.len == 3
+	assert p.metadata[0].key == meta_key_flags
+	assert p.metadata[1].key == meta_key_name
+	assert p.metadata[2].key == meta_key_always_show_name_tag
+	if p.metadata[1].value is types.MetaString {
+		assert p.metadata[1].value.value == 'Alex'
+	} else {
+		assert false
+	}
+	if p.metadata[2].value is types.MetaByte {
+		assert p.metadata[2].value.value == 1
 	} else {
 		assert false
 	}

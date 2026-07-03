@@ -130,7 +130,7 @@ fn (s &NetworkSession) add_player_packet() &protocol.AddPlayerPacket {
 		head_yaw:          s.head_yaw
 		item:              types.ItemStackWrapper{}
 		game_mode:         gamemode_id(s.cfg.gamemode)
-		metadata:          []types.MetadataEntry{}
+		metadata:          visible_name_metadata(s.identity.display_name)
 		synced_properties: types.PropertySyncData{}
 		abilities:         s.build_abilities()
 		links:             []types.EntityLink{}
