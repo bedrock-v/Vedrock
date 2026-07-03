@@ -4,28 +4,28 @@ import protocol
 
 fn gamemode_id(name string) int {
 	return match name.to_lower() {
-		'survival' { 0 }
-		'adventure' { 2 }
-		'spectator' { 6 }
-		else { 1 }
+		'survival' { protocol.game_type_survival }
+		'adventure' { protocol.game_type_adventure }
+		'spectator' { protocol.game_type_spectator }
+		else { protocol.game_type_creative }
 	}
 }
 
 fn parse_gamemode(arg string) ?int {
 	return match arg.to_lower() {
-		'survival', 's', '0' { 0 }
-		'creative', 'c', '1' { 1 }
-		'adventure', 'a', '2' { 2 }
-		'spectator', 'sp', '6' { 6 }
+		'survival', 's', '0' { protocol.game_type_survival }
+		'creative', 'c', '1' { protocol.game_type_creative }
+		'adventure', 'a', '2' { protocol.game_type_adventure }
+		'spectator', 'sp', '6' { protocol.game_type_spectator }
 		else { none }
 	}
 }
 
 fn gamemode_translation_key(mode int) string {
 	return match mode {
-		0 { 'gameMode.survival' }
-		2 { 'gameMode.adventure' }
-		6 { 'gameMode.spectator' }
+		protocol.game_type_survival { 'gameMode.survival' }
+		protocol.game_type_adventure { 'gameMode.adventure' }
+		protocol.game_type_spectator { 'gameMode.spectator' }
 		else { 'gameMode.creative' }
 	}
 }
@@ -40,7 +40,9 @@ fn (mut s NetworkSession) run_gamemode(args []string) ! {
 		return
 	}
 	s.set_gamemode(mode)
-	s.send_translation('%commands.gamemode.success.self', ['%${gamemode_translation_key(mode)}'])!
+	s.send_translation('%commands.gamemode.success.self', [
+		'%${gamemode_translation_key(mode)}',
+	])!
 }
 
 fn (mut s NetworkSession) set_gamemode(mode int) {

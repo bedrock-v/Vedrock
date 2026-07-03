@@ -18,7 +18,8 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64, held types.ItemSt
 	if victim.runtime_id == s.runtime_id || victim.dead || !victim.spawned {
 		return
 	}
-	if victim.game_mode == 1 || victim.game_mode == 6 {
+	if victim.game_mode == protocol.game_type_creative
+		|| victim.game_mode == protocol.game_type_spectator {
 		return
 	}
 	mut damage := weapon_damage(s.hub.data.item_name(held.item_stack.id))
@@ -48,14 +49,15 @@ fn (mut s NetworkSession) broadcast_critical(target_runtime_id u64, position typ
 }
 
 fn (s &NetworkSession) is_critical() bool {
-	if s.game_mode == 1 || s.game_mode == 6 {
+	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_spectator {
 		return false
 	}
 	return s.vy < -0.08
 }
 
 fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
-	if s.dead || s.game_mode == 1 || s.game_mode == 6 {
+	if s.dead || s.game_mode == protocol.game_type_creative
+		|| s.game_mode == protocol.game_type_spectator {
 		return
 	}
 	s.health -= amount

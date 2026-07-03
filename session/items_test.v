@@ -32,7 +32,7 @@ fn test_inventory_content_roundtrip() {
 fn test_container_open_roundtrip() {
 	decoded := decode_packet(&protocol.ContainerOpenPacket{
 		window_id:       0
-		window_type:     inventory_container_type
+		window_type:     protocol.container_type_inventory
 		block_position:  types.BlockPosition{0, 64, 0}
 		actor_unique_id: -1
 	})!
