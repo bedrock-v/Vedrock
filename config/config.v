@@ -44,6 +44,12 @@ pub fn load_from(path string) !Config {
 	cfg.compression_threshold = (values['compression-threshold'] or {
 		cfg.compression_threshold.str()
 	}).int()
+	// the threshold is sent to clients as a u16 in NetworkSettings
+	if cfg.compression_threshold < 0 {
+		cfg.compression_threshold = 0
+	} else if cfg.compression_threshold > 65535 {
+		cfg.compression_threshold = 65535
+	}
 	cfg.generator = values['generator'] or { cfg.generator }
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg

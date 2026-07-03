@@ -351,6 +351,7 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 	cx := int(math.floor(f64(s.position.x))) >> 4
 	cz := int(math.floor(f64(s.position.z))) >> 4
+	mut pending := 0
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
 			mut chunk := s.generator.generate(x, z)
@@ -365,6 +366,11 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 				cache_enabled:   false
 				extra_payload:   chunk.serialize().bytestr()
 			})
+			pending++
+			if pending >= 4 {
+				s.transport.flush()!
+				pending = 0
+			}
 		}
 	}
 	s.transport.flush()!
