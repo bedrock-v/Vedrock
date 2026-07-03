@@ -130,17 +130,17 @@ fn test_add_player_visible_nametag_metadata() {
 		runtime_id: 9
 	}
 	p := s.add_player_packet()
-	assert p.metadata.len == 3
+	assert p.metadata.len == 8
 	assert p.metadata[0].key == meta_key_flags
-	assert p.metadata[1].key == meta_key_name
-	assert p.metadata[2].key == meta_key_always_show_name_tag
-	if p.metadata[1].value is types.MetaString {
-		assert p.metadata[1].value.value == 'Alex'
+	assert p.metadata[2].key == meta_key_name
+	assert p.metadata[7].key == meta_key_always_show_name_tag
+	if p.metadata[2].value is types.MetaString {
+		assert p.metadata[2].value.value == 'Alex'
 	} else {
 		assert false
 	}
-	if p.metadata[2].value is types.MetaByte {
-		assert p.metadata[2].value.value == 1
+	if p.metadata[7].value is types.MetaByte {
+		assert p.metadata[7].value.value == 1
 	} else {
 		assert false
 	}
