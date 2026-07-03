@@ -6,13 +6,6 @@ import protocol.types
 import protocol.enums
 import world
 
-const item_use_click_block = 0
-const item_use_destroy_block = 2
-
-const update_block_flag_network = 3
-const animate_action_swing_arm = 1
-const level_event_particles_destroy_block = 2001
-
 fn (s &NetworkSession) block_at(x int, y int, z int) int {
 	if id := s.hub.world_block_override(x, y, z) {
 		return id
@@ -35,7 +28,7 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTransactionPacket) ! {
 	if p.transaction_type == protocol.inventory_transaction_type_use_item_on_entity {
 		ue := p.use_item_on_entity
-		if ue.action_type == item_use_on_entity_attack {
+		if ue.action_type == protocol.item_use_on_entity_action_attack {
 			s.handle_attack(ue.target_entity_runtime_id, ue.held_item)!
 		}
 		return
@@ -45,7 +38,7 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 	}
 	ut := p.use_item
 	match ut.action_type {
-		item_use_click_block {
+		protocol.item_use_action_click_block {
 			runtime_id := ut.held_item.item_stack.block_runtime_id
 			if runtime_id == 0 {
 				return
@@ -53,7 +46,7 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 			target := face_offset(ut.block_position, int(ut.block_face))
 			s.place_block(target, runtime_id)!
 		}
-		item_use_destroy_block {
+		protocol.item_use_action_destroy_block {
 			s.break_block(ut.block_position)!
 		}
 		else {}
@@ -81,7 +74,7 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 		s.transport.send(&protocol.UpdateBlockPacket{
 			block_position:   pos
 			block_runtime_id: s.block_at(pos.x, pos.y, pos.z)
-			flags:            update_block_flag_network
+			flags:            protocol.update_block_flag_network
 			data_layer_id:    0
 		})!
 		return
@@ -115,7 +108,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 
 fn (mut s NetworkSession) broadcast_destroy_particles(pos types.BlockPosition, runtime_id int) {
 	s.hub.broadcast(&protocol.LevelEventPacket{
-		event_id:   level_event_particles_destroy_block
+		event_id:   protocol.level_event_particles_destroy_block
 		position:   types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 		event_data: runtime_id
 	})
@@ -125,14 +118,14 @@ fn (mut s NetworkSession) broadcast_block_update(pos types.BlockPosition, runtim
 	s.hub.broadcast(&protocol.UpdateBlockPacket{
 		block_position:   pos
 		block_runtime_id: runtime_id
-		flags:            update_block_flag_network
+		flags:            protocol.update_block_flag_network
 		data_layer_id:    0
 	})
 }
 
 fn (mut s NetworkSession) broadcast_swing() {
 	s.hub.broadcast_except(s.runtime_id, &protocol.AnimatePacket{
-		action:           animate_action_swing_arm
+		action:           protocol.animate_action_swing_arm
 		actor_runtime_id: s.runtime_id
 	})
 }

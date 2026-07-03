@@ -5,20 +5,9 @@ import protocol
 import protocol.types
 import protocol.enums
 
-const item_use_on_entity_interact = 0
-const item_use_on_entity_attack = 1
-
-const actor_event_hurt = 2
-const actor_event_death = 3
-
-const respawn_state_ready_to_spawn = 1
-const respawn_state_client_ready = 2
-
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
 const critical_multiplier = f32(1.5)
-
-const animate_action_critical_hit = 4
 const sound_attack_strong = 'game.player.attack.strong'
 
 fn (mut s NetworkSession) handle_attack(target_runtime_id u64, held types.ItemStackWrapper) ! {
@@ -46,7 +35,7 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64, held types.ItemSt
 
 fn (mut s NetworkSession) broadcast_critical(target_runtime_id u64, position types.Vector3) {
 	s.hub.broadcast(&protocol.AnimatePacket{
-		action:           animate_action_critical_hit
+		action:           protocol.animate_action_critical_hit
 		actor_runtime_id: target_runtime_id
 	})
 	s.hub.broadcast(&protocol.LevelSoundEventPacket{
@@ -76,7 +65,7 @@ fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
 	s.transport.send(s.health_update()) or {}
 	s.hub.broadcast(&protocol.ActorEventPacket{
 		actor_runtime_id: s.runtime_id
-		event_id:         actor_event_hurt
+		event_id:         protocol.actor_event_hurt
 		event_data:       0
 	})
 	if s.health <= 0 {
@@ -88,7 +77,7 @@ fn (mut s NetworkSession) die(attacker_name string) {
 	s.dead = true
 	s.hub.broadcast_except(s.runtime_id, &protocol.ActorEventPacket{
 		actor_runtime_id: s.runtime_id
-		event_id:         actor_event_death
+		event_id:         protocol.actor_event_death
 		event_data:       0
 	})
 	s.hub.broadcast(&protocol.TextPacket{
@@ -100,7 +89,7 @@ fn (mut s NetworkSession) die(attacker_name string) {
 }
 
 fn (mut s NetworkSession) handle_respawn(p protocol.RespawnPacket) ! {
-	if p.respawn_state == respawn_state_client_ready {
+	if p.respawn_state == protocol.respawn_state_client_ready {
 		s.respawn()
 	}
 }
@@ -118,7 +107,7 @@ fn (mut s NetworkSession) respawn() {
 	s.transport.send(s.health_update()) or {}
 	s.transport.send(&protocol.RespawnPacket{
 		position:         s.position
-		respawn_state:    respawn_state_ready_to_spawn
+		respawn_state:    protocol.respawn_state_ready_to_spawn
 		actor_runtime_id: s.runtime_id
 	}) or {}
 	s.transport.send(&protocol.MovePlayerPacket{

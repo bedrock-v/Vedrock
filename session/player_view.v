@@ -139,12 +139,10 @@ fn (s &NetworkSession) add_player_packet() &protocol.AddPlayerPacket {
 	}
 }
 
-const move_actor_flag_on_ground = 1
-
 fn (s &NetworkSession) move_actor_packet() &protocol.MoveActorAbsolutePacket {
 	return &protocol.MoveActorAbsolutePacket{
 		actor_runtime_id: s.runtime_id
-		flags:            move_actor_flag_on_ground
+		flags:            protocol.move_actor_flag_on_ground
 		position:         s.position
 		pitch:            s.pitch
 		yaw:              s.yaw
