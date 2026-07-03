@@ -67,7 +67,7 @@ fn test_update_abilities_roundtrip() {
 	if decoded is protocol.UpdateAbilitiesPacket {
 		assert decoded.data.target_actor_unique_id == 7
 		assert decoded.data.layers.len == 1
-		assert decoded.data.layers[0].set_ability_values & ability_bit(ability_may_fly) != 0
+		assert decoded.data.layers[0].set_ability_values & ability_bit(protocol.ability_may_fly) != 0
 	} else {
 		assert false
 	}
@@ -131,9 +131,9 @@ fn test_add_player_visible_nametag_metadata() {
 	}
 	p := s.add_player_packet()
 	assert p.metadata.len == 8
-	assert p.metadata[0].key == meta_key_flags
-	assert p.metadata[2].key == meta_key_name
-	assert p.metadata[7].key == meta_key_always_show_name_tag
+	assert p.metadata[0].key == protocol.meta_key_flags
+	assert p.metadata[2].key == protocol.meta_key_name
+	assert p.metadata[7].key == protocol.meta_key_always_show_name_tag
 	if p.metadata[2].value is types.MetaString {
 		assert p.metadata[2].value.value == 'Alex'
 	} else {

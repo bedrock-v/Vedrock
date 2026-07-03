@@ -46,12 +46,12 @@ fn test_container_open_roundtrip() {
 }
 
 fn test_set_actor_data_flags_roundtrip() {
-	flags := entity_flag_bit(entity_flag_affected_by_gravity) | entity_flag_bit(entity_flag_has_collision)
+	flags := entity_flag_bit(protocol.entity_flag_affected_by_gravity) | entity_flag_bit(protocol.entity_flag_has_collision)
 	decoded := decode_packet(&protocol.SetActorDataPacket{
 		actor_runtime_id: 1
 		metadata:         [
 			types.MetadataEntry{
-				key:   meta_key_flags
+				key:   protocol.meta_key_flags
 				value: types.MetaLong{
 					value: flags
 				}
@@ -61,7 +61,7 @@ fn test_set_actor_data_flags_roundtrip() {
 	assert decoded.name() == 'SetActorDataPacket'
 	if decoded is protocol.SetActorDataPacket {
 		assert decoded.metadata.len == 1
-		assert decoded.metadata[0].key == meta_key_flags
+		assert decoded.metadata[0].key == protocol.meta_key_flags
 	} else {
 		assert false
 	}

@@ -38,15 +38,15 @@ fn (mut s NetworkSession) start_game() ! {
 		yaw:                            0.0
 		world_seed:                     0
 		spawn_biome_type:               0
-		dimension:                      0
-		generator:                      1
+		dimension:                      int(enums.DimensionIds.overworld)
+		generator:                      protocol.world_generator_overworld
 		world_game_mode:                s.game_mode
-		difficulty:                     1
+		difficulty:                     protocol.difficulty_easy
 		world_spawn:                    types.BlockPosition{0, spawn_y, 0}
 		commands_enabled:               true
 		multi_player_game:              true
 		server_chunk_tick_radius:       s.cfg.view_distance
-		player_permissions:             2
+		player_permissions:             protocol.permission_level_operator
 		base_game_version:              protocol.minecraft_version_network
 		game_version:                   protocol.minecraft_version_network
 		level_id:                       'Vedrock'
