@@ -48,3 +48,10 @@ fn (s &NetworkSession) build_abilities() protocol.AbilitiesData {
 		layers:                 [build_ability_layer(creative)]
 	}
 }
+
+fn adventure_settings() &protocol.UpdateAdventureSettingsPacket {
+	return &protocol.UpdateAdventureSettingsPacket{
+		show_name_tags: true
+		auto_jump:      true
+	}
+}
