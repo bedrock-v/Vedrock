@@ -26,7 +26,7 @@ pub fn encode_batch(packets [][]u8, compression_enabled bool, threshold int) ![]
 		return out
 	}
 	out << compression_flate
-	out << deflate.compress_raw(batch)!
+	out << deflate.compress(batch)!
 	return out
 }
 
