@@ -70,7 +70,7 @@ pub fn (mut s Server) start() ! {
 		'Protocol': protocol.current_protocol.str()
 	}))
 	mut listener := raknet.listen(s.cfg.bind_address())!
-	listener.set_pong_data(s.pong_data(0).bytes())
+	listener.set_pong_data(s.pong_data(0).bytes())!
 	s.listener = listener
 	s.running = true
 	s.log.info('Listening on ${s.cfg.bind_address()}')
@@ -93,7 +93,9 @@ fn (mut s Server) tick_loop() {
 			s.hub.broadcast(&protocol.SetTimePacket{
 				time: s.hub.world_time
 			})
-			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes())
+			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes()) or {
+				s.log.warn('Failed to update pong data: ${err}')
+			}
 		}
 		work := time.now() - tick_start
 		window_ticks++
