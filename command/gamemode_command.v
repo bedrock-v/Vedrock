@@ -22,11 +22,17 @@ pub fn (c GamemodeCommand) permission() string {
 	return permission.command_gamemode_self
 }
 
+pub fn (c GamemodeCommand) arguments() []Argument {
+	return [
+		StringEnumArgument{
+			arg_name: 'mode'
+			values:   ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2', 'spectator',
+				'sp', '6']
+		},
+	]
+}
+
 pub fn (c GamemodeCommand) execute(mut sender Sender, ctx Context) ! {
-	if ctx.args.len == 0 {
-		sender.send_message(ctx.lang.t('command.gamemode.usage'))!
-		return
-	}
 	mode := parse_gamemode(ctx.args[0]) or {
 		sender.send_message(ctx.lang.t('command.gamemode.usage'))!
 		return

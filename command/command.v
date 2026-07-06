@@ -23,6 +23,10 @@ pub interface Command {
 	// permission returns the permission node required to run this command
 	// or '' if it needs none (public to everyone).
 	permission() string
+	// arguments describes this command's expected syntax; Registry.dispatch
+	// validates raw tokens against it before execute runs and available_commands() uses it to 
+	// build real client autocomplete data.
+	arguments() []Argument
 	execute(mut sender Sender, ctx Context) !
 }
 
@@ -83,6 +87,10 @@ pub fn (r &Registry) dispatch(line string, mut sender Sender, ctx_base Context) 
 		sender.send_message(ctx_base.lang.t('command.no_permission'))!
 		return
 	}
+	if !validate_arguments(cmd.arguments(), args) {
+		sender.send_message(usage_line(cmd))!
+		return
+	}
 	ctx := Context{
 		lang:           ctx_base.lang
 		sender_name:    ctx_base.sender_name
@@ -106,12 +114,37 @@ pub fn (r &Registry) names() []string {
 }
 
 pub fn (r &Registry) available_commands(sender Sender) protocol.AvailableCommandsPacket {
-	mut commands := []protocol.CommandData{}
+	mut pkt := protocol.AvailableCommandsPacket{}
 	for name, cmd in r.commands {
 		if !visible(cmd, sender) {
 			continue
 		}
-		commands << protocol.CommandData{
+		mut parameters := []protocol.CommandParameter{}
+		for a in cmd.arguments() {
+			values := a.enum_values()
+			type_info := if values.len > 0 {
+				enum_index := pkt.enums.len
+				mut value_indices := []u32{}
+				for v in values {
+					value_indices << u32(pkt.enum_values.len)
+					pkt.enum_values << v
+				}
+				pkt.enums << protocol.CommandEnumData{
+					name:          '${name}_${a.name()}'
+					value_indices: value_indices
+				}
+				arg_flag_enum | arg_flag_valid | u32(enum_index)
+			} else {
+				arg_flag_valid | a.network_type_info()
+			}
+			parameters << protocol.CommandParameter{
+				name:      a.name()
+				type_info: type_info
+				optional:  a.optional()
+				flags:     0
+			}
+		}
+		pkt.commands << protocol.CommandData{
 			name:             name
 			description:      cmd.description()
 			flags:            0
@@ -120,12 +153,10 @@ pub fn (r &Registry) available_commands(sender Sender) protocol.AvailableCommand
 			overloads:        [
 				protocol.CommandOverload{
 					chaining:   false
-					parameters: []protocol.CommandParameter{}
+					parameters: parameters
 				},
 			]
 		}
 	}
-	return protocol.AvailableCommandsPacket{
-		commands: commands
-	}
+	return pkt
 }

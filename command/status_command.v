@@ -20,6 +20,10 @@ pub fn (c StatusCommand) permission() string {
 	return permission.command_status
 }
 
+pub fn (c StatusCommand) arguments() []Argument {
+	return []
+}
+
 pub fn (c StatusCommand) execute(mut sender Sender, ctx Context) ! {
 	tps_color := tps_format_color(ctx.tps)
 	mut lines := []string{}
