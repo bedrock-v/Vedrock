@@ -1,52 +1,7 @@
-module command
+module default
 
-import protocol
-
-pub const software_name = 'Vedrock'
-pub const software_version = '1.0.0-dev'
-pub const software_git_hash = 'unknown'
-
-pub struct VersionCommand {}
-
-pub fn (c VersionCommand) name() string {
-	return 'version'
-}
-
-pub fn (c VersionCommand) description() string {
-	return 'Gets the version of this server including any plugins in use'
-}
-
-pub fn (c VersionCommand) aliases() []string {
-	return ['ver', 'about']
-}
-
-pub fn (c VersionCommand) execute(ctx Context) string {
-	return ctx.lang.tf('command.version.body', {
-		'Software':  software_name
-		'Version':   software_version
-		'Hash':      software_git_hash
-		'MCVersion': protocol.minecraft_version_network
-		'Protocol':  protocol.current_protocol.str()
-	})
-}
-
-pub struct GamemodeCommand {}
-
-pub fn (c GamemodeCommand) name() string {
-	return 'gamemode'
-}
-
-pub fn (c GamemodeCommand) description() string {
-	return "Sets a player's game mode"
-}
-
-pub fn (c GamemodeCommand) aliases() []string {
-	return ['gm']
-}
-
-pub fn (c GamemodeCommand) execute(ctx Context) string {
-	return ''
-}
+import permission
+import command
 
 pub struct StatusCommand {}
 
@@ -62,7 +17,15 @@ pub fn (c StatusCommand) aliases() []string {
 	return ['stats']
 }
 
-pub fn (c StatusCommand) execute(ctx Context) string {
+pub fn (c StatusCommand) permission() string {
+	return permission.command_status
+}
+
+pub fn (c StatusCommand) arguments() []command.Argument {
+	return []
+}
+
+pub fn (c StatusCommand) execute(mut sender command.Sender, ctx command.Context) ! {
 	tps_color := tps_format_color(ctx.tps)
 	mut lines := []string{}
 	lines << ctx.lang.t('command.status.header')
@@ -71,7 +34,7 @@ pub fn (c StatusCommand) execute(ctx Context) string {
 	lines << '§6Average TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
 	lines << '§6Online players: §c${ctx.player_count}§6/§c${ctx.max_players}§r'
 	lines << '§6World: §a${ctx.server_motd}§r'
-	return lines.join('\n')
+	sender.send_message(lines.join('\n'))!
 }
 
 fn tps_format_color(tps f64) string {

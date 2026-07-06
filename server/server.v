@@ -11,6 +11,7 @@ import network
 import session
 import gamedata
 import storage
+import permission
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
@@ -47,6 +48,10 @@ pub fn new(cfg config.Config) &Server {
 	log.info('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
 	mut hub := session.new_hub(data)
 	hub.lang = lang
+	hub.ops = permission.load_ops(permission.default_ops_file) or {
+		log.warn('Failed to load ops file: ${err}')
+		permission.OpList{}
+	}
 	if store := storage.open_world('worlds/world/db') {
 		hub.world_store = store
 		hub.load_world()
@@ -153,6 +158,9 @@ pub fn (mut s Server) stop() {
 	}
 	s.log.info('Stopping server')
 	s.running = false
+	if s.hub != unsafe { nil } {
+		s.hub.disconnect_all('Server closed')
+	}
 	if s.listener != unsafe { nil } {
 		s.listener.close() or {}
 	}

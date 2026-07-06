@@ -39,6 +39,7 @@ fn (mut s NetworkSession) handle_login(p protocol.LoginPacket) ! {
 		return
 	}
 	s.identity = identity
+	s.perm.set_op(s.hub.ops.is_op(identity.display_name))
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
 	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
 	s.transport.send(&protocol.PlayStatusPacket{

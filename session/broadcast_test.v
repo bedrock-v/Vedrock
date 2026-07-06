@@ -25,6 +25,31 @@ fn test_allocate_runtime_id_unique() {
 	assert hub.count() == 0
 }
 
+fn test_session_by_name_case_insensitive() {
+	mut hub := new_hub(gamedata.GameData{})
+	steve := &NetworkSession{
+		identity:   auth.Identity{
+			display_name: 'Steve'
+		}
+		runtime_id: 1
+	}
+	alex := &NetworkSession{
+		identity:   auth.Identity{
+			display_name: 'Alex'
+		}
+		runtime_id: 2
+	}
+	hub.add(steve)
+	hub.add(alex)
+
+	found := hub.session_by_name('alex') or { panic('expected to find Alex') }
+	assert found.runtime_id == 2
+
+	if _ := hub.session_by_name('ghost') {
+		assert false
+	}
+}
+
 fn test_chat_text_packet_roundtrip() {
 	decoded := roundtrip_packet(&protocol.TextPacket{
 		@type:       int(enums.TextType.chat)

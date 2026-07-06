@@ -151,7 +151,7 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		parameters:        [s.identity.display_name]
 	})
 	s.transport.send(s.restore_inventory())!
-	available := s.hub.commands.available_commands()
+	available := s.hub.commands.available_commands(s)
 	s.transport.send(&available)!
 	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }

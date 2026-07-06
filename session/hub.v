@@ -6,7 +6,9 @@ import protocol
 import gamedata
 import language
 import command
+import command.default as defaultcmd
 import storage
+import permission
 
 @[heap]
 pub struct Hub {
@@ -17,21 +19,24 @@ mut:
 pub mut:
 	world_time   int
 	data         gamedata.GameData
-	lang         &language.Lang     = unsafe { nil }
-	commands     command.Registry   = command.new_registry()
+	lang         &language.Lang   = unsafe { nil }
+	commands     command.Registry = command.new_registry()
 	started_at   i64
 	tps          f64 = 20.0
 	load         f64
 	world_blocks map[string]int
 	world_store  &storage.WorldStore = unsafe { nil }
+	ops          permission.OpList
 }
 
 pub fn new_hub(data gamedata.GameData) &Hub {
+	mut commands := command.new_registry()
+	defaultcmd.register_all(mut commands)
 	return &Hub{
 		sessions:   map[u64]&NetworkSession{}
 		mutex:      sync.new_mutex()
 		data:       data
-		commands:   command.new_registry()
+		commands:   commands
 		started_at: time.now().unix()
 	}
 }
@@ -131,6 +136,19 @@ pub fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
 	return target
 }
 
+pub fn (mut h Hub) session_by_name(name string) ?&NetworkSession {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	// I'm not sure about trim_space().to_lower(), so let's use casual to_lower
+	needle := name.to_lower()
+	for _, target in h.sessions {
+		if target.identity.display_name.to_lower() == needle {
+			return target
+		}
+	}
+	return none
+}
+
 pub fn (mut h Hub) count() int {
 	h.mutex.lock()
 	n := h.sessions.len
@@ -159,5 +177,11 @@ pub fn (mut h Hub) broadcast_except(runtime_id u64, p protocol.Packet) {
 		if target.runtime_id != runtime_id {
 			target.deliver(p)
 		}
+	}
+}
+
+pub fn (mut h Hub) disconnect_all(message string) {
+	for mut target in h.snapshot() {
+		target.disconnect(message)
 	}
 }

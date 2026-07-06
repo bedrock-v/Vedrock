@@ -20,7 +20,20 @@ pub interface Command {
 	name() string
 	description() string
 	aliases() []string
-	execute(ctx Context) string
+	// permission returns the permission node required to run this command
+	// or '' if it needs none (public to everyone).
+	permission() string
+	// arguments describes this command's expected syntax; Registry.dispatch
+	// validates raw tokens against it before execute runs and available_commands() uses it to
+	// build real client autocomplete data.
+	arguments() []Argument
+	execute(mut sender Sender, ctx Context) !
+}
+
+// visible reports whether sender is allowed to see/run cmd.
+pub fn visible(cmd Command, sender Sender) bool {
+	perm := cmd.permission()
+	return perm == '' || sender.has_permission(perm)
 }
 
 pub struct Registry {
@@ -30,11 +43,7 @@ pub mut:
 }
 
 pub fn new_registry() Registry {
-	mut r := Registry{}
-	r.register(VersionCommand{})
-	r.register(StatusCommand{})
-	r.register(GamemodeCommand{})
-	return r
+	return Registry{}
 }
 
 pub fn (mut r Registry) register(cmd Command) {
@@ -55,17 +64,29 @@ pub fn (r &Registry) resolve(name string) ?Command {
 	return none
 }
 
-pub fn (r &Registry) dispatch(line string, ctx_base Context) string {
+pub fn (r &Registry) dispatch(line string, mut sender Sender, ctx_base Context) ! {
 	trimmed := line.trim_left('/').trim_space()
 	if trimmed == '' {
-		return ctx_base.lang.t('command.empty')
+		sender.send_message(ctx_base.lang.t('command.empty'))!
+		return
 	}
 	parts := trimmed.split(' ')
 	name := parts[0]
 	args := parts[1..].clone()
-	cmd := r.resolve(name) or { return ctx_base.lang.tf('command.unknown', {
-		'Name': name
-	}) }
+	cmd := r.resolve(name) or {
+		sender.send_message(ctx_base.lang.tf('command.unknown', {
+			'Name': name
+		}))!
+		return
+	}
+	if !visible(cmd, sender) {
+		sender.send_message(ctx_base.lang.t('command.no_permission'))!
+		return
+	}
+	if !validate_arguments(cmd.arguments(), args) {
+		sender.send_message(usage_line(cmd))!
+		return
+	}
 	ctx := Context{
 		lang:           ctx_base.lang
 		sender_name:    ctx_base.sender_name
@@ -77,7 +98,7 @@ pub fn (r &Registry) dispatch(line string, ctx_base Context) string {
 		load:           ctx_base.load
 		args:           args
 	}
-	return cmd.execute(ctx)
+	cmd.execute(mut sender, ctx)!
 }
 
 pub fn (r &Registry) names() []string {
@@ -88,10 +109,38 @@ pub fn (r &Registry) names() []string {
 	return out
 }
 
-pub fn (r &Registry) available_commands() protocol.AvailableCommandsPacket {
-	mut commands := []protocol.CommandData{}
+pub fn (r &Registry) available_commands(sender Sender) protocol.AvailableCommandsPacket {
+	mut pkt := protocol.AvailableCommandsPacket{}
 	for name, cmd in r.commands {
-		commands << protocol.CommandData{
+		if !visible(cmd, sender) {
+			continue
+		}
+		mut parameters := []protocol.CommandParameter{}
+		for a in cmd.arguments() {
+			values := a.enum_values()
+			type_info := if values.len > 0 {
+				enum_index := pkt.enums.len
+				mut value_indices := []u32{}
+				for v in values {
+					value_indices << u32(pkt.enum_values.len)
+					pkt.enum_values << v
+				}
+				pkt.enums << protocol.CommandEnumData{
+					name:          '${name}_${a.name()}'
+					value_indices: value_indices
+				}
+				arg_flag_enum | arg_flag_valid | u32(enum_index)
+			} else {
+				arg_flag_valid | a.network_type_info()
+			}
+			parameters << protocol.CommandParameter{
+				name:      a.name()
+				type_info: type_info
+				optional:  a.optional()
+				flags:     0
+			}
+		}
+		pkt.commands << protocol.CommandData{
 			name:             name
 			description:      cmd.description()
 			flags:            0
@@ -100,12 +149,10 @@ pub fn (r &Registry) available_commands() protocol.AvailableCommandsPacket {
 			overloads:        [
 				protocol.CommandOverload{
 					chaining:   false
-					parameters: []protocol.CommandParameter{}
+					parameters: parameters
 				},
 			]
 		}
 	}
-	return protocol.AvailableCommandsPacket{
-		commands: commands
-	}
+	return pkt
 }

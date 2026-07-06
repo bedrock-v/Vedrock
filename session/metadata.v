@@ -8,9 +8,7 @@ fn entity_flag_bit(index int) i64 {
 }
 
 fn visible_name_metadata(name string) []types.MetadataEntry {
-	flags := entity_flag_bit(protocol.entity_flag_breathing) | entity_flag_bit(protocol.entity_flag_can_climb)
-		| entity_flag_bit(protocol.entity_flag_has_collision) | entity_flag_bit(protocol.entity_flag_affected_by_gravity)
-		| entity_flag_bit(protocol.entity_flag_show_name) | entity_flag_bit(protocol.entity_flag_always_show_name)
+	flags := entity_flag_bit(protocol.entity_flag_breathing) | entity_flag_bit(protocol.entity_flag_can_climb) | entity_flag_bit(protocol.entity_flag_has_collision) | entity_flag_bit(protocol.entity_flag_affected_by_gravity) | entity_flag_bit(protocol.entity_flag_show_name) | entity_flag_bit(protocol.entity_flag_always_show_name)
 	return [
 		types.MetadataEntry{
 			key:   protocol.meta_key_flags

@@ -9,6 +9,8 @@ import logger
 import config
 import world
 import storage
+import permission
+import command
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -48,8 +50,22 @@ mut:
 	pending_creative ?types.ItemStack
 	loaded_items     []storage.InvItem
 	pending_radius   int
+	perm             permission.Permissible
 pub mut:
 	log &logger.Logger = unsafe { nil }
+}
+
+pub fn (s &NetworkSession) has_permission(name string) bool {
+	return s.perm.has_permission(name)
+}
+
+pub fn (s &NetworkSession) name() string {
+	return s.identity.display_name
+}
+
+pub fn (mut s NetworkSession) find_player(name string) ?command.Sender {
+	target := s.hub.session_by_name(name) or { return none }
+	return target
 }
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg config.Config, log &logger.Logger) &NetworkSession {
