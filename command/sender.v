@@ -5,6 +5,7 @@ module command
 // back or mutate goes through Sender instead.
 pub interface Sender {
 	has_permission(name string) bool
+	name() string
 mut:
 	send_message(message string) !
 	send_translation(key string, parameters []string) !

@@ -47,3 +47,6 @@ other = "§cUnknown game mode: {{.Mode}}"
 
 [command.gamemode.set]
 other = "Set game mode to §a{{.Mode}}§r"
+
+[command.player_not_found]
+other = "§cCan't find player {{.Name}}"

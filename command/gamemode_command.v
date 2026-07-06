@@ -1,4 +1,3 @@
-// todo : change other people's gamemodes
 module command
 
 import protocol
@@ -29,6 +28,10 @@ pub fn (c GamemodeCommand) arguments() []Argument {
 			values:   ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2', 'spectator',
 				'sp', '6']
 		},
+		StringArgument{
+			arg_name:     'player'
+			arg_optional: true
+		},
 	]
 }
 
@@ -37,9 +40,31 @@ pub fn (c GamemodeCommand) execute(mut sender Sender, ctx Context) ! {
 		sender.send_message(ctx.lang.t('command.gamemode.usage'))!
 		return
 	}
-	sender.set_gamemode(mode)
-	sender.send_translation('%commands.gamemode.success.self', [
+	if ctx.args.len < 2 {
+		sender.set_gamemode(mode)
+		sender.send_translation('%commands.gamemode.success.self', [
+			'%${gamemode_translation_key(mode)}',
+		])!
+		return
+	}
+	if !sender.has_permission(permission.command_gamemode_other) {
+		sender.send_message(ctx.lang.t('command.no_permission'))!
+		return
+	}
+	target_name := ctx.args[1]
+	mut target := sender.find_player(target_name) or {
+		sender.send_message(ctx.lang.tf('command.player_not_found', {
+			'Name': target_name
+		}))!
+		return
+	}
+	target.set_gamemode(mode)
+	target.send_translation('%gameMode.changed', [
 		'%${gamemode_translation_key(mode)}',
+	])!
+	sender.send_translation('%commands.gamemode.success.other', [
+		'%${gamemode_translation_key(mode)}',
+		target.name(),
 	])!
 }
 

@@ -19,10 +19,11 @@ fn base_ctx() Context {
 
 struct RecordingSender {
 mut:
-	messages []string
-	gamemode int = -1
-	perm     permission.Permissible
-	peers    map[string]Sender
+	messages    []string
+	gamemode    int = -1
+	perm        permission.Permissible
+	peers       map[string]Sender
+	sender_name string = 'Steve'
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -39,6 +40,10 @@ fn (mut s RecordingSender) set_gamemode(mode int) {
 
 fn (s &RecordingSender) has_permission(name string) bool {
 	return s.perm.has_permission(name)
+}
+
+fn (s &RecordingSender) name() string {
+	return s.sender_name
 }
 
 fn (mut s RecordingSender) find_player(name string) ?Sender {

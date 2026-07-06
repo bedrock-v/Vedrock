@@ -1,10 +1,10 @@
 module permission
 
 pub enum DefaultValue {
-	granted     // everyone has it
-	denied      // nobody has it unless explicitly granted
-	op          // only operators have it
-	not_op      // everyone except operators has it
+	granted // everyone has it
+	denied  // nobody has it unless explicitly granted
+	op      // only operators have it
+	not_op  // everyone except operators has it
 }
 
 pub struct Permission {
@@ -18,6 +18,7 @@ pub:
 pub const command_version = 'vedrock.command.version'
 pub const command_status = 'vedrock.command.status'
 pub const command_gamemode_self = 'vedrock.command.gamemode.self'
+pub const command_gamemode_other = 'vedrock.command.gamemode.other'
 
 // Registry is a mutable set of known permissions. The shared `registry`
 // below is the one every Permissible checks against; register() may be
@@ -45,6 +46,11 @@ fn new_registry() &Registry {
 	r.register(Permission{
 		name:        command_gamemode_self
 		description: "Allows changing one's own game mode"
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_gamemode_other
+		description: "Allows changing another player's game mode"
 		default:     .op
 	})
 	return r

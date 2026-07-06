@@ -158,6 +158,9 @@ pub fn (mut s Server) stop() {
 	}
 	s.log.info('Stopping server')
 	s.running = false
+	if s.hub != unsafe { nil } {
+		s.hub.disconnect_all('Server closed')
+	}
 	if s.listener != unsafe { nil } {
 		s.listener.close() or {}
 	}

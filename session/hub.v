@@ -18,8 +18,8 @@ mut:
 pub mut:
 	world_time   int
 	data         gamedata.GameData
-	lang         &language.Lang     = unsafe { nil }
-	commands     command.Registry   = command.new_registry()
+	lang         &language.Lang   = unsafe { nil }
+	commands     command.Registry = command.new_registry()
 	started_at   i64
 	tps          f64 = 20.0
 	load         f64
@@ -174,5 +174,11 @@ pub fn (mut h Hub) broadcast_except(runtime_id u64, p protocol.Packet) {
 		if target.runtime_id != runtime_id {
 			target.deliver(p)
 		}
+	}
+}
+
+pub fn (mut h Hub) disconnect_all(message string) {
+	for mut target in h.snapshot() {
+		target.disconnect(message)
 	}
 }

@@ -59,6 +59,10 @@ pub fn (s &NetworkSession) has_permission(name string) bool {
 	return s.perm.has_permission(name)
 }
 
+pub fn (s &NetworkSession) name() string {
+	return s.identity.display_name
+}
+
 pub fn (mut s NetworkSession) find_player(name string) ?command.Sender {
 	target := s.hub.session_by_name(name) or { return none }
 	return target
