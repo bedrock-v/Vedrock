@@ -1,5 +1,6 @@
 module network
 
+import compress
 import compress.deflate
 import protocol.serializer
 
@@ -26,7 +27,8 @@ pub fn encode_batch(packets [][]u8, compression_enabled bool, threshold int) ![]
 		return out
 	}
 	out << compression_flate
-	out << deflate.compress_raw(batch)!
+	// raw deflate: no zlib header flag, matches bedrock flate batch framing
+	out << compress.compress(batch, 0)!
 	return out
 }
 
