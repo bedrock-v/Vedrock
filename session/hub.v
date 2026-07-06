@@ -133,6 +133,19 @@ pub fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
 	return target
 }
 
+pub fn (mut h Hub) session_by_name(name string) ?&NetworkSession {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	// I'm not sure about trim_space().to_lower(), so let's use casual to_lower
+	needle := name.to_lower()
+	for _, target in h.sessions {
+		if target.identity.display_name.to_lower() == needle {
+			return target
+		}
+	}
+	return none
+}
+
 pub fn (mut h Hub) count() int {
 	h.mutex.lock()
 	n := h.sessions.len

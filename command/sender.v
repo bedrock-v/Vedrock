@@ -9,4 +9,5 @@ mut:
 	send_message(message string) !
 	send_translation(key string, parameters []string) !
 	set_gamemode(mode int)
+	find_player(name string) ?Sender
 }

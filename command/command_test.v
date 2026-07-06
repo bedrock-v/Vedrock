@@ -22,6 +22,7 @@ mut:
 	messages []string
 	gamemode int = -1
 	perm     permission.Permissible
+	peers    map[string]Sender
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -38,6 +39,10 @@ fn (mut s RecordingSender) set_gamemode(mode int) {
 
 fn (s &RecordingSender) has_permission(name string) bool {
 	return s.perm.has_permission(name)
+}
+
+fn (mut s RecordingSender) find_player(name string) ?Sender {
+	return s.peers[name.to_lower()] or { none }
 }
 
 fn test_version_command() {
