@@ -7,6 +7,7 @@ import gamedata
 import language
 import command
 import storage
+import permission
 
 @[heap]
 pub struct Hub {
@@ -24,6 +25,7 @@ pub mut:
 	load         f64
 	world_blocks map[string]int
 	world_store  &storage.WorldStore = unsafe { nil }
+	ops          permission.OpList
 }
 
 pub fn new_hub(data gamedata.GameData) &Hub {

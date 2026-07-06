@@ -9,6 +9,7 @@ import logger
 import config
 import world
 import storage
+import permission
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -48,8 +49,13 @@ mut:
 	pending_creative ?types.ItemStack
 	loaded_items     []storage.InvItem
 	pending_radius   int
+	perm             permission.Permissible
 pub mut:
 	log &logger.Logger = unsafe { nil }
+}
+
+pub fn (s &NetworkSession) has_permission(name string) bool {
+	return s.perm.has_permission(name)
 }
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg config.Config, log &logger.Logger) &NetworkSession {

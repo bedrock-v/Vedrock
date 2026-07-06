@@ -30,6 +30,9 @@ other = "§cUnknown command: {{.Name}}"
 [command.empty]
 other = "§cEmpty command"
 
+[command.no_permission]
+other = "§cYou do not have permission to use this command"
+
 [command.version.body]
 other = "This server is running §a{{.Software}}§r\nServer version: §a{{.Version}}§r (git: §a{{.Hash}}§r)\nCompatible MC: §a{{.MCVersion}}§r (protocol §a{{.Protocol}}§r)"
 

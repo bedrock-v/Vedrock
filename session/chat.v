@@ -30,12 +30,6 @@ fn (mut s NetworkSession) handle_command_request(p protocol.CommandRequestPacket
 
 fn (mut s NetworkSession) run_command(line string) ! {
 	s.log.info('${s.identity.display_name} issued command: ${line}')
-	parts := line.trim_left('/').trim_space().split(' ')
-	name := parts[0].to_lower()
-	if name == 'gamemode' || name == 'gm' {
-		s.run_gamemode(parts[1..])!
-		return
-	}
 	ctx := command.Context{
 		lang:           s.hub.lang
 		sender_name:    s.identity.display_name
@@ -46,8 +40,7 @@ fn (mut s NetworkSession) run_command(line string) ! {
 		tps:            s.hub.tps
 		load:           s.hub.load
 	}
-	output := s.hub.commands.dispatch(line, ctx)
-	s.send_message(output)!
+	s.hub.commands.dispatch(line, mut s, ctx)!
 }
 
 fn (mut s NetworkSession) send_message(message string) ! {
