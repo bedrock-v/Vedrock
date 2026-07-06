@@ -1,0 +1,47 @@
+name: Nightly
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup V
+        uses: ./.github/actions/setup-v
+
+      - name: Install MinGW (Windows cross-compile)
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          v -prod -o dist/vedrock-linux-amd64 .
+          v -prod -os windows -o dist/vedrock-windows-amd64.exe .
+
+      - name: Recreate nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete nightly --yes || true
+          git push origin :refs/tags/nightly || true
+          gh release create nightly \
+            --prerelease \
+            --title "Nightly $(date -u +%Y-%m-%d)" \
+            --notes "Automated nightly build from \`master\` @ $(git rev-parse --short HEAD)" \
+            --target "$GITHUB_SHA" \
+            dist/vedrock-linux-amd64 \
+            dist/vedrock-windows-amd64.exe
