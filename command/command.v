@@ -24,7 +24,7 @@ pub interface Command {
 	// or '' if it needs none (public to everyone).
 	permission() string
 	// arguments describes this command's expected syntax; Registry.dispatch
-	// validates raw tokens against it before execute runs and available_commands() uses it to 
+	// validates raw tokens against it before execute runs and available_commands() uses it to
 	// build real client autocomplete data.
 	arguments() []Argument
 	execute(mut sender Sender, ctx Context) !
@@ -43,11 +43,7 @@ pub mut:
 }
 
 pub fn new_registry() Registry {
-	mut r := Registry{}
-	r.register(VersionCommand{})
-	r.register(StatusCommand{})
-	r.register(GamemodeCommand{})
-	return r
+	return Registry{}
 }
 
 pub fn (mut r Registry) register(cmd Command) {

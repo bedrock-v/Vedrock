@@ -1,7 +1,8 @@
-module command
+module default
 
 import protocol
 import permission
+import command
 
 pub struct GamemodeCommand {}
 
@@ -21,21 +22,21 @@ pub fn (c GamemodeCommand) permission() string {
 	return permission.command_gamemode_self
 }
 
-pub fn (c GamemodeCommand) arguments() []Argument {
+pub fn (c GamemodeCommand) arguments() []command.Argument {
 	return [
-		StringEnumArgument{
+		command.StringEnumArgument{
 			arg_name: 'mode'
 			values:   ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2', 'spectator',
 				'sp', '6']
 		},
-		StringArgument{
+		command.StringArgument{
 			arg_name:     'player'
 			arg_optional: true
 		},
 	]
 }
 
-pub fn (c GamemodeCommand) execute(mut sender Sender, ctx Context) ! {
+pub fn (c GamemodeCommand) execute(mut sender command.Sender, ctx command.Context) ! {
 	mode := parse_gamemode(ctx.args[0]) or {
 		sender.send_message(ctx.lang.t('command.gamemode.usage'))!
 		return

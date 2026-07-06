@@ -1,6 +1,7 @@
-module command
+module default
 
 import permission
+import command
 
 pub struct StatusCommand {}
 
@@ -20,11 +21,11 @@ pub fn (c StatusCommand) permission() string {
 	return permission.command_status
 }
 
-pub fn (c StatusCommand) arguments() []Argument {
+pub fn (c StatusCommand) arguments() []command.Argument {
 	return []
 }
 
-pub fn (c StatusCommand) execute(mut sender Sender, ctx Context) ! {
+pub fn (c StatusCommand) execute(mut sender command.Sender, ctx command.Context) ! {
 	tps_color := tps_format_color(ctx.tps)
 	mut lines := []string{}
 	lines << ctx.lang.t('command.status.header')

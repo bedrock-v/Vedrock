@@ -1,7 +1,7 @@
 module permission
 
 // Permissible is attached to a player-session (or console) and answers
-// permission checks for it. An explicit override always wins; otherwise the permission's 
+// permission checks for it. An explicit override always wins; otherwise the permission's
 // own default (granted / denied / op / not_op) decides based on whether this
 // Permissible is currently operator.
 pub struct Permissible {

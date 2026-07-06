@@ -1,8 +1,9 @@
-module command
+module default
 
 import protocol
 import buildinfo
 import permission
+import command
 
 pub struct VersionCommand {}
 
@@ -22,11 +23,11 @@ pub fn (c VersionCommand) permission() string {
 	return permission.command_version
 }
 
-pub fn (c VersionCommand) arguments() []Argument {
+pub fn (c VersionCommand) arguments() []command.Argument {
 	return []
 }
 
-pub fn (c VersionCommand) execute(mut sender Sender, ctx Context) ! {
+pub fn (c VersionCommand) execute(mut sender command.Sender, ctx command.Context) ! {
 	sender.send_message(ctx.lang.tf('command.version.body', {
 		'Software':  buildinfo.name
 		'Version':   buildinfo.version

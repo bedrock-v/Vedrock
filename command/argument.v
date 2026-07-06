@@ -13,8 +13,8 @@ pub const arg_type_target = u32(8)
 pub const arg_type_string = u32(56)
 pub const arg_type_rawtext = u32(70)
 
-// Argument is one typed, positional slot in a command's syntax. Registry uses it to 
-// validate raw tokens before Command.execute runs and to build real CommandParameter data 
+// Argument is one typed, positional slot in a command's syntax. Registry uses it to
+// validate raw tokens before Command.execute runs and to build real CommandParameter data
 // for the client's AvailableCommandsPacket, replacing per command manual arg-count checks.
 pub interface Argument {
 	name() string
@@ -32,6 +32,7 @@ pub interface Argument {
 }
 
 pub struct IntArgument {
+pub:
 	arg_name     string
 	arg_optional bool
 }
@@ -63,6 +64,7 @@ pub fn (a IntArgument) enum_values() []string {
 
 // StringArgument matches a single non empty token (e.g. a player name).
 pub struct StringArgument {
+pub:
 	arg_name     string
 	arg_optional bool
 }
@@ -93,6 +95,7 @@ pub fn (a StringArgument) enum_values() []string {
 
 // TargetArgument matches a single token naming another connected player.
 pub struct TargetArgument {
+pub:
 	arg_name     string
 	arg_optional bool
 }
@@ -121,9 +124,10 @@ pub fn (a TargetArgument) enum_values() []string {
 	return []
 }
 
-// TextArgument consumes the rest of the line as one string (e.g. a chat/kick message). 
+// TextArgument consumes the rest of the line as one string (e.g. a chat/kick message).
 // Must be the last argument in a command's list.
 pub struct TextArgument {
+pub:
 	arg_name     string
 	arg_optional bool
 }
@@ -152,8 +156,9 @@ pub fn (a TextArgument) enum_values() []string {
 	return []
 }
 
-// StringEnumArgument matches a fixed and case-insensitive set of values (e.g. gamemode names). 
+// StringEnumArgument matches a fixed and case-insensitive set of values (e.g. gamemode names).
 pub struct StringEnumArgument {
+pub:
 	arg_name     string
 	arg_optional bool
 	values       []string

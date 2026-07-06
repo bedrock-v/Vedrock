@@ -6,6 +6,7 @@ import protocol
 import gamedata
 import language
 import command
+import command.default as defaultcmd
 import storage
 import permission
 
@@ -29,11 +30,13 @@ pub mut:
 }
 
 pub fn new_hub(data gamedata.GameData) &Hub {
+	mut commands := command.new_registry()
+	defaultcmd.register_all(mut commands)
 	return &Hub{
 		sessions:   map[u64]&NetworkSession{}
 		mutex:      sync.new_mutex()
 		data:       data
-		commands:   command.new_registry()
+		commands:   commands
 		started_at: time.now().unix()
 	}
 }

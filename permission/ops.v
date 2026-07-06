@@ -6,7 +6,7 @@ pub const default_ops_file = 'ops.txt'
 
 pub struct OpList {
 mut:
-	path string
+	path  string
 	names map[string]bool
 }
 
