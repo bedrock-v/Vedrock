@@ -20,6 +20,7 @@ runs:
         git checkout 0c3183c
         git clone --filter=blob:none https://github.com/vlang/vc vc
         git -C vc checkout f461dfeb
+        git clone --depth 1 --branch thirdparty-linux-amd64 https://github.com/vlang/tccbin thirdparty/tcc
         make local=1
 
     - name: Add V to PATH
