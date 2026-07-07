@@ -1,7 +1,9 @@
 module server
 
+import os
 import rand
 import time
+import command
 import raknet
 import protocol
 import logger
@@ -80,7 +82,38 @@ pub fn (mut s Server) start() ! {
 	s.running = true
 	s.log.info('Listening on ${s.cfg.bind_address()}')
 	spawn s.tick_loop()
+	spawn s.console_loop()
 	s.accept_loop()
+}
+
+// console_loop reads command lines from stdin and dispatches them through the
+// shared command registry as CONSOLE, mirroring the in-game chat path.
+fn (mut s Server) console_loop() {
+	mut sender := session.new_console_sender(mut s.hub, s.log)
+	for s.running {
+		raw := os.get_raw_line()
+		if raw.len == 0 {
+			// stdin reached EOF (e.g. running detached); stop polling.
+			return
+		}
+		line := raw.trim_space()
+		if line == '' {
+			continue
+		}
+		ctx := command.Context{
+			lang:           s.lang
+			sender_name:    sender.name()
+			player_count:   s.hub.count()
+			max_players:    s.cfg.max_players
+			server_motd:    s.cfg.motd
+			uptime_seconds: s.hub.uptime_seconds()
+			tps:            s.hub.tps
+			load:           s.hub.load
+		}
+		s.hub.commands.dispatch(line, mut sender, ctx) or {
+			s.log.error('Console command failed: ${err}')
+		}
+	}
 }
 
 fn (mut s Server) tick_loop() {
