@@ -14,6 +14,7 @@ import session
 import gamedata
 import storage
 import permission
+import sync.stdatomic
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
@@ -23,7 +24,7 @@ mut:
 	listener &raknet.Listener = unsafe { nil }
 	hub      &session.Hub     = unsafe { nil }
 	guid     i64
-	running  bool
+	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 pub mut:
 	log  &logger.Logger
 	lang &language.Lang
@@ -79,18 +80,24 @@ pub fn (mut s Server) start() ! {
 	mut listener := raknet.listen(s.cfg.bind_address())!
 	listener.set_pong_data(s.pong_data(0).bytes())!
 	s.listener = listener
-	s.running = true
+	s.running.store(true)
 	s.log.info('Listening on ${s.cfg.bind_address()}')
 	spawn s.tick_loop()
 	spawn s.console_loop()
 	s.accept_loop()
 }
 
+const console_poll_interval = 100 * time.millisecond
+
 // console_loop reads command lines from stdin and dispatches them through the
 // shared command registry as CONSOLE, mirroring the in-game chat path.
 fn (mut s Server) console_loop() {
 	mut sender := session.new_console_sender(mut s.hub, s.log)
-	for s.running {
+	for s.running.load() {
+		if !os.fd_is_pending(0) {
+			time.sleep(console_poll_interval)
+			continue
+		}
 		raw := os.get_raw_line()
 		if raw.len == 0 {
 			// stdin reached EOF (e.g. running detached); stop polling.
@@ -123,7 +130,7 @@ fn (mut s Server) tick_loop() {
 	mut window_start := time.now()
 	mut window_ticks := 0
 	mut window_work := i64(0)
-	for s.running {
+	for s.running.load() {
 		tick_start := time.now()
 		tick++
 		s.hub.world_time = int((tick % day_length_ticks))
@@ -156,7 +163,7 @@ fn (mut s Server) tick_loop() {
 }
 
 fn (mut s Server) accept_loop() {
-	for s.running {
+	for s.running.load() {
 		mut conn := s.listener.accept_timeout(time.second) or { continue }
 		s.log.info('Incoming connection from ${conn.remote_addr()}')
 		spawn s.handle(mut conn)
@@ -186,11 +193,11 @@ fn normalize_gamemode(name string) (string, int) {
 }
 
 pub fn (mut s Server) stop() {
-	if !s.running {
+	if !s.running.load() {
 		return
 	}
 	s.log.info('Stopping server')
-	s.running = false
+	s.running.store(false)
 	if s.hub != unsafe { nil } {
 		s.hub.disconnect_all('Server closed')
 	}
