@@ -184,12 +184,14 @@ fn (s &Server) pong_data(online int) string {
 }
 
 fn normalize_gamemode(name string) (string, int) {
-	return match name.to_lower() {
-		'survival' { 'Survival', 0 }
-		'adventure' { 'Adventure', 2 }
-		'spectator' { 'Spectator', 6 }
-		else { 'Creative', 1 }
+	label := match name.to_lower() {
+		'survival' { 'Survival' }
+		'adventure' { 'Adventure' }
+		'spectator' { 'Spectator' }
+		else { 'Creative' }
 	}
+	// The real gamemode is set separately via StartGamePacket.player_game_mode in spawn.v.
+	return label, 1
 }
 
 pub fn (mut s Server) stop() {
