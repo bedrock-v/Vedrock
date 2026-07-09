@@ -114,8 +114,8 @@ fn (mut s Server) console_loop() {
 			max_players:    s.cfg.max_players
 			server_motd:    s.cfg.motd
 			uptime_seconds: s.hub.uptime_seconds()
-			tps:            s.hub.tps
-			load:           s.hub.load
+			tps:            s.hub.tps()
+			load:           s.hub.load()
 		}
 		s.hub.commands.dispatch(line, mut sender, ctx) or {
 			s.log.error('Console command failed: ${err}')
@@ -130,13 +130,17 @@ fn (mut s Server) tick_loop() {
 	mut window_start := time.now()
 	mut window_ticks := 0
 	mut window_work := i64(0)
+	// Carried between ticks so every TickJob has a meaningful value, even on
+	// the 19 out of 20 ticks that don't recompute the window.
+	mut tps := f64(ticks_per_second)
+	mut load := f64(0)
 	for s.running.load() {
 		tick_start := time.now()
 		tick++
-		s.hub.world_time = int((tick % day_length_ticks))
+		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
 			s.hub.broadcast(&protocol.SetTimePacket{
-				time: s.hub.world_time
+				time: world_time
 			})
 			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes()) or {
 				s.log.warn('Failed to update pong data: ${err}')
@@ -148,12 +152,19 @@ fn (mut s Server) tick_loop() {
 		elapsed := time.now() - window_start
 		if elapsed >= time.second {
 			seconds := f64(elapsed.nanoseconds()) / f64(time.second)
-			s.hub.tps = f64(window_ticks) / seconds
-			s.hub.load = f64(window_work) / f64(elapsed.nanoseconds()) * 100.0
+			tps = f64(window_ticks) / seconds
+			load = f64(window_work) / f64(elapsed.nanoseconds()) * 100.0
 			window_start = time.now()
 			window_ticks = 0
 			window_work = 0
 		}
+		// world_time/tps/load are Hub's, not tick_loop's own. This is the
+		// only place that writes them via the actor.
+		s.hub.submit(session.TickJob{
+			world_time: world_time
+			tps:        tps
+			load:       load
+		})
 		deadline := loop_start.add(time.Duration(i64(interval) * i64(tick)))
 		sleep_for := deadline - time.now()
 		if sleep_for > 0 {

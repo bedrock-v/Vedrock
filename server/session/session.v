@@ -11,6 +11,7 @@ import server.world
 import server.player.playerdb
 import server.permission
 import server.cmd
+import sync
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -33,6 +34,7 @@ mut:
 	generator        world.Generator = world.VoidGenerator{}
 	identity         auth.Identity
 	runtime_id       u64
+	pos_mutex        &sync.Mutex = sync.new_mutex()
 	position         types.Vector3
 	pitch            f32
 	yaw              f32
@@ -124,9 +126,11 @@ fn (mut s NetworkSession) leave() {
 }
 
 fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) {
+	s.pos_mutex.lock()
 	s.vy = position.y - s.prev_y
 	s.prev_y = position.y
 	s.position = position
+	s.pos_mutex.unlock()
 	s.pitch = pitch
 	s.yaw = yaw
 	s.head_yaw = head_yaw

@@ -11,7 +11,26 @@ fn gamemode_id(name string) int {
 	}
 }
 
+// SetGamemodeJob is `set_gamemode` run through the actor. 
+struct SetGamemodeJob {
+	runtime_id u64
+	mode       int
+}
+
+fn (j SetGamemodeJob) run(mut h Hub) {
+	mut target := h.session_by_runtime(j.runtime_id) or { return }
+	target.apply_gamemode(j.mode)
+}
+
 fn (mut s NetworkSession) set_gamemode(mode int) {
+	s.hub.submit(SetGamemodeJob{
+		runtime_id: s.runtime_id
+		mode:       mode
+	})
+}
+
+// apply_gamemode is the actual mutation, run exclusively from run_jobs().
+fn (mut s NetworkSession) apply_gamemode(mode int) {
 	s.game_mode = mode
 	s.transport.send(&protocol.SetPlayerGameTypePacket{
 		gamemode: mode
