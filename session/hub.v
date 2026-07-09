@@ -4,6 +4,7 @@ import sync
 import time
 import protocol
 import gamedata
+import item
 import language
 import command
 import command.default as defaultcmd
@@ -19,6 +20,7 @@ mut:
 pub mut:
 	world_time   int
 	data         gamedata.GameData
+	items        item.Registry    = item.new_registry()
 	lang         &language.Lang   = unsafe { nil }
 	commands     command.Registry = command.new_registry()
 	started_at   i64
