@@ -38,7 +38,6 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 		sessions:   map[u64]&NetworkSession{}
 		mutex:      sync.new_mutex()
 		data:       data
-		items:      item.new_registry()
 		commands:   commands
 		started_at: time.now().unix()
 	}
