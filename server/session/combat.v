@@ -4,6 +4,7 @@ import math
 import protocol
 import protocol.types
 import protocol.enums
+import server.item
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -22,7 +23,7 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64, held types.ItemSt
 		|| victim.game_mode == protocol.game_type_spectator {
 		return
 	}
-	mut damage := weapon_damage(s.hub.data.item_name(held.item_stack.id))
+	mut damage := s.weapon_damage(s.hub.data.item_name(held.item_stack.id))
 	critical := s.is_critical()
 	if critical {
 		damage *= critical_multiplier
@@ -147,7 +148,18 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3) {
 	}) or {}
 }
 
-fn weapon_damage(name string) f32 {
+// weapon_damage prefers the damage from a registered SwordItem class and falls
+// back to the material-tier heuristic for items without a modelled class.
+fn (s &NetworkSession) weapon_damage(name string) f32 {
+	if it := s.hub.items.get(name) {
+		if it is item.SwordItem {
+			return f32(it.damage())
+		}
+	}
+	return weapon_damage_heuristic(name)
+}
+
+fn weapon_damage_heuristic(name string) f32 {
 	tier := material_tier(name)
 	if name.contains('_sword') {
 		return [f32(4.0), 5.0, 6.0, 7.0, 8.0][tier]
