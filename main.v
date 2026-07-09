@@ -1,11 +1,11 @@
 module main
 
 import os
-import config
+import server.conf
 import server
 
 fn main() {
-	cfg := config.load() or {
+	cfg := conf.load() or {
 		eprintln('Failed to load config: ${err}')
 		exit(1)
 	}

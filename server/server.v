@@ -3,17 +3,17 @@ module server
 import os
 import rand
 import time
-import command
+import server.cmd
 import raknet
 import protocol
-import logger
-import language
-import config
-import network
-import session
-import gamedata
-import storage
-import permission
+import server.internal.logger
+import server.internal.language
+import server.conf
+import server.internal.network
+import server.session
+import server.internal.gamedata
+import server.world.db
+import server.permission
 import sync.stdatomic
 
 pub const ticks_per_second = 20
@@ -28,10 +28,10 @@ mut:
 pub mut:
 	log  &logger.Logger
 	lang &language.Lang
-	cfg  config.Config
+	cfg  conf.Config
 }
 
-pub fn new(cfg config.Config) &Server {
+pub fn new(cfg conf.Config) &Server {
 	mut level := logger.Level.info
 	if cfg.debug {
 		level = .debug
@@ -55,7 +55,7 @@ pub fn new(cfg config.Config) &Server {
 		log.warn('Failed to load ops file: ${err}')
 		permission.OpList{}
 	}
-	if store := storage.open_world('worlds/world/db') {
+	if store := db.open_world('worlds/world/db') {
 		hub.world_store = store
 		hub.load_world()
 		log.info('Loaded world with ${hub.world_block_count()} stored block changes')
@@ -107,7 +107,7 @@ fn (mut s Server) console_loop() {
 		if line == '' {
 			continue
 		}
-		ctx := command.Context{
+		ctx := cmd.Context{
 			lang:           s.lang
 			sender_name:    sender.name()
 			player_count:   s.hub.count()
