@@ -84,11 +84,11 @@ fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
 		event_data:       0
 	})
 	if s.health <= 0 {
-		s.die(attacker_name)
+		s.die('%death.attack.player', [s.identity.display_name, attacker_name])
 	}
 }
 
-fn (mut s NetworkSession) die(attacker_name string) {
+fn (mut s NetworkSession) die(message_key string, parameters []string) {
 	s.dead = true
 	s.hub.broadcast_except(s.runtime_id, &protocol.ActorEventPacket{
 		actor_runtime_id: s.runtime_id
@@ -98,8 +98,8 @@ fn (mut s NetworkSession) die(attacker_name string) {
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:             int(enums.TextType.translation)
 		needs_translation: true
-		message:           '%death.attack.player'
-		parameters:        [s.identity.display_name, attacker_name]
+		message:           message_key
+		parameters:        parameters
 	})
 }
 

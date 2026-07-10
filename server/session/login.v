@@ -38,6 +38,11 @@ fn (mut s NetworkSession) handle_login(p protocol.LoginPacket) ! {
 		s.disconnect('Login failed: ${err}')
 		return
 	}
+	if !s.hub.whitelist.is_allowed(identity.display_name) {
+		s.log.info('${identity.display_name} is not white-listed, rejecting login')
+		s.disconnect('You are not white-listed on this server!')
+		return
+	}
 	s.identity = identity
 	s.perm.set_op(s.hub.ops.is_op(identity.display_name))
 	s.hub.player_grants.apply(mut s.perm, identity.display_name, identity.xuid, identity.uuid)
