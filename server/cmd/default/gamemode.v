@@ -42,6 +42,10 @@ pub fn (c GamemodeCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		return
 	}
 	if ctx.args.len < 2 {
+		if !sender.is_player() {
+			sender.send_message(ctx.lang.t('cmd.player_only'))!
+			return
+		}
 		sender.set_gamemode(mode)
 		sender.send_translation('%commands.gamemode.success.self', [
 			'%${gamemode_translation_key(mode)}',

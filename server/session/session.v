@@ -66,6 +66,10 @@ pub fn (s &NetworkSession) name() string {
 	return s.identity.display_name
 }
 
+pub fn (s &NetworkSession) is_player() bool {
+	return true
+}
+
 pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 	target := s.hub.session_by_name(name) or { return none }
 	return target

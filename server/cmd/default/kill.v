@@ -32,6 +32,10 @@ pub fn (c KillCommand) arguments() []cmd.Argument {
 
 pub fn (c KillCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	if ctx.args.len == 0 {
+		if !sender.is_player() {
+			sender.send_message(ctx.lang.t('cmd.player_only'))!
+			return
+		}
 		sender.kill()
 		sender.send_message(ctx.lang.t('cmd.kill_self'))!
 		return

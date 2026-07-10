@@ -38,6 +38,7 @@ mut:
 	difficulty_value int
 	shown_title      string
 	broadcast_titles []string
+	is_player_val    bool = true
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -58,6 +59,10 @@ fn (s &RecordingSender) has_permission(name string) bool {
 
 fn (s &RecordingSender) name() string {
 	return s.sender_name
+}
+
+fn (s &RecordingSender) is_player() bool {
+	return s.is_player_val
 }
 
 fn (mut s RecordingSender) find_player(name string) ?Sender {

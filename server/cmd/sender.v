@@ -7,7 +7,8 @@ pub interface Sender {
 	has_permission(name string) bool
 	name() string
 	whitelist_enabled() bool
-	whitelist_names() []string
+	whitelist_names() []stringW
+	is_player() bool
 mut:
 	send_message(message string) !
 	send_translation(key string, parameters []string) !

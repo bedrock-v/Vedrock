@@ -32,6 +32,10 @@ pub fn (c ClearCommand) arguments() []cmd.Argument {
 
 pub fn (c ClearCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	if ctx.args.len == 0 {
+		if !sender.is_player() {
+			sender.send_message(ctx.lang.t('cmd.player_only'))!
+			return
+		}
 		sender.clear_inventory()
 		sender.send_message(ctx.lang.t('cmd.clear_self'))!
 		return

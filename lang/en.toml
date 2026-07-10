@@ -51,6 +51,9 @@ other = "Set game mode to §a{{.Mode}}§r"
 [cmd.player_not_found]
 other = "§cCan't find player {{.Name}}"
 
+[cmd.player_only]
+other = "§cThis command can only be used in-game§r"
+
 [cmd.op.granted]
 other = "§a{{.Name}} is now an operator§r"
 

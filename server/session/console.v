@@ -28,6 +28,10 @@ pub fn (c &ConsoleSender) name() string {
 	return 'CONSOLE'
 }
 
+pub fn (c &ConsoleSender) is_player() bool {
+	return false
+}
+
 pub fn (mut c ConsoleSender) send_message(message string) ! {
 	c.log.info(strip_formatting(message))
 }

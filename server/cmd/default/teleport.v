@@ -42,6 +42,10 @@ fn parse_coord(raw string) ?f32 {
 pub fn (c TeleportCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	match ctx.args.len {
 		1 {
+			if !sender.is_player() {
+				sender.send_message(ctx.lang.t('cmd.player_only'))!
+				return
+			}
 			target_name := ctx.args[0]
 			mut dest := sender.find_player(target_name) or {
 				sender.send_message(ctx.lang.tf('cmd.player_not_found', {
@@ -58,6 +62,10 @@ pub fn (c TeleportCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 			}))!
 		}
 		3 {
+			if !sender.is_player() {
+				sender.send_message(ctx.lang.t('cmd.player_only'))!
+				return
+			}
 			x := parse_coord(ctx.args[0]) or {
 				sender.send_message(ctx.lang.t('cmd.teleport.usage'))!
 				return
