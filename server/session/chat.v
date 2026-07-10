@@ -16,11 +16,16 @@ fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
 		s.run_command(message)!
 		return
 	}
-	s.log.info('<${s.identity.display_name}> ${message}')
+	mut ctx := new_event_context[string](message)
+	s.hub.handler.handle_chat(mut ctx, s)
+	if ctx.is_cancelled() {
+		return
+	}
+	s.log.info('<${s.identity.display_name}> ${ctx.val}')
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:       int(enums.TextType.chat)
 		source_name: s.identity.display_name
-		message:     message
+		message:     ctx.val
 	})
 }
 

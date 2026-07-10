@@ -26,8 +26,13 @@ fn (j DamageJob) run(mut h Hub) {
 		|| victim.game_mode == protocol.game_type_spectator {
 		return
 	}
+	mut ctx := new_event_context[f32](j.amount)
+	h.handler.handle_attack(mut ctx, j.attacker_name, mut victim)
+	if ctx.is_cancelled() {
+		return
+	}
 	victim.apply_knockback(j.knockback_from)
-	victim.take_damage(j.amount, j.attacker_name)
+	victim.take_damage(ctx.val, j.attacker_name)
 	if j.critical {
 		h.broadcast(&protocol.AnimatePacket{
 			action:           protocol.animate_action_critical_hit
@@ -89,6 +94,7 @@ fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
 }
 
 fn (mut s NetworkSession) die(attacker_name string) {
+	s.hub.handler.handle_death(mut s, attacker_name)
 	s.dead = true
 	s.hub.broadcast_except(s.runtime_id, &protocol.ActorEventPacket{
 		actor_runtime_id: s.runtime_id

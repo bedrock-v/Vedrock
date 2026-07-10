@@ -137,6 +137,7 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		return
 	}
 	s.spawned = true
+	s.hub.handler.handle_join(mut s)
 	for mut other in s.hub.snapshot() {
 		s.deliver(other.player_list_add_packet())
 		s.deliver(other.add_player_packet())
