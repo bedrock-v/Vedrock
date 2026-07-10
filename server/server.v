@@ -55,6 +55,18 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load ops file: ${err}')
 		permission.OpList{}
 	}
+	perm_cfg := permission.load_permissions_config(permission.default_permissions_file) or {
+		log.warn('Failed to load permissions config: ${err}')
+		permission.PermissionsConfig{}
+	}
+	for cmd_name in perm_cfg.disabled_commands {
+		hub.commands.unregister(cmd_name)
+		log.info('Command "${cmd_name}" disabled via ${permission.default_permissions_file}')
+	}
+	hub.player_grants = permission.load_player_grants(permission.default_player_permissions_file) or {
+		log.warn('Failed to load player permissions file: ${err}')
+		permission.PlayerGrants{}
+	}
 	if store := db.open_world('worlds/world/db') {
 		hub.world_store = store
 		hub.load_world()

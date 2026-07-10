@@ -118,6 +118,54 @@ fn test_gamemode_command_denied_without_op() {
 	assert sender.messages[0].contains('permission')
 }
 
+struct FakeCommand {}
+
+fn (c FakeCommand) name() string {
+	return 'fake'
+}
+
+fn (c FakeCommand) description() string {
+	return 'a fake command for tests'
+}
+
+fn (c FakeCommand) aliases() []string {
+	return ['fk']
+}
+
+fn (c FakeCommand) permission() string {
+	return ''
+}
+
+fn (c FakeCommand) arguments() []Argument {
+	return []
+}
+
+fn (c FakeCommand) execute(mut sender Sender, ctx Context) ! {
+	sender.send_message('fake ran')!
+}
+
+fn test_unregister_removes_command_and_aliases() {
+	mut r := new_registry()
+	r.register(FakeCommand{})
+	mut sender := RecordingSender{}
+	r.dispatch('/fake', mut sender, base_ctx())!
+	assert sender.messages[0] == 'fake ran'
+
+	r.unregister('fake')
+
+	if _ := r.resolve('fake') {
+		assert false
+	}
+	if _ := r.resolve('fk') {
+		assert false
+	}
+}
+
+fn test_unregister_unknown_command_is_a_noop() {
+	mut r := new_registry()
+	r.unregister('ghost')
+}
+
 fn test_resolve_missing() {
 	r := new_registry()
 	if _ := r.resolve('ghost') {

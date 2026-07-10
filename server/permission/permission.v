@@ -7,6 +7,15 @@ pub enum DefaultValue {
 	not_op  // everyone except operators has it
 }
 
+pub fn (v DefaultValue) str() string {
+	return match v {
+		.granted { 'granted' }
+		.denied { 'denied' }
+		.op { 'op' }
+		.not_op { 'not_op' }
+	}
+}
+
 pub struct Permission {
 pub:
 	name        string
@@ -69,6 +78,31 @@ pub fn (r &Registry) get(name string) Permission {
 	}
 }
 
+// set_default overrides the default access level of an already-registered
+// permission, preserving its name/description. Registers a bare entry (no
+// description) if name isn't known yet.
+pub fn (mut r Registry) set_default(name string, value DefaultValue) {
+	existing := r.permissions[name] or {
+		Permission{
+			name: name
+		}
+	}
+	r.permissions[name] = Permission{
+		name:        existing.name
+		description: existing.description
+		default:     value
+	}
+}
+
+// all returns every permission currently known to the registry.
+pub fn (r &Registry) all() []Permission {
+	mut out := []Permission{cap: r.permissions.len}
+	for _, perm in r.permissions {
+		out << perm
+	}
+	return out
+}
+
 // shared returns the process-wide registry pointer. Calling mut methods
 // through this indirection (rather than on the `registry` const directly)
 // is what lets the checker see it's the pointee being mutated, not the
@@ -87,4 +121,16 @@ pub fn register(perm Permission) {
 // lookup resolves name against the shared registry.
 pub fn lookup(name string) Permission {
 	return shared().get(name)
+}
+
+// set_default overrides a permission's default access level on the shared
+// registry. Safe to call at any point after startup.
+pub fn set_default(name string, value DefaultValue) {
+	mut r := shared()
+	r.set_default(name, value)
+}
+
+// all returns every permission currently known to the shared registry.
+pub fn all() []Permission {
+	return shared().all()
 }

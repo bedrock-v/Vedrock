@@ -53,6 +53,25 @@ pub fn (mut r Registry) register(cmd Command) {
 	}
 }
 
+// unregister removes a previously registered command 
+// (and any aliases pointing to it) by name.
+pub fn (mut r Registry) unregister(name string) {
+	key := name.to_lower()
+	if key !in r.commands {
+		return
+	}
+	r.commands.delete(key)
+	mut stale_aliases := []string{}
+	for alias, target in r.aliases {
+		if target == key {
+			stale_aliases << alias
+		}
+	}
+	for alias in stale_aliases {
+		r.aliases.delete(alias)
+	}
+}
+
 pub fn (r &Registry) resolve(name string) ?Command {
 	key := name.to_lower()
 	if key in r.commands {

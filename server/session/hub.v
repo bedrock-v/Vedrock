@@ -35,6 +35,7 @@ pub mut:
 	world_blocks map[string]int
 	world_store  &db.WorldStore = unsafe { nil }
 	ops          permission.OpList
+	player_grants permission.PlayerGrants
 }
 
 pub fn (mut h Hub) tps() f64 {
