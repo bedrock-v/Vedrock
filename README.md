@@ -62,7 +62,6 @@ You can contribute by opening issues, reporting bugs, suggesting improvements, i
 
 Before opening a pull request, please make sure your changes are focused and easy to review. If you want to work on a larger change, opening an issue first is recommended so the design can be discussed before implementation.
 
-By participating in th
-You canis project, you are expected to follow the bedrock-v Code of Conduct.
+By participating in this project, you are expected to follow the bedrock-v Code of Conduct.
 
 You can also read [this](https://github.com/bedrock-v/.github/blob/master/profile/README.md).
