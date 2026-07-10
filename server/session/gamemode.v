@@ -19,7 +19,12 @@ struct SetGamemodeJob {
 
 fn (j SetGamemodeJob) run(mut h Hub) {
 	mut target := h.session_by_runtime(j.runtime_id) or { return }
-	target.apply_gamemode(j.mode)
+	mut ctx := new_event_context[int](j.mode)
+	h.handler.handle_gamemode_change(mut ctx, mut target)
+	if ctx.is_cancelled() {
+		return
+	}
+	target.apply_gamemode(ctx.val)
 }
 
 fn (mut s NetworkSession) set_gamemode(mode int) {

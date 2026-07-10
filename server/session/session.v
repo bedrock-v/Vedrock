@@ -111,6 +111,7 @@ fn (mut s NetworkSession) leave() {
 	if !s.spawned {
 		return
 	}
+	s.hub.handler.handle_quit(mut s)
 	s.save_player_data()
 	s.spawned = false
 	s.hub.remove(s.runtime_id)

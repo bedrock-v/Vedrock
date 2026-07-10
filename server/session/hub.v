@@ -35,6 +35,11 @@ pub mut:
 	world_blocks map[string]int
 	world_store  &db.WorldStore = unsafe { nil }
 	ops          permission.OpList
+	handler      Handler = NopHandler{}
+}
+
+pub fn (mut h Hub) set_handler(handler Handler) {
+	h.handler = handler
 }
 
 pub fn (mut h Hub) tps() f64 {
