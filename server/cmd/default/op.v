@@ -38,10 +38,8 @@ pub fn (c OpCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		return
 	}
 	target.set_operator(true)
-	target.send_message(ctx.lang.t('cmd.op.granted_self'))!
-	sender.send_message(ctx.lang.tf('cmd.op.granted', {
-		'Name': target.name()
-	}))!
+	target.send_translation('%commands.op.message', [])!
+	sender.send_translation('%commands.op.success', [target.name()])!
 }
 
 pub struct DeopCommand {}
@@ -79,8 +77,6 @@ pub fn (c DeopCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		return
 	}
 	target.set_operator(false)
-	target.send_message(ctx.lang.t('cmd.op.revoked_self'))!
-	sender.send_message(ctx.lang.tf('cmd.op.revoked', {
-		'Name': target.name()
-	}))!
+	target.send_translation('%commands.deop.message', [])!
+	sender.send_translation('%commands.deop.success', [target.name()])!
 }

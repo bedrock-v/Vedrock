@@ -4,7 +4,7 @@ import server.internal.network
 import server.internal.auth
 import protocol
 import protocol.enums
-import protocol.types
+import types
 import server.internal.logger
 import server.conf
 import server.world
@@ -47,7 +47,9 @@ mut:
 	vy               f32
 	dead             bool
 	held_item        types.ItemStackWrapper
+	held_slot        int
 	inv_stacks       map[int]types.ItemStack
+	inv_slots        map[int]int
 	inv_next_id      int = 1
 	pending_creative ?types.ItemStack
 	loaded_items     []playerdb.InvItem

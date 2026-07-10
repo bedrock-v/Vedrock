@@ -2,7 +2,7 @@ module session
 
 import math
 import protocol
-import protocol.types
+import types
 import protocol.enums
 import server.world
 
@@ -139,13 +139,47 @@ fn (mut s NetworkSession) handle_block_pick_request(p protocol.BlockPickRequestP
 	if item_id == 0 {
 		return
 	}
+	for hotbar_slot in 0 .. give_hotbar_size {
+		net := s.inv_slots[hotbar_slot] or { continue }
+		existing := s.inv_stacks[net] or { continue }
+		if existing.id == item_id && existing.block_runtime_id == runtime_id {
+			s.select_hotbar_slot(hotbar_slot, wrap_stack_id(existing, net))
+			return
+		}
+	}
+	slot := s.first_empty_hotbar_slot() or { s.held_slot }
+	stack := types.ItemStack{
+		id:               item_id
+		count:            1
+		block_runtime_id: runtime_id
+	}
+	net_id := s.track_stack(stack)
+	s.inv_slots[slot] = net_id
+	wrapped := wrap_stack_id(stack, net_id)
 	s.transport.send(&protocol.InventorySlotPacket{
 		window_id:      inventory_window_id
-		inventory_slot: p.hotbar_slot
-		item:           wrap_stack(types.ItemStack{
-			id:               item_id
-			count:            1
-			block_runtime_id: runtime_id
-		})
+		inventory_slot: slot
+		container_name: types.FullContainerName{
+			container_id: 0
+		}
+		item:           wrapped
 	})!
+	s.select_hotbar_slot(slot, wrapped)
+}
+
+fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWrapper) {
+	s.held_item = wrapped
+	s.held_slot = slot
+	s.transport.send(&protocol.PlayerHotbarPacket{
+		selected_hotbar_slot: slot
+		window_id:            inventory_window_id
+		select_hotbar_slot:   true
+	}) or {}
+	s.hub.broadcast_except(s.runtime_id, &protocol.MobEquipmentPacket{
+		actor_runtime_id: s.runtime_id
+		item:             wrapped
+		inventory_slot:   slot
+		hotbar_slot:      slot
+		window_id:        inventory_window_id
+	})
 }

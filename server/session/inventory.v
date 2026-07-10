@@ -1,15 +1,49 @@
 module session
 
 import protocol
-import protocol.types
+import types
 
 struct SlotChange {
 	container types.FullContainerName
 	info      protocol.StackResponseSlotInfo
 }
 
+const container_combined_hotbar_and_inventory = 12
+const container_hotbar = 28
+const container_inventory = 29
+
+// flat_slot maps a window-0 container/slot pair onto the 0-35 player
+// inventory layout (0-8 hotbar, 9-35 main grid). Other containers are
+// not tracked and return none.
+fn flat_slot(container types.FullContainerName, slot u8) ?int {
+	return match container.container_id {
+		container_hotbar, container_combined_hotbar_and_inventory { int(slot) }
+		container_inventory { int(slot) + give_hotbar_size }
+		else { none }
+	}
+}
+
+fn (mut s NetworkSession) set_slot_stack(container types.FullContainerName, slot u8, net_id int) {
+	flat := flat_slot(container, slot) or { return }
+	if net_id == 0 {
+		s.inv_slots.delete(flat)
+	} else {
+		s.inv_slots[flat] = net_id
+	}
+}
+
+fn (s &NetworkSession) first_empty_hotbar_slot() ?int {
+	for slot in 0 .. give_hotbar_size {
+		if slot !in s.inv_slots {
+			return slot
+		}
+	}
+	return none
+}
+
 fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! {
 	s.held_item = p.item
+	s.held_slot = p.hotbar_slot
 	s.hub.broadcast_except(s.runtime_id, &protocol.MobEquipmentPacket{
 		actor_runtime_id: s.runtime_id
 		item:             p.item
@@ -139,6 +173,8 @@ fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotC
 		src_net = s.track_stack(src_stack)
 		src_count = remaining
 	}
+	s.set_slot_stack(dst.container, dst.slot, new_dest_id)
+	s.set_slot_stack(src.container, src.slot, src_net)
 	return [
 		slot_change(dst.container, dst.slot, u8(new_dest.count), new_dest_id),
 		slot_change(src.container, src.slot, u8(src_count), src_net),
@@ -160,6 +196,8 @@ fn (mut s NetworkSession) apply_swap(action protocol.StackRequestAction) []SlotC
 	if a.count > 0 {
 		new_dst = s.track_stack(a)
 	}
+	s.set_slot_stack(src.container, src.slot, new_src)
+	s.set_slot_stack(dst.container, dst.slot, new_dst)
 	return [
 		slot_change(src.container, src.slot, u8(b.count), new_src),
 		slot_change(dst.container, dst.slot, u8(a.count), new_dst),
@@ -181,6 +219,7 @@ fn (mut s NetworkSession) apply_remove(action protocol.StackRequestAction) []Slo
 		st.count = remaining
 		net = s.track_stack(st)
 	}
+	s.set_slot_stack(src.container, src.slot, net)
 	return [
 		slot_change(src.container, src.slot, u8(remaining), net),
 	]

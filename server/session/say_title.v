@@ -5,9 +5,10 @@ import protocol.enums
 
 pub fn (mut s NetworkSession) broadcast_message(text string) {
 	s.hub.broadcast(&protocol.TextPacket{
-		@type:       int(enums.TextType.chat)
-		source_name: 'Server'
-		message:     text
+		@type:             int(enums.TextType.translation)
+		needs_translation: true
+		message:           '%chat.type.announcement'
+		parameters:        [s.identity.display_name, text]
 	})
 }
 
@@ -27,9 +28,10 @@ pub fn (mut s NetworkSession) broadcast_title(kind int, text string) {
 
 pub fn (mut c ConsoleSender) broadcast_message(text string) {
 	c.hub.broadcast(&protocol.TextPacket{
-		@type:       int(enums.TextType.chat)
-		source_name: 'Server'
-		message:     text
+		@type:             int(enums.TextType.translation)
+		needs_translation: true
+		message:           '%chat.type.announcement'
+		parameters:        ['Server', text]
 	})
 }
 

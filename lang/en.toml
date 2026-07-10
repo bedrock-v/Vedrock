@@ -54,17 +54,9 @@ other = "§cCan't find player {{.Name}}"
 [cmd.player_only]
 other = "§cThis command can only be used in-game§r"
 
-[cmd.op.granted]
-other = "§a{{.Name}} is now an operator§r"
 
-[cmd.op.granted_self]
-other = "§aYou are now an operator§r"
 
-[cmd.op.revoked]
-other = "§a{{.Name}} is no longer an operator§r"
 
-[cmd.op.revoked_self]
-other = "§aYou are no longer an operator§r"
 
 [cmd.whitelist.usage]
 other = "§cUsage: /whitelist <add|remove|on|off|list> [player]§r"

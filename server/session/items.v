@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.types
+import types
 import nbt
 import server.player.playerdb
 
@@ -99,6 +99,7 @@ fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 				raw_extra_data:   []u8{}
 			}
 			net_id := s.track_stack(stack)
+			s.inv_slots[i] = net_id
 			items << wrap_stack_id(stack, net_id)
 		} else {
 			items << empty_stack()

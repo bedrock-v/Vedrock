@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.types
+import types
 
 fn (mut s NetworkSession) handle_interact(p protocol.InteractPacket) ! {
 	if p.action != protocol.interact_action_open_inventory {

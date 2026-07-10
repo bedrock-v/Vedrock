@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.types
+import types
 import server.item
 
 // op / deop
@@ -115,6 +115,7 @@ fn (j ClearInventoryJob) run(mut h Hub) {
 
 fn (mut s NetworkSession) apply_clear_inventory() {
 	s.inv_stacks = map[int]types.ItemStack{}
+	s.inv_slots = map[int]int{}
 	mut items := []types.ItemStackWrapper{}
 	for _ in 0 .. inventory_slot_count {
 		items << empty_stack()
@@ -170,13 +171,14 @@ fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, 
 		raw_extra_data:   []u8{}
 	}
 	net_id := s.track_stack(stack)
+	s.inv_slots[slot] = net_id
 	s.transport.send(&protocol.InventorySlotPacket{
 		window_id:      inventory_window_id
-		inventory_slot:  slot
-		container_name:  types.FullContainerName{
+		inventory_slot: slot
+		container_name: types.FullContainerName{
 			container_id: 0
 		}
-		item:            wrap_stack_id(stack, net_id)
+		item:           wrap_stack_id(stack, net_id)
 	}) or {}
 }
 

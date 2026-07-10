@@ -26,8 +26,7 @@ pub fn (c GamemodeCommand) arguments() []cmd.Argument {
 	return [
 		cmd.StringEnumArgument{
 			arg_name: 'mode'
-			values:   ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2', 'spectator',
-				'sp', '6']
+			values:   ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2', 'spectator']
 		},
 		cmd.StringArgument{
 			arg_name:     'player'
@@ -78,7 +77,7 @@ fn parse_gamemode(arg string) ?int {
 		'survival', 's', '0' { protocol.game_type_survival }
 		'creative', 'c', '1' { protocol.game_type_creative }
 		'adventure', 'a', '2' { protocol.game_type_adventure }
-		'spectator', 'sp', '6' { protocol.game_type_spectator }
+		'spectator' { protocol.game_type_spectator }
 		else { none }
 	}
 }
