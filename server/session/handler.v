@@ -28,3 +28,59 @@ fn (mut h NopHandler) handle_gamemode_change(mut ctx EventContext[int], mut targ
 fn (mut h NopHandler) handle_join(mut s NetworkSession) {}
 
 fn (mut h NopHandler) handle_quit(mut s NetworkSession) {}
+
+pub struct MultiHandler {
+mut:
+	handlers []Handler
+}
+
+pub fn new_multi_handler(handlers []Handler) MultiHandler {
+	return MultiHandler{
+		handlers: handlers
+	}
+}
+
+fn (mut m MultiHandler) handle_chat(mut ctx EventContext[string], sender &NetworkSession) {
+	for mut h in m.handlers {
+		h.handle_chat(mut ctx, sender)
+		if ctx.is_cancelled() {
+			return
+		}
+	}
+}
+
+fn (mut m MultiHandler) handle_attack(mut ctx EventContext[f32], attacker_name string, mut victim NetworkSession) {
+	for mut h in m.handlers {
+		h.handle_attack(mut ctx, attacker_name, mut victim)
+		if ctx.is_cancelled() {
+			return
+		}
+	}
+}
+
+fn (mut m MultiHandler) handle_death(mut victim NetworkSession, attacker_name string) {
+	for mut h in m.handlers {
+		h.handle_death(mut victim, attacker_name)
+	}
+}
+
+fn (mut m MultiHandler) handle_gamemode_change(mut ctx EventContext[int], mut target NetworkSession) {
+	for mut h in m.handlers {
+		h.handle_gamemode_change(mut ctx, mut target)
+		if ctx.is_cancelled() {
+			return
+		}
+	}
+}
+
+fn (mut m MultiHandler) handle_join(mut s NetworkSession) {
+	for mut h in m.handlers {
+		h.handle_join(mut s)
+	}
+}
+
+fn (mut m MultiHandler) handle_quit(mut s NetworkSession) {
+	for mut h in m.handlers {
+		h.handle_quit(mut s)
+	}
+}
