@@ -2,6 +2,10 @@ module session
 
 import protocol
 
+// Bedrock's UpdateAbilitiesPacket.command_permission wire values.
+const command_permission_normal = u8(0)
+const command_permission_operator = u8(1)
+
 fn ability_bit(index int) u32 {
 	return u32(1) << u32(index)
 }
@@ -25,12 +29,25 @@ fn build_ability_layer(creative bool) protocol.AbilitiesLayer {
 fn (s &NetworkSession) build_abilities() protocol.AbilitiesData {
 	creative := s.game_mode == protocol.game_type_creative
 		|| s.game_mode == protocol.game_type_spectator
+	is_op := s.perm.op()
+	player_permission := if is_op {
+		protocol.permission_level_operator
+	} else {
+		protocol.permission_level_member
+	}
+	command_permission := if is_op { command_permission_operator } else { command_permission_normal }
 	return protocol.AbilitiesData{
 		target_actor_unique_id: i64(s.runtime_id)
-		player_permission:      2
-		command_permission:     0
+		player_permission:      u8(player_permission)
+		command_permission:     command_permission
 		layers:                 [build_ability_layer(creative)]
 	}
+}
+
+pub fn (mut s NetworkSession) refresh_abilities() {
+	s.transport.send(&protocol.UpdateAbilitiesPacket{
+		data: s.build_abilities()
+	}) or {}
 }
 
 fn adventure_settings() &protocol.UpdateAdventureSettingsPacket {

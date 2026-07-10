@@ -24,6 +24,7 @@ fn (j SetOpJob) run(mut h Hub) {
 		}
 	}
 	target.refresh_available_commands()
+	target.refresh_abilities()
 }
 
 pub fn (mut s NetworkSession) set_operator(value bool) {

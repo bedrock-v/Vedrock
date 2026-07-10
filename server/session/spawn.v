@@ -46,7 +46,11 @@ fn (mut s NetworkSession) start_game() ! {
 		commands_enabled:               true
 		multi_player_game:              true
 		server_chunk_tick_radius:       s.cfg.view_distance
-		player_permissions:             protocol.permission_level_operator
+		player_permissions:             if s.perm.op() {
+			protocol.permission_level_operator
+		} else {
+			protocol.permission_level_member
+		}
 		base_game_version:              protocol.minecraft_version_network
 		game_version:                   protocol.minecraft_version_network
 		level_id:                       'Vedrock'
