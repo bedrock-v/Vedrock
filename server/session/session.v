@@ -53,6 +53,7 @@ mut:
 	loaded_items     []playerdb.InvItem
 	pending_radius   int
 	perm             permission.Permissible
+	give_next_slot   int
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }

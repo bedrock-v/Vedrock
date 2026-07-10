@@ -41,7 +41,7 @@ fn (mut s NetworkSession) start_game() ! {
 		dimension:                      int(enums.DimensionIds.overworld)
 		generator:                      protocol.world_generator_overworld
 		world_game_mode:                s.game_mode
-		difficulty:                     protocol.difficulty_easy
+		difficulty:                     s.hub.difficulty
 		world_spawn:                    types.BlockPosition{0, spawn_y, 0}
 		commands_enabled:               true
 		multi_player_game:              true
@@ -151,7 +151,17 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		parameters:        [s.identity.display_name]
 	})
 	s.transport.send(s.restore_inventory())!
-	available := s.hub.commands.available_commands(s)
-	s.transport.send(&available)!
+	s.refresh_available_commands()
 	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')
+}
+
+// refresh_available_commands resends the client's command list. The client
+// only reads permission-gated visibility once (Command.execute checks it
+// live, but the client-side autocomplete/menu does not) - anything that
+// changes what s.perm can do after spawn (op/deop today, a future rank/VIP
+// permission grant tomorrow) must call this or the player's command list
+// stays stale until they reconnect.
+pub fn (mut s NetworkSession) refresh_available_commands() {
+	available := s.hub.commands.available_commands(s)
+	s.transport.send(&available) or {}
 }

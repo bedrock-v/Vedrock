@@ -67,6 +67,10 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load player permissions file: ${err}')
 		permission.PlayerGrants{}
 	}
+	hub.whitelist = permission.load_whitelist(permission.default_whitelist_file) or {
+		log.warn('Failed to load whitelist: ${err}')
+		permission.Whitelist{}
+	}
 	if store := db.open_world('worlds/world/db') {
 		hub.world_store = store
 		hub.load_world()

@@ -28,6 +28,18 @@ pub const command_version = 'vedrock.cmd.version'
 pub const command_status = 'vedrock.cmd.status'
 pub const command_gamemode_self = 'vedrock.cmd.gamemode.self'
 pub const command_gamemode_other = 'vedrock.cmd.gamemode.other'
+pub const command_op = 'vedrock.cmd.op'
+pub const command_whitelist = 'vedrock.cmd.whitelist'
+pub const command_kill_self = 'vedrock.cmd.kill.self'
+pub const command_kill_other = 'vedrock.cmd.kill.other'
+pub const command_teleport_self = 'vedrock.cmd.teleport.self'
+pub const command_teleport_other = 'vedrock.cmd.teleport.other'
+pub const command_clear_self = 'vedrock.cmd.clear.self'
+pub const command_clear_other = 'vedrock.cmd.clear.other'
+pub const command_give = 'vedrock.cmd.give'
+pub const command_difficulty = 'vedrock.cmd.difficulty'
+pub const command_say = 'vedrock.cmd.say'
+pub const command_title = 'vedrock.cmd.title'
 
 // Registry is a mutable set of known permissions. The shared `registry`
 // below is the one every Permissible checks against; register() may be
@@ -60,6 +72,66 @@ fn new_registry() &Registry {
 	r.register(Permission{
 		name:        command_gamemode_other
 		description: "Allows changing another player's game mode"
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_op
+		description: 'Allows granting/revoking operator status'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_whitelist
+		description: 'Allows managing the server whitelist'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_kill_self
+		description: 'Allows killing yourself'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_kill_other
+		description: 'Allows killing another player'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_teleport_self
+		description: 'Allows teleporting yourself'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_teleport_other
+		description: 'Allows teleporting another player'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_clear_self
+		description: "Allows clearing your own inventory"
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_clear_other
+		description: "Allows clearing another player's inventory"
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_give
+		description: 'Allows giving items to players'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_difficulty
+		description: "Allows changing the world's difficulty"
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_say
+		description: 'Allows broadcasting a message as the server'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_title
+		description: 'Allows sending titles to players'
 		default:     .op
 	})
 	return r

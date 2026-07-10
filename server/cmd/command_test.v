@@ -19,11 +19,25 @@ fn base_ctx() Context {
 
 struct RecordingSender {
 mut:
-	messages    []string
-	gamemode    int = -1
-	perm        permission.Permissible
-	peers       map[string]Sender
-	sender_name string = 'Steve'
+	messages         []string
+	broadcasts       []string
+	gamemode         int = -1
+	perm             permission.Permissible
+	peers            map[string]Sender
+	sender_name      string = 'Steve'
+	killed           bool
+	pos_x            f32
+	pos_y            f32
+	pos_z            f32
+	cleared          bool
+	given_id         string
+	given_count      int
+	given_ok         bool = true
+	whitelisted      []string
+	whitelist_on     bool
+	difficulty_value int
+	shown_title      string
+	broadcast_titles []string
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -48,6 +62,74 @@ fn (s &RecordingSender) name() string {
 
 fn (mut s RecordingSender) find_player(name string) ?Sender {
 	return s.peers[name.to_lower()] or { none }
+}
+
+fn (mut s RecordingSender) set_operator(value bool) {
+	s.perm.set_op(value)
+}
+
+fn (mut s RecordingSender) kill() {
+	s.killed = true
+}
+
+fn (mut s RecordingSender) position() (f32, f32, f32) {
+	return s.pos_x, s.pos_y, s.pos_z
+}
+
+fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
+	s.pos_x = x
+	s.pos_y = y
+	s.pos_z = z
+}
+
+fn (mut s RecordingSender) clear_inventory() {
+	s.cleared = true
+}
+
+fn (mut s RecordingSender) give_item(id string, count int) bool {
+	if !s.given_ok {
+		return false
+	}
+	s.given_id = id
+	s.given_count = count
+	return true
+}
+
+fn (s &RecordingSender) whitelist_enabled() bool {
+	return s.whitelist_on
+}
+
+fn (s &RecordingSender) whitelist_names() []string {
+	return s.whitelisted
+}
+
+fn (mut s RecordingSender) whitelist_add(name string) {
+	s.whitelisted << name.to_lower()
+}
+
+fn (mut s RecordingSender) whitelist_remove(name string) {
+	needle := name.to_lower()
+	s.whitelisted = s.whitelisted.filter(it != needle)
+}
+
+fn (mut s RecordingSender) whitelist_set_enabled(value bool) {
+	s.whitelist_on = value
+}
+
+fn (mut s RecordingSender) set_difficulty(value int) {
+	s.difficulty_value = value
+}
+
+fn (mut s RecordingSender) broadcast_message(text string) {
+	s.broadcasts << text
+}
+
+fn (mut s RecordingSender) show_title(kind int, text string) {
+	s.shown_title = text
+}
+
+fn (mut s RecordingSender) broadcast_title(kind int, text string) {
+	s.broadcast_titles << text
 }
 
 fn test_version_command() {

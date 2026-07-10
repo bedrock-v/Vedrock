@@ -36,6 +36,9 @@ pub mut:
 	world_store  &db.WorldStore = unsafe { nil }
 	ops          permission.OpList
 	player_grants permission.PlayerGrants
+	whitelist    permission.Whitelist
+	// needs vedrock.yml storage.
+	difficulty   int = protocol.difficulty_easy
 }
 
 pub fn (mut h Hub) tps() f64 {

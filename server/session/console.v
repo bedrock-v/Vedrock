@@ -51,6 +51,25 @@ pub fn (mut c ConsoleSender) find_player(name string) ?cmd.Sender {
 	return target
 }
 
+// The console itself is never a valid target for these (find_player never
+// resolves to a ConsoleSender) but every Sender must implement the full
+// interface.
+pub fn (mut c ConsoleSender) set_operator(value bool) {}
+
+pub fn (mut c ConsoleSender) kill() {}
+
+pub fn (mut c ConsoleSender) position() (f32, f32, f32) {
+	return 0.0, 0.0, 0.0
+}
+
+pub fn (mut c ConsoleSender) teleport(x f32, y f32, z f32) {}
+
+pub fn (mut c ConsoleSender) clear_inventory() {}
+
+pub fn (mut c ConsoleSender) give_item(id string, count int) bool {
+	return false
+}
+
 // strip_formatting removes Minecraft § formatting codes so command output
 // stays readable in a terminal.
 fn strip_formatting(message string) string {
