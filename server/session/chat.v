@@ -37,8 +37,8 @@ fn (mut s NetworkSession) run_command(line string) ! {
 		max_players:    s.cfg.max_players
 		server_motd:    s.cfg.motd
 		uptime_seconds: s.hub.uptime_seconds()
-		tps:            s.hub.tps
-		load:           s.hub.load
+		tps:            s.hub.tps()
+		load:           s.hub.load()
 	}
 	s.hub.commands.dispatch(line, mut s, ctx)!
 }
