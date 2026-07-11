@@ -44,7 +44,9 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				return
 			}
 			target := face_offset(ut.block_position, int(ut.block_face))
-			s.place_block(target, runtime_id)!
+			if s.place_block(target, runtime_id)! && s.game_mode != protocol.game_type_creative {
+				s.consume_held_item()
+			}
 		}
 		protocol.item_use_action_destroy_block {
 			s.break_block(ut.block_position)!
@@ -69,7 +71,7 @@ fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! 
 	}
 }
 
-fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) ! {
+fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !bool {
 	if s.block_at(pos.x, pos.y, pos.z) != world.air.network_id || s.intersects_player(pos) {
 		s.transport.send(&protocol.UpdateBlockPacket{
 			block_position:   pos
@@ -77,11 +79,32 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 			flags:            protocol.update_block_flag_network
 			data_layer_id:    0
 		})!
-		return
+		return false
 	}
 	s.hub.set_world_block(pos.x, pos.y, pos.z, runtime_id)
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
+	return true
+}
+
+fn (mut s NetworkSession) consume_held_item() {
+	stack, net := s.inventory_stack_at(s.held_slot)
+	if net == 0 || stack.count <= 0 {
+		return
+	}
+	s.inv_stacks.delete(net)
+	mut wrapped := empty_stack()
+	if stack.count > 1 {
+		mut remaining := stack
+		remaining.count -= 1
+		new_net := s.track_stack(remaining)
+		s.inv_slots[s.held_slot] = new_net
+		wrapped = wrap_stack_id(remaining, new_net)
+	} else {
+		s.inv_slots.delete(s.held_slot)
+	}
+	s.held_item = wrapped
+	s.send_slot_update(s.held_slot, wrapped)
 }
 
 fn (s &NetworkSession) intersects_player(pos types.BlockPosition) bool {
