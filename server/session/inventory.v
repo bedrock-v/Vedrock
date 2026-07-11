@@ -32,13 +32,30 @@ fn (mut s NetworkSession) set_slot_stack(container types.FullContainerName, slot
 	}
 }
 
-fn (s &NetworkSession) first_empty_hotbar_slot() ?int {
-	for slot in 0 .. give_hotbar_size {
+fn (s &NetworkSession) first_empty_slot() ?int {
+	for slot in 0 .. inventory_slot_count {
 		if slot !in s.inv_slots {
 			return slot
 		}
 	}
 	return none
+}
+
+fn (s &NetworkSession) inventory_stack_at(slot int) (types.ItemStack, int) {
+	net := s.inv_slots[slot] or { return types.ItemStack{}, 0 }
+	stack := s.inv_stacks[net] or { return types.ItemStack{}, 0 }
+	return stack, net
+}
+
+fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
+	s.transport.send(&protocol.InventorySlotPacket{
+		window_id:      inventory_window_id
+		inventory_slot: slot
+		container_name: types.FullContainerName{
+			container_id: 0
+		}
+		item:           wrapped
+	}) or {}
 }
 
 fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! {

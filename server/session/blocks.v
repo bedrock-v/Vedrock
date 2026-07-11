@@ -139,32 +139,77 @@ fn (mut s NetworkSession) handle_block_pick_request(p protocol.BlockPickRequestP
 	if item_id == 0 {
 		return
 	}
-	for hotbar_slot in 0 .. give_hotbar_size {
-		net := s.inv_slots[hotbar_slot] or { continue }
-		existing := s.inv_stacks[net] or { continue }
-		if existing.id == item_id && existing.block_runtime_id == runtime_id {
-			s.select_hotbar_slot(hotbar_slot, wrap_stack_id(existing, net))
-			return
+
+	if existing_slot := s.find_inventory_slot(item_id, runtime_id) {
+		if existing_slot < give_hotbar_size {
+			stack, net := s.inventory_stack_at(existing_slot)
+			s.select_hotbar_slot(existing_slot, wrap_stack_id(stack, net))
+		} else {
+			s.swap_slot_into_hand(existing_slot)
 		}
+		return
 	}
-	slot := s.first_empty_hotbar_slot() or { s.held_slot }
+	if s.game_mode != protocol.game_type_creative {
+		return
+	}
+
 	stack := types.ItemStack{
 		id:               item_id
 		count:            1
 		block_runtime_id: runtime_id
 	}
+	empty_slot := s.first_empty_slot() or {
+		net_id := s.track_stack(stack)
+		s.inv_slots[s.held_slot] = net_id
+		s.select_hotbar_slot(s.held_slot, wrap_stack_id(stack, net_id))
+		return
+	}
+	if empty_slot < give_hotbar_size {
+		net_id := s.track_stack(stack)
+		s.inv_slots[empty_slot] = net_id
+		wrapped := wrap_stack_id(stack, net_id)
+		s.send_slot_update(empty_slot, wrapped)
+		s.select_hotbar_slot(empty_slot, wrapped)
+		return
+	}
+	held, held_net := s.inventory_stack_at(s.held_slot)
+	if held_net == 0 {
+		s.inv_slots.delete(empty_slot)
+	} else {
+		s.inv_slots[empty_slot] = held_net
+	}
+	s.send_slot_update(empty_slot, wrap_stack_id(held, held_net))
 	net_id := s.track_stack(stack)
-	s.inv_slots[slot] = net_id
-	wrapped := wrap_stack_id(stack, net_id)
-	s.transport.send(&protocol.InventorySlotPacket{
-		window_id:      inventory_window_id
-		inventory_slot: slot
-		container_name: types.FullContainerName{
-			container_id: 0
+	s.inv_slots[s.held_slot] = net_id
+	s.select_hotbar_slot(s.held_slot, wrap_stack_id(stack, net_id))
+}
+
+fn (s &NetworkSession) find_inventory_slot(item_id int, runtime_id int) ?int {
+	for slot in 0 .. inventory_slot_count {
+		net := s.inv_slots[slot] or { continue }
+		existing := s.inv_stacks[net] or { continue }
+		if existing.id == item_id && existing.block_runtime_id == runtime_id {
+			return slot
 		}
-		item:           wrapped
-	})!
-	s.select_hotbar_slot(slot, wrapped)
+	}
+	return none
+}
+
+fn (mut s NetworkSession) swap_slot_into_hand(slot int) {
+	picked, picked_net := s.inventory_stack_at(slot)
+	held, held_net := s.inventory_stack_at(s.held_slot)
+	if held_net == 0 {
+		s.inv_slots.delete(slot)
+	} else {
+		s.inv_slots[slot] = held_net
+	}
+	s.send_slot_update(slot, wrap_stack_id(held, held_net))
+	if picked_net == 0 {
+		s.inv_slots.delete(s.held_slot)
+	} else {
+		s.inv_slots[s.held_slot] = picked_net
+	}
+	s.select_hotbar_slot(s.held_slot, wrap_stack_id(picked, picked_net))
 }
 
 fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWrapper) {
