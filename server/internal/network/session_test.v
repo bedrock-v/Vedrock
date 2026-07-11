@@ -1,7 +1,7 @@
 module network
 
 import protocol
-import serializer
+import protocol.serializer
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	mut pool := protocol.new_packet_pool()

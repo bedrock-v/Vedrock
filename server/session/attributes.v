@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import types
+import protocol.types
 
 fn player_attribute(id string, min f32, max f32, current f32) types.UpdateAttribute {
 	return types.UpdateAttribute{

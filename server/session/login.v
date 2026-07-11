@@ -4,7 +4,7 @@ import server.internal.network
 import server.internal.auth
 import protocol
 import protocol.enums
-import types
+import protocol.types
 
 fn (mut s NetworkSession) handle_request_network_settings(p protocol.RequestNetworkSettingsPacket) ! {
 	s.log.debug('Client requested network settings (protocol ${p.protocol_version})')

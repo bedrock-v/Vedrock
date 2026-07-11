@@ -2,7 +2,7 @@ module session
 
 import math
 import protocol
-import types
+import protocol.types
 import protocol.enums
 import server.item
 

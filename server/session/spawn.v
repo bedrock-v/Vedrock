@@ -3,7 +3,7 @@ module session
 import math
 import protocol
 import protocol.enums
-import types
+import protocol.types
 import nbt
 import server.player.playerdb
 import server.world

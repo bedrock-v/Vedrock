@@ -4,7 +4,7 @@ import server.internal.network
 import server.internal.auth
 import protocol
 import protocol.enums
-import types
+import protocol.types
 import server.internal.logger
 import server.conf
 import server.world
