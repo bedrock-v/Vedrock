@@ -6,7 +6,7 @@ pub struct CustomForm {
 mut:
 	title     string
 	elements  []Element
-	on_submit fn (Response) !
+	on_submit fn (Response) ! = unsafe { nil }
 	on_close  ?fn ()
 }
 

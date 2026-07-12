@@ -39,15 +39,24 @@ fn (l &Logger) log(level Level, msg string) {
 	}
 	stamp := time.now().format_ss()
 	tag := level_tag(level)
-	mut head := '[${stamp}] [${tag}]'
-	if l.prefix != '' {
-		head += ' [${l.prefix}]'
-	}
-	line := '${head} ${msg}'
 	if l.colored {
-		println(colorize(level, line))
+		mut head := term.gray('[${stamp}]') + ' ${colorize(level, '[${tag}]')}'
+		if l.prefix != '' {
+			head += ' ' + term.cyan('[${l.prefix}]')
+		}
+		body := match level {
+			.debug { term.gray(msg) }
+			.warn { term.yellow(msg) }
+			.error { term.bright_red(msg) }
+			else { msg }
+		}
+		println('${head} ${body}')
 	} else {
-		println(line)
+		mut head := '[${stamp}] [${tag}]'
+		if l.prefix != '' {
+			head += ' [${l.prefix}]'
+		}
+		println('${head} ${msg}')
 	}
 }
 
@@ -60,12 +69,12 @@ fn level_tag(level Level) string {
 	}
 }
 
-fn colorize(level Level, line string) string {
+fn colorize(level Level, text string) string {
 	return match level {
-		.debug { term.gray(line) }
-		.info { term.bright_green(line) }
-		.warn { term.yellow(line) }
-		.error { term.bright_red(line) }
+		.debug { term.gray(text) }
+		.info { term.bright_green(text) }
+		.warn { term.bright_yellow(text) }
+		.error { term.bright_red(text) }
 	}
 }
 

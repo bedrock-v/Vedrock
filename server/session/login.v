@@ -3,8 +3,8 @@ module session
 import server.internal.network
 import server.internal.auth
 import protocol
-import protocol.enums
-import protocol.types
+import enums
+import types
 
 fn (mut s NetworkSession) handle_request_network_settings(p protocol.RequestNetworkSettingsPacket) ! {
 	s.log.debug('Client requested network settings (protocol ${p.protocol_version})')

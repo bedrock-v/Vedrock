@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.types
+import types
 
 struct SlotChange {
 	container types.FullContainerName
@@ -51,9 +51,9 @@ fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrap
 	s.transport.send(&protocol.InventorySlotPacket{
 		window_id:      inventory_window_id
 		inventory_slot: slot
-		container_name: types.FullContainerName{
+		container_name: ?types.FullContainerName(types.FullContainerName{
 			container_id: 0
-		}
+		})
 		item:           wrapped
 	}) or {}
 }

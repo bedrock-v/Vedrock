@@ -50,7 +50,8 @@ fn put_u32_le(mut b []u8, value u32) {
 }
 
 fn put_varint_signed(mut b []u8, value int) {
-	mut encoded := u32((value << 1) ^ (value >> 31))
+	sign_mask := if value < 0 { u32(0xffffffff) } else { u32(0) }
+	mut encoded := (u32(value) << 1) ^ sign_mask
 	for {
 		if encoded & ~u32(0x7f) == 0 {
 			b << u8(encoded)

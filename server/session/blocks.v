@@ -2,8 +2,8 @@ module session
 
 import time
 import protocol
-import protocol.types
-import protocol.enums
+import types
+import enums
 import server.world
 
 // place_cooldown_ms throttles placement to at most one accepted block per

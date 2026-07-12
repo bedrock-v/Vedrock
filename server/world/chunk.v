@@ -29,7 +29,26 @@ pub fn (mut c Chunk) set_block(x int, y int, z int, b Block) {
 }
 
 fn block_index(x int, y int, z int) int {
-	return (x << 8) | (z << 4) | y
+	return int((u32(x) << 8) | (u32(z) << 4) | u32(y))
+}
+
+pub fn (mut c Chunk) set_section(index int, ids []int) {
+	if index < 0 || index >= dimension_subchunk_count || ids.len != 4096 {
+		return
+	}
+	c.sections[index] = ids
+}
+
+pub fn (c &Chunk) block_id(x int, y int, z int) int {
+	section_index := (y - dimension_min_y) / 16
+	if section_index < 0 || section_index >= dimension_subchunk_count {
+		return air.network_id
+	}
+	if c.sections[section_index].len == 0 {
+		return air.network_id
+	}
+	local_y := (y - dimension_min_y) % 16
+	return c.sections[section_index][block_index(x, local_y, z)]
 }
 
 pub fn (c &Chunk) section_count() int {

@@ -1,8 +1,8 @@
 module cmd
 
 import protocol
-import protocol.types
-import protocol.serializer
+import types
+import serializer
 import server.internal.language
 import server.permission
 import server.form

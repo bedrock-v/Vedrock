@@ -10,6 +10,7 @@ mut:
 fn test_world_store_roundtrip() {
 	dir := os.join_path(os.temp_dir(), 'vedrock_db_test')
 	os.rmdir_all(dir) or {}
+	os.rmdir_all(dir + '_overrides') or {}
 	mut store := open_world(dir) or { panic(err) }
 	store.set_block(1, 64, -3, 42)
 	store.set_block(-10, 0, 7, 99)
@@ -30,4 +31,5 @@ fn test_world_store_roundtrip() {
 	assert c2.blocks['1,64,-3'] == 42
 	store2.close()
 	os.rmdir_all(dir) or {}
+	os.rmdir_all(dir + '_overrides') or {}
 }

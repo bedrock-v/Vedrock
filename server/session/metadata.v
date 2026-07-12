@@ -1,10 +1,10 @@
 module session
 
 import protocol
-import protocol.types
+import types
 
 fn entity_flag_bit(index int) i64 {
-	return i64(1) << i64(index)
+	return i64(u64(1) << u64(index))
 }
 
 fn visible_name_metadata(name string) []types.MetadataEntry {

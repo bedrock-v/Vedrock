@@ -2,7 +2,7 @@ module network
 
 import compress
 import compress.deflate
-import protocol.serializer
+import serializer
 
 pub const game_packet_header = u8(0xfe)
 pub const compression_flate = u8(0x00)
@@ -39,7 +39,7 @@ pub fn decode_batch(payload []u8, compression_enabled bool) ![][]u8 {
 	if payload[0] != game_packet_header {
 		return error('invalid game packet header 0x${payload[0].hex()}')
 	}
-	mut body := payload[1..]
+	body := unsafe { payload[1..] }
 	mut batch := []u8{}
 	if !compression_enabled {
 		batch = body.clone()

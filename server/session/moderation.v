@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.types
+import types
 
 // op / deop
 
@@ -171,14 +171,7 @@ fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, 
 	}
 	net_id := s.track_stack(stack)
 	s.inv_slots[slot] = net_id
-	s.transport.send(&protocol.InventorySlotPacket{
-		window_id:      inventory_window_id
-		inventory_slot: slot
-		container_name: types.FullContainerName{
-			container_id: 0
-		}
-		item:           wrap_stack_id(stack, net_id)
-	}) or {}
+	s.send_slot_update(slot, wrap_stack_id(stack, net_id))
 }
 
 pub fn (mut s NetworkSession) give_item(id string, count int) bool {

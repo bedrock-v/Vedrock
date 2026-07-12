@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.enums
+import enums
 import server.cmd
 
 fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {

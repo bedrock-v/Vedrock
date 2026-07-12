@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.enums
+import enums
 
 pub fn (mut s NetworkSession) broadcast_message(text string) {
 	s.hub.broadcast(&protocol.TextPacket{

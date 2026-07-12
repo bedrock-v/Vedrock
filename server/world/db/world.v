@@ -1,12 +1,15 @@
 module db
 
+@[heap]
 pub struct WorldStore {
-	db &LevelDB
+	db        &LevelDB
+	overrides &LevelDB
 }
 
 pub fn open_world(path string) !&WorldStore {
 	return &WorldStore{
-		db: open_leveldb(path)!
+		db:        open_leveldb(path)!
+		overrides: open_leveldb(path + '_overrides')!
 	}
 }
 
@@ -35,11 +38,11 @@ fn block_key(x int, y int, z int) []u8 {
 pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) {
 	mut v := []u8{}
 	put_i32(mut v, runtime_id)
-	w.db.put(block_key(x, y, z), v)
+	w.overrides.put(block_key(x, y, z), v)
 }
 
 pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
-	w.db.each(fn [cb] (key []u8, value []u8) {
+	w.overrides.each(fn [cb] (key []u8, value []u8) {
 		if key.len != 13 || value.len != 4 || key[0] != u8(`b`) {
 			return
 		}
@@ -49,4 +52,5 @@ pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
 
 pub fn (w &WorldStore) close() {
 	w.db.close()
+	w.overrides.close()
 }

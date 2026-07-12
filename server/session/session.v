@@ -3,11 +3,12 @@ module session
 import server.internal.network
 import server.internal.auth
 import protocol
-import protocol.enums
-import protocol.types
+import enums
+import types
 import server.internal.logger
 import server.conf
 import server.world
+import server.world.db
 import server.player.playerdb
 import server.permission
 import server.cmd
@@ -84,7 +85,10 @@ pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 }
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &logger.Logger) &NetworkSession {
-	generator := world.new_generator(cfg.generator)
+	mut generator := world.new_generator(cfg.generator)
+	if !isnil(hub.world_store) {
+		generator = db.new_stored_generator(hub.world_store, generator)
+	}
 	return &NetworkSession{
 		transport:  transport
 		hub:        hub

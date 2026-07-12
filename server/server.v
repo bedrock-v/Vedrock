@@ -24,7 +24,8 @@ mut:
 	listener &raknet.Listener = unsafe { nil }
 	hub      &session.Hub     = unsafe { nil }
 	guid     i64
-	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	running    &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	created_at time.Time
 pub mut:
 	log  &logger.Logger
 	lang &language.Lang
@@ -32,6 +33,7 @@ pub mut:
 }
 
 pub fn new(cfg conf.Config) &Server {
+	boot_start := time.now()
 	mut level := logger.Level.info
 	if cfg.debug {
 		level = .debug
@@ -74,16 +76,17 @@ pub fn new(cfg conf.Config) &Server {
 	if store := db.open_world('worlds/world/db') {
 		hub.world_store = store
 		hub.load_world()
-		log.info('Loaded world with ${hub.world_block_count()} stored block changes')
+		log.info('Loaded world')
 	} else {
 		log.warn('Failed to open world database: ${err}')
 	}
 	return &Server{
-		log:  log
-		lang: lang
-		cfg:  cfg
-		hub:  hub
-		guid: rand.i64()
+		log:        log
+		lang:       lang
+		cfg:        cfg
+		hub:        hub
+		guid:       rand.i64()
+		created_at: boot_start
 	}
 }
 
@@ -98,6 +101,8 @@ pub fn (mut s Server) start() ! {
 	s.listener = listener
 	s.running.store(true)
 	s.log.info('Listening on ${s.cfg.bind_address()}')
+	elapsed := (time.now() - s.created_at).seconds()
+	s.log.info('Started successfully! Type /help for available commands. (${elapsed:.6f}s)')
 	spawn s.tick_loop()
 	spawn s.console_loop()
 	s.accept_loop()

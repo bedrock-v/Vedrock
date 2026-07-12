@@ -24,16 +24,16 @@ fn (mut r LeReader) skip(n int) ! {
 
 fn (mut r LeReader) i16() !int {
 	low := int(r.u8()!)
-	high := int(r.u8()!)
-	return low | (high << 8)
+	high := u32(r.u8()!)
+	return low | int(high << 8)
 }
 
 fn (mut r LeReader) i32() !int {
-	mut value := 0
+	mut value := u32(0)
 	for i in 0 .. 4 {
-		value |= int(r.u8()!) << (8 * i)
+		value |= u32(r.u8()!) << (8 * i)
 	}
-	return value
+	return int(value)
 }
 
 fn (mut r LeReader) read_name() !string {

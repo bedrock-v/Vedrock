@@ -2,6 +2,7 @@ module world
 
 pub const state_kind_byte = 0
 pub const state_kind_string = 1
+pub const state_kind_int = 2
 
 pub struct BlockState {
 pub:
@@ -9,6 +10,7 @@ pub:
 	kind       int
 	byte_value u8
 	string_val string
+	int_value  int
 }
 
 pub struct Block {
@@ -78,12 +80,20 @@ fn le_nbt_block_state(name string, states []BlockState) []u8 {
 	b << 0x0a
 	put_name(mut b, 'states')
 	for state in sorted_states(states) {
-		if state.kind == state_kind_string {
-			put_string_tag(mut b, state.key, state.string_val)
-		} else {
-			b << 0x01
-			put_name(mut b, state.key)
-			b << state.byte_value
+		match state.kind {
+			state_kind_string {
+				put_string_tag(mut b, state.key, state.string_val)
+			}
+			state_kind_int {
+				b << 0x03
+				put_name(mut b, state.key)
+				put_i32_le(mut b, state.int_value)
+			}
+			else {
+				b << 0x01
+				put_name(mut b, state.key)
+				b << state.byte_value
+			}
 		}
 	}
 	b << 0x00
@@ -101,6 +111,14 @@ fn put_string_tag(mut b []u8, key string, value string) {
 	put_name(mut b, key)
 	put_u16_le(mut b, u16(value.len))
 	b << value.bytes()
+}
+
+fn put_i32_le(mut b []u8, value int) {
+	u := u32(value)
+	b << u8(u & 0xff)
+	b << u8((u >> 8) & 0xff)
+	b << u8((u >> 16) & 0xff)
+	b << u8((u >> 24) & 0xff)
 }
 
 fn put_u16_le(mut b []u8, value u16) {
