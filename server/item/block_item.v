@@ -32,3 +32,15 @@ pub fn (i BlockItem) saturation() f32 {
 pub fn (i BlockItem) block_runtime_id() int {
 	return i.block_runtime
 }
+
+pub fn (i BlockItem) durability() int {
+	return 0
+}
+
+pub fn (i BlockItem) mining_speed() f32 {
+	return 1.0
+}
+
+pub fn (i BlockItem) armor_points() int {
+	return 0
+}

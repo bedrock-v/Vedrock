@@ -1,7 +1,7 @@
 module item
 
 // Item is the behaviour contract every item class implements. Every item is
-// its own class built on a family base struct (SwordItem, FoodItem,
+// its own class built on a family base struct (ToolItem, ArmorItem, FoodItem,
 // BlockItem, SimpleItem) and registered in the Registry so the session layer
 // can look it up by its string identifier (e.g. 'minecraft:diamond_sword').
 pub interface Item {
@@ -17,6 +17,15 @@ pub interface Item {
 	saturation() f32
 	// block_runtime_id is the block placed on use, 0 for non-block items.
 	block_runtime_id() int
+	// durability is the max number of uses before the item breaks, 0 for
+	// items that don't take durability damage.
+	durability() int
+	// mining_speed is the block breaking speed multiplier this item grants
+	// as a tool, 1.0 (no bonus) for non-tools.
+	mining_speed() f32
+	// armor_points is the defense value this item grants when worn, 0 for
+	// non-armor.
+	armor_points() int
 }
 
 // SimpleItem is the base class for items that carry no special behaviour
@@ -49,5 +58,17 @@ pub fn (i SimpleItem) saturation() f32 {
 }
 
 pub fn (i SimpleItem) block_runtime_id() int {
+	return 0
+}
+
+pub fn (i SimpleItem) durability() int {
+	return 0
+}
+
+pub fn (i SimpleItem) mining_speed() f32 {
+	return 1.0
+}
+
+pub fn (i SimpleItem) armor_points() int {
 	return 0
 }

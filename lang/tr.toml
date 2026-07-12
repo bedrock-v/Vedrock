@@ -24,29 +24,107 @@ other = "{{.Name}} oyundan ayrıldı ({{.Online}} oyuncu çevrim içi)"
 [player.incoming]
 other = "{{.Address}} adresinden gelen bağlantı"
 
-[command.unknown]
+[cmd.unknown]
 other = "§cBilinmeyen komut: {{.Name}}"
 
-[command.empty]
+[cmd.empty]
 other = "§cBoş komut"
 
-[command.no_permission]
+[cmd.no_permission]
 other = "§cBu komutu kullanma izniniz yok"
 
-[command.version.body]
+[cmd.version.body]
 other = "Bu sunucu §a{{.Software}}§r üzerinde çalışıyor\nSunucu sürümü: §a{{.Version}}§r (git: §a{{.Hash}}§r)\nUyumlu Minecraft sürümü: §a{{.MCVersion}}§r (protokol §a{{.Protocol}}§r)"
 
-[command.status.header]
+[cmd.status.header]
 other = "§a---- §6Sunucu durumu §a----§r"
 
-[command.gamemode.usage]
+[cmd.gamemode.usage]
 other = "§cKullanım: /gamemode <survival|creative|adventure|spectator>"
 
-[command.gamemode.unknown]
+[cmd.gamemode.unknown]
 other = "§cBilinmeyen oyun modu: {{.Mode}}"
 
-[command.gamemode.set]
+[cmd.gamemode.set]
 other = "Oyun modu §a{{.Mode}}§r olarak ayarlandı"
 
-[command.player_not_found]
+[cmd.player_not_found]
 other = "§c{{.Name}} adlı oyuncu bulunamadı"
+
+[cmd.player_only]
+other = "§cBu komut sadece oyun içinden kullanılabilir§r"
+
+[cmd.op.granted]
+other = "§a{{.Name}} artık bir operatör§r"
+
+[cmd.op.granted_self]
+other = "§aArtık bir operatörsünüz§r"
+
+[cmd.op.revoked]
+other = "§a{{.Name}} artık operatör değil§r"
+
+[cmd.op.revoked_self]
+other = "§aArtık operatör değilsiniz§r"
+
+[cmd.whitelist.usage]
+other = "§cKullanım: /whitelist <add|remove|on|off|list> [oyuncu]§r"
+
+[cmd.whitelist.added]
+other = "§a{{.Name}} beyaz listeye eklendi§r"
+
+[cmd.whitelist.removed]
+other = "§a{{.Name}} beyaz listeden çıkarıldı§r"
+
+[cmd.whitelist.enabled]
+other = "§aBeyaz liste artık etkin§r"
+
+[cmd.whitelist.disabled]
+other = "§aBeyaz liste artık devre dışı§r"
+
+[cmd.whitelist.list_empty]
+other = "§7Beyaz listede oyuncu yok§r"
+
+[cmd.kill_self]
+other = "§aÖldünüz§r"
+
+[cmd.kill_other]
+other = "§a{{.Name}} öldürüldü§r"
+
+[cmd.teleport.usage]
+other = "§cKullanım: /tp <x> <y> <z> | /tp <oyuncu> | /tp <hedef> <x> <y> <z> | /tp <hedef> <oyuncu>§r"
+
+[cmd.teleport.moved]
+other = "§a{{.X}}, {{.Y}}, {{.Z}} konumuna ışınlandınız§r"
+
+[cmd.teleport.moved_other]
+other = "§a{{.Name}} {{.X}}, {{.Y}}, {{.Z}} konumuna ışınlandı§r"
+
+[cmd.clear_self]
+other = "§aEnvanterin temizlendi§r"
+
+[cmd.clear_other]
+other = "§a{{.Name}} adlı oyuncunun envanteri temizlendi§r"
+
+[cmd.give.usage]
+other = "§cKullanım: /give <oyuncu> <eşya> [adet]§r"
+
+[cmd.give.unknown_item]
+other = "§cBilinmeyen eşya: {{.Item}}§r"
+
+[cmd.give.success]
+other = "§a{{.Name}} adlı oyuncuya {{.Count}}x {{.Item}} verildi§r"
+
+[cmd.give.received]
+other = "§a{{.Count}}x {{.Item}} aldınız§r"
+
+[cmd.difficulty.usage]
+other = "§cKullanım: /difficulty <peaceful|easy|normal|hard>§r"
+
+[cmd.difficulty.set]
+other = "§aZorluk {{.Difficulty}} olarak ayarlandı§r"
+
+[cmd.say.usage]
+other = "§cKullanım: /say <mesaj>§r"
+
+[cmd.title.usage]
+other = "§cKullanım: /title <oyuncu|@a> <title|subtitle|actionbar> <metin>§r"
