@@ -13,6 +13,7 @@ import server.player.playerdb
 import server.permission
 import server.cmd
 import server.form
+import server.effect
 import sync
 
 pub const players_dir = 'players'
@@ -63,6 +64,7 @@ mut:
 	next_form_id     int
 	pending_forms    map[int]form.Form
 	last_place_ms    i64
+	effects          effect.Manager
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -96,6 +98,7 @@ pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &log
 		generator:  generator
 		runtime_id: hub.allocate_runtime_id()
 		position:   types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}
+		effects:    effect.new_manager()
 		log:        log
 	}
 }
