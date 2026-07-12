@@ -1,19 +1,27 @@
 module item
 
-// Item is the behaviour contract every item class implements. Concrete
-// classes (one struct per item family) live in their own files and are
-// registered in the Registry so the session layer can look them up by their
-// string identifier (e.g. 'minecraft:diamond_sword').
+// Item is the behaviour contract every item class implements. Every item is
+// its own class built on a family base struct (SwordItem, FoodItem,
+// BlockItem, SimpleItem) and registered in the Registry so the session layer
+// can look it up by its string identifier (e.g. 'minecraft:diamond_sword').
 pub interface Item {
 	// identifier returns the namespaced item id used on the wire.
 	identifier() string
 	// max_stack_size is how many of this item fit in a single slot.
 	max_stack_size() int
+	// attack_damage is the melee damage dealt on hit, 0 for non-weapons.
+	attack_damage() f32
+	// nutrition is the hunger points restored on eat, 0 for non-food.
+	nutrition() int
+	// saturation is the saturation modifier applied on eat, 0 for non-food.
+	saturation() f32
+	// block_runtime_id is the block placed on use, 0 for non-block items.
+	block_runtime_id() int
 }
 
-// SimpleItem is the fallback class for items that carry no special behaviour
-// (dyes, sticks, string, ...). Anything not explicitly modelled falls back to
-// a SimpleItem with the default stack size.
+// SimpleItem is the base class for items that carry no special behaviour
+// (dyes, sticks, string, ...). Concrete simple items embed it and fill in
+// their identity; anything unregistered behaves like a default SimpleItem.
 pub struct SimpleItem {
 pub:
 	id        string
@@ -26,4 +34,20 @@ pub fn (i SimpleItem) identifier() string {
 
 pub fn (i SimpleItem) max_stack_size() int {
 	return i.stack_max
+}
+
+pub fn (i SimpleItem) attack_damage() f32 {
+	return 0
+}
+
+pub fn (i SimpleItem) nutrition() int {
+	return 0
+}
+
+pub fn (i SimpleItem) saturation() f32 {
+	return 0
+}
+
+pub fn (i SimpleItem) block_runtime_id() int {
+	return 0
 }

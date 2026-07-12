@@ -218,6 +218,15 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	if old_id == air_id {
 		return
 	}
+	if s.game_mode != protocol.game_type_creative && !s.hub.blocks.breakable(old_id) {
+		s.transport.send(&protocol.UpdateBlockPacket{
+			block_position:   pos
+			block_runtime_id: old_id
+			flags:            protocol.update_block_flag_network
+			data_layer_id:    0
+		})!
+		return
+	}
 	s.hub.set_world_block(pos.x, pos.y, pos.z, air_id)
 	s.broadcast_block_update(pos, air_id)
 	s.broadcast_destroy_particles(pos, old_id)
