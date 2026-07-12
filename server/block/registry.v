@@ -58,11 +58,11 @@ pub fn (r &Registry) len() int {
 	return r.by_name.len
 }
 
-// default_blocks is the built-in set of modelled blocks, one class per block.
+// default_blocks is the built-in set of modelled blocks.
 // Extend this list as new block classes are added.
 fn default_blocks() []Block {
-	return [
-		new_stone_block(),
+	mut result := [
+		Block(new_stone_block()),
 		new_dirt_block(),
 		new_grass_block(),
 		new_bedrock_block(),
@@ -108,4 +108,6 @@ fn default_blocks() []Block {
 		new_smooth_basalt(),
 		new_dripstone_block(),
 	]
+	result << wood_blocks()
+	return result
 }
