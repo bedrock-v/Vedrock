@@ -5,6 +5,7 @@ import protocol.types
 import protocol.serializer
 import server.internal.language
 import server.permission
+import server.form
 
 fn base_ctx() Context {
 	lang := language.load('en') or { panic('failed to load lang for test: ${err}') }
@@ -39,6 +40,7 @@ mut:
 	shown_title      string
 	broadcast_titles []string
 	is_player_val    bool = true
+	sent_form        ?form.Form
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -135,6 +137,10 @@ fn (mut s RecordingSender) show_title(kind int, text string) {
 
 fn (mut s RecordingSender) broadcast_title(kind int, text string) {
 	s.broadcast_titles << text
+}
+
+fn (mut s RecordingSender) send_form(f form.Form) ! {
+	s.sent_form = f
 }
 
 fn test_version_command() {

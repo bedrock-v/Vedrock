@@ -11,6 +11,7 @@ import server.world
 import server.player.playerdb
 import server.permission
 import server.cmd
+import server.form
 import sync
 
 pub const players_dir = 'players'
@@ -56,6 +57,8 @@ mut:
 	pending_radius   int
 	perm             permission.Permissible
 	give_next_slot   int
+	next_form_id     int
+	pending_forms    map[int]form.Form
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -202,6 +205,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_mob_equipment(p)!
 			} else if p is protocol.RespawnPacket {
 				s.handle_respawn(p)!
+			} else if p is protocol.ModalFormResponsePacket {
+				s.handle_modal_form_response(p)!
 			}
 		}
 		else {}
