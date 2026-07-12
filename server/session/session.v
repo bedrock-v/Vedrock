@@ -35,7 +35,11 @@ mut:
 	hub              &Hub             = unsafe { nil }
 	state            State            = .handshake
 	cfg              conf.Config
+	world            &db.World       = unsafe { nil }
 	generator        world.Generator = world.VoidGenerator{}
+	// world_mutex guards world and generator - both are swapped from the Hub
+	// job thread on a world change while the session thread reads them.
+	world_mutex      &sync.Mutex = sync.new_mutex()
 	identity         auth.Identity
 	runtime_id       u64
 	pos_mutex        &sync.Mutex = sync.new_mutex()
@@ -71,6 +75,29 @@ pub fn (s &NetworkSession) has_permission(name string) bool {
 	return s.perm.has_permission(name)
 }
 
+// world_and_generator returns a consistent snapshot of the active world and
+// generator under world_mutex, so callers never observe a torn generator
+// interface value mid-swap.
+fn (s &NetworkSession) world_and_generator() (&db.World, world.Generator) {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.world, s.generator
+}
+
+// current_world returns the active world under world_mutex, so block writes
+// never race the world swap on the Hub job thread.
+fn (s &NetworkSession) current_world() &db.World {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.world
+}
+
 pub fn (s &NetworkSession) name() string {
 	return s.identity.display_name
 }
@@ -86,13 +113,15 @@ pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &logger.Logger) &NetworkSession {
 	mut generator := world.new_generator(cfg.generator)
-	if !isnil(hub.world_store) {
-		generator = db.new_stored_generator(hub.world_store, generator)
+	spawn_world := hub.default_world() or { &db.World(unsafe { nil }) }
+	if !isnil(spawn_world) {
+		generator = spawn_world.make_generator(generator)
 	}
 	return &NetworkSession{
 		transport:  transport
 		hub:        hub
 		cfg:        cfg
+		world:      spawn_world
 		generator:  generator
 		runtime_id: hub.allocate_runtime_id()
 		position:   types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}
