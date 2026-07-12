@@ -1,6 +1,5 @@
-base_path: "."
-preserve_hierarchy: true
-
+base_path: .
+preserve_hierarchy: 1
 files:
-  - source: "/lang/en.toml"
-    translation: "/lang/%two_letters_code%.toml"
+  - source: /lang/en.toml
+    translation: /lang/%two_letters_code%.toml
