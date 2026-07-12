@@ -12,6 +12,7 @@ import server.conf
 import server.internal.network
 import server.session
 import server.internal.gamedata
+import server.world
 import server.world.db
 import server.permission
 import sync.stdatomic
@@ -79,6 +80,12 @@ pub fn new(cfg conf.Config) &Server {
 		log.info('Loaded world')
 	} else {
 		log.warn('Failed to open world database: ${err}')
+	}
+	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
+		hub.palette = palette
+		log.info('Loaded ${palette.len()} block states')
+	} else {
+		log.warn('Failed to load block palette: ${err}')
 	}
 	return &Server{
 		log:        log
