@@ -54,6 +54,26 @@ v run .
 v .
 ```
 
+## Running with Docker
+
+The Dockerfile builds everything from source - the pinned V compiler, all module dependencies and the server itself. No local V setup is required.
+
+```bash
+# Build the image
+docker build -t vedrock .
+
+# Run the server
+docker run -d --name vedrock -p 19132:19132/udp vedrock
+```
+
+Or with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+The compose setup mounts `worlds/`, `players/` and `vedrock.yml` from the repository root so world data and configuration persist across container restarts.
+
 ## Contributing
 
 Contributions are welcome.
