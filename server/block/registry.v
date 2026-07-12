@@ -62,7 +62,7 @@ pub fn (r &Registry) len() int {
 // Extend this list as new block classes are added.
 fn default_blocks() []Block {
 	return [
-		Block(new_stone_block()),
+		new_stone_block(),
 		new_dirt_block(),
 		new_grass_block(),
 		new_bedrock_block(),
