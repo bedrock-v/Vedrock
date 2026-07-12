@@ -1,10 +1,8 @@
 module item
 
-import server.world
-
 // Registry maps namespaced item ids to their concrete Item class. The session
 // layer holds one Registry and queries it for per-item behaviour (stack size,
-// sword damage, ...) instead of hard-coding numeric ids.
+// attack damage, ...) instead of hard-coding numeric ids.
 pub struct Registry {
 mut:
 	items map[string]Item
@@ -43,68 +41,22 @@ pub fn (r &Registry) len() int {
 	return r.items.len
 }
 
-// default_items is the built-in set of modelled items. Extend this list as new
-// item classes gain behaviour; everything else falls back to SimpleItem.
+// default_items is the built-in set of modelled items, one class per item.
+// Extend this list as new item classes are added.
 fn default_items() []Item {
 	return [
-		Item(SwordItem{
-			id:            'minecraft:diamond_sword'
-			attack_damage: 7
-			durability:    1561
-		}),
-		SwordItem{
-			id:            'minecraft:iron_sword'
-			attack_damage: 6
-			durability:    250
-		},
-		FoodItem{
-			id:         'minecraft:apple'
-			nutrition:  4
-			saturation: 2.4
-		},
-		FoodItem{
-			id:         'minecraft:bread'
-			nutrition:  5
-			saturation: 6.0
-		},
-		FoodItem{
-			id:         'minecraft:cooked_beef'
-			nutrition:  8
-			saturation: 12.8
-		},
-		FoodItem{
-			id:         'minecraft:golden_apple'
-			nutrition:  4
-			saturation: 9.6
-		},
-		FoodItem{
-			id:         'minecraft:carrot'
-			nutrition:  3
-			saturation: 3.6
-		},
-		FoodItem{
-			id:         'minecraft:cooked_chicken'
-			nutrition:  6
-			saturation: 7.2
-		},
-		BlockItem{
-			id:               'minecraft:stone'
-			block_runtime_id: world.stone.network_id
-		},
-		BlockItem{
-			id:               'minecraft:dirt'
-			block_runtime_id: world.dirt.network_id
-		},
-		BlockItem{
-			id:               'minecraft:grass_block'
-			block_runtime_id: world.grass_block.network_id
-		},
-		BlockItem{
-			id:               'minecraft:bedrock'
-			block_runtime_id: world.bedrock.network_id
-		},
-		SimpleItem{
-			id: 'minecraft:stick'
-		},
+		Item(new_diamond_sword()),
+		new_iron_sword(),
+		new_apple(),
+		new_bread(),
+		new_cooked_beef(),
+		new_golden_apple(),
+		new_carrot(),
+		new_cooked_chicken(),
+		new_stone_item(),
+		new_dirt_item(),
+		new_grass_block_item(),
+		new_bedrock_item(),
+		new_stick(),
 	]
 }

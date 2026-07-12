@@ -2,7 +2,6 @@ module session
 
 import protocol
 import protocol.types
-import server.item
 
 // op / deop
 
@@ -189,9 +188,7 @@ pub fn (mut s NetworkSession) give_item(id string, count int) bool {
 	}
 	mut block_runtime_id := 0
 	if it := s.hub.items.get(id) {
-		if it is item.BlockItem {
-			block_runtime_id = it.placed_block_runtime_id()
-		}
+		block_runtime_id = it.block_runtime_id()
 	}
 	s.hub.submit(GiveItemJob{
 		runtime_id:       s.runtime_id

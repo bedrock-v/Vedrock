@@ -1,8 +1,8 @@
 module block
 
-// UnbreakableBlock is the class for blocks survival players can never
+// UnbreakableBlock is the base class for blocks survival players can never
 // destroy (bedrock, barriers). Creative mode bypasses the check in the
-// session layer.
+// session layer. Concrete blocks embed it, one class per block.
 pub struct UnbreakableBlock {
 pub:
 	id            string

@@ -1,9 +1,9 @@
 module block
 
-// Block is the behaviour contract every block class implements. Concrete
-// classes (one struct per block family) live in their own files and are
-// registered in the Registry so the session layer can look them up by their
-// runtime id or namespaced identifier (e.g. 'minecraft:stone').
+// Block is the behaviour contract every block class implements. Every block
+// is its own class built on a family base struct (SimpleBlock,
+// UnbreakableBlock) and registered in the Registry so the session layer can
+// look it up by its runtime id or namespaced identifier.
 pub interface Block {
 	// identifier returns the namespaced block id.
 	identifier() string
@@ -15,9 +15,9 @@ pub interface Block {
 	breakable() bool
 }
 
-// SimpleBlock is the fallback class for blocks that carry no special
-// behaviour beyond a hardness value. Anything not explicitly modelled falls
-// back to a SimpleBlock.
+// SimpleBlock is the base class for blocks that carry no special behaviour
+// beyond a hardness value. Concrete blocks embed it and fill in their
+// identity; anything unregistered behaves like a default SimpleBlock.
 pub struct SimpleBlock {
 pub:
 	id             string

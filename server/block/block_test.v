@@ -20,6 +20,7 @@ fn test_bedrock_is_unbreakable() {
 	b := r.get_by_name('minecraft:bedrock') or { panic('missing bedrock') }
 	assert !b.breakable()
 	assert b.hardness() < 0
+	assert b is BedrockBlock
 	assert !r.breakable(world.bedrock.network_id)
 }
 
@@ -27,11 +28,8 @@ fn test_simple_blocks_are_breakable() {
 	r := new_registry()
 	b := r.get_by_name('minecraft:dirt') or { panic('missing dirt') }
 	assert b.breakable()
-	if b is SimpleBlock {
-		assert b.hardness() == 0.5
-	} else {
-		assert false, 'dirt is not a SimpleBlock'
-	}
+	assert b.hardness() == 0.5
+	assert b is DirtBlock
 }
 
 fn test_unregistered_falls_back_to_breakable() {
@@ -47,4 +45,11 @@ fn test_register_overrides() {
 		block_runtime: world.dirt.network_id
 	})
 	assert !r.breakable(world.dirt.network_id)
+}
+
+fn test_stone_found_as_own_class() {
+	r := new_registry()
+	b := r.get_by_name('minecraft:stone') or { panic('missing stone') }
+	assert b is StoneBlock
+	assert b.hardness() == 1.5
 }
