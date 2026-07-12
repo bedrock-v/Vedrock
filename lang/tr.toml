@@ -23,97 +23,97 @@ other = "{{.Name}} oyundan ayrıldı ({{.Online}} oyuncu çevrim içi)"
 other = "{{.Address}} adresinden gelen bağlantı"
 
 [cmd.unknown]
-other = "§cUnknown command: {{.Name}}"
+other = "§cBilinmeyen komut: {{.Name}}"
 
 [cmd.empty]
-other = "§cEmpty command"
+other = "§cBoş komut"
 
 [cmd.no_permission]
-other = "§cYou do not have permission to use this command"
+other = "§cBu komutu kullanma izniniz yok"
 
 [cmd.version.body]
 other = """
-This server is running §a{{.Software}}§r
-Server version: §a{{.Version}}§r (git: §a{{.Hash}}§r)
-Compatible MC: §a{{.MCVersion}}§r (protocol §a{{.Protocol}}§r)"""
+Bu sunucu §a{{.Software}}§r üzerinde çalışıyor
+Sunucu sürümü: §a{{.Version}}§r (git: §a{{.Hash}}§r)
+Uyumlu Minecraft sürümü: §a{{.MCVersion}}§r (protokol §a{{.Protocol}}§r)"""
 
 [cmd.status.header]
-other = "§a---- §6Server status §a----§r"
+other = "§a---- §6Sunucu durumu §a----§r"
 
 [cmd.gamemode.usage]
-other = "§cUsage: /gamemode <survival|creative|adventure|spectator>"
+other = "§cKullanım: /gamemode <survival|creative|adventure|spectator>"
 
 [cmd.gamemode.unknown]
-other = "§cUnknown game mode: {{.Mode}}"
+other = "§cBilinmeyen oyun modu: {{.Mode}}"
 
 [cmd.gamemode.set]
-other = "Set game mode to §a{{.Mode}}§r"
+other = "Oyun modu §a{{.Mode}}§r olarak ayarlandı"
 
 [cmd.player_not_found]
-other = "§cCan't find player {{.Name}}"
+other = "§c{{.Name}} adlı oyuncu bulunamadı"
 
 [cmd.player_only]
-other = "§cThis command can only be used in-game§r"
+other = "§cBu komut sadece oyun içinden kullanılabilir§r"
 
 [cmd.whitelist.usage]
-other = "§cUsage: /whitelist <add|remove|on|off|list> [player]§r"
+other = "§cKullanım: /whitelist <add|remove|on|off|list> [oyuncu]§r"
 
 [cmd.whitelist.added]
-other = "§aAdded {{.Name}} to the whitelist§r"
+other = "§a{{.Name}} beyaz listeye eklendi§r"
 
 [cmd.whitelist.removed]
-other = "§aRemoved {{.Name}} from the whitelist§r"
+other = "§a{{.Name}} beyaz listeden çıkarıldı§r"
 
 [cmd.whitelist.enabled]
-other = "§aWhitelist is now enabled§r"
+other = "§aBeyaz liste artık etkin§r"
 
 [cmd.whitelist.disabled]
-other = "§aWhitelist is now disabled§r"
+other = "§aBeyaz liste artık devre dışı§r"
 
 [cmd.whitelist.list_empty]
-other = "§7No players are whitelisted§r"
+other = "§7Beyaz listede oyuncu yok§r"
 
 [cmd.kill_self]
-other = "§aYou died§r"
+other = "§aÖldünüz§r"
 
 [cmd.kill_other]
-other = "§aKilled {{.Name}}§r"
+other = "§a{{.Name}} öldürüldü§r"
 
 [cmd.teleport.usage]
-other = "§cUsage: /tp <x> <y> <z> | /tp <player> | /tp <target> <x> <y> <z> | /tp <target> <player>§r"
+other = "§cKullanım: /tp <x> <y> <z> | /tp <oyuncu> | /tp <hedef> <x> <y> <z> | /tp <hedef> <oyuncu>§r"
 
 [cmd.teleport.moved]
-other = "§aTeleported to {{.X}}, {{.Y}}, {{.Z}}§r"
+other = "§a{{.X}}, {{.Y}}, {{.Z}} konumuna ışınlandınız§r"
 
 [cmd.teleport.moved_other]
-other = "§aTeleported {{.Name}} to {{.X}}, {{.Y}}, {{.Z}}§r"
+other = "§a{{.Name}} {{.X}}, {{.Y}}, {{.Z}} konumuna ışınlandı§r"
 
 [cmd.clear_self]
-other = "§aCleared your inventory§r"
+other = "§aEnvanterin temizlendi§r"
 
 [cmd.clear_other]
-other = "§aCleared {{.Name}}'s inventory§r"
+other = "§a{{.Name}} adlı oyuncunun envanteri temizlendi§r"
 
 [cmd.give.usage]
-other = "§cUsage: /give <player> <item> [count]§r"
+other = "§cKullanım: /give <oyuncu> <eşya> [adet]§r"
 
 [cmd.give.unknown_item]
-other = "§cUnknown item: {{.Item}}§r"
+other = "§cBilinmeyen eşya: {{.Item}}§r"
 
 [cmd.give.success]
-other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
+other = "§a{{.Name}} adlı oyuncuya {{.Count}}x {{.Item}} verildi§r"
 
 [cmd.give.received]
-other = "§aYou received {{.Count}}x {{.Item}}§r"
+other = "§a{{.Count}}x {{.Item}} aldınız§r"
 
 [cmd.difficulty.usage]
-other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
+other = "§cKullanım: /difficulty <peaceful|easy|normal|hard>§r"
 
 [cmd.difficulty.set]
-other = "§aDifficulty set to {{.Difficulty}}§r"
+other = "§aZorluk {{.Difficulty}} olarak ayarlandı§r"
 
 [cmd.say.usage]
-other = "§cUsage: /say <message>§r"
+other = "§cKullanım: /say <mesaj>§r"
 
 [cmd.title.usage]
-other = "§cUsage: /title <player|@a> <title|subtitle|actionbar> <text>§r"
+other = "§cKullanım: /title <oyuncu|@a> <title|subtitle|actionbar> <metin>§r"
