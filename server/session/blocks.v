@@ -14,10 +14,13 @@ const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
 
 fn (s &NetworkSession) block_at(x int, y int, z int) int {
-	if id := s.hub.world_block_override(x, y, z) {
-		return id
+	wld, gen := s.world_and_generator()
+	if !isnil(wld) {
+		if id := wld.block_override(x, y, z) {
+			return id
+		}
 	}
-	return s.generator.block_at(x, y, z)
+	return gen.block_at(x, y, z)
 }
 
 fn (s &NetworkSession) can_interact() bool {
@@ -152,7 +155,10 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 		}
 		return false
 	}
-	s.hub.set_world_block(pos.x, pos.y, pos.z, runtime_id)
+	mut wld := s.current_world()
+	if !isnil(wld) {
+		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
+	}
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
 	return true
@@ -227,7 +233,10 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		})!
 		return
 	}
-	s.hub.set_world_block(pos.x, pos.y, pos.z, air_id)
+	mut wld := s.current_world()
+	if !isnil(wld) {
+		wld.set_block(pos.x, pos.y, pos.z, air_id)
+	}
 	s.broadcast_block_update(pos, air_id)
 	s.broadcast_destroy_particles(pos, old_id)
 	s.broadcast_swing()

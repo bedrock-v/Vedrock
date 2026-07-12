@@ -36,6 +36,14 @@ pub fn (r &Registry) max_stack_size(id string) int {
 	return 64
 }
 
+pub fn (r &Registry) consume_result(id string, meta int) ?ConsumeResult {
+	it := r.get(id) or { return none }
+	if it is PotionItem {
+		return it.consume_result(meta)
+	}
+	return none
+}
+
 // len is the number of registered item classes.
 pub fn (r &Registry) len() int {
 	return r.items.len
@@ -49,6 +57,7 @@ fn default_items() []Item {
 	items << new_bread()
 	items << new_cooked_beef()
 	items << new_golden_apple()
+	items << new_potion_item()
 	items << new_carrot()
 	items << new_cooked_chicken()
 	items << new_stone_item()

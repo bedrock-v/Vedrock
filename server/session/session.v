@@ -13,6 +13,7 @@ import server.player.playerdb
 import server.permission
 import server.cmd
 import server.form
+import server.effect
 import sync
 
 pub const players_dir = 'players'
@@ -35,7 +36,11 @@ mut:
 	hub              &Hub             = unsafe { nil }
 	state            State            = .handshake
 	cfg              conf.Config
+	world            &db.World       = unsafe { nil }
 	generator        world.Generator = world.VoidGenerator{}
+	// world_mutex guards world and generator - both are swapped from the Hub
+	// job thread on a world change while the session thread reads them.
+	world_mutex      &sync.Mutex = sync.new_mutex()
 	identity         auth.Identity
 	runtime_id       u64
 	pos_mutex        &sync.Mutex = sync.new_mutex()
@@ -63,12 +68,36 @@ mut:
 	next_form_id     int
 	pending_forms    map[int]form.Form
 	last_place_ms    i64
+	effects          effect.Manager
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
 
 pub fn (s &NetworkSession) has_permission(name string) bool {
 	return s.perm.has_permission(name)
+}
+
+// world_and_generator returns a consistent snapshot of the active world and
+// generator under world_mutex, so callers never observe a torn generator
+// interface value mid-swap.
+fn (s &NetworkSession) world_and_generator() (&db.World, world.Generator) {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.world, s.generator
+}
+
+// current_world returns the active world under world_mutex, so block writes
+// never race the world swap on the Hub job thread.
+fn (s &NetworkSession) current_world() &db.World {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.world
 }
 
 pub fn (s &NetworkSession) name() string {
@@ -86,16 +115,19 @@ pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &logger.Logger) &NetworkSession {
 	mut generator := world.new_generator(cfg.generator)
-	if !isnil(hub.world_store) {
-		generator = db.new_stored_generator(hub.world_store, generator)
+	spawn_world := hub.default_world() or { &db.World(unsafe { nil }) }
+	if !isnil(spawn_world) {
+		generator = spawn_world.make_generator(generator)
 	}
 	return &NetworkSession{
 		transport:  transport
 		hub:        hub
 		cfg:        cfg
+		world:      spawn_world
 		generator:  generator
 		runtime_id: hub.allocate_runtime_id()
 		position:   types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}
+		effects:    effect.new_manager()
 		log:        log
 	}
 }
@@ -177,6 +209,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 		.resource_packs {
 			if p is protocol.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
+			} else if p is protocol.ResourcePackChunkRequestPacket {
+				s.handle_resource_pack_chunk_request(p)!
 			} else if p is protocol.RequestChunkRadiusPacket {
 				s.pending_radius = p.radius
 			} else {

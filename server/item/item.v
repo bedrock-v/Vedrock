@@ -28,6 +28,10 @@ pub interface Item {
 	armor_points() int
 }
 
+pub interface ConsumableItem {
+	consume_result(meta int) ConsumeResult
+}
+
 // SimpleItem is the base class for items that carry no special behaviour
 // (dyes, sticks, string, ...). Concrete simple items embed it and fill in
 // their identity; anything unregistered behaves like a default SimpleItem.

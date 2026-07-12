@@ -1,5 +1,3 @@
-# tr.toml - Turkish (TR)
-
 [server.starting]
 other = "Minecraft Bedrock {{.Version}} (protokol {{.Protocol}}) için Vedrock başlatılıyor"
 
@@ -34,7 +32,10 @@ other = "§cBoş komut"
 other = "§cBu komutu kullanma izniniz yok"
 
 [cmd.version.body]
-other = "Bu sunucu §a{{.Software}}§r üzerinde çalışıyor\nSunucu sürümü: §a{{.Version}}§r (git: §a{{.Hash}}§r)\nUyumlu Minecraft sürümü: §a{{.MCVersion}}§r (protokol §a{{.Protocol}}§r)"
+other = """
+Bu sunucu §a{{.Software}}§r üzerinde çalışıyor
+Sunucu sürümü: §a{{.Version}}§r (git: §a{{.Hash}}§r)
+Uyumlu Minecraft sürümü: §a{{.MCVersion}}§r (protokol §a{{.Protocol}}§r)"""
 
 [cmd.status.header]
 other = "§a---- §6Sunucu durumu §a----§r"
@@ -53,18 +54,6 @@ other = "§c{{.Name}} adlı oyuncu bulunamadı"
 
 [cmd.player_only]
 other = "§cBu komut sadece oyun içinden kullanılabilir§r"
-
-[cmd.op.granted]
-other = "§a{{.Name}} artık bir operatör§r"
-
-[cmd.op.granted_self]
-other = "§aArtık bir operatörsünüz§r"
-
-[cmd.op.revoked]
-other = "§a{{.Name}} artık operatör değil§r"
-
-[cmd.op.revoked_self]
-other = "§aArtık operatör değilsiniz§r"
 
 [cmd.whitelist.usage]
 other = "§cKullanım: /whitelist <add|remove|on|off|list> [oyuncu]§r"

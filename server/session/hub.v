@@ -12,6 +12,7 @@ import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
 import server.world.db
+import server.resource
 import server.permission
 
 @[heap]
@@ -34,8 +35,9 @@ pub mut:
 	lang         &language.Lang   = unsafe { nil }
 	commands     cmd.Registry     = cmd.new_registry()
 	started_at   i64
-	world_blocks map[string]int
-	world_store  &db.WorldStore = unsafe { nil }
+	worlds             map[string]&db.World
+	default_world_name string
+	packs        &resource.PackRegistry = unsafe { nil }
 	ops          permission.OpList
 	player_grants permission.PlayerGrants
 	whitelist    permission.Whitelist
@@ -77,65 +79,52 @@ pub fn (h &Hub) uptime_seconds() i64 {
 	return time.now().unix() - h.started_at
 }
 
-fn block_key(x int, y int, z int) string {
-	return '${x}:${y}:${z}'
-}
-
-pub fn (mut h Hub) set_world_block(x int, y int, z int, runtime_id int) {
+// add_world registers a loaded world under its name. The first world added
+// becomes the default unless one is already set.
+pub fn (mut h Hub) add_world(world &db.World) {
 	h.mutex.lock()
-	h.world_blocks[block_key(x, y, z)] = runtime_id
-	h.mutex.unlock()
-	if !isnil(h.world_store) {
-		h.world_store.set_block(x, y, z, runtime_id)
-	}
-}
-
-pub fn (mut h Hub) load_world() {
-	if isnil(h.world_store) {
-		return
-	}
-	h.world_store.each_block(fn [mut h] (x int, y int, z int, runtime_id int) {
-		h.world_blocks[block_key(x, y, z)] = runtime_id
-	})
-}
-
-pub fn (h &Hub) world_block_override(x int, y int, z int) ?int {
-	return h.world_blocks[block_key(x, y, z)] or { return none }
-}
-
-pub fn (h &Hub) world_block_count() int {
-	return h.world_blocks.len
-}
-
-pub struct BlockOverride {
-pub:
-	x  int
-	y  int
-	z  int
-	id int
-}
-
-pub fn (mut h Hub) overrides_in_chunk(cx int, cz int) []BlockOverride {
-	mut out := []BlockOverride{}
-	h.mutex.lock()
-	for key, id in h.world_blocks {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		x := parts[0].int()
-		z := parts[2].int()
-		if (x >> 4) == cx && (z >> 4) == cz {
-			out << BlockOverride{
-				x:  x
-				y:  parts[1].int()
-				z:  z
-				id: id
-			}
-		}
+	h.worlds[world.name] = world
+	if h.default_world_name == '' {
+		h.default_world_name = world.name
 	}
 	h.mutex.unlock()
-	return out
+}
+
+pub fn (mut h Hub) set_default_world(name string) {
+	h.mutex.lock()
+	h.default_world_name = name
+	h.mutex.unlock()
+}
+
+pub fn (mut h Hub) world(name string) ?&db.World {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	return h.worlds[name] or { return none }
+}
+
+// default_world returns the world new players spawn into, or none when no
+// world could be loaded.
+pub fn (mut h Hub) default_world() ?&db.World {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	return h.worlds[h.default_world_name] or { return none }
+}
+
+pub fn (mut h Hub) world_count() int {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	return h.worlds.len
+}
+
+// close_worlds flushes and releases every loaded world's LevelDB handles. Called
+// once on shutdown after all sessions are disconnected.
+pub fn (mut h Hub) close_worlds() {
+	h.mutex.lock()
+	for _, mut w in h.worlds {
+		w.close()
+	}
+	h.worlds.clear()
+	h.mutex.unlock()
 }
 
 pub fn (mut h Hub) allocate_runtime_id() u64 {

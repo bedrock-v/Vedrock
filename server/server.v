@@ -13,11 +13,40 @@ import server.internal.network
 import server.session
 import server.internal.gamedata
 import server.world.db
+import server.resource
 import server.permission
 import sync.stdatomic
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
+pub const worlds_dir = 'worlds'
+
+// load_worlds always loads the configured default world, plus every other
+// world found under worlds/ when load-all-worlds is enabled.
+fn load_worlds(mut hub session.Hub, cfg conf.Config, log &logger.Logger) {
+	mut names := [cfg.default_world]
+	if cfg.load_all_worlds {
+		for name in db.discover_worlds(worlds_dir) {
+			if name !in names {
+				names << name
+			}
+		}
+	}
+	for name in names {
+		if w := db.load_named(worlds_dir, name, cfg.generator) {
+			hub.add_world(w)
+			log.info('Loaded world "${name}" (${w.block_count()} overrides)')
+		} else {
+			log.warn('Failed to load world "${name}": ${err}')
+		}
+	}
+	if _ := hub.world(cfg.default_world) {
+		hub.set_default_world(cfg.default_world)
+	}
+	if hub.world_count() == 0 {
+		log.warn('No worlds loaded - players will spawn in an empty void')
+	}
+}
 
 pub struct Server {
 mut:
@@ -30,6 +59,33 @@ pub mut:
 	log  &logger.Logger
 	lang &language.Lang
 	cfg  conf.Config
+}
+
+// load_resource_packs builds the shared pack registry from local pack files and
+// configured CDN packs. Returns an empty registry when disabled.
+fn load_resource_packs(cfg conf.Config, log &logger.Logger) &resource.PackRegistry {
+	mut reg := &resource.PackRegistry{}
+	if !cfg.resource_packs {
+		return reg
+	}
+	for name in resource.discover(cfg.resource_packs_dir) {
+		path := os.join_path(cfg.resource_packs_dir, name)
+		if pack := resource.new_local_pack(path) {
+			reg.add(pack)
+			log.info('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
+		} else {
+			log.warn('Failed to load resource pack ${name}: ${err}')
+		}
+	}
+	for pack in resource.parse_cdn_packs(cfg.cdn_packs) {
+		reg.add(pack)
+		log.info('Registered CDN resource pack ${pack.uuid} v${pack.version}')
+	}
+	reg.set_must_accept(cfg.force_resource_packs || !cfg.allow_client_packs)
+	if reg.packs.len > 0 {
+		log.info('Resource packs ready: ${reg.packs.len} pack(s), must_accept=${reg.must_accept}')
+	}
+	return reg
 }
 
 pub fn new(cfg conf.Config) &Server {
@@ -73,13 +129,8 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load whitelist: ${err}')
 		permission.Whitelist{}
 	}
-	if store := db.open_world('worlds/world/db') {
-		hub.world_store = store
-		hub.load_world()
-		log.info('Loaded world')
-	} else {
-		log.warn('Failed to open world database: ${err}')
-	}
+	load_worlds(mut hub, cfg, log)
+	hub.packs = load_resource_packs(cfg, log)
 	return &Server{
 		log:        log
 		lang:       lang
@@ -234,6 +285,7 @@ pub fn (mut s Server) stop() {
 	s.running.store(false)
 	if s.hub != unsafe { nil } {
 		s.hub.disconnect_all('Server closed')
+		s.hub.close_worlds()
 	}
 	if s.listener != unsafe { nil } {
 		s.listener.close() or {}
