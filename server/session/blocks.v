@@ -1,16 +1,32 @@
 module session
 
-import math
+import time
 import protocol
 import protocol.types
 import protocol.enums
 import server.world
+
+// place_cooldown_ms throttles placement to at most one accepted block per
+// window.
+const place_cooldown_ms = i64(100)
+
+const survival_place_reach_sq = f32(8.0 * 8.0)
+const creative_place_reach_sq = f32(14.0 * 14.0)
 
 fn (s &NetworkSession) block_at(x int, y int, z int) int {
 	if id := s.hub.world_block_override(x, y, z) {
 		return id
 	}
 	return s.generator.block_at(x, y, z)
+}
+
+fn (s &NetworkSession) can_interact() bool {
+	return s.game_mode != protocol.game_type_survival_spectator
+		&& s.game_mode != protocol.game_type_creative_spectator
+}
+
+fn is_replaceable(block_id int) bool {
+	return false
 }
 
 fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
@@ -43,9 +59,38 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 			if runtime_id == 0 {
 				return
 			}
-			target := face_offset(ut.block_position, int(ut.block_face))
-			if s.place_block(target, runtime_id)! && s.game_mode != protocol.game_type_creative {
-				s.consume_held_item()
+			if s.dead || !s.can_interact() {
+				return
+			}
+			// Neighbor cell in the clicked face direction. Used as the default
+			// placement target and resent with the clicked block on rejection.
+			neighbor := face_offset(ut.block_position, int(ut.block_face))
+			clicked_id := s.block_at(ut.block_position.x, ut.block_position.y, ut.block_position.z)
+			if clicked_id == world.air.network_id || !s.within_place_reach(ut.block_position) {
+				s.resend_block(ut.block_position)
+				s.resend_block(neighbor)
+				return
+			}
+			mut target := ut.block_position
+			if !is_replaceable(clicked_id) {
+				target = neighbor
+			}
+			if target.y < world.dimension_min_y || target.y > world.dimension_max_y {
+				s.resend_block(ut.block_position)
+				s.resend_block(neighbor)
+				return
+			}
+			now := time.now().unix_milli()
+			if now - s.last_place_ms < place_cooldown_ms {
+				s.resend_block(ut.block_position)
+				s.resend_block(neighbor)
+				return
+			}
+			if s.place_block(target, runtime_id)! {
+				s.last_place_ms = now
+				if s.game_mode != protocol.game_type_creative {
+					s.consume_held_item()
+				}
 			}
 		}
 		protocol.item_use_action_destroy_block {
@@ -71,14 +116,40 @@ fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! 
 	}
 }
 
+// place_reach_sq returns the squared placement reach for the player's
+// current gamemode.
+fn (s &NetworkSession) place_reach_sq() f32 {
+	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_creative_spectator {
+		return creative_place_reach_sq
+	}
+	return survival_place_reach_sq
+}
+
+// within_place_reach reports whether pos is within the player's current
+// placement reach (see place_reach_sq), measured from the player's eyes.
+fn (s &NetworkSession) within_place_reach(pos types.BlockPosition) bool {
+	dx := f32(pos.x) + 0.5 - s.position.x
+	dy := f32(pos.y) + 0.5 - s.position.y
+	dz := f32(pos.z) + 0.5 - s.position.z
+	return dx * dx + dy * dy + dz * dz <= s.place_reach_sq()
+}
+
+fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
+	s.transport.send(&protocol.UpdateBlockPacket{
+		block_position:   pos
+		block_runtime_id: s.block_at(pos.x, pos.y, pos.z)
+		flags:            protocol.update_block_flag_network
+		data_layer_id:    0
+	}) or {}
+}
+
 fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !bool {
-	if s.block_at(pos.x, pos.y, pos.z) != world.air.network_id || s.intersects_player(pos) {
-		s.transport.send(&protocol.UpdateBlockPacket{
-			block_position:   pos
-			block_runtime_id: s.block_at(pos.x, pos.y, pos.z)
-			flags:            protocol.update_block_flag_network
-			data_layer_id:    0
-		})!
+	occupied := s.block_at(pos.x, pos.y, pos.z) != world.air.network_id
+	obstructed, self_only := s.obstructed_by_entity(pos)
+	if occupied || obstructed {
+		if occupied || !self_only {
+			s.resend_block(pos)
+		}
 		return false
 	}
 	s.hub.set_world_block(pos.x, pos.y, pos.z, runtime_id)
@@ -107,14 +178,38 @@ fn (mut s NetworkSession) consume_held_item() {
 	s.send_slot_update(s.held_slot, wrapped)
 }
 
-fn (s &NetworkSession) intersects_player(pos types.BlockPosition) bool {
-	px := int(math.floor(s.position.x))
-	py := int(math.floor(s.position.y - player_eye_height))
-	pz := int(math.floor(s.position.z))
-	if pos.x != px || pos.z != pz {
-		return false
+// obstructed_by_entity reports whether pos overlaps any connected player's
+// actual bounding box (0.6 wide, 1.8 tall | player_half_width/player_height),
+// including the placing player themself. Vedrock has no other entity types
+// yet, so checking all sessions covers every entity that currently exists.
+fn (mut s NetworkSession) obstructed_by_entity(pos types.BlockPosition) (bool, bool) {
+	block_min_x := f32(pos.x)
+	block_max_x := f32(pos.x) + 1
+	block_min_y := f32(pos.y)
+	block_max_y := f32(pos.y) + 1
+	block_min_z := f32(pos.z)
+	block_max_z := f32(pos.z) + 1
+	mut obstructed := false
+	for mut target in s.hub.snapshot() {
+		feet_y := target.position.y - player_eye_height
+		min_x := target.position.x - player_half_width
+		max_x := target.position.x + player_half_width
+		min_y := feet_y
+		max_y := feet_y + player_height
+		min_z := target.position.z - player_half_width
+		max_z := target.position.z + player_half_width
+		overlaps := min_x < block_max_x && max_x > block_min_x && min_y < block_max_y
+			&& max_y > block_min_y && min_z < block_max_z && max_z > block_min_z
+		if !overlaps {
+			continue
+		}
+		obstructed = true
+		if target.runtime_id == s.runtime_id {
+			continue
+		}
+		return true, false
 	}
-	return pos.y == py || pos.y == py + 1
+	return obstructed, true
 }
 
 fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {

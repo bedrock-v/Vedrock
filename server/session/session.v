@@ -15,6 +15,8 @@ import sync
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
+pub const player_half_width = f32(0.3)
+pub const player_height = f32(1.8)
 
 pub enum State {
 	handshake
@@ -56,6 +58,7 @@ mut:
 	pending_radius   int
 	perm             permission.Permissible
 	give_next_slot   int
+	last_place_ms    i64
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
