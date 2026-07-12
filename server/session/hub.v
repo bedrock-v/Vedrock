@@ -7,6 +7,7 @@ import time
 import protocol
 import server.internal.gamedata
 import server.item
+import server.block
 import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
@@ -29,6 +30,7 @@ pub mut:
 	world_time   int
 	data         gamedata.GameData
 	items        item.Registry    = item.new_registry()
+	blocks       block.Registry   = block.new_registry()
 	lang         &language.Lang   = unsafe { nil }
 	commands     cmd.Registry     = cmd.new_registry()
 	started_at   i64
