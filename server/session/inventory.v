@@ -2,6 +2,7 @@ module session
 
 import protocol
 import protocol.types
+import server.item as itemmod
 
 struct SlotChange {
 	container types.FullContainerName
@@ -103,9 +104,11 @@ fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestP
 				protocol.stack_request_action_swap {
 					changes << s.apply_swap(action)
 				}
-				protocol.stack_request_action_destroy, protocol.stack_request_action_drop,
-				protocol.stack_request_action_consume {
+				protocol.stack_request_action_destroy, protocol.stack_request_action_drop {
 					changes << s.apply_remove(action)
+				}
+				protocol.stack_request_action_consume {
+					changes << s.apply_consume(action)
 				}
 				protocol.stack_request_action_craft_creative {
 					s.set_pending_creative(int(action.creative_item_network_id))
@@ -239,6 +242,52 @@ fn (mut s NetworkSession) apply_remove(action protocol.StackRequestAction) []Slo
 	s.set_slot_stack(src.container, src.slot, net)
 	return [
 		slot_change(src.container, src.slot, u8(remaining), net),
+	]
+}
+
+fn (mut s NetworkSession) apply_consume(action protocol.StackRequestAction) []SlotChange {
+	src := action.source
+	stack := s.inv_stacks[src.stack_network_id] or { return []SlotChange{} }
+	name := s.hub.data.item_name(stack.id)
+	result := s.hub.items.consume_result(name, stack.meta) or { return s.apply_remove(action) }
+	for e in result.effects {
+		s.apply_add_effect(e)
+	}
+	return s.replace_consumed_stack(action, stack, result)
+}
+
+fn (mut s NetworkSession) replace_consumed_stack(action protocol.StackRequestAction, stack types.ItemStack, result itemmod.ConsumeResult) []SlotChange {
+	src := action.source
+	mut take := int(action.count)
+	if take == 0 || take > stack.count {
+		take = stack.count
+	}
+	remaining := stack.count - take
+	s.inv_stacks.delete(src.stack_network_id)
+
+	mut net := 0
+	mut count := remaining
+	if remaining > 0 {
+		mut remaining_stack := stack
+		remaining_stack.count = remaining
+		net = s.track_stack(remaining_stack)
+	} else if result.replacement_id != '' && result.replacement_count > 0 {
+		replacement_numeric_id := s.hub.data.item_id(result.replacement_id)
+		if replacement_numeric_id != 0 || result.replacement_id == 'minecraft:air' {
+			replacement := types.ItemStack{
+				id:               replacement_numeric_id
+				count:            result.replacement_count
+				block_runtime_id: 0
+				raw_extra_data:   []u8{}
+			}
+			net = s.track_stack(replacement)
+			count = result.replacement_count
+		}
+	}
+
+	s.set_slot_stack(src.container, src.slot, net)
+	return [
+		slot_change(src.container, src.slot, u8(count), net),
 	]
 }
 
