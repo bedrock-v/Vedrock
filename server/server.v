@@ -19,6 +19,34 @@ import sync.stdatomic
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
+pub const worlds_dir = 'worlds'
+
+// load_worlds always loads the configured default world, plus every other
+// world found under worlds/ when load-all-worlds is enabled.
+fn load_worlds(mut hub session.Hub, cfg conf.Config, log &logger.Logger) {
+	mut names := [cfg.default_world]
+	if cfg.load_all_worlds {
+		for name in db.discover_worlds(worlds_dir) {
+			if name !in names {
+				names << name
+			}
+		}
+	}
+	for name in names {
+		if w := db.load_named(worlds_dir, name, cfg.generator) {
+			hub.add_world(w)
+			log.info('Loaded world "${name}" (${w.block_count()} overrides)')
+		} else {
+			log.warn('Failed to load world "${name}": ${err}')
+		}
+	}
+	if _ := hub.world(cfg.default_world) {
+		hub.set_default_world(cfg.default_world)
+	}
+	if hub.world_count() == 0 {
+		log.warn('No worlds loaded - players will spawn in an empty void')
+	}
+}
 
 pub struct Server {
 mut:
@@ -101,13 +129,7 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load whitelist: ${err}')
 		permission.Whitelist{}
 	}
-	if store := db.open_world('worlds/world/db') {
-		hub.world_store = store
-		hub.load_world()
-		log.info('Loaded world')
-	} else {
-		log.warn('Failed to open world database: ${err}')
-	}
+	load_worlds(mut hub, cfg, log)
 	hub.packs = load_resource_packs(cfg, log)
 	return &Server{
 		log:        log

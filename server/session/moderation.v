@@ -2,6 +2,7 @@ module session
 
 import protocol
 import protocol.types
+import server.world
 
 // op / deop
 
@@ -67,11 +68,40 @@ struct TeleportJob {
 	x          f32
 	y          f32
 	z          f32
+	// world is empty for an in-world teleport; set to move the player into
+	// another loaded world before applying the position.
+	world string
 }
 
 fn (j TeleportJob) run(mut h Hub) {
 	mut target := h.session_by_runtime(j.runtime_id) or { return }
+	if j.world != '' && j.world != target.world_name() {
+		if !target.change_world(j.world) {
+			return
+		}
+		target.apply_teleport(j.x, j.y, j.z)
+		target.send_spawn_chunks(target.cfg.view_distance) or {
+			target.log.warn('Failed to send chunks after world change: ${err}')
+		}
+		return
+	}
 	target.apply_teleport(j.x, j.y, j.z)
+}
+
+pub fn (s &NetworkSession) world_name() string {
+	if isnil(s.world) {
+		return ''
+	}
+	return s.world.name
+}
+
+// change_world swaps the player's active world and rebuilds the generator so
+// subsequent chunk sends and block lookups hit the new world's data.
+fn (mut s NetworkSession) change_world(name string) bool {
+	target := s.hub.world(name) or { return false }
+	s.world = target
+	s.generator = target.make_generator(world.new_generator(s.cfg.generator))
+	return true
 }
 
 fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
@@ -98,6 +128,18 @@ pub fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 		x:          x
 		y:          y
 		z:          z
+	})
+}
+
+// teleport_to_world moves the player into another loaded world at the given
+// position. No-op on the hub thread if the world is not loaded.
+pub fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
+	s.hub.submit(TeleportJob{
+		runtime_id: s.runtime_id
+		x:          x
+		y:          y
+		z:          z
+		world:      name
 	})
 }
 

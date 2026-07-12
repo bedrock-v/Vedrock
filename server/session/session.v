@@ -35,6 +35,7 @@ mut:
 	hub              &Hub             = unsafe { nil }
 	state            State            = .handshake
 	cfg              conf.Config
+	world            &db.World       = unsafe { nil }
 	generator        world.Generator = world.VoidGenerator{}
 	identity         auth.Identity
 	runtime_id       u64
@@ -86,13 +87,15 @@ pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 
 pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &logger.Logger) &NetworkSession {
 	mut generator := world.new_generator(cfg.generator)
-	if !isnil(hub.world_store) {
-		generator = db.new_stored_generator(hub.world_store, generator)
+	spawn_world := hub.default_world() or { &db.World(unsafe { nil }) }
+	if !isnil(spawn_world) {
+		generator = spawn_world.make_generator(generator)
 	}
 	return &NetworkSession{
 		transport:  transport
 		hub:        hub
 		cfg:        cfg
+		world:      spawn_world
 		generator:  generator
 		runtime_id: hub.allocate_runtime_id()
 		position:   types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}

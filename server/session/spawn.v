@@ -115,8 +115,10 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
 			mut chunk := s.generator.generate(x, z)
-			for ov in s.hub.overrides_in_chunk(x, z) {
-				chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
+			if !isnil(s.world) {
+				for ov in s.world.overrides_in_chunk(x, z) {
+					chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
+				}
 			}
 			s.transport.queue(&protocol.LevelChunkPacket{
 				chunk_position:  types.ChunkPosition{x, z}

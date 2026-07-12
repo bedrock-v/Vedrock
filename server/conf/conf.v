@@ -20,6 +20,8 @@ pub mut:
 	force_resource_packs  bool
 	allow_client_packs    bool   = true
 	cdn_packs             string
+	default_world         string = 'world'
+	load_all_worlds       bool
 	debug                 bool
 }
 
@@ -63,6 +65,8 @@ pub fn load_from(path string) !Config {
 	})
 	cfg.allow_client_packs = to_bool(values['allow-client-packs'] or { cfg.allow_client_packs.str() })
 	cfg.cdn_packs = values['cdn-packs'] or { cfg.cdn_packs }
+	cfg.default_world = values['default-world'] or { cfg.default_world }
+	cfg.load_all_worlds = to_bool(values['load-all-worlds'] or { cfg.load_all_worlds.str() })
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg
 }
@@ -109,6 +113,8 @@ force-resource-packs: ${cfg.force_resource_packs}
 allow-client-packs: ${cfg.allow_client_packs}
 # cdn-packs format: uuid,version,url,size ; separated by ";"
 cdn-packs: "${cfg.cdn_packs}"
+default-world: "${cfg.default_world}"
+load-all-worlds: ${cfg.load_all_worlds}
 debug: ${cfg.debug}
 '
 	os.write_file(path, content)!
