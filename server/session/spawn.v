@@ -151,6 +151,7 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 	s.hub.add(s)
 	s.hub.broadcast(s.player_list_add_packet())
 	s.hub.broadcast_except(s.runtime_id, s.add_player_packet())
+	s.send_active_effects()
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:             int(enums.TextType.translation)
 		needs_translation: true

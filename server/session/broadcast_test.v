@@ -6,6 +6,8 @@ import protocol.types
 import protocol.serializer
 import server.internal.gamedata
 import server.internal.auth
+import server.effect
+import time
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := protocol.new_packet_pool()
@@ -93,6 +95,24 @@ fn test_update_abilities_roundtrip() {
 		assert decoded.data.target_actor_unique_id == 7
 		assert decoded.data.layers.len == 1
 		assert decoded.data.layers[0].set_ability_values & ability_bit(protocol.ability_may_fly) != 0
+	} else {
+		assert false
+	}
+}
+
+fn test_mob_effect_packet_roundtrip() {
+	s := &NetworkSession{
+		runtime_id: 7
+	}
+	decoded := roundtrip_packet(s.mob_effect_packet(effect.new(effect.regeneration, 2,
+		5 * time.second), mob_effect_add))!
+	assert decoded.name() == 'MobEffectPacket'
+	if decoded is protocol.MobEffectPacket {
+		assert decoded.actor_runtime_id == 7
+		assert decoded.event_id == mob_effect_add
+		assert decoded.effect_id == effect.regeneration.id
+		assert decoded.amplifier == 1
+		assert decoded.duration == 100
 	} else {
 		assert false
 	}

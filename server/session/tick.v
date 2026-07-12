@@ -15,4 +15,5 @@ fn (j TickJob) run(mut h Hub) {
 	h.world_time = j.world_time
 	h.set_tps(j.tps)
 	h.set_load(j.load)
+	h.tick_effects()
 }
