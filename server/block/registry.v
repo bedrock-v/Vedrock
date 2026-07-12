@@ -1,7 +1,5 @@
 module block
 
-import server.world
-
 // Registry maps block runtime ids and namespaced ids to their concrete Block
 // class. The session layer holds one Registry and queries it for per-block
 // behaviour (breakability, hardness, ...) instead of hard-coding runtime ids.
@@ -60,28 +58,13 @@ pub fn (r &Registry) len() int {
 	return r.by_name.len
 }
 
-// default_blocks is the built-in set of modelled blocks. Extend this list as
-// new block classes gain behaviour; everything else falls back to SimpleBlock.
+// default_blocks is the built-in set of modelled blocks, one class per block.
+// Extend this list as new block classes are added.
 fn default_blocks() []Block {
 	return [
-		Block(SimpleBlock{
-			id:             'minecraft:stone'
-			block_runtime:  world.stone.network_id
-			break_hardness: 1.5
-		}),
-		SimpleBlock{
-			id:             'minecraft:dirt'
-			block_runtime:  world.dirt.network_id
-			break_hardness: 0.5
-		},
-		SimpleBlock{
-			id:             'minecraft:grass_block'
-			block_runtime:  world.grass_block.network_id
-			break_hardness: 0.6
-		},
-		UnbreakableBlock{
-			id:            'minecraft:bedrock'
-			block_runtime: world.bedrock.network_id
-		},
+		Block(new_stone_block()),
+		new_dirt_block(),
+		new_grass_block(),
+		new_bedrock_block(),
 	]
 }

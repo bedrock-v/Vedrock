@@ -4,7 +4,6 @@ import math
 import protocol
 import protocol.types
 import protocol.enums
-import server.item
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -186,12 +185,12 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3) {
 	}) or {}
 }
 
-// weapon_damage prefers the damage from a registered SwordItem class and falls
+// weapon_damage prefers the damage from a registered weapon class and falls
 // back to the material-tier heuristic for items without a modelled class.
 fn (s &NetworkSession) weapon_damage(name string) f32 {
 	if it := s.hub.items.get(name) {
-		if it is item.SwordItem {
-			return f32(it.damage())
+		if it.attack_damage() > 0 {
+			return it.attack_damage()
 		}
 	}
 	return weapon_damage_heuristic(name)

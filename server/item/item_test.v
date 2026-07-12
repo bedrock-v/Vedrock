@@ -9,52 +9,44 @@ fn test_registered_blocks_carry_runtime_id() {
 	r := new_registry()
 	it := r.get('minecraft:stone') or { panic('missing stone') }
 	assert it.max_stack_size() == 64
-	if it is BlockItem {
-		assert it.placed_block_runtime_id() != 0
-	} else {
-		assert false, 'stone is not a BlockItem'
-	}
+	assert it.block_runtime_id() != 0
+	assert it is StoneItem
 }
 
 fn test_registered_foods_restore() {
 	r := new_registry()
 	it := r.get('minecraft:cooked_beef') or { panic('missing cooked_beef') }
-	if it is FoodItem {
-		assert it.restores() == 8
-	} else {
-		assert false, 'cooked_beef is not a FoodItem'
-	}
+	assert it.nutrition() == 8
+	assert it is CookedBeefItem
 }
 
 fn test_sword_never_stacks() {
 	r := new_registry()
 	it := r.get('minecraft:diamond_sword') or { panic('missing sword') }
 	assert it.max_stack_size() == 1
-	if it is SwordItem {
-		assert it.damage() == 7
-	} else {
-		assert false, 'diamond_sword is not a SwordItem'
-	}
+	assert it.attack_damage() == 7
+	assert it is DiamondSwordItem
 }
 
 fn test_food_stacks_and_restores() {
 	r := new_registry()
 	it := r.get('minecraft:apple') or { panic('missing apple') }
 	assert it.max_stack_size() == 64
-	if it is FoodItem {
-		assert it.restores() == 4
-	} else {
-		assert false, 'apple is not a FoodItem'
-	}
+	assert it.nutrition() == 4
+	assert it is AppleItem
 }
 
 fn test_block_item_carries_runtime_id() {
-	b := BlockItem{
-		id:               'minecraft:stone'
-		block_runtime_id: 42
-	}
+	b := new_stone_item()
 	assert b.max_stack_size() == 64
-	assert b.placed_block_runtime_id() == 42
+	assert b.block_runtime_id() != 0
+}
+
+fn test_non_weapons_deal_no_damage() {
+	r := new_registry()
+	it := r.get('minecraft:stick') or { panic('missing stick') }
+	assert it.attack_damage() == 0
+	assert it is StickItem
 }
 
 fn test_unregistered_falls_back_to_64() {
