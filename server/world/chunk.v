@@ -2,6 +2,7 @@ module world
 
 pub const dimension_min_y = -64
 pub const dimension_subchunk_count = 24
+pub const dimension_max_y = dimension_min_y + dimension_subchunk_count * 16 - 1
 pub const plains_biome_id = 1
 
 pub struct Chunk {
