@@ -1,0 +1,11 @@
+services:
+  vedrock:
+    build: .
+    container_name: vedrock
+    ports:
+      - "19132:19132/udp"
+    volumes:
+      - ./worlds:/app/worlds
+      - ./players:/app/players
+      - ./vedrock.yml:/app/vedrock.yml
+    restart: unless-stopped
