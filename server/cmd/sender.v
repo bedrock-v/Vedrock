@@ -1,5 +1,7 @@
 module cmd
 
+import server.form
+
 // Sender is the live connection that issued a cmd. Context carries
 // read-only stats for building output; anything a Command needs to send
 // back or mutate goes through Sender instead.
@@ -29,4 +31,5 @@ mut:
 	show_title(kind int, text string)
 	// broadcast_title sends to every connected player (for /title @a).
 	broadcast_title(kind int, text string)
+	send_form(f form.Form) !
 }

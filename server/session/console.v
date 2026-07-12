@@ -2,6 +2,7 @@ module session
 
 import server.internal.logger
 import server.cmd
+import server.form
 
 // ConsoleSender adapts the server console to the cmd.Sender interface.
 // It has every permission and writes command output to the server log.
@@ -72,6 +73,10 @@ pub fn (mut c ConsoleSender) clear_inventory() {}
 
 pub fn (mut c ConsoleSender) give_item(id string, count int) bool {
 	return false
+}
+
+pub fn (mut c ConsoleSender) send_form(f form.Form) ! {
+	return error('the console cannot display forms')
 }
 
 // strip_formatting removes Minecraft § formatting codes so command output
