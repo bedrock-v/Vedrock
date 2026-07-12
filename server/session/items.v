@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import types
+import protocol.types
 import nbt
 import server.player.playerdb
 

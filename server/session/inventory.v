@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import types
+import protocol.types
 
 struct SlotChange {
 	container types.FullContainerName

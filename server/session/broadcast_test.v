@@ -1,9 +1,9 @@
 module session
 
 import protocol
-import enums
-import types
-import serializer
+import protocol.enums
+import protocol.types
+import protocol.serializer
 import server.internal.gamedata
 import server.internal.auth
 

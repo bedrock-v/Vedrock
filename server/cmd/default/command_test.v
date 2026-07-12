@@ -1,15 +1,22 @@
-module cmd
+module default
 
 import protocol
-import types
-import serializer
+import protocol.types
+import protocol.serializer
 import server.internal.language
 import server.permission
 import server.form
+import server.cmd
 
-fn base_ctx() Context {
+fn full_registry() cmd.Registry {
+	mut r := cmd.new_registry()
+	register_all(mut r)
+	return r
+}
+
+fn base_ctx() cmd.Context {
 	lang := language.load('en') or { panic('failed to load lang for test: ${err}') }
-	return Context{
+	return cmd.Context{
 		lang:         lang
 		sender_name:  'Steve'
 		player_count: 3
@@ -24,7 +31,7 @@ mut:
 	broadcasts       []string
 	gamemode         int = -1
 	perm             permission.Permissible
-	peers            map[string]Sender
+	peers            map[string]cmd.Sender
 	sender_name      string = 'Steve'
 	killed           bool
 	pos_x            f32
@@ -67,7 +74,7 @@ fn (s &RecordingSender) is_player() bool {
 	return s.is_player_val
 }
 
-fn (mut s RecordingSender) find_player(name string) ?Sender {
+fn (mut s RecordingSender) find_player(name string) ?cmd.Sender {
 	return s.peers[name.to_lower()] or { none }
 }
 
@@ -144,7 +151,7 @@ fn (mut s RecordingSender) send_form(f form.Form) ! {
 }
 
 fn test_version_command() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/version', mut sender, base_ctx())!
 	assert sender.messages.len == 1
@@ -154,14 +161,14 @@ fn test_version_command() {
 }
 
 fn test_version_alias() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/ver', mut sender, base_ctx())!
 	assert sender.messages[0].contains('Vedrock')
 }
 
 fn test_status_command() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('status', mut sender, base_ctx())!
@@ -171,21 +178,21 @@ fn test_status_command() {
 }
 
 fn test_status_command_denied_without_op() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('status', mut sender, base_ctx())!
 	assert sender.messages[0].contains('permission')
 }
 
 fn test_unknown_command() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/nope', mut sender, base_ctx())!
 	assert sender.messages[0].contains('Unknown command')
 }
 
 fn test_gamemode_command() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
@@ -194,7 +201,7 @@ fn test_gamemode_command() {
 }
 
 fn test_gamemode_command_usage_is_not_a_client_translation_key() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode', mut sender, base_ctx())!
@@ -204,7 +211,7 @@ fn test_gamemode_command_usage_is_not_a_client_translation_key() {
 }
 
 fn test_gamemode_command_denied_without_op() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
 	assert sender.gamemode == -1
@@ -229,16 +236,16 @@ fn (c FakeCommand) permission() string {
 	return ''
 }
 
-fn (c FakeCommand) arguments() []Argument {
+fn (c FakeCommand) arguments() []cmd.Argument {
 	return []
 }
 
-fn (c FakeCommand) execute(mut sender Sender, ctx Context) ! {
+fn (c FakeCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	sender.send_message('fake ran')!
 }
 
 fn test_unregister_removes_command_and_aliases() {
-	mut r := new_registry()
+	mut r := cmd.new_registry()
 	r.register(FakeCommand{})
 	mut sender := RecordingSender{}
 	r.dispatch('/fake', mut sender, base_ctx())!
@@ -255,12 +262,12 @@ fn test_unregister_removes_command_and_aliases() {
 }
 
 fn test_unregister_unknown_command_is_a_noop() {
-	mut r := new_registry()
+	mut r := cmd.new_registry()
 	r.unregister('ghost')
 }
 
 fn test_resolve_missing() {
-	r := new_registry()
+	r := full_registry()
 	if _ := r.resolve('ghost') {
 		assert false
 	}
@@ -290,18 +297,18 @@ fn test_command_request_roundtrip() {
 }
 
 fn test_available_commands_roundtrip() {
-	r := new_registry()
+	r := full_registry()
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 3
+	assert pkt.commands.len == 13
 	encoded := protocol.encode_packet_to_bytes(&pkt)
 	mut pool := protocol.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
 	if decoded is protocol.AvailableCommandsPacket {
-		assert decoded.commands.len == 3
+		assert decoded.commands.len == 13
 		assert decoded.commands[0].alias_enum_index == -1
 		assert decoded.commands[0].overloads.len == 1
 	} else {
@@ -310,7 +317,7 @@ fn test_available_commands_roundtrip() {
 }
 
 fn test_available_commands_filtered() {
-	r := new_registry()
+	r := full_registry()
 	sender := RecordingSender{}
 	pkt := r.available_commands(sender)
 	assert pkt.commands.len == 1

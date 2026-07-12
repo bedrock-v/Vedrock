@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import types
+import protocol.types
 
 const skin_width = u32(64)
 const skin_height = u32(64)

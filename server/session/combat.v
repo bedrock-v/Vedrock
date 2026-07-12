@@ -2,7 +2,7 @@ module session
 
 import math
 import protocol
-import types
+import protocol.types
 import protocol.enums
 
 const knockback_horizontal = f32(0.4)

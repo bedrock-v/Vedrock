@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import types
+import protocol.types
 
 fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))

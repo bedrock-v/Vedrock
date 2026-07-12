@@ -2,8 +2,8 @@ module session
 
 import math
 import protocol
-import enums
-import types
+import protocol.enums
+import protocol.types
 import nbt
 import server.player.playerdb
 import server.world

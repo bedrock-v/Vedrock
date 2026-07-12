@@ -3,8 +3,8 @@ module session
 import server.internal.network
 import server.internal.auth
 import protocol
-import enums
-import types
+import protocol.enums
+import protocol.types
 import server.internal.logger
 import server.conf
 import server.world

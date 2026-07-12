@@ -1,8 +1,8 @@
 module session
 
 import protocol
-import types
-import serializer
+import protocol.types
+import protocol.serializer
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := protocol.new_packet_pool()
