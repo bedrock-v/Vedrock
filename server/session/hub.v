@@ -12,6 +12,7 @@ import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
 import server.world.db
+import server.resource
 import server.permission
 
 @[heap]
@@ -36,6 +37,7 @@ pub mut:
 	started_at   i64
 	world_blocks map[string]int
 	world_store  &db.WorldStore = unsafe { nil }
+	packs        &resource.PackRegistry = unsafe { nil }
 	ops          permission.OpList
 	player_grants permission.PlayerGrants
 	whitelist    permission.Whitelist

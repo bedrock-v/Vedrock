@@ -177,6 +177,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 		.resource_packs {
 			if p is protocol.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
+			} else if p is protocol.ResourcePackChunkRequestPacket {
+				s.handle_resource_pack_chunk_request(p)!
 			} else if p is protocol.RequestChunkRadiusPacket {
 				s.pending_radius = p.radius
 			} else {

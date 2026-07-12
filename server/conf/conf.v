@@ -15,6 +15,11 @@ pub mut:
 	compression_threshold int    = 256
 	generator             string = 'flat'
 	language              string = 'en'
+	resource_packs        bool   = true
+	resource_packs_dir    string = 'resource_packs'
+	force_resource_packs  bool
+	allow_client_packs    bool   = true
+	cdn_packs             string
 	debug                 bool
 }
 
@@ -51,6 +56,13 @@ pub fn load_from(path string) !Config {
 		cfg.compression_threshold = 65535
 	}
 	cfg.generator = values['generator'] or { cfg.generator }
+	cfg.resource_packs = to_bool(values['resource-packs'] or { cfg.resource_packs.str() })
+	cfg.resource_packs_dir = values['resource-packs-dir'] or { cfg.resource_packs_dir }
+	cfg.force_resource_packs = to_bool(values['force-resource-packs'] or {
+		cfg.force_resource_packs.str()
+	})
+	cfg.allow_client_packs = to_bool(values['allow-client-packs'] or { cfg.allow_client_packs.str() })
+	cfg.cdn_packs = values['cdn-packs'] or { cfg.cdn_packs }
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg
 }
@@ -91,6 +103,12 @@ xbox-auth: ${cfg.xbox_auth}
 compression-threshold: ${cfg.compression_threshold}
 generator: "${cfg.generator}"
 language: "${cfg.language}"
+resource-packs: ${cfg.resource_packs}
+resource-packs-dir: "${cfg.resource_packs_dir}"
+force-resource-packs: ${cfg.force_resource_packs}
+allow-client-packs: ${cfg.allow_client_packs}
+# cdn-packs format: uuid,version,url,size ; separated by ";"
+cdn-packs: "${cfg.cdn_packs}"
 debug: ${cfg.debug}
 '
 	os.write_file(path, content)!

@@ -2,6 +2,7 @@ module session
 
 import server.internal.network
 import server.internal.auth
+import server.resource
 import protocol
 import protocol.enums
 import protocol.types
@@ -55,22 +56,60 @@ fn (mut s NetworkSession) handle_login(p protocol.LoginPacket) ! {
 }
 
 fn (mut s NetworkSession) start_resource_packs() ! {
+	mut entries := []protocol.ResourcePackInfoEntry{}
+	if !isnil(s.hub.packs) {
+		for pack in s.hub.packs.packs {
+			entries << protocol.ResourcePackInfoEntry{
+				uuid:       types.uuid_from_bytes(pack.uuid_bytes())
+				version:    pack.version
+				size_bytes: pack.size
+				cdn_url:    pack.cdn_url
+			}
+		}
+	}
 	s.transport.send(&protocol.ResourcePacksInfoPacket{
-		must_accept: false
-		entries:     []protocol.ResourcePackInfoEntry{}
+		must_accept: s.packs_must_accept()
+		entries:     entries
 	})!
 	s.state = .resource_packs
 }
 
+fn (s &NetworkSession) packs_must_accept() bool {
+	return !isnil(s.hub.packs) && s.hub.packs.must_accept
+}
+
+fn (mut s NetworkSession) send_pack_stack() ! {
+	mut stack := []protocol.ResourcePackStackEntry{}
+	if !isnil(s.hub.packs) {
+		for pack in s.hub.packs.packs {
+			stack << protocol.ResourcePackStackEntry{
+				pack_id: pack.uuid
+				version: pack.version
+			}
+		}
+	}
+	s.transport.send(&protocol.ResourcePackStackPacket{
+		must_accept:         s.packs_must_accept()
+		resource_pack_stack: stack
+		base_game_version:   protocol.minecraft_version_network
+		experiments:         types.Experiments{}
+	})!
+}
+
 fn (mut s NetworkSession) handle_resource_pack_response(p protocol.ResourcePackClientResponsePacket) ! {
 	match p.status {
+		protocol.resource_response_refused {
+			if s.packs_must_accept() {
+				s.disconnect('You must accept the server resource packs to play')
+				return
+			}
+			s.send_pack_stack()!
+		}
+		protocol.resource_response_send_packs {
+			s.send_requested_packs(p.pack_ids)!
+		}
 		protocol.resource_response_have_all_packs {
-			s.transport.send(&protocol.ResourcePackStackPacket{
-				must_accept:         false
-				resource_pack_stack: []protocol.ResourcePackStackEntry{}
-				base_game_version:   protocol.minecraft_version_network
-				experiments:         types.Experiments{}
-			})!
+			s.send_pack_stack()!
 		}
 		protocol.resource_response_completed {
 			s.start_game()!
@@ -79,4 +118,45 @@ fn (mut s NetworkSession) handle_resource_pack_response(p protocol.ResourcePackC
 			s.log.debug('Unhandled resource pack response status ${p.status}')
 		}
 	}
+}
+
+fn (mut s NetworkSession) send_requested_packs(pack_ids []string) ! {
+	if isnil(s.hub.packs) {
+		return
+	}
+	for id in pack_ids {
+		pack := s.hub.packs.find(id) or {
+			s.log.warn('Client requested unknown resource pack ${id}')
+			continue
+		}
+		// CDN packs are fetched by the client directly - nothing to upload.
+		if pack.is_cdn() {
+			continue
+		}
+		s.transport.send(&protocol.ResourcePackDataInfoPacket{
+			pack_id:              pack.id()
+			max_chunk_size:       resource.pack_chunk_size
+			chunk_count:          pack.chunk_count()
+			compressed_pack_size: pack.size
+			sha256:               pack.sha256
+			is_premium:           false
+			pack_type:            resource.pack_type_resources
+		})!
+	}
+}
+
+fn (mut s NetworkSession) handle_resource_pack_chunk_request(p protocol.ResourcePackChunkRequestPacket) ! {
+	if isnil(s.hub.packs) {
+		return
+	}
+	pack := s.hub.packs.find(p.pack_id) or {
+		s.log.warn('Chunk request for unknown resource pack ${p.pack_id}')
+		return
+	}
+	s.transport.send(&protocol.ResourcePackChunkDataPacket{
+		pack_id:     pack.id()
+		chunk_index: p.chunk_index
+		offset:      u64(p.chunk_index) * u64(resource.pack_chunk_size)
+		data:        pack.chunk(p.chunk_index)
+	})!
 }
