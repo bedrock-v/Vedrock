@@ -50,8 +50,8 @@ jobs:
       - name: Setup V
         uses: ./.github/actions/setup-v
 
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libleveldb-dev
+      - name: Install leveldb module
+        run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
 
       - name: Build binaries
         run: |
