@@ -80,15 +80,29 @@ fn (j TeleportJob) run(mut h Hub) {
 			return
 		}
 		target.apply_teleport(j.x, j.y, j.z)
-		target.send_spawn_chunks(target.cfg.view_distance) or {
-			target.log.warn('Failed to send chunks after world change: ${err}')
-		}
+		// Chunk transmission (up to a few hundred packets) runs off the shared
+		// Hub job thread so one player's world change never stalls everyone
+		// else's queued jobs.
+		spawn target.reload_chunks(target.cfg.view_distance)
 		return
 	}
 	target.apply_teleport(j.x, j.y, j.z)
 }
 
+// reload_chunks resends the spawn chunks around the player. Runs on its own
+// thread; transport sends are already write-mutex guarded.
+fn (mut s NetworkSession) reload_chunks(radius int) {
+	s.send_spawn_chunks(radius) or {
+		s.log.warn('Failed to send chunks after world change: ${err}')
+	}
+}
+
 pub fn (s &NetworkSession) world_name() string {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
 	if isnil(s.world) {
 		return ''
 	}
@@ -99,8 +113,11 @@ pub fn (s &NetworkSession) world_name() string {
 // subsequent chunk sends and block lookups hit the new world's data.
 fn (mut s NetworkSession) change_world(name string) bool {
 	target := s.hub.world(name) or { return false }
+	gen := target.make_generator(world.new_generator(s.cfg.generator))
+	s.world_mutex.lock()
 	s.world = target
-	s.generator = target.make_generator(world.new_generator(s.cfg.generator))
+	s.generator = gen
+	s.world_mutex.unlock()
 	return true
 }
 

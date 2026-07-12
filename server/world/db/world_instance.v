@@ -58,16 +58,27 @@ pub fn (mut w World) set_block(x int, y int, z int, runtime_id int) {
 }
 
 pub fn (w &World) block_override(x int, y int, z int) ?int {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
 	return w.overrides[override_key(x, y, z)] or { return none }
 }
 
 pub fn (w &World) block_count() int {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
 	return w.overrides.len
 }
 
-pub fn (mut w World) overrides_in_chunk(cx int, cz int) []BlockOverride {
+pub fn (w &World) overrides_in_chunk(cx int, cz int) []BlockOverride {
 	mut out := []BlockOverride{}
-	w.mutex.lock()
+	mut m := w.mutex
+	m.lock()
 	for key, id in w.overrides {
 		parts := key.split(':')
 		if parts.len != 3 {
@@ -84,7 +95,7 @@ pub fn (mut w World) overrides_in_chunk(cx int, cz int) []BlockOverride {
 			}
 		}
 	}
-	w.mutex.unlock()
+	m.unlock()
 	return out
 }
 

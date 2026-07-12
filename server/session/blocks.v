@@ -14,12 +14,13 @@ const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
 
 fn (s &NetworkSession) block_at(x int, y int, z int) int {
-	if !isnil(s.world) {
-		if id := s.world.block_override(x, y, z) {
+	wld, gen := s.world_and_generator()
+	if !isnil(wld) {
+		if id := wld.block_override(x, y, z) {
 			return id
 		}
 	}
-	return s.generator.block_at(x, y, z)
+	return gen.block_at(x, y, z)
 }
 
 fn (s &NetworkSession) can_interact() bool {

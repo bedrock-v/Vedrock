@@ -37,6 +37,9 @@ mut:
 	cfg              conf.Config
 	world            &db.World       = unsafe { nil }
 	generator        world.Generator = world.VoidGenerator{}
+	// world_mutex guards world and generator - both are swapped from the Hub
+	// job thread on a world change while the session thread reads them.
+	world_mutex      &sync.Mutex = sync.new_mutex()
 	identity         auth.Identity
 	runtime_id       u64
 	pos_mutex        &sync.Mutex = sync.new_mutex()
@@ -70,6 +73,18 @@ pub mut:
 
 pub fn (s &NetworkSession) has_permission(name string) bool {
 	return s.perm.has_permission(name)
+}
+
+// world_and_generator returns a consistent snapshot of the active world and
+// generator under world_mutex, so callers never observe a torn generator
+// interface value mid-swap.
+fn (s &NetworkSession) world_and_generator() (&db.World, world.Generator) {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.world, s.generator
 }
 
 pub fn (s &NetworkSession) name() string {

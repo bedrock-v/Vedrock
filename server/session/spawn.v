@@ -109,14 +109,15 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 }
 
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
+	wld, gen := s.world_and_generator()
 	cx := int(math.floor(f64(s.position.x))) >> 4
 	cz := int(math.floor(f64(s.position.z))) >> 4
 	mut pending := 0
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
-			mut chunk := s.generator.generate(x, z)
-			if !isnil(s.world) {
-				for ov in s.world.overrides_in_chunk(x, z) {
+			mut chunk := gen.generate(x, z)
+			if !isnil(wld) {
+				for ov in wld.overrides_in_chunk(x, z) {
 					chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
 				}
 			}
