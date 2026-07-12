@@ -155,8 +155,9 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 		}
 		return false
 	}
-	if !isnil(s.world) {
-		s.world.set_block(pos.x, pos.y, pos.z, runtime_id)
+	mut wld := s.current_world()
+	if !isnil(wld) {
+		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
 	}
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
@@ -232,8 +233,9 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		})!
 		return
 	}
-	if !isnil(s.world) {
-		s.world.set_block(pos.x, pos.y, pos.z, air_id)
+	mut wld := s.current_world()
+	if !isnil(wld) {
+		wld.set_block(pos.x, pos.y, pos.z, air_id)
 	}
 	s.broadcast_block_update(pos, air_id)
 	s.broadcast_destroy_particles(pos, old_id)

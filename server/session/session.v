@@ -87,6 +87,17 @@ fn (s &NetworkSession) world_and_generator() (&db.World, world.Generator) {
 	return s.world, s.generator
 }
 
+// current_world returns the active world under world_mutex, so block writes
+// never race the world swap on the Hub job thread.
+fn (s &NetworkSession) current_world() &db.World {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.world
+}
+
 pub fn (s &NetworkSession) name() string {
 	return s.identity.display_name
 }

@@ -116,6 +116,17 @@ pub fn (mut h Hub) world_count() int {
 	return h.worlds.len
 }
 
+// close_worlds flushes and releases every loaded world's LevelDB handles. Called
+// once on shutdown after all sessions are disconnected.
+pub fn (mut h Hub) close_worlds() {
+	h.mutex.lock()
+	for _, mut w in h.worlds {
+		w.close()
+	}
+	h.worlds.clear()
+	h.mutex.unlock()
+}
+
 pub fn (mut h Hub) allocate_runtime_id() u64 {
 	h.mutex.lock()
 	id := h.next_runtime_id

@@ -285,6 +285,7 @@ pub fn (mut s Server) stop() {
 	s.running.store(false)
 	if s.hub != unsafe { nil } {
 		s.hub.disconnect_all('Server closed')
+		s.hub.close_worlds()
 	}
 	if s.listener != unsafe { nil } {
 		s.listener.close() or {}
