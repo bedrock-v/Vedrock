@@ -110,5 +110,6 @@ fn default_blocks() []Block {
 	]
 	result << wood_blocks()
 	result << redstone_component_blocks()
+	result << container_blocks()
 	return result
 }

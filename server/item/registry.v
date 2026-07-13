@@ -157,6 +157,7 @@ fn default_items() []Item {
 	items << new_dripstone_block_item()
 	items << wood_items()
 	items << redstone_component_items()
+	items << container_items()
 
 	return items
 }
