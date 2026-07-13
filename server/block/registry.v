@@ -111,5 +111,6 @@ fn default_blocks() []Block {
 	result << wood_blocks()
 	result << redstone_component_blocks()
 	result << container_blocks()
+	result << farming_blocks()
 	return result
 }

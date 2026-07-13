@@ -2,7 +2,7 @@ module item
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 269
+	assert r.len() == 277
 }
 
 fn test_registered_blocks_carry_runtime_id() {

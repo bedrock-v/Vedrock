@@ -158,6 +158,7 @@ fn default_items() []Item {
 	items << wood_items()
 	items << redstone_component_items()
 	items << container_items()
+	items << farming_items()
 
 	return items
 }
