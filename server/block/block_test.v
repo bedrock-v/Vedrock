@@ -4,7 +4,7 @@ import server.world
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 111
+	assert r.len() == 158
 }
 
 fn test_registered_blocks_found_by_runtime_and_name() {

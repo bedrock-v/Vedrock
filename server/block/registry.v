@@ -109,5 +109,6 @@ fn default_blocks() []Block {
 		new_dripstone_block(),
 	]
 	result << wood_blocks()
+	result << redstone_component_blocks()
 	return result
 }

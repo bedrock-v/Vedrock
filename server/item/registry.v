@@ -155,8 +155,8 @@ fn default_items() []Item {
 	items << new_calcite_item()
 	items << new_smooth_basalt_item()
 	items << new_dripstone_block_item()
-	
 	items << wood_items()
+	items << redstone_component_items()
 
 	return items
 }
