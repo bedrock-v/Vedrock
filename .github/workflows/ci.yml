@@ -42,13 +42,8 @@ jobs:
       - name: Install leveldb module
         run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
 
-      # Type-check the server library. `v -check .` at the repo root trips over
-      # main.v program detection on this V build, so check the library directly
-      # and let the full build below cover the main program.
-      - name: Check
-        run: v -check server
-
-      # Full production build - matches the Dockerfile invocation exactly.
+      # Full production build - matches the Dockerfile invocation exactly and
+      # type-checks the whole project as a side effect.
       - name: Build
         run: v -prod . -o vedrock
 
