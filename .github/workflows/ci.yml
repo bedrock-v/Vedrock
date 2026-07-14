@@ -23,39 +23,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Builds the pinned V compiler and clones/symlinks raknet, nbt and
-      # protocol into ~/.vmodules.
-      - name: Setup V
-        uses: ./.github/actions/setup-v
-
-      # setup-v symlinks the protocol repo root, but the module's code lives
-      # under src/ and imports its siblings (types, serializer, enums) as
-      # top-level modules. Repoint protocol and add those, matching the
-      # Dockerfile, so imports resolve.
-      - name: Fix protocol module layout
+      # This project builds only with V 0.5.1 (0c3183c) - the shared setup-v
+      # action tracks a newer V that mis-compiles the codebase, so build the
+      # pinned compiler here directly.
+      - name: Build pinned V 0.5.1
         run: |
-          git -C "$HOME/vedrock-deps/protocol" fetch --unshallow --quiet || true
-          git -C "$HOME/vedrock-deps/protocol" checkout 9d54e57
-          rm -f ~/.vmodules/protocol
-          ln -s "$HOME/vedrock-deps/protocol/src" ~/.vmodules/protocol
-          ln -sf "$HOME/vedrock-deps/protocol/src/enums" ~/.vmodules/enums
-          ln -sf "$HOME/vedrock-deps/protocol/src/types" ~/.vmodules/types
-          ln -sf "$HOME/vedrock-deps/protocol/src/serializer" ~/.vmodules/serializer
+          git clone https://github.com/vlang/v ~/vlang
+          git -C ~/vlang checkout 0c3183c
+          git clone https://github.com/vlang/vc ~/vlang/vc
+          git -C ~/vlang/vc checkout f461dfeb
+          git clone --depth 1 --branch thirdparty-linux-amd64 https://github.com/vlang/tccbin ~/vlang/thirdparty/tcc
+          make -C ~/vlang local=1
+          echo "$HOME/vlang" >> "$GITHUB_PATH"
 
-      # server/world/db needs leveldb for both the build and the tests.
-      - name: Install leveldb module
-        run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
+      # Clone and symlink the module dependencies, mirroring the Dockerfile
+      # (protocol code lives under src/ and its siblings resolve as top-level
+      # modules). protocol is pinned to the commit the project builds against.
+      - name: Install dependencies
+        run: |
+          deps="$HOME/vedrock-deps"
+          vmod="$HOME/.vmodules"
+          mkdir -p "$deps" "$vmod"
+          git clone --depth 1 https://github.com/bedrock-v/raknet "$deps/raknet"
+          git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
+          git clone https://github.com/bedrock-v/protocol "$deps/protocol"
+          git -C "$deps/protocol" checkout 9d54e57
+          ln -s "$deps/raknet" "$vmod/raknet"
+          ln -s "$deps/raknet/message" "$vmod/message"
+          ln -s "$deps/nbt" "$vmod/nbt"
+          ln -s "$deps/protocol/src" "$vmod/protocol"
+          ln -s "$deps/protocol/src/enums" "$vmod/enums"
+          ln -s "$deps/protocol/src/types" "$vmod/types"
+          ln -s "$deps/protocol/src/serializer" "$vmod/serializer"
+          git clone --depth 1 https://github.com/vlang/leveldb "$vmod/leveldb"
+          ~/vlang/v install nepinhum.i18n
 
-      # Runs the unit test suite. main.v is moved aside for the run so the root
-      # program entry is not pulled into the test compilation on the hosted
-      # runner (a V 0.5.2 quirk). The full binary build is validated by the
-      # Docker CI workflow.
+      - name: Build
+        run: v -prod . -o vedrock
+
       - name: Test
-        run: |
-          mv main.v main.v.bak
-          v test server
-          status=$?
-          mv main.v.bak main.v
+        run: v test server
           exit $status
 
   format:
