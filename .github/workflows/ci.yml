@@ -46,11 +46,17 @@ jobs:
       - name: Install leveldb module
         run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
 
-      # Runs the unit test suite from inside server/ so the root main.v does not
-      # get pulled into the test compilation on the hosted runner. The full
-      # binary build is validated by the Docker CI workflow.
+      # Runs the unit test suite. main.v is moved aside for the run so the root
+      # program entry is not pulled into the test compilation on the hosted
+      # runner (a V 0.5.2 quirk). The full binary build is validated by the
+      # Docker CI workflow.
       - name: Test
-        run: cd server && v test .
+        run: |
+          mv main.v main.v.bak
+          v test server
+          status=$?
+          mv main.v.bak main.v
+          exit $status
 
   format:
     name: Format check
