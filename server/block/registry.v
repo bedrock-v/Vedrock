@@ -113,5 +113,7 @@ fn default_blocks() []Block {
 	result << container_blocks()
 	result << farming_blocks()
 	result << combat_progression_blocks()
+	result << decorative_blocks()
+	
 	return result
 }

@@ -160,6 +160,7 @@ fn default_items() []Item {
 	items << container_items()
 	items << farming_items()
 	items << combat_progression_items()
+	items << decorative_items()
 
 	return items
 }
