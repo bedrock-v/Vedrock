@@ -16,8 +16,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test
+  build-test:
+    name: Build and test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,20 +29,26 @@ jobs:
         uses: ./.github/actions/setup-v
 
       # setup-v symlinks the protocol repo root, but the module's code lives
-      # under src/ - repoint it so protocol.types/serializer/enums resolve.
+      # under src/ and imports its siblings (types, serializer, enums) as
+      # top-level modules. Repoint protocol and add those, matching the
+      # Dockerfile, so imports resolve.
       - name: Fix protocol module layout
         run: |
           rm -f ~/.vmodules/protocol
           ln -s "$HOME/vedrock-deps/protocol/src" ~/.vmodules/protocol
           ln -sf "$HOME/vedrock-deps/protocol/src/enums" ~/.vmodules/enums
+          ln -sf "$HOME/vedrock-deps/protocol/src/types" ~/.vmodules/types
+          ln -sf "$HOME/vedrock-deps/protocol/src/serializer" ~/.vmodules/serializer
 
-      # server/world/db needs leveldb for the tests.
+      # server/world/db needs leveldb for both the build and the tests.
       - name: Install leveldb module
         run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
 
-      # Runs the unit test suite. The full binary build is covered by the
-      # Docker CI workflow - `v .` at the repo root is avoided here because the
-      # runner's V build mis-detects the program entry.
+      # Full production build - matches the Dockerfile invocation exactly and
+      # type-checks the whole project as a side effect.
+      - name: Build
+        run: v -prod . -o vedrock
+
       - name: Test
         run: v test server
 
