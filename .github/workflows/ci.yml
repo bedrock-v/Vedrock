@@ -42,6 +42,13 @@ jobs:
       - name: Install leveldb module
         run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
 
+      - name: Debug tree
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 2 -name '*.v' -path '*main*' 2>/dev/null
+          grep -rl "fn main" --include="*.v" . | grep -v vmodules || true
+
       # Full production build - matches the Dockerfile invocation exactly and
       # type-checks the whole project as a side effect.
       - name: Build
