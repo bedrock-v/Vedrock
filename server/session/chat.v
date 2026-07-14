@@ -3,6 +3,7 @@ module session
 import protocol
 import protocol.enums
 import server.cmd
+import server.event
 
 fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
 	if p.@type != int(enums.TextType.chat) {
@@ -16,11 +17,20 @@ fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
 		s.run_command(message)!
 		return
 	}
-	s.log.info('<${s.identity.display_name}> ${message}')
+	mut ctx := event.new_context(event.ChatData{
+		player:  s
+		message: message
+	})
+	s.hub.events.player_chat(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
+	final := ctx.val.message
+	s.log.info('<${s.identity.display_name}> ${final}')
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:       int(enums.TextType.chat)
 		source_name: s.identity.display_name
-		message:     message
+		message:     final
 	})
 }
 
@@ -29,7 +39,16 @@ fn (mut s NetworkSession) handle_command_request(p protocol.CommandRequestPacket
 }
 
 fn (mut s NetworkSession) run_command(line string) ! {
-	s.log.info('${s.identity.display_name} issued command: ${line}')
+	mut cctx := event.new_context(event.CommandData{
+		player:  s
+		command: line
+	})
+	s.hub.events.player_command(mut cctx)
+	if cctx.is_cancelled() {
+		return
+	}
+	final := cctx.val.command
+	s.log.info('${s.identity.display_name} issued command: ${final}')
 	ctx := cmd.Context{
 		lang:           s.hub.lang
 		sender_name:    s.identity.display_name
@@ -40,7 +59,7 @@ fn (mut s NetworkSession) run_command(line string) ! {
 		tps:            s.hub.tps()
 		load:           s.hub.load()
 	}
-	s.hub.commands.dispatch(line, mut s, ctx)!
+	s.hub.commands.dispatch(final, mut s, ctx)!
 }
 
 fn (mut s NetworkSession) send_message(message string) ! {

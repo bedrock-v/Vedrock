@@ -6,8 +6,8 @@ pub struct ModalForm {
 mut:
 	title      string
 	content    string
-	button1    string = 'gui.yes'
-	button2    string = 'gui.no'
+	button1    string  = 'gui.yes'
+	button2    string  = 'gui.no'
 	on_button1 fn () ! = unsafe { nil }
 	on_button2 fn () ! = unsafe { nil }
 	on_close   ?fn ()
@@ -53,6 +53,7 @@ pub fn (f &ModalForm) submit(raw ?string) ! {
 		}
 		return
 	}
+
 	if data == 'true' {
 		f.on_button1()!
 		return
