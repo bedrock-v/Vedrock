@@ -44,11 +44,9 @@ jobs:
       - name: Install leveldb module
         run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
 
-      # Full production build - matches the Dockerfile invocation exactly and
-      # type-checks the whole project as a side effect.
-      - name: Build
-        run: v -prod . -o vedrock
-
+      # Runs the unit test suite. The full binary build is validated by the
+      # Docker CI workflow - `v .` at the repo root mis-detects the program
+      # entry on the hosted runner, so it is left to Docker.
       - name: Test
         run: v test server
 
