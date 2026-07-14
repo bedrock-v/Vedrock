@@ -41,5 +41,5 @@ runs:
         ln -s "$deps/raknet" "$vmod/raknet"
         ln -s "$deps/raknet/message" "$vmod/message"
         ln -s "$deps/nbt" "$vmod/nbt"
-        ln -s "$deps/protocol/src" "$vmod/protocol"
+        ln -s "$deps/protocol" "$vmod/protocol"
         ~/vlang/v install nepinhum.i18n
