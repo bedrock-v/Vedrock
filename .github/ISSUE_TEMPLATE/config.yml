@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/bedrock-v/Vedrock/discussions
+    about: For questions, ideas and general help - please use Discussions, not the issue tracker.
+  # - name: Chat on Discord
+  #   url: <add-discord-invite>
+  #   about: Ask for help or chat with the community.

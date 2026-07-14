@@ -1,0 +1,39 @@
+# Path-based PR label rules for actions/labeler@v5.
+server:
+  - changed-files:
+      - any-glob-to-any-file: server/**
+
+network:
+  - changed-files:
+      - any-glob-to-any-file: server/internal/network/**
+
+protocol:
+  - changed-files:
+      - any-glob-to-any-file: server/internal/network/**
+
+world:
+  - changed-files:
+      - any-glob-to-any-file: server/world/**
+
+plugin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - server/plugin/**
+          - server/event/**
+          - server/entity/**
+          - server/scheduler/**
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - AGENTS.md
+          - README.md
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: .github/**
+
+i18n:
+  - changed-files:
+      - any-glob-to-any-file: lang/**
