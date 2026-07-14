@@ -29,6 +29,14 @@ jobs:
       - name: Setup V
         uses: ./.github/actions/setup-v
 
+      # setup-v symlinks the protocol repo root, but the module's code lives
+      # under src/ - repoint it so protocol.types/serializer/enums resolve.
+      - name: Fix protocol module layout
+        run: |
+          rm -f ~/.vmodules/protocol
+          ln -s "$HOME/vedrock-deps/protocol/src" ~/.vmodules/protocol
+          ln -sf "$HOME/vedrock-deps/protocol/src/enums" ~/.vmodules/enums
+
       # setup-v does not pull leveldb, but server/world/db needs it for both
       # the full build and `v test server`. Same step the release workflows use.
       - name: Install leveldb module
@@ -75,6 +83,12 @@ jobs:
 
       - name: Setup V
         uses: ./.github/actions/setup-v
+
+      - name: Fix protocol module layout
+        run: |
+          rm -f ~/.vmodules/protocol
+          ln -s "$HOME/vedrock-deps/protocol/src" ~/.vmodules/protocol
+          ln -sf "$HOME/vedrock-deps/protocol/src/enums" ~/.vmodules/enums
 
       - name: Install leveldb module
         run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
