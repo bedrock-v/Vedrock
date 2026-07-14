@@ -111,7 +111,7 @@ pub fn load(data_dir string) !GameData {
 		creative << CreativeItem{
 			numeric_id:       numeric_id
 			block_runtime_id: block_runtime_id
-			meta:             any_int(m, 'meta')
+			meta:             any_int(m, 'damage')
 			group_index:      any_int(m, 'group_index')
 		}
 	}

@@ -159,6 +159,7 @@ fn default_items() []Item {
 	items << redstone_component_items()
 	items << container_items()
 	items << farming_items()
+	items << combat_progression_items()
 
 	return items
 }

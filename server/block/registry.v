@@ -112,5 +112,6 @@ fn default_blocks() []Block {
 	result << redstone_component_blocks()
 	result << container_blocks()
 	result << farming_blocks()
+	result << combat_progression_blocks()
 	return result
 }

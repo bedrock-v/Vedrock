@@ -15,11 +15,21 @@ fn test_load_game_data() {
 	assert data.item_id('minecraft:stone') != 0
 	assert data.creative_items.len > 0
 	mut has_block := false
+	mut potion_metas := []int{}
 	for item in data.creative_items {
 		if item.block_runtime_id != 0 {
 			has_block = true
-			break
+		}
+		if item.numeric_id == data.item_id('minecraft:potion') {
+			potion_metas << item.meta
 		}
 	}
 	assert has_block
+	// creative_items.json encodes this as "damage".
+	assert potion_metas.len > 1
+	mut distinct_metas := map[int]bool{}
+	for m in potion_metas {
+		distinct_metas[m] = true
+	}
+	assert distinct_metas.len == potion_metas.len
 }
