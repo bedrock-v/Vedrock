@@ -34,7 +34,7 @@ jobs:
       # Dockerfile, so imports resolve.
       - name: Fix protocol module layout
         run: |
-          git -C "$HOME/vedrock-deps/protocol" fetch --depth 1 origin 9d54e57
+          git -C "$HOME/vedrock-deps/protocol" fetch --unshallow --quiet || true
           git -C "$HOME/vedrock-deps/protocol" checkout 9d54e57
           rm -f ~/.vmodules/protocol
           ln -s "$HOME/vedrock-deps/protocol/src" ~/.vmodules/protocol
