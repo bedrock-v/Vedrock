@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - "feat/**"
+  pull_request:
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Builds the pinned V compiler (0.5.1 @ 0c3183c) and clones/symlinks
+      # raknet, nbt and protocol into ~/.vmodules. Newer V master breaks
+      # this project, so the pin is mandatory.
+      - name: Setup V
+        uses: ./.github/actions/setup-v
+
+      # setup-v does not pull leveldb, but server/world/db needs it for both
+      # the full build and `v test server`. Same step the release workflows use.
+      - name: Install leveldb module
+        run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
+
+      # Type-checks the whole project without emitting a binary. Fast fail.
+      - name: Check
+        run: v -check .
+
+      # Full production build - catches codegen issues `-check` alone misses.
+      - name: Build
+        run: v -prod -o vedrock .
+
+      - name: Test
+        run: v test server
+
+  format:
+    name: Format check
+    runs-on: ubuntu-latest
+    # The codebase is not fully vfmt-clean yet (20 files as of writing), so this
+    # job is informational only and must not block merges. Drop continue-on-error
+    # once `v fmt -w .` has been applied across the tree.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup V
+        uses: ./.github/actions/setup-v
+
+      - name: Verify formatting
+        run: v fmt -verify .
+
+  vet:
+    name: Vet
+    runs-on: ubuntu-latest
+    # `v vet .` currently reports trailing-whitespace errors and missing-doc
+    # warnings, so it is advisory only for now. Remove continue-on-error once
+    # the reported issues are cleaned up.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup V
+        uses: ./.github/actions/setup-v
+
+      - name: Install leveldb module
+        run: git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
+
+      - name: Vet
+        run: v vet .

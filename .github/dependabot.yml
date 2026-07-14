@@ -1,0 +1,26 @@
+# Dependabot config. V modules are not a supported ecosystem, so this keeps the
+# two things Dependabot can track for this repo up to date: GitHub Actions used
+# in workflows, and the Docker base image.
+version: 2
+updates:
+  # GitHub Actions - bumps action versions across .github/workflows/*.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
+
+  # Docker - bumps the base image in the Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: docker
+    labels:
+      - dependencies
+      - docker
