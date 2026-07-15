@@ -73,6 +73,17 @@ pub fn (mut h Hub) get_block(x int, y int, z int) int {
 	return gen.block_at(x, y, z)
 }
 
+pub fn (mut h Hub) collision_boxes(x int, y int, z int) []world.AABB {
+	id := h.get_block(x, y, z)
+	if id == world.air.network_id {
+		return []world.AABB{}
+	}
+	if isnil(h.palette) {
+		return world.absolute_boxes(world.solid_model(), x, y, z)
+	}
+	return world.absolute_boxes(h.palette.model(id), x, y, z)
+}
+
 // set_block_id writes a raw block network id, used by arena restore. It routes
 // through the same actor-thread write path as set_block.
 pub fn (mut h Hub) set_block_id(id int, x int, y int, z int) {

@@ -102,7 +102,12 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				s.resend_block(neighbor)
 				return
 			}
-			placed_id := s.oriented_block(runtime_id, int(ut.block_face))
+			if !s.can_place_block_on_face(runtime_id, int(ut.block_face), clicked_id) {
+				s.resend_block(ut.block_position)
+				s.resend_block(neighbor)
+				return
+			}
+			placed_id := s.oriented_block(runtime_id, int(ut.block_face), ut.clicked_position.y)
 			if s.place_block(target, placed_id)! {
 				s.last_place_ms = now
 				if s.game_mode != protocol.game_type_creative {
@@ -163,11 +168,18 @@ fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
 
 // oriented_block resolves a directional block's runtime id from the player's
 // yaw and the clicked face. Falls back to the raw id when no palette is loaded.
-fn (s &NetworkSession) oriented_block(runtime_id int, click_face int) int {
+fn (s &NetworkSession) oriented_block(runtime_id int, click_face int, click_y f32) int {
 	if isnil(s.hub.palette) {
 		return runtime_id
 	}
-	return s.hub.palette.oriented(runtime_id, s.yaw, click_face)
+	return s.hub.palette.oriented(runtime_id, s.yaw, click_face, click_y)
+}
+
+fn (s &NetworkSession) can_place_block_on_face(runtime_id int, click_face int, support_id int) bool {
+	if isnil(s.hub.palette) {
+		return true
+	}
+	return s.hub.palette.can_place_on_support(runtime_id, click_face, support_id)
 }
 
 fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !bool {

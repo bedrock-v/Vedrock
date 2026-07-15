@@ -37,6 +37,22 @@ fn opposite(f Facing) Facing {
 	}
 }
 
+fn facing_from_face(face int) Facing {
+	return match face {
+		0 { Facing.down }
+		1 { Facing.up }
+		2 { Facing.north }
+		3 { Facing.south }
+		4 { Facing.west }
+		5 { Facing.east }
+		else { Facing.south }
+	}
+}
+
+fn is_horizontal_face(face int) bool {
+	return face >= 2 && face <= 5
+}
+
 fn cardinal_string(f Facing) string {
 	return match f {
 		.north { 'north' }
@@ -70,6 +86,17 @@ fn facing_direction_value(f Facing) int {
 	}
 }
 
+fn sign_rotation(yaw f32) int {
+	mut y := yaw + 180.0
+	for y < 0 {
+		y += 360.0
+	}
+	for y >= 360.0 {
+		y -= 360.0
+	}
+	return int((y * 16.0 / 360.0) + 0.5) & 0xf
+}
+
 // pillar_axis from the clicked block face: top/bottom -> y, north/south -> z,
 // west/east -> x.
 fn axis_from_face(face int) string {
@@ -80,20 +107,87 @@ fn axis_from_face(face int) string {
 	}
 }
 
+fn wall_variant_name(name string) ?string {
+	if name == 'minecraft:standing_banner' {
+		return 'minecraft:wall_banner'
+	}
+	if name.ends_with('standing_sign') {
+		return name.replace('standing_sign', 'wall_sign')
+	}
+	return none
+}
+
+fn (p &BlockPalette) with_named_state(name string, key string, value string) ?int {
+	return p.by_key[palette_key(name, {
+		key: value
+	})] or { return none }
+}
+
+// can_place_on_face reports whether a block may be placed from the clicked face.
+// It only covers attachment families with face specific restrictions; unknown blocks stay permissive.
+pub fn (p &BlockPalette) can_place_on_face(id int, click_face int) bool {
+	v := p.variant(id) or { return true }
+	if v.name == 'minecraft:ladder' {
+		return is_horizontal_face(click_face)
+	}
+	if 'torch_facing_direction' in v.states {
+		return click_face == 1 || is_horizontal_face(click_face)
+	}
+	if 'ground_sign_direction' in v.states {
+		return click_face == 1 || is_horizontal_face(click_face)
+	}
+	return true
+}
+
 // oriented returns the network id the given block should be placed as, given
 // the player's yaw and the clicked block face. Blocks with no known facing
 // state are returned unchanged.
-pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int) int {
+pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) int {
 	v := p.variant(id) or { return id }
 	look := look_facing(yaw)
 	// Furnaces/chests/pumpkins present their front to the player.
 	front := opposite(look)
+	if 'ground_sign_direction' in v.states {
+		if click_face == 1 {
+			return p.with_state(id, 'ground_sign_direction', sign_rotation(yaw).str()) or { id }
+		}
+		if is_horizontal_face(click_face) {
+			wall_name := wall_variant_name(v.name) or { return id }
+			return p.with_named_state(wall_name, 'facing_direction',
+				facing_direction_value(facing_from_face(click_face)).str()) or { id }
+		}
+		return id
+	}
+	if 'torch_facing_direction' in v.states {
+		if click_face == 1 {
+			return p.with_state(id, 'torch_facing_direction', 'top') or { id }
+		}
+		if is_horizontal_face(click_face) {
+			return p.with_state(id, 'torch_facing_direction',
+				cardinal_string(facing_from_face(click_face))) or { id }
+		}
+		return id
+	}
+	if v.name == 'minecraft:ladder' && is_horizontal_face(click_face) {
+		return p.with_state(id, 'facing_direction',
+			facing_direction_value(facing_from_face(click_face)).str()) or { id }
+	}
+	if v.name.ends_with('_button') && 'facing_direction' in v.states {
+		return p.with_state(id, 'facing_direction',
+			facing_direction_value(facing_from_face(click_face)).str()) or { id }
+	}
+	if v.name == 'minecraft:lever' && 'lever_direction' in v.states
+		&& is_horizontal_face(click_face) {
+		return p.with_state(id, 'lever_direction', cardinal_string(facing_from_face(click_face))) or {
+			id
+		}
+	}
 	if 'minecraft:cardinal_direction' in v.states {
 		return p.with_state(id, 'minecraft:cardinal_direction', cardinal_string(front)) or { id }
 	}
 	if 'weirdo_direction' in v.states {
 		mut nid := p.with_state(id, 'weirdo_direction', weirdo_value(look).str()) or { id }
-		if click_face == 0 && 'upside_down_bit' in v.states {
+		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && 'upside_down_bit' in v.states {
 			nid = p.with_state(nid, 'upside_down_bit', '1') or { nid }
 		}
 		return nid

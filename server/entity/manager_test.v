@@ -12,7 +12,8 @@ mut:
 	next       u64 = 1
 	broadcasts int
 	near       int
-	solids     map[string]int
+	blocks     map[string]int
+	boxes      map[string][]world.AABB
 }
 
 fn block_key(x int, y int, z int) string {
@@ -20,7 +21,15 @@ fn block_key(x int, y int, z int) string {
 }
 
 fn (mut h FakeHost) set_solid(x int, y int, z int) {
-	h.solids[block_key(x, y, z)] = 1
+	key := block_key(x, y, z)
+	h.blocks[key] = 1
+	h.boxes[key] = world.absolute_boxes(world.solid_model(), x, y, z)
+}
+
+fn (mut h FakeHost) set_empty_non_air(x int, y int, z int) {
+	key := block_key(x, y, z)
+	h.blocks[key] = 42
+	h.boxes[key] = []world.AABB{}
 }
 
 fn (mut h FakeHost) broadcast(p protocol.Packet) {
@@ -38,10 +47,11 @@ fn (mut h FakeHost) allocate_runtime_id() u64 {
 }
 
 fn (mut h FakeHost) get_block(x int, y int, z int) int {
-	if _ := h.solids[block_key(x, y, z)] {
-		return 1
-	}
-	return world.air.network_id
+	return h.blocks[block_key(x, y, z)] or { world.air.network_id }
+}
+
+fn (mut h FakeHost) collision_boxes(x int, y int, z int) []world.AABB {
+	return h.boxes[block_key(x, y, z)] or { []world.AABB{} }
 }
 
 fn test_spawn_registers_and_broadcasts() {
@@ -113,6 +123,21 @@ fn test_entity_does_not_pass_through_wall() {
 	assert e.pos.x < 1.0 // blocked before entering the wall block at x=1
 }
 
+fn test_entity_ignores_non_air_blocks_without_collision_boxes() {
+	mut host := &FakeHost{}
+	host.set_empty_non_air(1, 5, 0)
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 5, 0.5})
+	e.floor_y = 5
+	e.no_gravity = true
+	e.set_velocity(types.Vector3{0.5, 0, 0})
+	for _ in 0 .. 4 {
+		e.set_velocity(types.Vector3{0.5, 0, 0})
+		m.tick()
+	}
+	assert e.pos.x > 1.0
+}
+
 fn test_spawn_uses_near_broadcast() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
@@ -123,8 +148,8 @@ fn test_spawn_uses_near_broadcast() {
 fn test_projectile_despawns_after_max_age() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:snowball', max_age: 5 },
-		types.Vector3{0, 10, 0})
+	mut e :=
+		m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:snowball', max_age: 5 }, types.Vector3{0, 10, 0})
 	e.no_gravity = true // isolate the age check from the ground check
 	for _ in 0 .. 6 {
 		m.tick()
