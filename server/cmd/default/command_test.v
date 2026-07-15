@@ -49,6 +49,9 @@ mut:
 	is_player_val    bool = true
 	sent_form        ?form.Form
 	worlds           []string
+	unloaded_worlds  []string
+	created_dim      string
+	created_gen      string
 	tp_world         string
 	scoreboard_title string
 	scoreboard_lines []string
@@ -180,7 +183,19 @@ fn (mut s RecordingSender) world_info(name string) ?cmd.WorldSummary {
 	}
 }
 
-fn (mut s RecordingSender) world_create(name string) ! {
+fn (mut s RecordingSender) world_create(name string, dimension string, generator string) ! {
+	s.worlds << name
+	s.created_dim = dimension
+	s.created_gen = generator
+}
+
+fn (mut s RecordingSender) world_load(name string) ! {
+	if name in s.worlds {
+		return error('world "${name}" is already loaded')
+	}
+	if name !in s.unloaded_worlds {
+		return error('world "${name}" does not exist on disk')
+	}
 	s.worlds << name
 }
 
@@ -375,8 +390,40 @@ fn test_world_create_and_delete() {
 	sender.perm.set_op(true)
 	r.dispatch('/world create arena', mut sender, base_ctx())!
 	assert 'arena' in sender.worlds
+	assert sender.created_dim == 'overworld'
+	assert sender.created_gen == ''
 	r.dispatch('/world delete arena', mut sender, base_ctx())!
 	assert 'arena' !in sender.worlds
+}
+
+fn test_world_create_with_dimension_and_generator() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/world create nether_test nether flat', mut sender, base_ctx())!
+	assert 'nether_test' in sender.worlds
+	assert sender.created_dim == 'nether'
+	assert sender.created_gen == 'flat'
+}
+
+fn test_world_load_brings_back_an_on_disk_world() {
+	r := full_registry()
+	mut sender := RecordingSender{
+		unloaded_worlds: ['from_before_restart']
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/world load from_before_restart', mut sender, base_ctx())!
+	assert 'from_before_restart' in sender.worlds
+	assert sender.messages.last().contains('from_before_restart')
+}
+
+fn test_world_load_missing_world_reports_failure() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/world load ghost_world', mut sender, base_ctx())!
+	assert 'ghost_world' !in sender.worlds
+	assert sender.messages.last().contains('ghost_world')
 }
 
 fn test_world_denied_without_op() {

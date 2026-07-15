@@ -70,7 +70,6 @@ mut:
 	pending_forms      map[int]form.Form
 	last_place_ms      i64
 	effects            effect.Manager
-
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -119,7 +118,7 @@ pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &log
 	mut generator := world.new_generator(cfg.generator)
 	spawn_world := hub.default_world() or { &db.World(unsafe { nil }) }
 	if !isnil(spawn_world) {
-		generator = spawn_world.make_generator(generator)
+		generator = spawn_world.make_generator(hub.build_generator(spawn_world))
 	}
 	return &NetworkSession{
 		transport:  transport

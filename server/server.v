@@ -12,6 +12,7 @@ import server.conf
 import server.internal.network
 import server.session
 import server.internal.gamedata
+import server.world
 import server.world.db
 import server.resource
 import server.permission
@@ -41,7 +42,7 @@ fn load_worlds(mut hub session.Hub, cfg conf.Config, log &logger.Logger) {
 		}
 	}
 	for name in names {
-		if w := db.load_named(worlds_dir, name, cfg.generator) {
+		if w := db.load_named(worlds_dir, name, cfg.generator, world.overworld) {
 			hub.add_world(w)
 			log.info('Loaded world "${name}" (${w.block_count()} overrides)')
 		} else {
@@ -111,8 +112,8 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load language "${cfg.language}", falling back to en: ${err}')
 		language.load('en') or {
 			log.error('Failed to load fallback language: ${err}')
-			if path := crash.write_dump(crashdumps_dir, time.now().unix(), 'fatal: language load failed',
-				err.msg())
+			if path := crash.write_dump(crashdumps_dir, time.now().unix(),
+				'fatal: language load failed', err.msg())
 			{
 				log.error('Wrote crash report to ${path}')
 			}

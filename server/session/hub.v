@@ -17,6 +17,7 @@ import server.block
 import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
+import server.world
 import server.world.db
 import server.resource
 import server.permission
@@ -36,15 +37,16 @@ mut:
 pub mut:
 	world_time         int
 	data               gamedata.GameData
-	items              item.Registry        = item.new_registry()
-	blocks             block.Registry       = block.new_registry()
-	lang               &language.Lang       = unsafe { nil }
-	commands           cmd.Registry         = cmd.new_registry()
-	events             &event.Bus           = unsafe { nil }
-	scheduler          &scheduler.Scheduler = unsafe { nil }
-	entities           &entity.Manager      = unsafe { nil }
-	liquids            &liquid.LiquidManager = unsafe { nil }
-	entity_registry    entity.Registry      = entity.new_registry()
+	items              item.Registry           = item.new_registry()
+	blocks             block.Registry          = block.new_registry()
+	lang               &language.Lang          = unsafe { nil }
+	commands           cmd.Registry            = cmd.new_registry()
+	events             &event.Bus              = unsafe { nil }
+	scheduler          &scheduler.Scheduler    = unsafe { nil }
+	entities           &entity.Manager         = unsafe { nil }
+	liquids            &liquid.LiquidManager   = unsafe { nil }
+	entity_registry    entity.Registry         = entity.new_registry()
+	generators         world.GeneratorRegistry = world.new_generator_registry()
 	current_tick       i64
 	started_at         i64
 	worlds             map[string]&db.World
@@ -104,11 +106,11 @@ pub fn (h &Hub) uptime_seconds() i64 {
 
 // add_world registers a loaded world under its name. The first world added
 // becomes the default unless one is already set.
-pub fn (mut h Hub) add_world(world &db.World) {
+pub fn (mut h Hub) add_world(loaded_world &db.World) {
 	h.mutex.lock()
-	h.worlds[world.name] = world
+	h.worlds[loaded_world.name] = loaded_world
 	if h.default_world_name == '' {
-		h.default_world_name = world.name
+		h.default_world_name = loaded_world.name
 	}
 	h.mutex.unlock()
 }
@@ -175,6 +177,7 @@ pub struct WorldInfo {
 pub:
 	name       string
 	generator  string
+	dimension  string
 	overrides  int
 	is_default bool
 	players    int
@@ -184,16 +187,17 @@ pub:
 // loaded.
 pub fn (mut h Hub) world_info(name string) ?WorldInfo {
 	h.mutex.lock()
-	world := h.worlds[name] or {
+	loaded_world := h.worlds[name] or {
 		h.mutex.unlock()
 		return none
 	}
 	is_default := name == h.default_world_name
 	h.mutex.unlock()
 	return WorldInfo{
-		name:       world.name
-		generator:  world.generator_name
-		overrides:  world.block_count()
+		name:       loaded_world.name
+		generator:  loaded_world.generator_name
+		dimension:  loaded_world.dimension.name()
+		overrides:  loaded_world.block_count()
 		is_default: is_default
 		players:    h.players_in_world(name)
 	}
@@ -212,23 +216,67 @@ pub fn (mut h Hub) players_in_world(name string) int {
 	return count
 }
 
+// register_generator adds or overrides a named world generator. Part of the
+// plugin.ServerView surface.
+pub fn (mut h Hub) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+	h.generators.register(name, factory)
+}
+
+// generator_type_names lists every registered generator name. Part of the
+// plugin.ServerView surface.
+pub fn (mut h Hub) generator_type_names() []string {
+	return h.generators.names()
+}
+
+// build_generator resolves a world's own generator by name and dimension
+// through the registry, falling back to the raw (overworld shaped) lookup if
+// the name isn't registered.
+pub fn (h &Hub) build_generator(w &db.World) world.Generator {
+	return h.generators.create(w.generator_name, w.dimension) or {
+		world.new_generator(w.generator_name)
+	}
+}
+
 // create_world creates a fresh empty world on disk and registers it as loaded.
 // Refuses to clobber an already-loaded or already-on-disk world. Safe to call
 // off the actor thread - it only adds to the worlds map, never mutates a
 // player's active world.
-pub fn (mut h Hub) create_world(name string) !string {
+pub fn (mut h Hub) create_world(name string, dim world.Dimension, generator string) !string {
 	if _ := h.world(name) {
 		return error('world "${name}" is already loaded')
 	}
 	h.mutex.lock()
 	dir := h.worlds_dir
-	generator := h.world_generator
+	default_generator := if dim.id == world.overworld.id {
+		h.world_generator
+	} else {
+		dim.default_generator
+	}
 	h.mutex.unlock()
-	store := db.create_world_store(dir, name) or {
+	resolved_generator := if generator.trim_space() == '' { default_generator } else { generator }
+	store := db.create_world_store(dir, name, dim, resolved_generator) or {
 		return error('failed to create world "${name}": ${err}')
 	}
-	world := db.new_world(name, store, generator)
-	h.add_world(world)
+	loaded_world := db.new_world(name, store, resolved_generator, dim)
+	h.add_world(loaded_world)
+	return name
+}
+
+pub fn (mut h Hub) load_world(name string) !string {
+	if _ := h.world(name) {
+		return error('world "${name}" is already loaded')
+	}
+	h.mutex.lock()
+	dir := h.worlds_dir
+	default_generator := h.world_generator
+	h.mutex.unlock()
+	if !db.world_exists(dir, name) {
+		return error('world "${name}" does not exist on disk')
+	}
+	loaded_world := db.load_named(dir, name, default_generator, world.overworld) or {
+		return error('failed to load world "${name}": ${err}')
+	}
+	h.add_world(loaded_world)
 	return name
 }
 
@@ -240,7 +288,7 @@ pub fn (mut h Hub) unload_world(name string) ! {
 		h.mutex.unlock()
 		return error('cannot unload the default world')
 	}
-	mut world := h.worlds[name] or {
+	mut loaded_world := h.worlds[name] or {
 		h.mutex.unlock()
 		return error('world "${name}" is not loaded')
 	}
@@ -248,7 +296,7 @@ pub fn (mut h Hub) unload_world(name string) ! {
 	if h.players_in_world(name) > 0 {
 		return error('world "${name}" still has players in it')
 	}
-	world.close()
+	loaded_world.close()
 	h.mutex.lock()
 	h.worlds.delete(name)
 	h.mutex.unlock()

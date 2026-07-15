@@ -1,15 +1,19 @@
 module db
 
+import server.world
+
 @[heap]
 pub struct WorldStore {
 	db        &LevelDB
 	overrides &LevelDB
+	dimension world.Dimension = world.overworld
 }
 
-pub fn open_world(path string) !&WorldStore {
+pub fn open_world(path string, dim world.Dimension) !&WorldStore {
 	return &WorldStore{
 		db:        open_leveldb(path)!
 		overrides: open_leveldb(path + '_overrides')!
+		dimension: dim
 	}
 }
 

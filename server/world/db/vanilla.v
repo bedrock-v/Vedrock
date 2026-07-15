@@ -7,25 +7,28 @@ import server.world.upgrader
 const block_upgrader = upgrader.default_upgrader()
 
 const subchunk_tag = u8(0x2f)
-const min_subchunk_y = -4
-const max_subchunk_y = 19
 
-fn subchunk_key(cx int, cz int, y_index int) []u8 {
+fn subchunk_key(cx int, cz int, y_index int, dim world.Dimension) []u8 {
 	mut b := []u8{}
 	put_i32(mut b, cx)
 	put_i32(mut b, cz)
+	if dim.id != 0 {
+		put_i32(mut b, dim.id)
+	}
 	b << subchunk_tag
 	b << u8(i8(y_index))
 	return b
 }
 
 pub fn (w &WorldStore) load_chunk(cx int, cz int) ?world.Chunk {
-	mut chunk := world.new_chunk()
+	mut chunk := world.new_chunk_dim(w.dimension)
+	min_y_index := w.dimension.min_y / 16
+	max_y_index := min_y_index + w.dimension.subchunk_count - 1
 	mut found := false
-	for y_index in min_subchunk_y .. max_subchunk_y + 1 {
-		data := w.db.get(subchunk_key(cx, cz, y_index)) or { continue }
+	for y_index in min_y_index .. max_y_index + 1 {
+		data := w.db.get(subchunk_key(cx, cz, y_index, w.dimension)) or { continue }
 		ids := decode_subchunk(data) or { continue }
-		chunk.set_section(y_index - min_subchunk_y, ids)
+		chunk.set_section(y_index - min_y_index, ids)
 		found = true
 	}
 	if !found {
@@ -92,6 +95,7 @@ fn decode_subchunk(data []u8) ![]int {
 			return error('subchunk: unsupported version ${version}')
 		}
 	}
+
 	if storage_count < 1 {
 		return error('subchunk: no block storages')
 	}
@@ -304,7 +308,8 @@ fn (g StoredGenerator) cached_chunk(cx int, cz int) ?world.Chunk {
 
 pub fn (g StoredGenerator) spawn_y() int {
 	chunk := g.cached_chunk(0, 0) or { return g.fallback.spawn_y() }
-	for y := world.dimension_min_y + world.dimension_subchunk_count * 16 - 1; y >= world.dimension_min_y; y-- {
+	dim := g.store.dimension
+	for y := dim.max_y(); y >= dim.min_y; y-- {
 		if chunk.block_id(0, y, 0) != world.air.network_id {
 			return y + 1
 		}

@@ -2,7 +2,6 @@ module session
 
 import protocol
 import protocol.types
-import server.world
 
 // op / deop
 
@@ -119,7 +118,7 @@ pub fn (s &NetworkSession) world_name() string {
 // subsequent chunk sends and block lookups hit the new world's data.
 fn (mut s NetworkSession) change_world(name string) bool {
 	target := s.hub.world(name) or { return false }
-	gen := target.make_generator(world.new_generator(s.cfg.generator))
+	gen := target.make_generator(s.hub.build_generator(target))
 	s.world_mutex.lock()
 	s.world = target
 	s.generator = gen

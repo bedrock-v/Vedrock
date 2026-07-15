@@ -69,7 +69,7 @@ pub fn (mut h Hub) get_block(x int, y int, z int) int {
 	if id := wld.block_override(x, y, z) {
 		return id
 	}
-	gen := wld.make_generator(world.new_generator(h.world_generator))
+	gen := wld.make_generator(h.build_generator(wld))
 	return gen.block_at(x, y, z)
 }
 

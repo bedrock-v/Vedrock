@@ -52,6 +52,9 @@ pub const bedrock = new_block_with_states('minecraft:bedrock', [
 	},
 ])
 pub const dirt = new_block('minecraft:dirt')
+pub const netherrack = new_block('minecraft:netherrack')
+pub const end_stone = new_block('minecraft:end_stone')
+pub const obsidian = new_block('minecraft:obsidian')
 
 fn block_state_hash(name string, states []BlockState) int {
 	if name == 'minecraft:unknown' {

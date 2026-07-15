@@ -22,6 +22,7 @@ fn (mut s NetworkSession) player_key() string {
 fn (mut s NetworkSession) start_game() ! {
 	s.game_mode = gamemode_id(s.cfg.gamemode)
 	spawn_y := s.generator.spawn_y()
+	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	s.position = types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
 	if data := playerdb.load_player(players_dir, s.player_key()) {
 		s.position = types.Vector3{data.x, data.y, data.z}
@@ -39,7 +40,7 @@ fn (mut s NetworkSession) start_game() ! {
 		yaw:                            0.0
 		world_seed:                     0
 		spawn_biome_type:               0
-		dimension:                      int(enums.DimensionIds.overworld)
+		dimension:                      dimension_id
 		generator:                      protocol.world_generator_overworld
 		world_game_mode:                s.game_mode
 		difficulty:                     s.hub.difficulty

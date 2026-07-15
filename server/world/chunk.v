@@ -7,7 +7,9 @@ pub const plains_biome_id = 1
 
 pub struct Chunk {
 mut:
-	sections [][]int
+	sections       [][]int
+	min_y          int = dimension_min_y
+	subchunk_count int = dimension_subchunk_count
 }
 
 pub fn new_chunk() Chunk {
@@ -16,15 +18,24 @@ pub fn new_chunk() Chunk {
 	}
 }
 
+// new_chunk_dim builds an empty Chunk sized for dim's height range.
+pub fn new_chunk_dim(dim Dimension) Chunk {
+	return Chunk{
+		sections:       [][]int{len: dim.subchunk_count}
+		min_y:          dim.min_y
+		subchunk_count: dim.subchunk_count
+	}
+}
+
 pub fn (mut c Chunk) set_block(x int, y int, z int, b Block) {
-	section_index := (y - dimension_min_y) / 16
-	if section_index < 0 || section_index >= dimension_subchunk_count {
+	section_index := (y - c.min_y) / 16
+	if section_index < 0 || section_index >= c.subchunk_count {
 		return
 	}
 	if c.sections[section_index].len == 0 {
 		c.sections[section_index] = []int{len: 4096, init: air.network_id}
 	}
-	local_y := (y - dimension_min_y) % 16
+	local_y := (y - c.min_y) % 16
 	c.sections[section_index][block_index(x, local_y, z)] = b.network_id
 }
 
@@ -33,26 +44,26 @@ fn block_index(x int, y int, z int) int {
 }
 
 pub fn (mut c Chunk) set_section(index int, ids []int) {
-	if index < 0 || index >= dimension_subchunk_count || ids.len != 4096 {
+	if index < 0 || index >= c.subchunk_count || ids.len != 4096 {
 		return
 	}
 	c.sections[index] = ids
 }
 
 pub fn (c &Chunk) block_id(x int, y int, z int) int {
-	section_index := (y - dimension_min_y) / 16
-	if section_index < 0 || section_index >= dimension_subchunk_count {
+	section_index := (y - c.min_y) / 16
+	if section_index < 0 || section_index >= c.subchunk_count {
 		return air.network_id
 	}
 	if c.sections[section_index].len == 0 {
 		return air.network_id
 	}
-	local_y := (y - dimension_min_y) % 16
+	local_y := (y - c.min_y) % 16
 	return c.sections[section_index][block_index(x, local_y, z)]
 }
 
 pub fn (c &Chunk) section_count() int {
-	for index := dimension_subchunk_count - 1; index >= 0; index-- {
+	for index := c.subchunk_count - 1; index >= 0; index-- {
 		if c.sections[index].len != 0 {
 			return index + 1
 		}
@@ -67,7 +78,7 @@ pub fn (c &Chunk) serialize() []u8 {
 		out << serialize_section(c.sections[index])
 	}
 	biome := encode_paletted_storage([]u16{}, [plains_biome_id])
-	for _ in 0 .. dimension_subchunk_count {
+	for _ in 0 .. c.subchunk_count {
 		out << biome
 	}
 	out << 0x00
