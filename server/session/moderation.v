@@ -81,7 +81,7 @@ struct TeleportJob {
 fn (j TeleportJob) run(mut h Hub) {
 	mut target := h.session_by_runtime(j.runtime_id) or { return }
 	if j.world != '' && j.world != target.world_name() {
-		if !target.change_world(j.world) {
+		if !target.change_world(j.world, j.x, j.y, j.z) {
 			return
 		}
 		target.apply_teleport(j.x, j.y, j.z)
@@ -115,14 +115,24 @@ pub fn (s &NetworkSession) world_name() string {
 }
 
 // change_world swaps the player's active world and rebuilds the generator so
-// subsequent chunk sends and block lookups hit the new world's data.
-fn (mut s NetworkSession) change_world(name string) bool {
+// subsequent chunk sends and block lookups hit the new world's data. Sends
+// ChangeDimensionPacket first when the new world's dimension differs from the
+// player's current one.
+fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	target := s.hub.world(name) or { return false }
 	gen := target.make_generator(s.hub.build_generator(target))
 	s.world_mutex.lock()
+	previous_dim := if isnil(s.world) { target.dimension.id } else { s.world.dimension.id }
 	s.world = target
 	s.generator = gen
 	s.world_mutex.unlock()
+	if target.dimension.id != previous_dim {
+		s.transport.send(&protocol.ChangeDimensionPacket{
+			dimension: target.dimension.id
+			position:  types.Vector3{x, y, z}
+			respawn:   false
+		}) or {}
+	}
 	return true
 }
 
