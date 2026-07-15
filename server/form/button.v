@@ -1,6 +1,6 @@
 module form
 
-// ButtonImage is the optional icon shown next to a Button on a SimpleForm or ModalForm. 
+// ButtonImage is the optional icon shown next to a Button on a SimpleForm or ModalForm.
 // typ is path for a builtin game asset or url for a remote image.
 pub struct ButtonImage {
 pub:

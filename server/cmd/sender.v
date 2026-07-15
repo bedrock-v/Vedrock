@@ -20,6 +20,8 @@ mut:
 	kill()
 	position() (f32, f32, f32)
 	teleport(x f32, y f32, z f32)
+	// place_water sets a water source at the block position and starts its spread.
+	place_water(x int, y int, z int)
 	clear_inventory()
 	give_item(id string, count int) bool
 	whitelist_add(name string)
@@ -31,5 +33,28 @@ mut:
 	show_title(kind int, text string)
 	// broadcast_title sends to every connected player (for /title @a).
 	broadcast_title(kind int, text string)
+	// show_scoreboard displays a sidebar scoreboard to this sender with the
+	// given title and lines rendered top-to-bottom.
+	show_scoreboard(title string, lines []string)
+	// clear_scoreboard removes the sidebar scoreboard from this sender.
+	clear_scoreboard()
 	send_form(f form.Form) !
+	// world management. Mutating ops return an error the command relays to the
+	// sender; list/info are read-only snapshots.
+	world_names() []string
+	world_info(name string) ?WorldSummary
+	world_create(name string) !
+	world_delete(name string) !
+	world_teleport(name string) !
+}
+
+// WorldSummary is a read-only snapshot of a loaded world, built for command
+// output so the cmd layer never depends on the db types directly.
+pub struct WorldSummary {
+pub:
+	name       string
+	generator  string
+	overrides  int
+	is_default bool
+	players    int
 }

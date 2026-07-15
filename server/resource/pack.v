@@ -16,11 +16,11 @@ pub const pack_type_resources = 6
 @[heap]
 pub struct ResourcePack {
 pub:
-	uuid       string
-	version    string
-	size       u64
-	sha256     string
-	cdn_url    string
+	uuid    string
+	version string
+	size    u64
+	sha256  string
+	cdn_url string
 mut:
 	uuid_raw []u8
 	data     []u8
@@ -161,7 +161,7 @@ fn uuid_to_bytes(uuid string) ?[]u8 {
 	for i in 0 .. 16 {
 		high := hex_val(hex[i * 2]) or { return none }
 		low := hex_val(hex[i * 2 + 1]) or { return none }
-		out[i] = u8(high << 4 | low)
+		out[i] = (u8(high) << 4) | u8(low)
 	}
 	return out
 }

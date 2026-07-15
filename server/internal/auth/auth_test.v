@@ -118,6 +118,46 @@ fn test_identity_token_offline_rejected_when_xbox_required() {
 	assert identity.xbox_authenticated == false
 }
 
+// A self-signed single-token chain is the closed exploit: the attacker signs
+// with their own key and cannot make is_trusted_key true, so authenticated stays
+// false even if the payload claims to be Mojang's.
+fn test_self_signed_chain_not_authenticated() {
+	priv := ecdsa.privkey_from_string(test_private_key_pem)!
+	header := '{"alg":"ES384","x5u":"${test_public_key_spki}"}'
+	payload := '{"extraData":{"displayName":"Notch","identity":"00000000-0000-0000-0000-0000000000ff","XUID":"2535400000000000"},"identityPublicKey":"${mojang_public_key}"}'
+	token := make_token(header, payload, priv)!
+	chain_json := '{"chain":["${token}"]}'
+	identity := parse_login_chain(chain_json, false)!
+	assert identity.display_name == 'Notch'
+	assert identity.xbox_authenticated == false
+	if _ := parse_login_chain(chain_json, true) {
+		assert false
+	}
+}
+
+// Trust anchor: authenticated is true only when a token was verified using the
+// Mojang key, regardless of any payload field.
+fn test_trust_anchor_is_verifying_key() {
+	assert is_trusted_key(mojang_public_key) == true
+	assert is_trusted_key(test_public_key_spki) == false
+	assert is_trusted_key('') == false
+}
+
+// A mis-linked chain - the second token is not signed by the key the first token
+// hands off - must fail verification, not silently continue.
+fn test_broken_chain_returns_error() {
+	priv := ecdsa.privkey_from_string(test_private_key_pem)!
+	header := '{"alg":"ES384","x5u":"${test_public_key_spki}"}'
+	first_payload := '{"identityPublicKey":"${mojang_public_key}"}'
+	first := make_token(header, first_payload, priv)!
+	second_payload := '{"extraData":{"displayName":"Steve","XUID":"1"},"identityPublicKey":"${test_public_key_spki}"}'
+	second := make_token(header, second_payload, priv)!
+	chain_json := '{"chain":["${first}","${second}"]}'
+	if _ := parse_login_chain(chain_json, false) {
+		assert false
+	}
+}
+
 fn test_tampered_signature_fails() {
 	priv := ecdsa.privkey_from_string(test_private_key_pem)!
 	header := '{"alg":"ES384","x5u":"${test_public_key_spki}"}'

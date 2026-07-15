@@ -2,6 +2,9 @@ module db
 
 import sync
 import server.world
+import server.world.upgrader
+
+const block_upgrader = upgrader.default_upgrader()
 
 const subchunk_tag = u8(0x2f)
 const min_subchunk_y = -4
@@ -145,6 +148,7 @@ fn read_palette_entry(mut r SubchunkReader) !int {
 	r.str_le()!
 	mut name := ''
 	mut states := []world.BlockState{}
+	mut version := 0
 	for {
 		field_tag := r.u8()!
 		if field_tag == 0x00 {
@@ -153,7 +157,10 @@ fn read_palette_entry(mut r SubchunkReader) !int {
 		key := r.str_le()!
 		match field_tag {
 			0x03 {
-				r.i32_le()!
+				value := r.i32_le()!
+				if key == 'version' {
+					version = value
+				}
 			}
 			0x08 {
 				value := r.str_le()!
@@ -176,7 +183,8 @@ fn read_palette_entry(mut r SubchunkReader) !int {
 	if name == '' {
 		return error('subchunk: palette entry missing block name')
 	}
-	return world.new_block_with_states(name, states).network_id
+	upgraded := block_upgrader.upgrade(upgrader.from_world(name, states, version))
+	return world.new_block_with_states(upgraded.name, upgraded.to_world()).network_id
 }
 
 fn read_states(mut r SubchunkReader) ![]world.BlockState {
