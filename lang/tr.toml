@@ -117,3 +117,33 @@ other = "§cKullanım: /say <mesaj>§r"
 
 [cmd.title.usage]
 other = "§cKullanım: /title <oyuncu|@a> <title|subtitle|actionbar> <metin>§r"
+
+[cmd.world.usage]
+other = "§cKullanım: /world <list|info|create|delete|tp> [isim]§r"
+
+[cmd.world.none]
+other = "§eHiç dünya yüklü değil§r"
+
+[cmd.world.list]
+other = "§6Dünyalar ({{.Count}}): §a{{.Worlds}}§r"
+
+[cmd.world.not_found]
+other = '§c"{{.Name}}" dünyası yüklü değil§r'
+
+[cmd.world.created]
+other = '§a"{{.Name}}" dünyası oluşturuldu§r'
+
+[cmd.world.create_failed]
+other = '§c"{{.Name}}" oluşturulamadı: {{.Reason}}§r'
+
+[cmd.world.deleted]
+other = '§a"{{.Name}}" dünyası silindi§r'
+
+[cmd.world.delete_failed]
+other = '§c"{{.Name}}" silinemedi: {{.Reason}}§r'
+
+[cmd.world.tp]
+other = '§a"{{.Name}}" dünyasına ışınlandınız§r'
+
+[cmd.world.tp_failed]
+other = '§c"{{.Name}}" dünyasına ışınlanılamadı: {{.Reason}}§r'
