@@ -36,6 +36,25 @@ fn empty_stack() types.ItemStackWrapper {
 	return wrap_stack(types.ItemStack{})
 }
 
+fn (s &NetworkSession) max_stack_size_for_numeric(id int) int {
+	name := s.hub.data.item_name(id)
+	if name == '' {
+		return 64
+	}
+	return s.hub.items.max_stack_size(name)
+}
+
+fn (s &NetworkSession) clamp_stack_count(id int, count int) int {
+	if count <= 0 {
+		return 0
+	}
+	max := s.max_stack_size_for_numeric(id)
+	if count > max {
+		return max
+	}
+	return count
+}
+
 fn (s &NetworkSession) item_registry() &protocol.ItemRegistryPacket {
 	mut entries := []types.ItemTypeEntry{}
 	for entry in s.hub.data.item_entries {
@@ -91,10 +110,15 @@ fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 	for i in 0 .. inventory_slot_count {
 		if i < s.loaded_items.len {
 			saved := s.loaded_items[i]
+			count := s.clamp_stack_count(saved.id, saved.count)
+			if count <= 0 {
+				items << empty_stack()
+				continue
+			}
 			stack := types.ItemStack{
 				id:               saved.id
 				meta:             saved.meta
-				count:            saved.count
+				count:            count
 				block_runtime_id: saved.block_runtime_id
 				raw_extra_data:   []u8{}
 			}
@@ -118,13 +142,14 @@ fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 fn (mut s NetworkSession) save_player_data() {
 	mut items := []playerdb.InvItem{}
 	for _, stack in s.inv_stacks {
-		if stack.count <= 0 {
+		count := s.clamp_stack_count(stack.id, stack.count)
+		if count <= 0 {
 			continue
 		}
 		items << playerdb.InvItem{
 			id:               stack.id
 			meta:             stack.meta
-			count:            stack.count
+			count:            count
 			block_runtime_id: stack.block_runtime_id
 		}
 	}

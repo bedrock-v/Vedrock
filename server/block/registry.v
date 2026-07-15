@@ -24,6 +24,43 @@ pub fn (mut r Registry) register(b Block) {
 	r.by_name[b.identifier()] = b
 }
 
+// PaletteEntry is one block state from the wire palette, in palette order.
+pub struct PaletteEntry {
+pub:
+	name       string
+	network_id int
+}
+
+pub fn (mut r Registry) register_fallbacks(entries []PaletteEntry) {
+	mut canonical := map[string]Block{}
+	for e in entries {
+		if e.name !in canonical {
+			owner := r.by_name[e.name] or {
+				hardness := fallback_hardness(e.name)
+				if hardness < 0 {
+					Block(UnbreakableBlock{
+						id:            e.name
+						block_runtime: e.network_id
+					})
+				} else {
+					Block(SimpleBlock{
+						id:             e.name
+						block_runtime:  e.network_id
+						break_hardness: hardness
+					})
+				}
+			}
+			canonical[e.name] = owner
+			if e.name !in r.by_name {
+				r.by_name[e.name] = owner
+			}
+		}
+		if e.network_id !in r.by_runtime {
+			r.by_runtime[e.network_id] = canonical[e.name] or { continue }
+		}
+	}
+}
+
 // get returns the registered class for a runtime id, or none if unregistered.
 pub fn (r &Registry) get(runtime_id int) ?Block {
 	return r.by_runtime[runtime_id] or { return none }
@@ -58,13 +95,68 @@ pub fn (r &Registry) len() int {
 	return r.by_name.len
 }
 
-// default_blocks is the built-in set of modelled blocks, one class per block.
+// default_blocks is the built-in set of modelled blocks.
 // Extend this list as new block classes are added.
 fn default_blocks() []Block {
-	return [
-		new_stone_block(),
+	mut result := [
+		Block(new_stone_block()),
 		new_dirt_block(),
 		new_grass_block(),
 		new_bedrock_block(),
+		new_coal_ore(),
+		new_iron_ore(),
+		new_gold_ore(),
+		new_diamond_ore(),
+		new_emerald_ore(),
+		new_copper_ore(),
+		new_redstone_ore(),
+		new_lapis_ore(),
+		new_coal_block(),
+		new_iron_block(),
+		new_gold_block(),
+		new_diamond_block(),
+		new_emerald_block(),
+		new_copper_block(),
+		new_redstone_block(),
+		new_lapis_block(),
+		new_cobblestone(),
+		new_sand(),
+		new_red_sand(),
+		new_gravel(),
+		new_sandstone(),
+		new_andesite(),
+		new_polished_andesite(),
+		new_diorite(),
+		new_polished_diorite(),
+		new_granite(),
+		new_polished_granite(),
+		new_netherrack(),
+		new_end_stone(),
+		new_obsidian(),
+		new_ice(),
+		new_snow(),
+		new_clay(),
+		new_mossy_cobblestone(),
+		new_packed_ice(),
+		new_blue_ice(),
+		new_cobbled_deepslate(),
+		new_tuff(),
+		new_calcite(),
+		new_smooth_basalt(),
+		new_dripstone_block(),
+		new_soul_sand(),
+		new_soul_soil(),
+		new_glowstone(),
+		new_magma_block(),
+		new_purpur_block(),
+		new_end_bricks(),
 	]
+	result << wood_blocks()
+	result << redstone_component_blocks()
+	result << container_blocks()
+	result << farming_blocks()
+	result << combat_progression_blocks()
+	result << decorative_blocks()
+
+	return result
 }

@@ -13,13 +13,32 @@ fn test_load_game_data() {
 	data := load('../data') or { load('data') or { panic('cannot find data dir: ${err}') } }
 	assert data.item_entries.len > 1000
 	assert data.item_id('minecraft:stone') != 0
-	assert data.creative_items.len > 0
-	mut has_block := false
-	for item in data.creative_items {
-		if item.block_runtime_id != 0 {
-			has_block = true
+	assert data.block_palette.len > 10000
+	mut oak_planks_id := 0
+	for e in data.block_palette {
+		if e.name == 'minecraft:oak_planks' {
+			oak_planks_id = e.network_id
 			break
 		}
 	}
+	assert oak_planks_id == 1921718966
+	assert data.creative_items.len > 0
+	mut has_block := false
+	mut potion_metas := []int{}
+	for item in data.creative_items {
+		if item.block_runtime_id != 0 {
+			has_block = true
+		}
+		if item.numeric_id == data.item_id('minecraft:potion') {
+			potion_metas << item.meta
+		}
+	}
 	assert has_block
+	// creative_items.json encodes this as "damage".
+	assert potion_metas.len > 1
+	mut distinct_metas := map[int]bool{}
+	for m in potion_metas {
+		distinct_metas[m] = true
+	}
+	assert distinct_metas.len == potion_metas.len
 }

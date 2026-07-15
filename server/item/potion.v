@@ -185,6 +185,18 @@ pub fn (i PotionItem) block_runtime_id() int {
 	return 0
 }
 
+pub fn (i PotionItem) durability() int {
+	return 0
+}
+
+pub fn (i PotionItem) mining_speed() f32 {
+	return 1.0
+}
+
+pub fn (i PotionItem) armor_points() int {
+	return 0
+}
+
 pub fn (i PotionItem) consume_result(meta int) ConsumeResult {
 	return ConsumeResult{
 		effects:           potion_from_meta(meta).effects()
