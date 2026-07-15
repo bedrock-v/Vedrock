@@ -13,6 +13,11 @@ pub:
 	client_public_key  string
 }
 
+// parse_login_chain verifies the JWT signature chain and returns the client
+// identity. Trust boundary: when the chain is self-signed (offline mode) the
+// signatures are valid but prove nothing about who the player is -
+// xbox_authenticated is only true when the chain roots in Mojang's public key.
+// Callers must treat display_name/xuid as unverified unless xbox_authenticated.
 pub fn parse_login_chain(auth_info_json string, require_xbox bool) !Identity {
 	root := json2.decode[json2.Any](auth_info_json)!.as_map()
 	chain := extract_chain(root)!
@@ -66,6 +71,19 @@ fn to_string_array(value json2.Any) []string {
 	return result
 }
 
+// is_trusted_key reports whether a token verified with this key roots the chain
+// in Mojang's authority. Only a key equal to the pinned Mojang public key is
+// trusted - this is the trust anchor and must never be derived from a payload
+// field the client controls.
+fn is_trusted_key(current_key string) bool {
+	return current_key == mojang_public_key
+}
+
+// verify_chain walks the login chain in order, tracking the key that verifies
+// the current token. Token[0] is checked against its own x5u header; every later
+// token is checked against the identityPublicKey carried in the previous token.
+// A chain is Xbox-authenticated only when some token was actually verified using
+// the Mojang public key - never because a payload field claims to be Mojang's.
 fn verify_chain(chain []string) !Identity {
 	first := decode_jwt(chain[0])!
 	if 'x5u' !in first.header {
@@ -79,12 +97,12 @@ fn verify_chain(chain []string) !Identity {
 		if !verify_jwt(token, current_key)! {
 			return error('signature verification failed for chain token ${i}')
 		}
+		if is_trusted_key(current_key) {
+			authenticated = true
+		}
 		payload := decode_jwt(token)!.payload
 		if 'identityPublicKey' in payload {
 			next_key := (payload['identityPublicKey'] or { json2.Any('') }).str()
-			if i == 0 {
-				authenticated = next_key == mojang_public_key
-			}
 			client_key = next_key
 			current_key = next_key
 		}

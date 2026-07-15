@@ -47,13 +47,17 @@ pub fn new_registry() Registry {
 }
 
 pub fn (mut r Registry) register(cmd Command) {
-	r.commands[cmd.name()] = cmd
+	// Keys are stored lower-cased so unregister and resolve (which both
+	// lower-case) agree - otherwise a command with any uppercase in its name
+	// could never be disabled via permissions.yml.
+	key := cmd.name().to_lower()
+	r.commands[key] = cmd
 	for alias in cmd.aliases() {
-		r.aliases[alias] = cmd.name()
+		r.aliases[alias.to_lower()] = key
 	}
 }
 
-// unregister removes a previously registered command 
+// unregister removes a previously registered command
 // (and any aliases pointing to it) by name.
 pub fn (mut r Registry) unregister(name string) {
 	key := name.to_lower()

@@ -50,6 +50,12 @@ pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
 	})
 }
 
+// flush persists both backing databases without closing them.
+pub fn (w &WorldStore) flush() {
+	w.db.flush()
+	w.overrides.flush()
+}
+
 pub fn (w &WorldStore) close() {
 	w.db.close()
 	w.overrides.close()

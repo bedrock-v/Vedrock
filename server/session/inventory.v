@@ -60,6 +60,11 @@ fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrap
 }
 
 fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! {
+	// Reject an out-of-range hotbar slot before it feeds held_slot (used to
+	// index the server inventory for combat damage).
+	if p.hotbar_slot < 0 || p.hotbar_slot > 8 {
+		return
+	}
 	s.held_item = p.item
 	s.held_slot = p.hotbar_slot
 	s.hub.broadcast_except(s.runtime_id, &protocol.MobEquipmentPacket{

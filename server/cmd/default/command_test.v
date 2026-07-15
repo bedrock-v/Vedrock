@@ -48,6 +48,11 @@ mut:
 	broadcast_titles []string
 	is_player_val    bool = true
 	sent_form        ?form.Form
+	worlds           []string
+	tp_world         string
+	scoreboard_title string
+	scoreboard_lines []string
+	scoreboard_shown bool
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -89,6 +94,8 @@ fn (mut s RecordingSender) kill() {
 fn (mut s RecordingSender) position() (f32, f32, f32) {
 	return s.pos_x, s.pos_y, s.pos_z
 }
+
+fn (mut s RecordingSender) place_water(x int, y int, z int) {}
 
 fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 	s.pos_x = x
@@ -146,8 +153,43 @@ fn (mut s RecordingSender) broadcast_title(kind int, text string) {
 	s.broadcast_titles << text
 }
 
+fn (mut s RecordingSender) show_scoreboard(title string, lines []string) {
+	s.scoreboard_title = title
+	s.scoreboard_lines = lines
+	s.scoreboard_shown = true
+}
+
+fn (mut s RecordingSender) clear_scoreboard() {
+	s.scoreboard_shown = false
+}
+
 fn (mut s RecordingSender) send_form(f form.Form) ! {
 	s.sent_form = f
+}
+
+fn (mut s RecordingSender) world_names() []string {
+	return s.worlds
+}
+
+fn (mut s RecordingSender) world_info(name string) ?cmd.WorldSummary {
+	if name !in s.worlds {
+		return none
+	}
+	return cmd.WorldSummary{
+		name: name
+	}
+}
+
+fn (mut s RecordingSender) world_create(name string) ! {
+	s.worlds << name
+}
+
+fn (mut s RecordingSender) world_delete(name string) ! {
+	s.worlds = s.worlds.filter(it != name)
+}
+
+fn (mut s RecordingSender) world_teleport(name string) ! {
+	s.tp_world = name
 }
 
 fn test_version_command() {
@@ -301,19 +343,55 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 13
+	assert pkt.commands.len == 15
 	encoded := protocol.encode_packet_to_bytes(&pkt)
 	mut pool := protocol.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
 	if decoded is protocol.AvailableCommandsPacket {
-		assert decoded.commands.len == 13
+		assert decoded.commands.len == 15
 		assert decoded.commands[0].alias_enum_index == -1
 		assert decoded.commands[0].overloads.len == 1
 	} else {
 		assert false
 	}
+}
+
+fn test_world_list_reports_loaded_worlds() {
+	r := full_registry()
+	mut sender := RecordingSender{
+		worlds: ['world', 'nether']
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/world list', mut sender, base_ctx())!
+	assert sender.messages[0].contains('world')
+	assert sender.messages[0].contains('nether')
+}
+
+fn test_world_create_and_delete() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/world create arena', mut sender, base_ctx())!
+	assert 'arena' in sender.worlds
+	r.dispatch('/world delete arena', mut sender, base_ctx())!
+	assert 'arena' !in sender.worlds
+}
+
+fn test_world_denied_without_op() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	r.dispatch('/world list', mut sender, base_ctx())!
+	assert sender.messages[0].contains('permission')
+}
+
+fn test_world_missing_name_shows_usage() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/world create', mut sender, base_ctx())!
+	assert sender.messages[0].contains('Usage')
 }
 
 fn test_available_commands_filtered() {

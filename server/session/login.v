@@ -2,6 +2,7 @@ module session
 
 import server.internal.network
 import server.internal.auth
+import server.internal.encryption
 import server.resource
 import protocol
 import protocol.enums
@@ -33,10 +34,26 @@ fn (mut s NetworkSession) handle_request_network_settings(p protocol.RequestNetw
 	s.state = .login
 }
 
+// Identity field bounds. display_name is the vanilla gamertag limit; xuid/uuid
+// are bounded to reject absurd values from a hostile or offline client.
+const max_display_name = 32
+const max_xuid_len = 32
+const max_uuid_len = 64
+
 fn (mut s NetworkSession) handle_login(p protocol.LoginPacket) ! {
 	identity := auth.parse_login_chain(p.auth_info_json, s.cfg.xbox_auth) or {
 		s.log.warn('Authentication failed: ${err}')
 		s.disconnect('Login failed: ${err}')
+		return
+	}
+	// parse_login_chain verifies the JWT chain signatures, but with xbox_auth
+	// off the display_name/xuid/uuid come from a self-signed offline chain and
+	// are NOT proof of identity - only trustworthy when identity.xbox_authenticated.
+	// Validate the fields regardless so downstream code (whitelist, ops, grants,
+	// data files keyed by these strings) never sees empty or oversized input.
+	s.validate_identity(identity) or {
+		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${err}')
+		s.disconnect('Login failed: invalid identity')
 		return
 	}
 	if !s.hub.whitelist.is_allowed(identity.display_name) {
@@ -44,15 +61,89 @@ fn (mut s NetworkSession) handle_login(p protocol.LoginPacket) ! {
 		s.disconnect('You are not white-listed on this server!')
 		return
 	}
+	// Reject a second connection for a player already online - guards against
+	// duplicate-identity sessions clobbering each other's state.
+	if _ := s.hub.session_by_name(identity.display_name) {
+		s.log.info('${identity.display_name} is already connected, rejecting duplicate login')
+		s.disconnect('You are already connected to this server!')
+		return
+	}
 	s.identity = identity
+	s.transport.mark_logged_in()
 	s.perm.set_op(s.hub.ops.is_op(identity.display_name))
 	s.hub.player_grants.apply(mut s.perm, identity.display_name, identity.xuid, identity.uuid)
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
 	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
+	// Negotiate protocol encryption before login_success so the rest of the
+	// session runs ciphered. Gated behind the encryption config flag (off by
+	// default until interop is verified). If the client sent no public key, or
+	// the handshake fails, we fall back to cleartext rather than dropping the
+	// player.
+	if s.cfg.encryption {
+		s.start_encryption(identity.client_public_key) or {
+			s.log.warn('Encryption handshake skipped for ${identity.display_name}: ${err}')
+		}
+	}
 	s.transport.send(&protocol.PlayStatusPacket{
 		status: int(enums.PlayStatus.login_success)
 	})!
 	s.start_resource_packs()!
+}
+
+// start_encryption runs the server side of the Bedrock encryption handshake:
+// derive the key from the client public key, send the signed
+// ServerToClientHandshake in cleartext, then switch the transport to encrypted.
+// The client replies with an (encrypted) ClientToServerHandshake, handled as a
+// confirmation. Does nothing if the client provided no public key.
+fn (mut s NetworkSession) start_encryption(client_public_key string) ! {
+	if client_public_key == '' {
+		return error('client provided no public key')
+	}
+	result := encryption.prepare_handshake(client_public_key)!
+	mut ctx := encryption.new_context(result.key)!
+	// Must be flushed in cleartext before the cipher is installed.
+	s.transport.send(&protocol.ServerToClientHandshakePacket{
+		jwt: result.handshake_jwt
+	})!
+	s.transport.enable_encryption(mut ctx)
+	s.encryption_enabled = true
+	s.log.debug('Encryption enabled for ${s.identity.display_name}')
+}
+
+fn (mut s NetworkSession) handle_client_to_server_handshake(p protocol.ClientToServerHandshakePacket) ! {
+	if !s.encryption_enabled {
+		s.log.debug('Unexpected ClientToServerHandshake without an active cipher')
+		return
+	}
+	s.log.debug('Client confirmed encryption handshake')
+}
+
+// validate_identity rejects empty, oversized, or malformed identity fields
+// before they reach the whitelist, permission grants, or on-disk player data.
+fn (s &NetworkSession) validate_identity(identity auth.Identity) ! {
+	name := identity.display_name
+	if name.len == 0 || name.len > max_display_name {
+		return error('display_name length ${name.len} out of range')
+	}
+	// Bedrock gamertags are alphanumerics and spaces. Reject control chars and
+	// path/format-hostile characters that could poison logs or data-file paths.
+	for c in name {
+		if !(c.is_alnum() || c == ` ` || c == `_`) {
+			return error('display_name contains invalid character')
+		}
+	}
+	if identity.xuid.len > max_xuid_len {
+		return error('xuid too long')
+	}
+	// An empty uuid is allowed - player_key falls back to the (charset-checked)
+	// display_name and playerdb sanitises the final key. Only cap the max length
+	// so an oversized value can't bloat identifiers.
+	if identity.uuid.len > max_uuid_len {
+		return error('uuid too long')
+	}
+	// TODO(security): with xbox_auth disabled we accept any self-signed offline
+	// chain - display_name/xuid are unverified and a client can impersonate any
+	// non-online player. Operators relying on identity must set xbox_auth=true.
 }
 
 fn (mut s NetworkSession) start_resource_packs() ! {
