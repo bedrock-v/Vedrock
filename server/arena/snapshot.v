@@ -43,8 +43,9 @@ pub fn new_box(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) Box {
 }
 
 // volume is the number of blocks the box covers (inclusive on both corners).
-pub fn (b Box) volume() int {
-	return (b.max_x - b.min_x + 1) * (b.max_y - b.min_y + 1) * (b.max_z - b.min_z + 1)
+// Computed in i64 so a huge box can't overflow int32 and slip past the cap.
+pub fn (b Box) volume() i64 {
+	return i64(b.max_x - b.min_x + 1) * i64(b.max_y - b.min_y + 1) * i64(b.max_z - b.min_z + 1)
 }
 
 // Snapshot holds the block ids of a Box captured at some point in time. It is
@@ -63,7 +64,7 @@ pub fn capture(mut src BlockSource, box Box) !&Snapshot {
 	if box.volume() > max_volume {
 		return error('arena: box volume ${box.volume()} exceeds cap ${max_volume}')
 	}
-	mut ids := []int{cap: box.volume()}
+	mut ids := []int{cap: int(box.volume())}
 	for y := box.min_y; y <= box.max_y; y++ {
 		for x := box.min_x; x <= box.max_x; x++ {
 			for z := box.min_z; z <= box.max_z; z++ {
