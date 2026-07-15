@@ -4,6 +4,7 @@ module item
 pub enum ArmorTier {
 	leather
 	gold
+	copper
 	iron
 	diamond
 	netherite
@@ -72,6 +73,7 @@ fn (t ArmorTier) prefix() string {
 	return match t {
 		.leather { 'leather' }
 		.gold { 'golden' }
+		.copper { 'copper' }
 		.iron { 'iron' }
 		.diamond { 'diamond' }
 		.netherite { 'netherite' }
@@ -101,6 +103,14 @@ fn defense_for(tier ArmorTier, slot ArmorSlot) int {
 			match slot {
 				.helmet { 2 }
 				.chestplate { 5 }
+				.leggings { 3 }
+				.boots { 1 }
+			}
+		}
+		.copper {
+			match slot {
+				.helmet { 2 }
+				.chestplate { 4 }
 				.leggings { 3 }
 				.boots { 1 }
 			}
@@ -140,6 +150,14 @@ fn durability_for(tier ArmorTier, slot ArmorSlot) int {
 				.chestplate { 112 }
 				.leggings { 105 }
 				.boots { 91 }
+			}
+		}
+		.copper {
+			match slot {
+				.helmet { 122 }
+				.chestplate { 177 }
+				.leggings { 166 }
+				.boots { 143 }
 			}
 		}
 		.iron {

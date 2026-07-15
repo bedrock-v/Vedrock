@@ -4,6 +4,7 @@ module item
 pub enum ToolTier {
 	wood
 	stone
+	copper
 	iron
 	gold
 	diamond
@@ -77,6 +78,7 @@ fn (t ToolTier) prefix() string {
 	return match t {
 		.wood { 'wooden' }
 		.stone { 'stone' }
+		.copper { 'copper' }
 		.iron { 'iron' }
 		.gold { 'golden' }
 		.diamond { 'diamond' }
@@ -88,6 +90,7 @@ fn (t ToolTier) tool_durability() int {
 	return match t {
 		.wood { 59 }
 		.stone { 131 }
+		.copper { 192 }
 		.iron { 250 }
 		.gold { 32 }
 		.diamond { 1561 }
@@ -99,6 +102,7 @@ fn (t ToolTier) tool_mining_speed() f32 {
 	return match t {
 		.wood { 2.0 }
 		.stone { 4.0 }
+		.copper { 5.0 }
 		.iron { 6.0 }
 		.gold { 12.0 }
 		.diamond { 8.0 }
@@ -121,6 +125,7 @@ fn attack_damage_for(tier ToolTier, typ ToolType) f32 {
 		.sword {
 			match tier {
 				.wood, .gold { f32(4.0) }
+				.copper { f32(4.0) }
 				.stone { f32(5.0) }
 				.iron { f32(6.0) }
 				.diamond { f32(7.0) }
@@ -131,13 +136,14 @@ fn attack_damage_for(tier ToolTier, typ ToolType) f32 {
 			match tier {
 				.wood, .gold { f32(2.0) }
 				.stone { f32(3.0) }
-				.iron { f32(4.0) }
+				.copper, .iron { f32(4.0) }
 				.diamond { f32(5.0) }
 				.netherite { f32(6.0) }
 			}
 		}
 		.axe {
 			match tier {
+				.copper { f32(4.0) }
 				.wood, .gold { f32(7.0) }
 				.stone, .iron, .diamond { f32(9.0) }
 				.netherite { f32(10.0) }
@@ -147,6 +153,7 @@ fn attack_damage_for(tier ToolTier, typ ToolType) f32 {
 			match tier {
 				.wood, .gold { f32(2.5) }
 				.stone { f32(3.5) }
+				.copper { f32(4.0) }
 				.iron { f32(4.5) }
 				.diamond { f32(5.5) }
 				.netherite { f32(6.5) }

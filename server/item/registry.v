@@ -22,6 +22,32 @@ pub fn (mut r Registry) register(it Item) {
 	r.items[it.identifier()] = it
 }
 
+pub struct FallbackEntry {
+pub:
+	id            string
+	block_runtime int
+}
+
+pub fn (mut r Registry) register_fallbacks(entries []FallbackEntry) {
+	for e in entries {
+		if e.id in r.items {
+			continue
+		}
+		if e.block_runtime != 0 {
+			r.items[e.id] = BlockItem{
+				id:            e.id
+				block_runtime: e.block_runtime
+				stack_max:     fallback_stack_size(e.id)
+			}
+		} else {
+			r.items[e.id] = SimpleItem{
+				id:        e.id
+				stack_max: fallback_stack_size(e.id)
+			}
+		}
+	}
+}
+
 // get returns the registered class for id, or none if unregistered.
 pub fn (r &Registry) get(id string) ?Item {
 	return r.items[id] or { return none }
@@ -66,13 +92,13 @@ fn default_items() []Item {
 	items << new_bedrock_item()
 	items << new_stick()
 
-	for tier in [ToolTier.wood, .stone, .iron, .gold, .diamond, .netherite] {
+	for tier in [ToolTier.wood, .stone, .copper, .iron, .gold, .diamond, .netherite] {
 		for typ in [ToolType.sword, .pickaxe, .axe, .shovel, .hoe] {
 			items << new_tool_item(tier, typ)
 		}
 	}
 
-	for tier in [ArmorTier.leather, .gold, .iron, .diamond, .netherite] {
+	for tier in [ArmorTier.leather, .gold, .copper, .iron, .diamond, .netherite] {
 		for slot in [ArmorSlot.helmet, .chestplate, .leggings, .boots] {
 			items << new_armor_item(tier, slot)
 		}
@@ -101,6 +127,7 @@ fn default_items() []Item {
 	items << new_glow_berries()
 	items << new_dried_kelp()
 	items << new_honey_bottle()
+	items << tail_food_items()
 
 	items << new_raw_iron()
 	items << new_raw_gold()

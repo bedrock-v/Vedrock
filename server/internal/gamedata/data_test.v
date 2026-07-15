@@ -13,6 +13,15 @@ fn test_load_game_data() {
 	data := load('../data') or { load('data') or { panic('cannot find data dir: ${err}') } }
 	assert data.item_entries.len > 1000
 	assert data.item_id('minecraft:stone') != 0
+	assert data.block_palette.len > 10000
+	mut oak_planks_id := 0
+	for e in data.block_palette {
+		if e.name == 'minecraft:oak_planks' {
+			oak_planks_id = e.network_id
+			break
+		}
+	}
+	assert oak_planks_id == 1921718966
 	assert data.creative_items.len > 0
 	mut has_block := false
 	mut potion_metas := []int{}

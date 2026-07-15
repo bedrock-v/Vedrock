@@ -143,7 +143,7 @@ fn (mut s NetworkSession) set_pending_creative(entry_id int) {
 	s.pending_creative = types.ItemStack{
 		id:               item.numeric_id
 		meta:             item.meta
-		count:            64
+		count:            s.clamp_stack_count(item.numeric_id, 64)
 		block_runtime_id: item.block_runtime_id
 		raw_extra_data:   []u8{}
 	}
@@ -164,15 +164,27 @@ fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotC
 	if take == 0 || take > moved.count {
 		take = moved.count
 	}
+	mut dest_stack := types.ItemStack{}
+	if dst.stack_network_id != 0 {
+		dest_stack = s.inv_stacks[dst.stack_network_id] or { types.ItemStack{} }
+	}
+	max_stack := s.max_stack_size_for_numeric(moved.id)
+	if dest_stack.count > 0 && dest_stack.id == moved.id {
+		space := max_stack - dest_stack.count
+		if space <= 0 {
+			return []SlotChange{}
+		}
+		if take > space {
+			take = space
+		}
+	} else if take > max_stack {
+		take = max_stack
+	}
 	if take == 0 {
 		return []SlotChange{}
 	}
 	remaining := if from_creative { 0 } else { moved.count - take }
 
-	mut dest_stack := types.ItemStack{}
-	if dst.stack_network_id != 0 {
-		dest_stack = s.inv_stacks[dst.stack_network_id] or { types.ItemStack{} }
-	}
 	mut new_dest := moved
 	if dest_stack.count > 0 && dest_stack.id == moved.id {
 		new_dest.count = dest_stack.count + take

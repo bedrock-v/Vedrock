@@ -24,6 +24,43 @@ pub fn (mut r Registry) register(b Block) {
 	r.by_name[b.identifier()] = b
 }
 
+// PaletteEntry is one block state from the wire palette, in palette order.
+pub struct PaletteEntry {
+pub:
+	name       string
+	network_id int
+}
+
+pub fn (mut r Registry) register_fallbacks(entries []PaletteEntry) {
+	mut canonical := map[string]Block{}
+	for e in entries {
+		if e.name !in canonical {
+			owner := r.by_name[e.name] or {
+				hardness := fallback_hardness(e.name)
+				if hardness < 0 {
+					Block(UnbreakableBlock{
+						id:            e.name
+						block_runtime: e.network_id
+					})
+				} else {
+					Block(SimpleBlock{
+						id:             e.name
+						block_runtime:  e.network_id
+						break_hardness: hardness
+					})
+				}
+			}
+			canonical[e.name] = owner
+			if e.name !in r.by_name {
+				r.by_name[e.name] = owner
+			}
+		}
+		if e.network_id !in r.by_runtime {
+			r.by_runtime[e.network_id] = canonical[e.name] or { continue }
+		}
+	}
+}
+
 // get returns the registered class for a runtime id, or none if unregistered.
 pub fn (r &Registry) get(runtime_id int) ?Block {
 	return r.by_runtime[runtime_id] or { return none }

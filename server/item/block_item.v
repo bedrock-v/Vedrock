@@ -7,6 +7,7 @@ pub struct BlockItem {
 pub:
 	id            string
 	block_runtime int
+	stack_max     int = 64
 }
 
 pub fn (i BlockItem) identifier() string {
@@ -14,7 +15,7 @@ pub fn (i BlockItem) identifier() string {
 }
 
 pub fn (i BlockItem) max_stack_size() int {
-	return 64
+	return i.stack_max
 }
 
 pub fn (i BlockItem) attack_damage() f32 {

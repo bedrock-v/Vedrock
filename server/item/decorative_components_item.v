@@ -76,6 +76,7 @@ fn sign_item(wood_type string) BlockItem {
 	return BlockItem{
 		id:            'minecraft:${wood_type}_sign'
 		block_runtime: runtime.network_id
+		stack_max:     16
 	}
 }
 
@@ -91,6 +92,7 @@ fn banner_item() BlockItem {
 	return BlockItem{
 		id:            id
 		block_runtime: runtime.network_id
+		stack_max:     16
 	}
 }
 

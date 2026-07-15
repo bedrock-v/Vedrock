@@ -36,15 +36,15 @@ mut:
 pub mut:
 	world_time         int
 	data               gamedata.GameData
-	items              item.Registry        = item.new_registry()
-	blocks             block.Registry       = block.new_registry()
-	lang               &language.Lang       = unsafe { nil }
-	commands           cmd.Registry         = cmd.new_registry()
-	events             &event.Bus           = unsafe { nil }
-	scheduler          &scheduler.Scheduler = unsafe { nil }
-	entities           &entity.Manager      = unsafe { nil }
+	items              item.Registry         = item.new_registry()
+	blocks             block.Registry        = block.new_registry()
+	lang               &language.Lang        = unsafe { nil }
+	commands           cmd.Registry          = cmd.new_registry()
+	events             &event.Bus            = unsafe { nil }
+	scheduler          &scheduler.Scheduler  = unsafe { nil }
+	entities           &entity.Manager       = unsafe { nil }
 	liquids            &liquid.LiquidManager = unsafe { nil }
-	entity_registry    entity.Registry      = entity.new_registry()
+	entity_registry    entity.Registry       = entity.new_registry()
 	current_tick       i64
 	started_at         i64
 	worlds             map[string]&db.World
@@ -94,8 +94,36 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 	}
 	hub.entities = entity.new_manager(hub)
 	hub.liquids = liquid.new_manager(hub)
+	hub.register_palette_fallbacks()
 	spawn hub.run_jobs()
 	return hub
+}
+
+// register_palette_fallbacks backfills the block and item registries from the
+// wire palette so every vanilla name is placeable/holdable even before it has
+// a hand written class. Hand registered classes always take precedence.
+fn (mut h Hub) register_palette_fallbacks() {
+	mut block_entries := []block.PaletteEntry{cap: h.data.block_palette.len}
+	mut canonical := map[string]int{}
+	for e in h.data.block_palette {
+		block_entries << block.PaletteEntry{
+			name:       e.name
+			network_id: e.network_id
+		}
+		if e.name !in canonical {
+			canonical[e.name] = e.network_id
+		}
+	}
+	h.blocks.register_fallbacks(block_entries)
+
+	mut item_entries := []item.FallbackEntry{cap: h.data.item_entries.len}
+	for it in h.data.item_entries {
+		item_entries << item.FallbackEntry{
+			id:            it.name
+			block_runtime: canonical[it.name] or { 0 }
+		}
+	}
+	h.items.register_fallbacks(item_entries)
 }
 
 pub fn (h &Hub) uptime_seconds() i64 {
