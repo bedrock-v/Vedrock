@@ -5,6 +5,7 @@ module block
 // update blocks and schedule a future tick for a position.
 pub interface TickWorld {
 	block_id(x int, y int, z int) int
+mut:
 	set_block(x int, y int, z int, id int)
 	schedule_tick(x int, y int, z int, delay int)
 }
