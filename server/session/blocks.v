@@ -102,7 +102,8 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				s.resend_block(neighbor)
 				return
 			}
-			if s.place_block(target, runtime_id)! {
+			placed_id := s.oriented_block(runtime_id, int(ut.block_face))
+			if s.place_block(target, placed_id)! {
 				s.last_place_ms = now
 				if s.game_mode != protocol.game_type_creative {
 					s.consume_held_item()
@@ -158,6 +159,15 @@ fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
 		flags:            protocol.update_block_flag_network
 		data_layer_id:    0
 	}) or {}
+}
+
+// oriented_block resolves a directional block's runtime id from the player's
+// yaw and the clicked face. Falls back to the raw id when no palette is loaded.
+fn (s &NetworkSession) oriented_block(runtime_id int, click_face int) int {
+	if isnil(s.hub.palette) {
+		return runtime_id
+	}
+	return s.hub.palette.oriented(runtime_id, s.yaw, click_face)
 }
 
 fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !bool {

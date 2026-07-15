@@ -17,6 +17,7 @@ import server.block
 import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
+import server.world as blockworld
 import server.world.db
 import server.resource
 import server.permission
@@ -51,9 +52,10 @@ pub mut:
 	default_world_name string
 	// worlds_dir is the on-disk root for world folders and world_generator the
 	// fallback generator name for freshly created worlds. Both are set at boot.
-	worlds_dir      string                 = 'worlds'
-	world_generator string                 = 'flat'
-	packs           &resource.PackRegistry = unsafe { nil }
+	worlds_dir      string                   = 'worlds'
+	world_generator string                   = 'flat'
+	packs           &resource.PackRegistry   = unsafe { nil }
+	palette         &blockworld.BlockPalette = unsafe { nil }
 	ops             permission.OpList
 	player_grants   permission.PlayerGrants
 	whitelist       permission.Whitelist
