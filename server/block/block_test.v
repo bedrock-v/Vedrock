@@ -4,7 +4,7 @@ import server.world
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 394
+	assert r.len() == 400
 }
 
 fn test_registered_blocks_found_by_runtime_and_name() {
@@ -87,4 +87,24 @@ fn test_snow_block_hardness() {
 	r := new_registry()
 	b := r.get_by_name('minecraft:snow') or { panic('missing snow') }
 	assert b.hardness() == 0.2
+}
+
+fn test_nether_and_end_blocks_registered() {
+	r := new_registry()
+	soul_sand := r.get_by_name('minecraft:soul_sand') or { panic('missing soul_sand') }
+	assert soul_sand is SoulSandBlock
+	assert soul_sand.hardness() == 0.5
+	soul_soil := r.get_by_name('minecraft:soul_soil') or { panic('missing soul_soil') }
+	assert soul_soil is SoulSoilBlock
+	glowstone := r.get_by_name('minecraft:glowstone') or { panic('missing glowstone') }
+	assert glowstone is GlowstoneBlock
+	assert glowstone.hardness() == 0.3
+	magma := r.get_by_name('minecraft:magma') or { panic('missing magma') }
+	assert magma is MagmaBlock
+	assert magma.hardness() == 0.5
+	end_bricks := r.get_by_name('minecraft:end_bricks') or { panic('missing end_bricks') }
+	assert end_bricks is EndBricksBlock
+	purpur := r.get_by_name('minecraft:purpur_block') or { panic('missing purpur_block') }
+	assert purpur is PurpurBlock
+	assert purpur.hardness() == 1.5
 }

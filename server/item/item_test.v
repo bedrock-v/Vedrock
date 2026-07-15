@@ -2,7 +2,7 @@ module item
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 457
+	assert r.len() == 463
 }
 
 fn test_registered_blocks_carry_runtime_id() {
@@ -115,4 +115,20 @@ fn test_register_overrides() {
 		stack_max: 16
 	})
 	assert r.max_stack_size('minecraft:ender_pearl') == 16
+}
+
+fn test_nether_and_end_block_items_registered() {
+	r := new_registry()
+	soul_sand := r.get('minecraft:soul_sand') or { panic('missing soul_sand item') }
+	assert soul_sand is SoulSandItem
+	assert soul_sand.block_runtime_id() != 0
+	glowstone := r.get('minecraft:glowstone') or { panic('missing glowstone item') }
+	assert glowstone is GlowstoneItem
+	magma := r.get('minecraft:magma') or { panic('missing magma item') }
+	assert magma is MagmaBlockItem
+	assert magma.block_runtime_id() != 0
+	end_bricks := r.get('minecraft:end_bricks') or { panic('missing end_bricks item') }
+	assert end_bricks is EndBricksItem
+	purpur := r.get('minecraft:purpur_block') or { panic('missing purpur_block item') }
+	assert purpur is PurpurBlockItem
 }

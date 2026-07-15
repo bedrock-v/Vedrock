@@ -107,6 +107,12 @@ fn default_blocks() []Block {
 		new_calcite(),
 		new_smooth_basalt(),
 		new_dripstone_block(),
+		new_soul_sand(),
+		new_soul_soil(),
+		new_glowstone(),
+		new_magma_block(),
+		new_purpur_block(),
+		new_end_bricks(),
 	]
 	result << wood_blocks()
 	result << redstone_component_blocks()
@@ -114,6 +120,6 @@ fn default_blocks() []Block {
 	result << farming_blocks()
 	result << combat_progression_blocks()
 	result << decorative_blocks()
-	
+
 	return result
 }
