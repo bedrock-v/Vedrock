@@ -47,6 +47,7 @@ pub fn (mut m Manager) enable_all() {
 	for mut p in m.plugins {
 		info := p.meta()
 		m.api.log = m.log.with_prefix(info.name)
+		p.set_log(m.api.log)
 		m.log.info('Enabling ${info.name} v${info.version}')
 		p.on_enable(mut m.api)
 	}
