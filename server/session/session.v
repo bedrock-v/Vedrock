@@ -70,7 +70,6 @@ mut:
 	pending_forms      map[int]form.Form
 	last_place_ms      i64
 	effects            effect.Manager
-
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }

@@ -34,7 +34,7 @@ pub:
 	item_entries    []ItemEntry
 	creative_groups []CreativeGroup
 	creative_items  []CreativeItem
-	block_palette []BlockPaletteEntry
+	block_palette   []BlockPaletteEntry
 pub mut:
 	item_id_by_name  map[string]int
 	item_id_by_block map[int]int

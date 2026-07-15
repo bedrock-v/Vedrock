@@ -97,7 +97,6 @@ pub const calcite = new_block('minecraft:calcite')
 pub const smooth_basalt = new_block('minecraft:smooth_basalt')
 pub const dripstone_block = new_block('minecraft:dripstone_block')
 
-
 pub const soul_sand = new_block('minecraft:soul_sand')
 pub const soul_soil = new_block('minecraft:soul_soil')
 pub const glowstone = new_block('minecraft:glowstone')

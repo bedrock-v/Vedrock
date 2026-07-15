@@ -171,7 +171,7 @@ fn test_register_fallbacks_never_clobbers_hand_classes() {
 	b := r.get_by_name('minecraft:bedrock') or { panic('missing bedrock') }
 	assert b is BedrockBlock
 	assert !b.breakable()
-	
+
 	extra := r.get(7002) or { panic('missing extra bedrock state') }
 	assert extra is BedrockBlock
 	assert !r.breakable(7002)

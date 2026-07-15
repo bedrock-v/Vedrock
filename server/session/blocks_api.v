@@ -81,7 +81,17 @@ pub fn (mut h Hub) collision_boxes(x int, y int, z int) []world.AABB {
 	if isnil(h.palette) {
 		return world.absolute_boxes(world.solid_model(), x, y, z)
 	}
-	return world.absolute_boxes(h.palette.model(id), x, y, z)
+	return world.absolute_boxes_with_neighbors(h.palette.model(id), h.neighbor_models(x, y, z), x,
+		y, z)
+}
+
+fn (mut h Hub) neighbor_models(x int, y int, z int) map[int]world.BlockModel {
+	mut out := map[int]world.BlockModel{}
+	out[2] = h.palette.model(h.get_block(x, y, z - 1))
+	out[3] = h.palette.model(h.get_block(x, y, z + 1))
+	out[4] = h.palette.model(h.get_block(x - 1, y, z))
+	out[5] = h.palette.model(h.get_block(x + 1, y, z))
+	return out
 }
 
 // set_block_id writes a raw block network id, used by arena restore. It routes

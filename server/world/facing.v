@@ -182,6 +182,13 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 			id
 		}
 	}
+	if is_trapdoor_name(v.name) && 'direction' in v.states {
+		mut nid := p.with_state(id, 'direction', weirdo_value(look).str()) or { id }
+		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && 'upside_down_bit' in v.states {
+			nid = p.with_state(nid, 'upside_down_bit', '1') or { nid }
+		}
+		return nid
+	}
 	if 'minecraft:cardinal_direction' in v.states {
 		return p.with_state(id, 'minecraft:cardinal_direction', cardinal_string(front)) or { id }
 	}

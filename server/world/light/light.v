@@ -76,14 +76,22 @@ pub fn emission(block_id int) u8 {
 // as opaque so the engine errs on the side of blocking, like a solid block.
 pub fn filter(block_id int) u8 {
 	return match block_id {
-		air { u8(0) }
-		water { u8(2) }
-		leaves { u8(1) }
+		air {
+			u8(0)
+		}
+		water {
+			u8(2)
+		}
+		leaves {
+			u8(1)
+		}
 		// Emitters are transparent to travelling light - they only add their own.
 		glowstone, sea_lantern, lava, torch, jack_o_lantern, redstone_torch, beacon {
 			u8(0)
 		}
-		else { max_light } // stone and any unknown block fully block light
+		else {
+			max_light
+		} // stone and any unknown block fully block light
 	}
 }
 

@@ -12,16 +12,37 @@ fn model_for_variant(v BlockVariant) BlockModel {
 	if v.name == 'minecraft:ladder' {
 		return ladder_model(state_int(v.states, 'facing_direction', 2))
 	}
+	if is_door_name(v.name) {
+		return door_model(cardinal_face(state_string(v.states, 'minecraft:cardinal_direction',
+			'south')), state_bool(v.states, 'open_bit', false))
+	}
+	if is_trapdoor_name(v.name) {
+		return trapdoor_model(weirdo_face(state_int(v.states, 'direction', 0)), state_bool(v.states,
+			'open_bit', false), state_bool(v.states, 'upside_down_bit', false))
+	}
+	if is_fence_gate_name(v.name) {
+		return fence_gate_model(cardinal_face(state_string(v.states,
+			'minecraft:cardinal_direction', 'south')), state_bool(v.states, 'open_bit', false))
+	}
 	if v.name.ends_with('_slab') || v.name.contains('slab') {
 		return slab_model(state_bool(v.states, 'double_stone_slab', false)
-			|| state_bool(v.states, 'double_stone_slab2', false), slab_is_top(v.states))
+			|| state_bool(v.states, 'double_stone_slab2', false) || v.name.contains('double_slab'),
+			slab_is_top(v.states))
 	}
 	if v.name.ends_with('_stairs') {
 		return stair_model(weirdo_face(state_int(v.states, 'weirdo_direction', 0)), state_bool(v.states,
 			'upside_down_bit', false))
 	}
-	if v.name.ends_with('_fence') || v.name.ends_with('_wall') || v.name.ends_with('_pane')
-		|| v.name.ends_with('_bars') {
+	if v.name.ends_with('_wall') {
+		return wall_model(state_string(v.states, 'wall_connection_type_north', 'none'), state_string(v.states,
+			'wall_connection_type_east', 'none'), state_string(v.states,
+			'wall_connection_type_south', 'none'), state_string(v.states,
+			'wall_connection_type_west', 'none'), state_bool(v.states, 'wall_post_bit', true))
+	}
+	if v.name.ends_with('_fence') {
+		return fence_model()
+	}
+	if v.name.ends_with('_pane') || v.name.ends_with('_bars') {
 		return thin_model()
 	}
 	return solid_model()
@@ -35,6 +56,10 @@ fn state_int(states map[string]string, key string, fallback int) int {
 fn state_bool(states map[string]string, key string, fallback bool) bool {
 	v := states[key] or { return fallback }
 	return v == '1' || v == 'true' || v == 'top'
+}
+
+fn state_string(states map[string]string, key string, fallback string) string {
+	return states[key] or { return fallback }
 }
 
 fn slab_is_top(states map[string]string) bool {
@@ -54,6 +79,16 @@ fn weirdo_face(value int) int {
 		2 { 3 }
 		3 { 2 }
 		else { 5 }
+	}
+}
+
+fn cardinal_face(value string) int {
+	return match value {
+		'north' { 2 }
+		'south' { 3 }
+		'west' { 4 }
+		'east' { 5 }
+		else { 3 }
 	}
 }
 

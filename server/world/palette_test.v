@@ -191,3 +191,95 @@ fn test_non_directional_unchanged() {
 	p := load_test_palette() or { return }
 	assert p.oriented(stone.network_id, 123.0, 1, 0.5) == stone.network_id
 }
+
+fn test_openable_blocks_toggle_open_bit() {
+	p := load_test_palette() or { return }
+	door := palette_id_for_test(p, 'minecraft:wooden_door', {
+		'door_hinge_bit':               '0'
+		'minecraft:cardinal_direction': 'south'
+		'open_bit':                     '0'
+		'upper_block_bit':              '0'
+	})
+	trapdoor := palette_id_for_test(p, 'minecraft:trapdoor', {
+		'direction':       '0'
+		'open_bit':        '0'
+		'upside_down_bit': '0'
+	})
+	gate := palette_id_for_test(p, 'minecraft:fence_gate', {
+		'in_wall_bit':                  '0'
+		'minecraft:cardinal_direction': 'south'
+		'open_bit':                     '0'
+	})
+	assert p.variant(p.toggled_open(door) or { panic('door did not toggle') }) or {
+		panic('missing toggled door')
+	}.states['open_bit'] == '1'
+	assert p.variant(p.toggled_open(trapdoor) or { panic('trapdoor did not toggle') }) or {
+		panic('missing toggled trapdoor')
+	}.states['open_bit'] == '1'
+	assert p.variant(p.toggled_open(gate) or { panic('gate did not toggle') }) or {
+		panic('missing toggled gate')
+	}.states['open_bit'] == '1'
+}
+
+fn test_door_placement_builds_matching_lower_and_upper_parts() {
+	p := load_test_palette() or { return }
+	door := palette_id_for_test(p, 'minecraft:wooden_door', {
+		'door_hinge_bit':               '0'
+		'minecraft:cardinal_direction': 'south'
+		'open_bit':                     '0'
+		'upper_block_bit':              '0'
+	})
+	parts := p.door_placement(door, 0.0, NeighborBlockIDs{}) or { panic('door placement failed') }
+	lower := p.variant(parts.lower) or { panic('missing lower door') }
+	upper := p.variant(parts.upper) or { panic('missing upper door') }
+	assert lower.states['upper_block_bit'] == '0'
+	assert upper.states['upper_block_bit'] == '1'
+	assert lower.states['open_bit'] == upper.states['open_bit']
+	assert lower.states['minecraft:cardinal_direction'] == upper.states['minecraft:cardinal_direction']
+}
+
+fn test_wall_connections_recompute_palette_state() {
+	p := load_test_palette() or { return }
+	wall := palette_id_for_test(p, 'minecraft:cobblestone_wall', {
+		'wall_connection_type_east':  'none'
+		'wall_connection_type_north': 'none'
+		'wall_connection_type_south': 'none'
+		'wall_connection_type_west':  'none'
+		'wall_post_bit':              '0'
+	})
+	connected := p.connected_block(wall, NeighborBlockIDs{
+		east:  stone.network_id
+		north: stone.network_id
+	})
+	v := p.variant(connected) or { panic('missing connected wall') }
+	assert v.states['wall_connection_type_east'] == 'short'
+	assert v.states['wall_connection_type_north'] == 'short'
+	assert v.states['wall_connection_type_south'] == 'none'
+	assert v.states['wall_post_bit'] == '1'
+}
+
+fn test_slab_merge_uses_double_variant_when_present() {
+	p := load_test_palette() or { return }
+	oak_bottom := palette_id_for_test(p, 'minecraft:oak_slab', {
+		'minecraft:vertical_half': 'bottom'
+	})
+	merged := p.merged_slab(oak_bottom, oak_bottom, 1, 0.75, true) or {
+		panic('slab did not merge')
+	}
+	v := p.variant(merged) or { panic('missing merged slab') }
+	assert v.name == 'minecraft:oak_double_slab'
+	assert v.states['minecraft:vertical_half'] == 'bottom'
+}
+
+fn test_trapdoor_orientation_uses_stair_direction_encoding() {
+	p := load_test_palette() or { return }
+	trapdoor := palette_id_for_test(p, 'minecraft:trapdoor', {
+		'direction':       '0'
+		'open_bit':        '0'
+		'upside_down_bit': '0'
+	})
+	west_top := p.oriented(trapdoor, 90.0, 3, 0.75)
+	v := p.variant(west_top) or { panic('missing oriented trapdoor') }
+	assert v.states['direction'] == '1'
+	assert v.states['upside_down_bit'] == '1'
+}

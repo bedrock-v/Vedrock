@@ -59,10 +59,6 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 	ut := p.use_item
 	match ut.action_type {
 		protocol.item_use_action_click_block {
-			runtime_id := ut.held_item.item_stack.block_runtime_id
-			if runtime_id == 0 {
-				return
-			}
 			if s.dead || !s.can_interact() {
 				return
 			}
@@ -87,6 +83,13 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				s.resend_block(neighbor)
 				return
 			}
+			if s.interact_block(ut.block_position, clicked_id)! {
+				return
+			}
+			runtime_id := ut.held_item.item_stack.block_runtime_id
+			if runtime_id == 0 {
+				return
+			}
 			mut target := ut.block_position
 			if !is_replaceable(clicked_id) {
 				target = neighbor
@@ -102,12 +105,44 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				s.resend_block(neighbor)
 				return
 			}
+			if merged := s.merged_slab(clicked_id, runtime_id, int(ut.block_face),
+				ut.clicked_position.y, true)
+			{
+				if s.replace_block(ut.block_position, merged)! {
+					s.last_place_ms = now
+					if s.game_mode != protocol.game_type_creative {
+						s.consume_held_item()
+					}
+				}
+				return
+			}
 			if !s.can_place_block_on_face(runtime_id, int(ut.block_face), clicked_id) {
 				s.resend_block(ut.block_position)
 				s.resend_block(neighbor)
 				return
 			}
 			placed_id := s.oriented_block(runtime_id, int(ut.block_face), ut.clicked_position.y)
+			target_id := s.block_at(target.x, target.y, target.z)
+			if merged := s.merged_slab(target_id, runtime_id, int(ut.block_face),
+				ut.clicked_position.y, false)
+			{
+				if s.replace_block(target, merged)! {
+					s.last_place_ms = now
+					if s.game_mode != protocol.game_type_creative {
+						s.consume_held_item()
+					}
+				}
+				return
+			}
+			if parts := s.door_placement(placed_id, target, int(ut.block_face)) {
+				if s.place_door(target, parts)! {
+					s.last_place_ms = now
+					if s.game_mode != protocol.game_type_creative {
+						s.consume_held_item()
+					}
+				}
+				return
+			}
 			if s.place_block(target, placed_id)! {
 				s.last_place_ms = now
 				if s.game_mode != protocol.game_type_creative {
@@ -182,6 +217,33 @@ fn (s &NetworkSession) can_place_block_on_face(runtime_id int, click_face int, s
 	return s.hub.palette.can_place_on_support(runtime_id, click_face, support_id)
 }
 
+fn (s &NetworkSession) merged_slab(existing_id int, placing_id int, click_face int, click_y f32, clicked bool) ?int {
+	if existing_id == world.air.network_id || isnil(s.hub.palette) {
+		return none
+	}
+	return s.hub.palette.merged_slab(existing_id, placing_id, click_face, click_y, clicked)
+}
+
+fn (s &NetworkSession) door_placement(runtime_id int, pos types.BlockPosition, click_face int) ?world.DoorPlacement {
+	if click_face != 1 || isnil(s.hub.palette) {
+		return none
+	}
+	above := face_offset(pos, 1)
+	below := face_offset(pos, 0)
+	if pos.y < world.dimension_min_y || above.y > world.dimension_max_y {
+		return none
+	}
+	if s.block_at(pos.x, pos.y, pos.z) != world.air.network_id
+		|| s.block_at(above.x, above.y, above.z) != world.air.network_id {
+		return none
+	}
+	below_id := s.block_at(below.x, below.y, below.z)
+	if !s.hub.palette.model(below_id).face_solid(1) {
+		return none
+	}
+	return s.hub.palette.door_placement(runtime_id, s.yaw, s.neighbor_ids(pos))
+}
+
 fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !bool {
 	occupied := s.block_at(pos.x, pos.y, pos.z) != world.air.network_id
 	obstructed, self_only := s.obstructed_by_entity(pos)
@@ -209,8 +271,60 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 	}
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
-	// Placing water starts a flow; a neighbour break re-triggers spread below.
-	s.hub.on_block_changed(pos.x, pos.y, pos.z)
+	s.after_block_changed(pos)
+	return true
+}
+
+fn (mut s NetworkSession) replace_block(pos types.BlockPosition, runtime_id int) !bool {
+	mut ctx := event.new_context(event.BlockPlaceData{
+		player:   s
+		x:        pos.x
+		y:        pos.y
+		z:        pos.z
+		block_id: runtime_id
+	})
+	s.hub.events.block_place(mut ctx)
+	if ctx.is_cancelled() {
+		s.resend_block(pos)
+		return false
+	}
+	s.set_block_runtime(pos, runtime_id)
+	s.broadcast_swing()
+	s.after_block_changed(pos)
+	return true
+}
+
+fn (mut s NetworkSession) place_door(pos types.BlockPosition, parts world.DoorPlacement) !bool {
+	above := face_offset(pos, 1)
+	obstructed_lower, lower_self := s.obstructed_by_entity(pos)
+	obstructed_upper, upper_self := s.obstructed_by_entity(above)
+	if obstructed_lower || obstructed_upper {
+		if !lower_self {
+			s.resend_block(pos)
+		}
+		if !upper_self {
+			s.resend_block(above)
+		}
+		return false
+	}
+	mut ctx := event.new_context(event.BlockPlaceData{
+		player:   s
+		x:        pos.x
+		y:        pos.y
+		z:        pos.z
+		block_id: parts.lower
+	})
+	s.hub.events.block_place(mut ctx)
+	if ctx.is_cancelled() {
+		s.resend_block(pos)
+		s.resend_block(above)
+		return false
+	}
+	s.set_block_runtime(pos, parts.lower)
+	s.set_block_runtime(above, parts.upper)
+	s.broadcast_swing()
+	s.after_block_changed(pos)
+	s.after_block_changed(above)
 	return true
 }
 
@@ -298,15 +412,110 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.resend_block(pos)
 		return
 	}
-	mut wld := s.current_world()
-	if !isnil(wld) {
-		wld.set_block(pos.x, pos.y, pos.z, air_id)
+	s.set_block_runtime(pos, air_id)
+	if pair := s.door_pair_pos(pos, old_id) {
+		pair_id := s.block_at(pair.x, pair.y, pair.z)
+		if s.door_pair_matches(old_id, pair_id) {
+			s.set_block_runtime(pair, air_id)
+			s.after_block_changed(pair)
+		}
 	}
-	s.broadcast_block_update(pos, air_id)
 	s.broadcast_destroy_particles(pos, old_id)
 	s.broadcast_swing()
-	// A break can free a path for adjacent water to flow into.
+	s.after_block_changed(pos)
+}
+
+fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int) !bool {
+	if isnil(s.hub.palette) {
+		return false
+	}
+	new_id := s.hub.palette.toggled_open(old_id) or { return false }
+	s.set_block_runtime(pos, new_id)
+	if pair := s.door_pair_pos(pos, old_id) {
+		pair_id := s.block_at(pair.x, pair.y, pair.z)
+		if s.door_pair_matches(old_id, pair_id) {
+			pair_new := s.open_state_like(pair_id, new_id)
+			s.set_block_runtime(pair, pair_new)
+			s.after_block_changed(pair)
+		}
+	}
+	s.broadcast_swing()
+	s.after_block_changed(pos)
+	return true
+}
+
+fn (s &NetworkSession) open_state_like(id int, source_id int) int {
+	if isnil(s.hub.palette) {
+		return id
+	}
+	source := s.hub.palette.variant(source_id) or { return id }
+	open := source.states['open_bit'] or { return id }
+	return s.hub.palette.with_state(id, 'open_bit', open) or { id }
+}
+
+fn (s &NetworkSession) door_pair_pos(pos types.BlockPosition, id int) ?types.BlockPosition {
+	if isnil(s.hub.palette) {
+		return none
+	}
+	_ := s.hub.palette.door_pair_id(id) or { return none }
+	if s.hub.palette.is_door_top(id) {
+		return face_offset(pos, 0)
+	}
+	return face_offset(pos, 1)
+}
+
+fn (s &NetworkSession) door_pair_matches(id int, pair_id int) bool {
+	if isnil(s.hub.palette) {
+		return false
+	}
+	expected := s.hub.palette.door_pair_id(id) or { return false }
+	return expected == pair_id
+}
+
+fn (mut s NetworkSession) set_block_runtime(pos types.BlockPosition, runtime_id int) {
+	mut wld := s.current_world()
+	if !isnil(wld) {
+		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
+	}
+	s.broadcast_block_update(pos, runtime_id)
+}
+
+fn (mut s NetworkSession) after_block_changed(pos types.BlockPosition) {
 	s.hub.on_block_changed(pos.x, pos.y, pos.z)
+	s.recompute_neighbor_blocks(pos)
+}
+
+fn (mut s NetworkSession) recompute_neighbor_blocks(pos types.BlockPosition) {
+	if isnil(s.hub.palette) {
+		return
+	}
+	for p in [
+		pos,
+		face_offset(pos, 2),
+		face_offset(pos, 3),
+		face_offset(pos, 4),
+		face_offset(pos, 5),
+	] {
+		old_id := s.block_at(p.x, p.y, p.z)
+		if old_id == world.air.network_id {
+			continue
+		}
+		new_id := s.hub.palette.connected_block(old_id, s.neighbor_ids(p))
+		if new_id != old_id {
+			s.set_block_runtime(p, new_id)
+		}
+	}
+}
+
+fn (s &NetworkSession) neighbor_ids(pos types.BlockPosition) world.NeighborBlockIDs {
+	return world.NeighborBlockIDs{
+		north: s.block_at(pos.x, pos.y, pos.z - 1)
+		east:  s.block_at(pos.x + 1, pos.y, pos.z)
+		south: s.block_at(pos.x, pos.y, pos.z + 1)
+		west:  s.block_at(pos.x - 1, pos.y, pos.z)
+		above: s.block_at(pos.x, pos.y + 1, pos.z)
+		below: s.block_at(pos.x, pos.y - 1, pos.z)
+	}
 }
 
 fn (mut s NetworkSession) broadcast_destroy_particles(pos types.BlockPosition, runtime_id int) {

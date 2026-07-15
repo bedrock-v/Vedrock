@@ -3,7 +3,7 @@ module block
 import server.world
 
 // Wood family blocks: logs, bark covered wood blocks (and their stripped counterparts),
-// planks, leaves and saplings. 
+// planks, leaves and saplings.
 // None of these carry unique behaviour yet (no leaf decay, no sapling growth timer), so
 // they're built directly as SimpleBlock values from small data tables
 // rather than one named class per combination.

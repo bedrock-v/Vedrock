@@ -59,8 +59,8 @@ pub fn parse_cdn_packs(encoded string) []&ResourcePack {
 		if fields.len >= 4 {
 			size = fields[3].trim_space().u64()
 		}
-		pack := new_cdn_pack(fields[0].trim_space(), fields[1].trim_space(), fields[2].trim_space(),
-			size) or { continue }
+		pack := new_cdn_pack(fields[0].trim_space(), fields[1].trim_space(),
+			fields[2].trim_space(), size) or { continue }
 		out << pack
 	}
 	return out
