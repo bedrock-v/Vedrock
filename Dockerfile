@@ -33,9 +33,6 @@ RUN mkdir -p /opt/deps /root/.vmodules \
     && ln -s /opt/deps/raknet /root/.vmodules/raknet \
     && ln -s /opt/deps/raknet/message /root/.vmodules/message \
     && ln -s /opt/deps/protocol/src /root/.vmodules/protocol \
-    && ln -s /opt/deps/protocol/src/enums /root/.vmodules/enums \
-    && ln -s /opt/deps/protocol/src/types /root/.vmodules/types \
-    && ln -s /opt/deps/protocol/src/serializer /root/.vmodules/serializer \
     && ln -s /opt/deps/leveldb /root/.vmodules/leveldb \
     && v install nepinhum.i18n
 

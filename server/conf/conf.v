@@ -12,9 +12,20 @@ pub mut:
 	view_distance         int    = 8
 	gamemode              string = 'survival'
 	xbox_auth             bool   = true
+	// encryption negotiates Bedrock protocol encryption. Off by default - the
+	// implementation is spec-complete but not yet verified against a real client,
+	// so leaving it off keeps sessions cleartext and connectable.
+	encryption            bool
 	compression_threshold int    = 256
 	generator             string = 'flat'
 	language              string = 'en'
+	resource_packs        bool   = true
+	resource_packs_dir    string = 'resource_packs'
+	force_resource_packs  bool
+	allow_client_packs    bool = true
+	cdn_packs             string
+	default_world         string = 'world'
+	load_all_worlds       bool
 	debug                 bool
 }
 
@@ -26,7 +37,7 @@ pub fn load() !Config {
 
 pub fn load_from(path string) !Config {
 	if !os.exists(path) {
-		cfg := Config{}
+		cfg := if should_run_wizard() { run_wizard() } else { Config{} }
 		write_default(path, cfg)!
 		return cfg
 	}
@@ -41,6 +52,7 @@ pub fn load_from(path string) !Config {
 	cfg.view_distance = (values['view-distance'] or { cfg.view_distance.str() }).int()
 	cfg.gamemode = values['gamemode'] or { cfg.gamemode }
 	cfg.xbox_auth = to_bool(values['xbox-auth'] or { cfg.xbox_auth.str() })
+	cfg.encryption = to_bool(values['encryption'] or { cfg.encryption.str() })
 	cfg.compression_threshold = (values['compression-threshold'] or {
 		cfg.compression_threshold.str()
 	}).int()
@@ -51,6 +63,17 @@ pub fn load_from(path string) !Config {
 		cfg.compression_threshold = 65535
 	}
 	cfg.generator = values['generator'] or { cfg.generator }
+	cfg.resource_packs = to_bool(values['resource-packs'] or { cfg.resource_packs.str() })
+	cfg.resource_packs_dir = values['resource-packs-dir'] or { cfg.resource_packs_dir }
+	cfg.force_resource_packs = to_bool(values['force-resource-packs'] or {
+		cfg.force_resource_packs.str()
+	})
+	cfg.allow_client_packs = to_bool(values['allow-client-packs'] or {
+		cfg.allow_client_packs.str()
+	})
+	cfg.cdn_packs = values['cdn-packs'] or { cfg.cdn_packs }
+	cfg.default_world = values['default-world'] or { cfg.default_world }
+	cfg.load_all_worlds = to_bool(values['load-all-worlds'] or { cfg.load_all_worlds.str() })
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
 	return cfg
 }
@@ -88,9 +111,18 @@ max-players: ${cfg.max_players}
 view-distance: ${cfg.view_distance}
 gamemode: "${cfg.gamemode}"
 xbox-auth: ${cfg.xbox_auth}
+encryption: ${cfg.encryption}
 compression-threshold: ${cfg.compression_threshold}
 generator: "${cfg.generator}"
 language: "${cfg.language}"
+resource-packs: ${cfg.resource_packs}
+resource-packs-dir: "${cfg.resource_packs_dir}"
+force-resource-packs: ${cfg.force_resource_packs}
+allow-client-packs: ${cfg.allow_client_packs}
+# cdn-packs format: uuid,version,url,size ; separated by ";"
+cdn-packs: "${cfg.cdn_packs}"
+default-world: "${cfg.default_world}"
+load-all-worlds: ${cfg.load_all_worlds}
 debug: ${cfg.debug}
 '
 	os.write_file(path, content)!

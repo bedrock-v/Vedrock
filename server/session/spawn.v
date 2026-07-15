@@ -5,6 +5,7 @@ import protocol
 import protocol.enums
 import protocol.types
 import nbt
+import server.event
 import server.player.playerdb
 import server.world
 
@@ -109,14 +110,17 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 }
 
 fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
+	wld, gen := s.world_and_generator()
 	cx := int(math.floor(f64(s.position.x))) >> 4
 	cz := int(math.floor(f64(s.position.z))) >> 4
 	mut pending := 0
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
-			mut chunk := s.generator.generate(x, z)
-			for ov in s.hub.overrides_in_chunk(x, z) {
-				chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
+			mut chunk := gen.generate(x, z)
+			if !isnil(wld) {
+				for ov in wld.overrides_in_chunk(x, z) {
+					chunk.set_block(ov.x & 15, ov.y, ov.z & 15, world.block_from_id(ov.id))
+				}
 			}
 			s.transport.queue(&protocol.LevelChunkPacket{
 				chunk_position:  types.ChunkPosition{x, z}
@@ -145,15 +149,21 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		s.deliver(other.player_list_add_packet())
 		s.deliver(other.add_player_packet())
 	}
+	for e in s.hub.entities.snapshot() {
+		s.deliver(e.spawn_packet())
+	}
 	s.hub.add(s)
 	s.hub.broadcast(s.player_list_add_packet())
 	s.hub.broadcast_except(s.runtime_id, s.add_player_packet())
-	s.hub.broadcast(&protocol.TextPacket{
-		@type:             int(enums.TextType.translation)
-		needs_translation: true
-		message:           '§e%multiplayer.player.joined'
-		parameters:        [s.identity.display_name]
+	s.send_active_effects()
+	mut ctx := event.new_context(event.JoinData{
+		player:  s
+		message: '§e${s.identity.display_name} joined the game'
 	})
+	s.hub.events.player_join(mut ctx)
+	if !ctx.is_cancelled() && ctx.val.message != '' {
+		s.hub.broadcast_message(ctx.val.message)
+	}
 	s.transport.send(s.restore_inventory())!
 	s.refresh_available_commands()
 	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')

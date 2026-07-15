@@ -26,7 +26,8 @@ pub fn (c DifficultyCommand) arguments() []cmd.Argument {
 	return [
 		cmd.StringEnumArgument{
 			arg_name: 'difficulty'
-			values:   ['peaceful', 'p', '0', 'easy', 'e', '1', 'normal', 'n', '2', 'hard', 'h', '3']
+			values:   ['peaceful', 'p', '0', 'easy', 'e', '1', 'normal', 'n', '2', 'hard', 'h',
+				'3']
 		},
 	]
 }

@@ -99,9 +99,7 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int) int {
 		return nid
 	}
 	if 'facing_direction' in v.states {
-		return p.with_state(id, 'facing_direction', facing_direction_value(front).str()) or {
-			id
-		}
+		return p.with_state(id, 'facing_direction', facing_direction_value(front).str()) or { id }
 	}
 	if 'pillar_axis' in v.states {
 		return p.with_state(id, 'pillar_axis', axis_from_face(click_face)) or { id }

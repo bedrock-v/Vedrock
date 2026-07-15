@@ -120,3 +120,33 @@ other = "§cUsage: /say <message>§r"
 
 [cmd.title.usage]
 other = "§cUsage: /title <player|@a> <title|subtitle|actionbar> <text>§r"
+
+[cmd.world.usage]
+other = "§cUsage: /world <list|info|create|delete|tp> [name]§r"
+
+[cmd.world.none]
+other = "§eNo worlds are loaded§r"
+
+[cmd.world.list]
+other = "§6Worlds ({{.Count}}): §a{{.Worlds}}§r"
+
+[cmd.world.not_found]
+other = "§cWorld \"{{.Name}}\" is not loaded§r"
+
+[cmd.world.created]
+other = "§aCreated world \"{{.Name}}\"§r"
+
+[cmd.world.create_failed]
+other = "§cFailed to create \"{{.Name}}\": {{.Reason}}§r"
+
+[cmd.world.deleted]
+other = "§aDeleted world \"{{.Name}}\"§r"
+
+[cmd.world.delete_failed]
+other = "§cFailed to delete \"{{.Name}}\": {{.Reason}}§r"
+
+[cmd.world.tp]
+other = "§aTeleported to world \"{{.Name}}\"§r"
+
+[cmd.world.tp_failed]
+other = "§cFailed to teleport to \"{{.Name}}\": {{.Reason}}§r"

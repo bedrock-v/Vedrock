@@ -69,6 +69,10 @@ pub fn (mut c ConsoleSender) position() (f32, f32, f32) {
 
 pub fn (mut c ConsoleSender) teleport(x f32, y f32, z f32) {}
 
+pub fn (mut c ConsoleSender) place_water(x int, y int, z int) {
+	c.hub.place_water(x, y, z)
+}
+
 pub fn (mut c ConsoleSender) clear_inventory() {}
 
 pub fn (mut c ConsoleSender) give_item(id string, count int) bool {
@@ -78,6 +82,12 @@ pub fn (mut c ConsoleSender) give_item(id string, count int) bool {
 pub fn (mut c ConsoleSender) send_form(f form.Form) ! {
 	return error('the console cannot display forms')
 }
+
+pub fn (mut c ConsoleSender) show_scoreboard(title string, lines []string) {
+	// The console has no client to render a scoreboard on.
+}
+
+pub fn (mut c ConsoleSender) clear_scoreboard() {}
 
 // strip_formatting removes Minecraft § formatting codes so command output
 // stays readable in a terminal.

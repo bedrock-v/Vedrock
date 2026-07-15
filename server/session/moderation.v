@@ -2,6 +2,7 @@ module session
 
 import protocol
 import protocol.types
+import server.world
 
 // op / deop
 
@@ -62,16 +63,68 @@ pub fn (mut s NetworkSession) position() (f32, f32, f32) {
 	return p.x, p.y, p.z
 }
 
+// place_water sets a water source at the block position and starts its spread.
+// Routes through the actor thread via Hub.place_water.
+pub fn (mut s NetworkSession) place_water(x int, y int, z int) {
+	s.hub.place_water(x, y, z)
+}
+
 struct TeleportJob {
 	runtime_id u64
 	x          f32
 	y          f32
 	z          f32
+	// world is empty for an in-world teleport; set to move the player into
+	// another loaded world before applying the position.
+	world string
 }
 
 fn (j TeleportJob) run(mut h Hub) {
 	mut target := h.session_by_runtime(j.runtime_id) or { return }
+	if j.world != '' && j.world != target.world_name() {
+		if !target.change_world(j.world) {
+			return
+		}
+		target.apply_teleport(j.x, j.y, j.z)
+		// Chunk transmission (up to a few hundred packets) runs off the shared
+		// Hub job thread so one player's world change never stalls everyone
+		// else's queued jobs.
+		spawn target.reload_chunks(target.cfg.view_distance)
+		return
+	}
 	target.apply_teleport(j.x, j.y, j.z)
+}
+
+// reload_chunks resends the spawn chunks around the player. Runs on its own
+// thread; transport sends are already write-mutex guarded.
+fn (mut s NetworkSession) reload_chunks(radius int) {
+	s.send_spawn_chunks(radius) or {
+		s.log.warn('Failed to send chunks after world change: ${err}')
+	}
+}
+
+pub fn (s &NetworkSession) world_name() string {
+	mut m := s.world_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	if isnil(s.world) {
+		return ''
+	}
+	return s.world.name
+}
+
+// change_world swaps the player's active world and rebuilds the generator so
+// subsequent chunk sends and block lookups hit the new world's data.
+fn (mut s NetworkSession) change_world(name string) bool {
+	target := s.hub.world(name) or { return false }
+	gen := target.make_generator(world.new_generator(s.cfg.generator))
+	s.world_mutex.lock()
+	s.world = target
+	s.generator = gen
+	s.world_mutex.unlock()
+	return true
 }
 
 fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
@@ -98,6 +151,18 @@ pub fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 		x:          x
 		y:          y
 		z:          z
+	})
+}
+
+// teleport_to_world moves the player into another loaded world at the given
+// position. No-op on the hub thread if the world is not loaded.
+pub fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
+	s.hub.submit(TeleportJob{
+		runtime_id: s.runtime_id
+		x:          x
+		y:          y
+		z:          z
+		world:      name
 	})
 }
 

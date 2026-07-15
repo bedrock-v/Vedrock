@@ -6,13 +6,14 @@ pub type Element = Divider | Dropdown | Header | Input | Label | Slider | StepSl
 
 pub struct Divider {
 pub:
-	typ string = 'divider' @[json: 'type']
+	typ  string = 'divider' @[json: 'type']
 	text string
 }
 
 pub fn divider() Element {
 	return Divider{}
 }
+
 pub struct Header {
 pub:
 	typ  string = 'header' @[json: 'type']
@@ -108,7 +109,7 @@ pub:
 	typ           string = 'step_slider' @[json: 'type']
 	text          string
 	options       []string @[json: 'steps']
-	default_index int @[json: 'default']
+	default_index int      @[json: 'default']
 }
 
 pub fn step_slider(text string, options []string, default_index int) Element {

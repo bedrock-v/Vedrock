@@ -135,10 +135,18 @@ fn (mut r NbtReader) skip_list() {
 // later rebuilt for lookup. Non-scalar tags are skipped and return ''.
 fn (mut r NbtReader) scalar_string(tid u8) string {
 	return match tid {
-		1 { int(i8(r.next())).str() }
-		2 { i16(r.u16be()).str() }
-		3 { r.i32be().str() }
-		8 { r.str() }
+		1 {
+			int(i8(r.next())).str()
+		}
+		2 {
+			i16(r.u16be()).str()
+		}
+		3 {
+			r.i32be().str()
+		}
+		8 {
+			r.str()
+		}
 		else {
 			r.skip_value(tid)
 			''
