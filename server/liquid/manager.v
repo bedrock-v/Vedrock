@@ -198,8 +198,12 @@ fn (mut m LiquidManager) flow_into(w WaterState, x int, y int, z int) {
 		return
 	}
 	if existing := m.water_at(x, y, z) {
-		// Don't overwrite an equal-or-fuller cell, and never demote a source.
+		// Don't overwrite an equal or fuller cell and never demote a source or
+		// a falling column
 		if existing.is_source() {
+			return
+		}
+		if existing.falling && !w.falling {
 			return
 		}
 		if !w.falling && existing.depth >= w.depth && !existing.falling {

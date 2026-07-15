@@ -143,3 +143,15 @@ fn test_per_tick_cap_is_respected() {
 	// A tick drains at most the cap; the extras stay queued for next tick.
 	assert m.pending_count() >= 50
 }
+
+fn test_falling_column_survives_weaker_horizontal_spread() {
+	mut wld := &FakeWorld{}
+	mut m := new_manager(wld)
+	m.set_water(new_falling(), 0, 0, 0)
+
+	m.flow_into(new_flowing(3), 0, 0, 0)
+
+	after := m.water_at(0, 0, 0) or { panic('expected water') }
+	assert after.falling
+	assert after.depth == source_depth
+}
