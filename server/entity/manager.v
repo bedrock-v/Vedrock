@@ -92,7 +92,10 @@ pub fn (mut m Manager) snapshot() []&Entity {
 // remove the dead, and broadcast movement for the ones that moved.
 pub fn (mut m Manager) tick() {
 	for mut e in m.snapshot() {
+		// Killed between ticks via Entity.kill() - despawn here so it leaves
+		// m.entities and a RemoveActorPacket goes out, same as an in-tick death.
 		if e.dead {
+			m.despawn(e.runtime_id)
 			continue
 		}
 		e.age++
