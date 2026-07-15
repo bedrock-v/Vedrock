@@ -57,7 +57,7 @@ fn parse_default_value(s string) ?DefaultValue {
 fn write_default_permissions_config(path string) ! {
 	mut lines := []string{}
 	lines << '# Vedrock permissions configuration'
-	lines << "# Override the default access level for any permission node below."
+	lines << '# Override the default access level for any permission node below.'
 	lines << '# Edit it and restart to change who can use a command.'
 	lines << '# Values: granted (everyone) | denied (nobody, unless granted per-player in-game) | op (operators only) | not_op (everyone except operators)'
 	lines << ''

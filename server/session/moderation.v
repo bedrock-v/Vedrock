@@ -63,6 +63,12 @@ pub fn (mut s NetworkSession) position() (f32, f32, f32) {
 	return p.x, p.y, p.z
 }
 
+// place_water sets a water source at the block position and starts its spread.
+// Routes through the actor thread via Hub.place_water.
+pub fn (mut s NetworkSession) place_water(x int, y int, z int) {
+	s.hub.place_water(x, y, z)
+}
+
 struct TeleportJob {
 	runtime_id u64
 	x          f32
