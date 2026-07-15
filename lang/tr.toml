@@ -128,22 +128,22 @@ other = "§eHiç dünya yüklü değil§r"
 other = "§6Dünyalar ({{.Count}}): §a{{.Worlds}}§r"
 
 [cmd.world.not_found]
-other = "§c\"{{.Name}}\" dünyası yüklü değil§r"
+other = '§c"{{.Name}}" dünyası yüklü değil§r'
 
 [cmd.world.created]
-other = "§a\"{{.Name}}\" dünyası oluşturuldu§r"
+other = '§a"{{.Name}}" dünyası oluşturuldu§r'
 
 [cmd.world.create_failed]
-other = "§c\"{{.Name}}\" oluşturulamadı: {{.Reason}}§r"
+other = '§c"{{.Name}}" oluşturulamadı: {{.Reason}}§r'
 
 [cmd.world.deleted]
-other = "§a\"{{.Name}}\" dünyası silindi§r"
+other = '§a"{{.Name}}" dünyası silindi§r'
 
 [cmd.world.delete_failed]
-other = "§c\"{{.Name}}\" silinemedi: {{.Reason}}§r"
+other = '§c"{{.Name}}" silinemedi: {{.Reason}}§r'
 
 [cmd.world.tp]
-other = "§a\"{{.Name}}\" dünyasına ışınlandınız§r"
+other = '§a"{{.Name}}" dünyasına ışınlandınız§r'
 
 [cmd.world.tp_failed]
-other = "§c\"{{.Name}}\" dünyasına ışınlanılamadı: {{.Reason}}§r"
+other = '§c"{{.Name}}" dünyasına ışınlanılamadı: {{.Reason}}§r'
