@@ -64,6 +64,7 @@ pub fn (f &SimpleForm) submit(raw ?string) ! {
 		}
 		return
 	}
+
 	index := data.int()
 	if index < 0 || index >= f.on_click.len {
 		return error('form: button index ${index} out of range (${f.on_click.len} buttons)')

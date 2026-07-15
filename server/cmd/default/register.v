@@ -1,8 +1,10 @@
 module default
 
 import server.cmd
+import server.permission
 
 pub fn register_all(mut r cmd.Registry) {
+	permission.set_default(water_permission, .op)
 	r.register(VersionCommand{})
 	r.register(StatusCommand{})
 	r.register(GamemodeCommand{})
@@ -16,4 +18,6 @@ pub fn register_all(mut r cmd.Registry) {
 	r.register(DifficultyCommand{})
 	r.register(SayCommand{})
 	r.register(TitleCommand{})
+	r.register(WorldCommand{})
+	r.register(WaterCommand{})
 }

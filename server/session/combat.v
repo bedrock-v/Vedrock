@@ -4,6 +4,7 @@ import math
 import protocol
 import protocol.types
 import protocol.enums
+import server.event
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -42,22 +43,51 @@ fn (j DamageJob) run(mut h Hub) {
 	}
 }
 
-fn (mut s NetworkSession) handle_attack(target_runtime_id u64, held types.ItemStackWrapper) ! {
+// max_attack_reach_sq caps how far an attack can land, measured from the
+// attacker to the victim. Bedrock melee reach is ~3 blocks; the extra padding
+// absorbs latency while still rejecting kill-aura hits from across the map.
+const max_attack_reach_sq = f32(6.0 * 6.0)
+
+fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	if s.dead || target_runtime_id == s.runtime_id {
 		return
 	}
-	mut damage := s.weapon_damage(s.hub.data.item_name(held.item_stack.id))
+	mut victim := s.hub.session_by_runtime(target_runtime_id) or { return }
+	vp := victim.current_position()
+	dx := s.position.x - vp.x
+	dy := s.position.y - vp.y
+	dz := s.position.z - vp.z
+	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
+		return
+	}
+	// Damage comes from the server-side inventory at the held slot, never the
+	// client-supplied held item - otherwise a client could claim a weapon it
+	// does not own to inflate damage.
+	server_stack, _ := s.inventory_stack_at(s.held_slot)
+	mut damage := s.weapon_damage(s.hub.data.item_name(server_stack.id))
 	critical := s.is_critical()
 	if critical {
 		damage *= critical_multiplier
 	}
-	s.hub.submit(DamageJob{
+	mut ctx := event.new_context(event.AttackData{
+		player:            s
 		victim_runtime_id: target_runtime_id
-		amount:            damage
+		critical:          critical
+		damage:            damage
+	})
+	s.hub.events.player_attack(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
+	if !s.hub.try_submit(DamageJob{
+		victim_runtime_id: target_runtime_id
+		amount:            ctx.val.damage
 		attacker_name:     s.identity.display_name
 		knockback_from:    s.position
 		critical:          critical
-	})
+	}) {
+		s.log.debug('Dropped attack job - actor queue full')
+	}
 }
 
 fn (s &NetworkSession) is_critical() bool {
@@ -72,7 +102,16 @@ fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
 		|| s.game_mode == protocol.game_type_spectator {
 		return
 	}
-	s.health -= amount
+	mut ctx := event.new_context(event.HurtData{
+		player:        s
+		amount:        amount
+		attacker_name: attacker_name
+	})
+	s.hub.events.player_hurt(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
+	s.health -= ctx.val.amount
 	if s.health < 0 {
 		s.health = 0
 	}
@@ -88,16 +127,25 @@ fn (mut s NetworkSession) take_damage(amount f32, attacker_name string) {
 }
 
 fn (mut s NetworkSession) die(message_key string, parameters []string) {
+	mut ctx := event.new_context(event.DeathData{
+		player:      s
+		message_key: message_key
+		params:      parameters
+	})
+	s.hub.events.player_death(mut ctx)
 	s.dead = true
 	s.hub.broadcast_except(s.runtime_id, &protocol.ActorEventPacket{
 		actor_runtime_id: s.runtime_id
 		event_id:         protocol.actor_event_death
 		event_data:       0
 	})
+	if ctx.is_cancelled() {
+		return
+	}
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:             int(enums.TextType.translation)
 		needs_translation: true
-		message:           message_key
+		message:           ctx.val.message_key
 		parameters:        parameters
 	})
 }
@@ -116,9 +164,11 @@ fn (j RespawnJob) run(mut h Hub) {
 
 fn (mut s NetworkSession) handle_respawn(p protocol.RespawnPacket) ! {
 	if p.respawn_state == protocol.respawn_state_client_ready {
-		s.hub.submit(RespawnJob{
+		if !s.hub.try_submit(RespawnJob{
 			runtime_id: s.runtime_id
-		})
+		}) {
+			s.log.debug('Dropped respawn job - actor queue full')
+		}
 	}
 }
 
@@ -129,8 +179,15 @@ fn (mut s NetworkSession) respawn() {
 	s.dead = false
 	s.health = 20.0
 	spawn_y := s.generator.spawn_y()
+	mut ctx := event.new_context(event.RespawnData{
+		player: s
+		x:      0.0
+		y:      f32(spawn_y) + player_eye_height
+		z:      0.0
+	})
+	s.hub.events.player_respawn(mut ctx)
 	s.pos_mutex.lock()
-	s.position = types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
+	s.position = types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z}
 	s.prev_y = s.position.y
 	s.vy = 0.0
 	s.pos_mutex.unlock()

@@ -47,6 +47,7 @@ pub fn (f &CustomForm) submit(raw ?string) ! {
 		}
 		return
 	}
+
 	response := parse_response(data)!
 	if response.len() != f.elements.len {
 		return error('form: expected ${f.elements.len} response values, got ${response.len()}')

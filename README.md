@@ -16,6 +16,7 @@ A lightweight Minecraft: Bedrock Edition server software written in [V](https://
 ### Prerequisites
 
 * [V](https://vlang.io/)
+* [leveldb](https://github.com/vlang/leveldb)
 * [nbt](https://github.com/bedrock-v/nbt)
 * [raknet](https://github.com/bedrock-v/raknet)
 * [protocol](https://github.com/bedrock-v/protocol)
@@ -29,6 +30,7 @@ The V modules directory is usually:
 * Windows: `%USERPROFILE%\.vmodules`
 
 ```bash
+git clone https://github.com/vlang/leveldb VMODULES_PATH/leveldb
 git clone https://github.com/bedrock-v/nbt VMODULES_PATH/nbt
 git clone https://github.com/bedrock-v/protocol VMODULES_PATH/protocol
 git clone https://github.com/bedrock-v/raknet VMODULES_PATH/raknet

@@ -1,5 +1,7 @@
 module network
 
+import protocol.serializer
+
 fn test_batch_roundtrip_uncompressed() {
 	packets := [
 		[u8(0x01), 0x02, 0x03],
@@ -38,6 +40,36 @@ fn test_batch_roundtrip_flate_above_threshold() {
 fn test_decode_rejects_bad_header() {
 	bad := [u8(0x00), 0x01]
 	if _ := decode_batch(bad, false) {
+		assert false
+	}
+}
+
+fn test_decode_rejects_oversized_compressed_payload() {
+	mut huge := []u8{len: max_compressed_batch + 1, init: game_packet_header}
+	if _ := decode_batch(huge, false) {
+		assert false
+	}
+}
+
+fn test_decode_rejects_oversized_single_packet() {
+	mut bw := serializer.new_writer()
+	bw.write_varuint32(u32(max_single_packet + 1))
+	mut payload := [game_packet_header]
+	payload << bw.bytes()
+	if _ := decode_batch(payload, false) {
+		assert false
+	}
+}
+
+fn test_decode_rejects_too_many_packets() {
+	mut bw := serializer.new_writer()
+	for _ in 0 .. max_packets_per_batch + 1 {
+		bw.write_varuint32(1)
+		bw.write_raw([u8(0x00)])
+	}
+	mut payload := [game_packet_header]
+	payload << bw.bytes()
+	if _ := decode_batch(payload, false) {
 		assert false
 	}
 }
