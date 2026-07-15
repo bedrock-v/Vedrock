@@ -5,6 +5,12 @@ import sync.stdatomic
 import math
 import time
 import protocol
+import protocol.enums
+import protocol.types
+import server.event
+import server.scheduler
+import server.entity
+import server.liquid
 import server.internal.gamedata
 import server.item
 import server.block
@@ -19,30 +25,40 @@ import server.permission
 pub struct Hub {
 mut:
 	sessions        map[u64]&NetworkSession
-	mutex           &sync.Mutex   = sync.new_mutex()
-	next_runtime_id u64           = 1
+	mutex           &sync.Mutex = sync.new_mutex()
+	next_runtime_id u64         = 1
 	// jobs is the only door into gameplay-mutable state that spans sessions
 	// (combat, targeted /gamemode, etc.). run_jobs() is the sole consumer.
-	jobs chan WorldJob = chan WorldJob{cap: 256}
-	tps_bits  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](math.f64_bits(20.0))
-	load_bits &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
+	jobs         chan WorldJob             = chan WorldJob{cap: 256}
+	tps_bits     &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](math.f64_bits(20.0))
+	load_bits    &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	online_count &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 pub mut:
-	world_time   int
-	data         gamedata.GameData
-	items        item.Registry    = item.new_registry()
-	blocks       block.Registry   = block.new_registry()
-	lang         &language.Lang   = unsafe { nil }
-	commands     cmd.Registry     = cmd.new_registry()
-	started_at   i64
+	world_time         int
+	data               gamedata.GameData
+	items              item.Registry        = item.new_registry()
+	blocks             block.Registry       = block.new_registry()
+	lang               &language.Lang       = unsafe { nil }
+	commands           cmd.Registry         = cmd.new_registry()
+	events             &event.Bus           = unsafe { nil }
+	scheduler          &scheduler.Scheduler = unsafe { nil }
+	entities           &entity.Manager      = unsafe { nil }
+	liquids            &liquid.LiquidManager = unsafe { nil }
+	entity_registry    entity.Registry      = entity.new_registry()
+	current_tick       i64
+	started_at         i64
 	worlds             map[string]&db.World
 	default_world_name string
-	packs        &resource.PackRegistry = unsafe { nil }
-	ops          permission.OpList
-	player_grants permission.PlayerGrants
-	whitelist    permission.Whitelist
+	// worlds_dir is the on-disk root for world folders and world_generator the
+	// fallback generator name for freshly created worlds. Both are set at boot.
+	worlds_dir      string                 = 'worlds'
+	world_generator string                 = 'flat'
+	packs           &resource.PackRegistry = unsafe { nil }
+	ops             permission.OpList
+	player_grants   permission.PlayerGrants
+	whitelist       permission.Whitelist
 	// needs vedrock.yml storage.
-	difficulty   int = protocol.difficulty_easy
+	difficulty int = protocol.difficulty_easy
 }
 
 pub fn (mut h Hub) tps() f64 {
@@ -64,13 +80,20 @@ fn (mut h Hub) set_load(v f64) {
 pub fn new_hub(data gamedata.GameData) &Hub {
 	mut commands := cmd.new_registry()
 	defaultcmd.register_all(mut commands)
+	mut registry := entity.new_registry()
+	entity.register_defaults(mut registry)
 	mut hub := &Hub{
-		sessions:   map[u64]&NetworkSession{}
-		mutex:      sync.new_mutex()
-		data:       data
-		commands:   commands
-		started_at: time.now().unix()
+		sessions:        map[u64]&NetworkSession{}
+		mutex:           sync.new_mutex()
+		data:            data
+		commands:        commands
+		events:          event.new_bus()
+		scheduler:       scheduler.new_scheduler()
+		entity_registry: registry
+		started_at:      time.now().unix()
 	}
+	hub.entities = entity.new_manager(hub)
+	hub.liquids = liquid.new_manager(hub)
 	spawn hub.run_jobs()
 	return hub
 }
@@ -127,6 +150,134 @@ pub fn (mut h Hub) close_worlds() {
 	h.mutex.unlock()
 }
 
+// set_world_config records where worlds live on disk and the default generator
+// used for worlds created at runtime. Called once at boot from load_worlds.
+pub fn (mut h Hub) set_world_config(worlds_dir string, generator string) {
+	h.mutex.lock()
+	h.worlds_dir = worlds_dir
+	h.world_generator = generator
+	h.mutex.unlock()
+}
+
+// list_worlds returns the names of every loaded world.
+pub fn (mut h Hub) list_worlds() []string {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	mut names := []string{cap: h.worlds.len}
+	for name, _ in h.worlds {
+		names << name
+	}
+	return names
+}
+
+// WorldInfo is a read-only snapshot describing a loaded world.
+pub struct WorldInfo {
+pub:
+	name       string
+	generator  string
+	overrides  int
+	is_default bool
+	players    int
+}
+
+// world_info gathers a snapshot for the named world, or none when it isn't
+// loaded.
+pub fn (mut h Hub) world_info(name string) ?WorldInfo {
+	h.mutex.lock()
+	world := h.worlds[name] or {
+		h.mutex.unlock()
+		return none
+	}
+	is_default := name == h.default_world_name
+	h.mutex.unlock()
+	return WorldInfo{
+		name:       world.name
+		generator:  world.generator_name
+		overrides:  world.block_count()
+		is_default: is_default
+		players:    h.players_in_world(name)
+	}
+}
+
+// players_in_world counts the connected players whose active world matches name.
+pub fn (mut h Hub) players_in_world(name string) int {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	mut count := 0
+	for _, target in h.sessions {
+		if target.world_name() == name {
+			count++
+		}
+	}
+	return count
+}
+
+// create_world creates a fresh empty world on disk and registers it as loaded.
+// Refuses to clobber an already-loaded or already-on-disk world. Safe to call
+// off the actor thread - it only adds to the worlds map, never mutates a
+// player's active world.
+pub fn (mut h Hub) create_world(name string) !string {
+	if _ := h.world(name) {
+		return error('world "${name}" is already loaded')
+	}
+	h.mutex.lock()
+	dir := h.worlds_dir
+	generator := h.world_generator
+	h.mutex.unlock()
+	store := db.create_world_store(dir, name) or {
+		return error('failed to create world "${name}": ${err}')
+	}
+	world := db.new_world(name, store, generator)
+	h.add_world(world)
+	return name
+}
+
+// unload_world flushes and releases a loaded world without deleting its files.
+// Refuses the default world and any world that still has players in it.
+pub fn (mut h Hub) unload_world(name string) ! {
+	h.mutex.lock()
+	if name == h.default_world_name {
+		h.mutex.unlock()
+		return error('cannot unload the default world')
+	}
+	mut world := h.worlds[name] or {
+		h.mutex.unlock()
+		return error('world "${name}" is not loaded')
+	}
+	h.mutex.unlock()
+	if h.players_in_world(name) > 0 {
+		return error('world "${name}" still has players in it')
+	}
+	world.close()
+	h.mutex.lock()
+	h.worlds.delete(name)
+	h.mutex.unlock()
+}
+
+// delete_world unloads the named world and removes its on-disk folder. Refuses
+// the default world and any world that still has players in it. The LevelDB
+// handle is always closed before the files are touched.
+pub fn (mut h Hub) delete_world(name string) ! {
+	h.mutex.lock()
+	if name == h.default_world_name {
+		h.mutex.unlock()
+		return error('cannot delete the default world')
+	}
+	dir := h.worlds_dir
+	loaded := name in h.worlds
+	h.mutex.unlock()
+	if h.players_in_world(name) > 0 {
+		return error('world "${name}" still has players in it')
+	}
+	if loaded {
+		// unload_world closes the handle so the files are no longer held open.
+		h.unload_world(name)!
+	} else if !db.world_exists(dir, name) {
+		return error('world "${name}" does not exist')
+	}
+	db.delete_world_files(dir, name) or { return error('failed to delete world "${name}": ${err}') }
+}
+
 pub fn (mut h Hub) allocate_runtime_id() u64 {
 	h.mutex.lock()
 	id := h.next_runtime_id
@@ -176,6 +327,45 @@ pub fn (mut h Hub) count() int {
 	return int(h.online_count.load())
 }
 
+// broadcast_message sends a raw chat line to every connected player. Part of the
+// plugin.ServerView surface.
+pub fn (mut h Hub) broadcast_message(text string) {
+	h.broadcast(&protocol.TextPacket{
+		@type:   int(enums.TextType.raw)
+		message: text
+	})
+}
+
+// online_count is the plugin.ServerView alias for count().
+pub fn (mut h Hub) online_count() int {
+	return h.count()
+}
+
+// spawn_entity spawns a registered entity type by name at the given position.
+// Returns false if the type is unknown. Part of the plugin.ServerView surface.
+pub fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
+	behaviour := h.entity_registry.create(name) or { return false }
+	h.entities.spawn(behaviour, types.Vector3{x, y, z})
+	return true
+}
+
+// entity_type_names lists every summonable entity type.
+pub fn (mut h Hub) entity_type_names() []string {
+	return h.entity_registry.names()
+}
+
+// player_names lists the display names of every connected player. Part of the
+// plugin.ServerView surface.
+pub fn (mut h Hub) player_names() []string {
+	h.mutex.lock()
+	defer { h.mutex.unlock() }
+	mut names := []string{cap: h.sessions.len}
+	for _, target in h.sessions {
+		names << target.identity.display_name
+	}
+	return names
+}
+
 fn (mut h Hub) snapshot() []&NetworkSession {
 	h.mutex.lock()
 	mut list := []&NetworkSession{cap: h.sessions.len}
@@ -209,6 +399,22 @@ pub fn (mut h Hub) disconnect_all(message string) {
 // submit queues a WorldJob for run_jobs() to execute. Blocks if the queue is full.
 pub fn (mut h Hub) submit(job WorldJob) {
 	h.jobs <- job
+}
+
+// try_submit queues a job without blocking, returning false if the actor queue
+// is full. Used for high-frequency, client- or plugin-driven jobs (attacks,
+// respawns, block edits) so a flood of them can never back up connection
+// threads or stall the tick loop - the excess job is simply dropped.
+pub fn (mut h Hub) try_submit(job WorldJob) bool {
+	select {
+		h.jobs <- job {
+			return true
+		}
+		else {
+			return false
+		}
+	}
+	return false
 }
 
 // run_jobs is the single owner thread for gameplay-mutable state that spans

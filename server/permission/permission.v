@@ -40,6 +40,7 @@ pub const command_give = 'vedrock.cmd.give'
 pub const command_difficulty = 'vedrock.cmd.difficulty'
 pub const command_say = 'vedrock.cmd.say'
 pub const command_title = 'vedrock.cmd.title'
+pub const command_world = 'vedrock.cmd.world'
 
 // Registry is a mutable set of known permissions. The shared `registry`
 // below is the one every Permissible checks against; register() may be
@@ -106,7 +107,7 @@ fn new_registry() &Registry {
 	})
 	r.register(Permission{
 		name:        command_clear_self
-		description: "Allows clearing your own inventory"
+		description: 'Allows clearing your own inventory'
 		default:     .op
 	})
 	r.register(Permission{
@@ -132,6 +133,11 @@ fn new_registry() &Registry {
 	r.register(Permission{
 		name:        command_title
 		description: 'Allows sending titles to players'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_world
+		description: 'Allows managing worlds (list/info/create/delete/tp)'
 		default:     .op
 	})
 	return r

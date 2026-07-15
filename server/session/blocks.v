@@ -4,6 +4,7 @@ import time
 import protocol
 import protocol.types
 import protocol.enums
+import server.event
 import server.world
 
 // place_cooldown_ms throttles placement to at most one accepted block per
@@ -48,7 +49,7 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 	if p.transaction_type == protocol.inventory_transaction_type_use_item_on_entity {
 		ue := p.use_item_on_entity
 		if ue.action_type == protocol.item_use_on_entity_action_attack {
-			s.handle_attack(ue.target_entity_runtime_id, ue.held_item)!
+			s.handle_attack(ue.target_entity_runtime_id)!
 		}
 		return
 	}
@@ -63,6 +64,18 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				return
 			}
 			if s.dead || !s.can_interact() {
+				return
+			}
+			mut ictx := event.new_context(event.InteractData{
+				player: s
+				x:      ut.block_position.x
+				y:      ut.block_position.y
+				z:      ut.block_position.z
+				face:   int(ut.block_face)
+			})
+			s.hub.events.player_interact(mut ictx)
+			if ictx.is_cancelled() {
+				s.resend_block(ut.block_position)
 				return
 			}
 			// Neighbor cell in the clicked face direction. Used as the default
@@ -122,7 +135,8 @@ fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! 
 // place_reach_sq returns the squared placement reach for the player's
 // current gamemode.
 fn (s &NetworkSession) place_reach_sq() f32 {
-	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_creative_spectator {
+	if s.game_mode == protocol.game_type_creative
+		|| s.game_mode == protocol.game_type_creative_spectator {
 		return creative_place_reach_sq
 	}
 	return survival_place_reach_sq
@@ -155,12 +169,26 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 		}
 		return false
 	}
+	mut ctx := event.new_context(event.BlockPlaceData{
+		player:   s
+		x:        pos.x
+		y:        pos.y
+		z:        pos.z
+		block_id: runtime_id
+	})
+	s.hub.events.block_place(mut ctx)
+	if ctx.is_cancelled() {
+		s.resend_block(pos)
+		return false
+	}
 	mut wld := s.current_world()
 	if !isnil(wld) {
 		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
 	}
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
+	// Placing water starts a flow; a neighbour break re-triggers spread below.
+	s.hub.on_block_changed(pos.x, pos.y, pos.z)
 	return true
 }
 
@@ -197,13 +225,16 @@ fn (mut s NetworkSession) obstructed_by_entity(pos types.BlockPosition) (bool, b
 	block_max_z := f32(pos.z) + 1
 	mut obstructed := false
 	for mut target in s.hub.snapshot() {
-		feet_y := target.position.y - player_eye_height
-		min_x := target.position.x - player_half_width
-		max_x := target.position.x + player_half_width
+		// Read cross-session position under the target's pos_mutex - it is
+		// written on that session's own thread.
+		tp := target.current_position()
+		feet_y := tp.y - player_eye_height
+		min_x := tp.x - player_half_width
+		max_x := tp.x + player_half_width
 		min_y := feet_y
 		max_y := feet_y + player_height
-		min_z := target.position.z - player_half_width
-		max_z := target.position.z + player_half_width
+		min_z := tp.z - player_half_width
+		max_z := tp.z + player_half_width
 		overlaps := min_x < block_max_x && max_x > block_min_x && min_y < block_max_y
 			&& max_y > block_min_y && min_z < block_max_z && max_z > block_min_z
 		if !overlaps {
@@ -233,6 +264,18 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		})!
 		return
 	}
+	mut ctx := event.new_context(event.BlockBreakData{
+		player:   s
+		x:        pos.x
+		y:        pos.y
+		z:        pos.z
+		block_id: old_id
+	})
+	s.hub.events.block_break(mut ctx)
+	if ctx.is_cancelled() {
+		s.resend_block(pos)
+		return
+	}
 	mut wld := s.current_world()
 	if !isnil(wld) {
 		wld.set_block(pos.x, pos.y, pos.z, air_id)
@@ -240,6 +283,8 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	s.broadcast_block_update(pos, air_id)
 	s.broadcast_destroy_particles(pos, old_id)
 	s.broadcast_swing()
+	// A break can free a path for adjacent water to flow into.
+	s.hub.on_block_changed(pos.x, pos.y, pos.z)
 }
 
 fn (mut s NetworkSession) broadcast_destroy_particles(pos types.BlockPosition, runtime_id int) {

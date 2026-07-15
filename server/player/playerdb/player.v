@@ -22,8 +22,28 @@ pub mut:
 	items    []InvItem
 }
 
+// safe_key strips anything that could let a key (which may come from an
+// unauthenticated display name) escape dir - path separators, drive colons and
+// parent-dir dots. The result is always a plain file stem inside dir.
+fn safe_key(key string) string {
+	mut out := []u8{cap: key.len}
+	for c in key.bytes() {
+		if c == `/` || c == `\\` || c == `:` || c == 0 {
+			out << `_`
+		} else {
+			out << c
+		}
+	}
+	mut cleaned := out.bytestr().replace('..', '_')
+	cleaned = cleaned.trim_left('.')
+	if cleaned == '' {
+		return 'unknown'
+	}
+	return cleaned
+}
+
 fn player_path(dir string, key string) string {
-	return os.join_path(dir, '${key}.json')
+	return os.join_path(dir, '${safe_key(key)}.json')
 }
 
 pub fn load_player(dir string, key string) ?PlayerData {
@@ -35,7 +55,19 @@ pub fn load_player(dir string, key string) ?PlayerData {
 	return json.decode(PlayerData, text) or { return none }
 }
 
+// save_player writes player data atomically - the JSON goes to a temp file
+// first, then a rename swaps it over the target. A crash mid-write can only
+// ever leave a stale but valid save behind, never a truncated one.
 pub fn save_player(dir string, key string, data PlayerData) ! {
 	os.mkdir_all(dir)!
-	os.write_file(player_path(dir, key), json.encode(data))!
+	path := player_path(dir, key)
+	tmp := '${path}.tmp.${os.getpid()}'
+	os.write_file(tmp, json.encode(data)) or {
+		os.rm(tmp) or {}
+		return err
+	}
+	os.rename(tmp, path) or {
+		os.rm(tmp) or {}
+		return err
+	}
 }

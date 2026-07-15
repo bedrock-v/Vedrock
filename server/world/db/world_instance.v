@@ -110,6 +110,14 @@ pub fn (w &World) make_generator(fallback world.Generator) world.Generator {
 	return new_stored_generator(w.store, fallback)
 }
 
+// flush persists this world's store to disk without unloading it. Safe to call
+// while the world is live - it does not touch the in-memory override cache.
+pub fn (mut w World) flush() {
+	if !isnil(w.store) {
+		w.store.flush()
+	}
+}
+
 pub fn (mut w World) close() {
 	if !isnil(w.store) {
 		w.store.close()
