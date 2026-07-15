@@ -11,7 +11,7 @@ mut:
 fn new_grid(region Region) &Grid {
 	return &Grid{
 		region: region
-		ids:    []int{len: region.volume()}
+		ids:    []int{len: int(region.volume())}
 	}
 }
 

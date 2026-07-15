@@ -104,8 +104,9 @@ pub fn (r Region) depth() int {
 }
 
 // volume is the number of blocks the region covers, both corners inclusive.
-pub fn (r Region) volume() int {
-	return r.width() * r.height() * r.depth()
+// Computed in i64 so a huge region can't overflow int32 and slip past the cap.
+pub fn (r Region) volume() i64 {
+	return i64(r.width()) * i64(r.height()) * i64(r.depth())
 }
 
 // contains reports whether an absolute coordinate falls inside the region.
@@ -182,8 +183,8 @@ pub fn compute(region Region, src BlockSource) ?&LightGrid {
 	}
 	mut g := &LightGrid{
 		region:      region
-		block_light: []u8{len: region.volume()}
-		sky_light:   []u8{len: region.volume()}
+		block_light: []u8{len: int(region.volume())}
+		sky_light:   []u8{len: int(region.volume())}
 	}
 	g.compute_block_light(src)
 	g.compute_sky_light(src)
