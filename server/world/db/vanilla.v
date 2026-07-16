@@ -92,6 +92,7 @@ fn decode_subchunk(data []u8) ![]int {
 			return error('subchunk: unsupported version ${version}')
 		}
 	}
+
 	if storage_count < 1 {
 		return error('subchunk: no block storages')
 	}

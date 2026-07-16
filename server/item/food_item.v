@@ -8,6 +8,7 @@ pub:
 	id             string
 	food_points    int
 	saturation_mod f32
+	stack_max      int = 64
 }
 
 pub fn (i FoodItem) identifier() string {
@@ -15,7 +16,7 @@ pub fn (i FoodItem) identifier() string {
 }
 
 pub fn (i FoodItem) max_stack_size() int {
-	return 64
+	return i.stack_max
 }
 
 pub fn (i FoodItem) attack_damage() f32 {
@@ -31,5 +32,17 @@ pub fn (i FoodItem) saturation() f32 {
 }
 
 pub fn (i FoodItem) block_runtime_id() int {
+	return 0
+}
+
+pub fn (i FoodItem) durability() int {
+	return 0
+}
+
+pub fn (i FoodItem) mining_speed() f32 {
+	return 1.0
+}
+
+pub fn (i FoodItem) armor_points() int {
 	return 0
 }

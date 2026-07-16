@@ -3,6 +3,7 @@ module entity
 import sync
 import protocol
 import protocol.types
+import server.world
 
 // view_radius is the distance in blocks within which an entity's spawn and move
 // packets are sent to a player. Beyond it the client never hears about the
@@ -19,6 +20,7 @@ mut:
 	broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet)
 	allocate_runtime_id() u64
 	get_block(x int, y int, z int) int
+	collision_boxes(x int, y int, z int) []world.AABB
 }
 
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
