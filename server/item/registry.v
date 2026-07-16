@@ -64,7 +64,7 @@ pub fn (r &Registry) max_stack_size(id string) int {
 
 pub fn (r &Registry) consume_result(id string, meta int) ?ConsumeResult {
 	it := r.get(id) or { return none }
-	if it is PotionItem {
+	if it is ConsumableItem {
 		return it.consume_result(meta)
 	}
 	return none

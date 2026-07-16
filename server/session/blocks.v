@@ -299,10 +299,7 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 		s.resend_block(pos)
 		return false
 	}
-	mut wld := s.current_world()
-	if !isnil(wld) {
-		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
-	}
+	s.write_block_runtime(pos, runtime_id)
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
 	s.after_block_changed(pos)
@@ -526,11 +523,35 @@ fn (mut s NetworkSession) set_block_runtime(pos types.BlockPosition, runtime_id 
 	s.broadcast_block_update(pos, runtime_id)
 }
 
-fn (mut s NetworkSession) write_block_runtime(pos types.BlockPosition, runtime_id int) {
-	mut wld := s.current_world()
+// PlayerBlockWriteJob is an ordinary (player) block write as a WorldJob.
+// The same actor thread landing point SetBlockJob (blocks_api.v) already gives
+// the plugin/command path, so a player placing/breaking a block is
+// serialized against scheduled ticks/liquid spread/arena restores touching
+// the same cell instead of writing directly on the connection thread.
+struct PlayerBlockWriteJob {
+	session_runtime_id u64
+	x                  int
+	y                  int
+	z                  int
+	block_id           int
+}
+
+fn (j PlayerBlockWriteJob) run(mut h Hub) {
+	mut owner := h.session_by_runtime(j.session_runtime_id) or { return }
+	mut wld := owner.current_world()
 	if !isnil(wld) {
-		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
+		wld.set_block(j.x, j.y, j.z, j.block_id)
 	}
+}
+
+fn (mut s NetworkSession) write_block_runtime(pos types.BlockPosition, runtime_id int) {
+	s.hub.submit(PlayerBlockWriteJob{
+		session_runtime_id: s.runtime_id
+		x:                  pos.x
+		y:                  pos.y
+		z:                  pos.z
+		block_id:           runtime_id
+	})
 }
 
 fn (mut s NetworkSession) after_block_changed(pos types.BlockPosition) {

@@ -63,6 +63,7 @@ pub fn load_from(path string) !Config {
 		cfg.compression_threshold = 65535
 	}
 	cfg.generator = values['generator'] or { cfg.generator }
+	cfg.language = values['language'] or { cfg.language }
 	cfg.resource_packs = to_bool(values['resource-packs'] or { cfg.resource_packs.str() })
 	cfg.resource_packs_dir = values['resource-packs-dir'] or { cfg.resource_packs_dir }
 	cfg.force_resource_packs = to_bool(values['force-resource-packs'] or {
