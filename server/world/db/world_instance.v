@@ -11,9 +11,11 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store     &WorldStore = unsafe { nil }
-	overrides map[string]int
-	mutex     &sync.Mutex = sync.new_mutex()
+	store        &WorldStore = unsafe { nil }
+	overrides    map[string]int
+	mutex        &sync.Mutex = sync.new_mutex()
+	current_tick i64
+	scheduled    []ScheduledEntry
 pub mut:
 	generator_name string
 }

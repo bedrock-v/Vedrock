@@ -22,9 +22,7 @@ fn main() {
 		srv.log.error('Server stopped: ${err}')
 		// A fatal startup/run error is our last chance to leave a trace before
 		// exiting - drop a crash report so the failure is recoverable post-mortem.
-		if path := crash.write_dump(crashdumps_dir, time.now().unix(), 'server stopped',
-			err.msg())
-		{
+		if path := crash.write_dump(crashdumps_dir, time.now().unix(), 'server stopped', err.msg()) {
 			srv.log.error('Wrote crash report to ${path}')
 		}
 		exit(1)

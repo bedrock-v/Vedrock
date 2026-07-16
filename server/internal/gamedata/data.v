@@ -1,6 +1,7 @@
 module gamedata
 
 import os
+import compress.gzip
 import encoding.base64
 import x.json2
 
@@ -33,6 +34,7 @@ pub:
 	item_entries    []ItemEntry
 	creative_groups []CreativeGroup
 	creative_items  []CreativeItem
+	block_palette   []BlockPaletteEntry
 pub mut:
 	item_id_by_name  map[string]int
 	item_id_by_block map[int]int
@@ -56,7 +58,8 @@ pub fn load(data_dir string) !GameData {
 	mut entries := []ItemEntry{}
 	mut id_by_name := map[string]int{}
 	mut component_by_name := map[string]bool{}
-	palette_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'item_palette.json'))!)!.as_map()
+	palette_doc :=
+		json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'item_palette.json'))!)!.as_map()
 	for any_item in (palette_doc['items'] or { json2.Any('') }).as_array() {
 		m := any_item.as_map()
 		name := any_str(m, 'name')
@@ -72,9 +75,19 @@ pub fn load(data_dir string) !GameData {
 		component_by_name[name] = component_based
 	}
 
+	compressed := os.read_bytes(os.join_path(data_dir, 'block_palette.nbt'))!
+	block_palette := parse_block_palette(gzip.decompress(compressed)!)!
+	mut canonical_block := map[string]int{}
+	for e in block_palette {
+		if e.name !in canonical_block {
+			canonical_block[e.name] = e.network_id
+		}
+	}
+
 	mut groups := []CreativeGroup{}
 	mut creative := []CreativeItem{}
-	creative_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir, 'creative_items.json'))!)!.as_map()
+	creative_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir,
+		'creative_items.json'))!)!.as_map()
 	for any_group in (creative_doc['groups'] or { json2.Any('') }).as_array() {
 		g := any_group.as_map()
 		mut icon_id := 0
@@ -105,11 +118,13 @@ pub fn load(data_dir string) !GameData {
 		b64 := any_str(m, 'block_state_b64')
 		if b64 != '' {
 			block_runtime_id = block_network_id_from_nbt(base64.decode(b64)) or { 0 }
+		} else {
+			block_runtime_id = canonical_block[name] or { 0 }
 		}
 		creative << CreativeItem{
 			numeric_id:       numeric_id
 			block_runtime_id: block_runtime_id
-			meta:             any_int(m, 'meta')
+			meta:             any_int(m, 'damage')
 			group_index:      any_int(m, 'group_index')
 		}
 	}
@@ -125,6 +140,7 @@ pub fn load(data_dir string) !GameData {
 		item_entries:     entries
 		creative_groups:  groups
 		creative_items:   creative
+		block_palette:    block_palette
 		item_id_by_name:  id_by_name
 		item_id_by_block: id_by_block
 	}

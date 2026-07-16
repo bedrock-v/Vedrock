@@ -142,6 +142,8 @@ fn (mut s NetworkSession) die(message_key string, parameters []string) {
 	if ctx.is_cancelled() {
 		return
 	}
+	s.has_last_death = true
+	s.last_death_pos = s.current_position()
 	s.hub.broadcast(&protocol.TextPacket{
 		@type:             int(enums.TextType.translation)
 		needs_translation: true
@@ -253,13 +255,16 @@ fn (s &NetworkSession) weapon_damage(name string) f32 {
 	return weapon_damage_heuristic(name)
 }
 
+// Real Bedrock damage (confirmed by agreement between Dragonfly and PMMP/
+// NetherGames, see attack_damage_for() in server/item/tool_item.v) - this
+// used to carry Java Edition's axe numbers (7/9/9/9/10).
 fn weapon_damage_heuristic(name string) f32 {
 	tier := material_tier(name)
 	if name.contains('_sword') {
-		return [f32(4.0), 5.0, 6.0, 7.0, 8.0][tier]
+		return [f32(5.0), 6.0, 7.0, 8.0, 9.0][tier]
 	}
 	if name.contains('_axe') {
-		return [f32(7.0), 9.0, 9.0, 9.0, 10.0][tier]
+		return [f32(4.0), 5.0, 6.0, 7.0, 8.0][tier]
 	}
 	return 1.0
 }

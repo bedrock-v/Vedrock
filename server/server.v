@@ -147,6 +147,12 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load whitelist: ${err}')
 		permission.Whitelist{}
 	}
+	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
+		hub.palette = palette
+		log.info('Loaded ${palette.len()} block states')
+	} else {
+		log.warn('Failed to load block palette: ${err}')
+	}
 	load_worlds(mut hub, cfg, log)
 	hub.packs = load_resource_packs(cfg, log)
 	mut plugins := plugin.new_manager(&hub.commands, hub.events, hub.scheduler, hub, log)
@@ -339,6 +345,7 @@ fn normalize_gamemode(name string) (string, int) {
 		'spectator' { 'Spectator' }
 		else { 'Creative' }
 	}
+
 	// The real gamemode is set separately via StartGamePacket.player_game_mode in spawn.v.
 	return label, 1
 }

@@ -50,6 +50,7 @@ fn (l &Logger) log(level Level, msg string) {
 			.error { term.bright_red(msg) }
 			else { msg }
 		}
+
 		println('${head} ${body}')
 	} else {
 		mut head := '[${stamp}] [${tag}]'

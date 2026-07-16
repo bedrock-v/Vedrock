@@ -119,10 +119,7 @@ fn (mut e Entity) apply_physics(mut host Host) {
 	}
 }
 
-// collides reports whether the entity's AABB overlaps any solid block. Air is
-// the only guaranteed-passable id; everything else is treated as solid, which is
-// a coarse first pass - non-solid blocks like grass or water are not special
-// cased yet.
+// collides reports whether the entity's AABB overlaps any block collision box.
 fn (e &Entity) collides(mut host Host) bool {
 	min_x := int(math_floor(e.pos.x - entity_half_width))
 	max_x := int(math_floor(e.pos.x + entity_half_width))
@@ -130,11 +127,19 @@ fn (e &Entity) collides(mut host Host) bool {
 	max_z := int(math_floor(e.pos.z + entity_half_width))
 	min_y := int(math_floor(e.pos.y))
 	max_y := int(math_floor(e.pos.y + entity_height))
+	entity_min_x := e.pos.x - entity_half_width
+	entity_min_z := e.pos.z - entity_half_width
+	entity_max_x := e.pos.x + entity_half_width
+	entity_max_z := e.pos.z + entity_half_width
+	entity_box := world.box(entity_min_x, e.pos.y, entity_min_z, entity_max_x, e.pos.y +
+		entity_height, entity_max_z)
 	for bx := min_x; bx <= max_x; bx++ {
 		for bz := min_z; bz <= max_z; bz++ {
 			for by := min_y; by <= max_y; by++ {
-				if host.get_block(bx, by, bz) != world.air.network_id {
-					return true
+				for block_box in host.collision_boxes(bx, by, bz) {
+					if entity_box.overlaps(block_box) {
+						return true
+					}
 				}
 			}
 		}

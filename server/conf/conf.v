@@ -4,14 +4,14 @@ import os
 
 pub struct Config {
 pub mut:
-	motd                  string = 'Vedrock Server'
-	sub_motd              string = 'A V Bedrock server'
-	address               string = '0.0.0.0'
-	port                  int    = 19132
-	max_players           int    = 20
-	view_distance         int    = 8
-	gamemode              string = 'survival'
-	xbox_auth             bool   = true
+	motd          string = 'Vedrock Server'
+	sub_motd      string = 'A V Bedrock server'
+	address       string = '0.0.0.0'
+	port          int    = 19132
+	max_players   int    = 20
+	view_distance int    = 8
+	gamemode      string = 'survival'
+	xbox_auth     bool   = true
 	// encryption negotiates Bedrock protocol encryption. Off by default - the
 	// implementation is spec-complete but not yet verified against a real client,
 	// so leaving it off keeps sessions cleartext and connectable.

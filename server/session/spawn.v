@@ -30,6 +30,11 @@ fn (mut s NetworkSession) start_game() ! {
 		s.yaw = data.yaw
 		s.loaded_items = data.items
 		s.game_mode = data.gamemode
+		if data.has_last_death {
+			s.has_last_death = true
+			s.last_death_pos =
+				types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z}
+		}
 	}
 	s.transport.send(&protocol.StartGamePacket{
 		entity_unique_id:               i64(s.runtime_id)

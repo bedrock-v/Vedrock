@@ -18,6 +18,7 @@ import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
 import server.world
+import server.world as blockworld
 import server.world.db
 import server.resource
 import server.permission
@@ -53,9 +54,10 @@ pub mut:
 	default_world_name string
 	// worlds_dir is the on-disk root for world folders and world_generator the
 	// fallback generator name for freshly created worlds. Both are set at boot.
-	worlds_dir      string                 = 'worlds'
-	world_generator string                 = 'flat'
-	packs           &resource.PackRegistry = unsafe { nil }
+	worlds_dir      string                   = 'worlds'
+	world_generator string                   = 'flat'
+	packs           &resource.PackRegistry   = unsafe { nil }
+	palette         &blockworld.BlockPalette = unsafe { nil }
 	ops             permission.OpList
 	player_grants   permission.PlayerGrants
 	whitelist       permission.Whitelist
@@ -96,8 +98,36 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 	}
 	hub.entities = entity.new_manager(hub)
 	hub.liquids = liquid.new_manager(hub)
+	hub.register_palette_fallbacks()
 	spawn hub.run_jobs()
 	return hub
+}
+
+// register_palette_fallbacks backfills the block and item registries from the
+// wire palette so every vanilla name is placeable/holdable even before it has
+// a hand written class. Hand registered classes always take precedence.
+fn (mut h Hub) register_palette_fallbacks() {
+	mut block_entries := []block.PaletteEntry{cap: h.data.block_palette.len}
+	mut canonical := map[string]int{}
+	for e in h.data.block_palette {
+		block_entries << block.PaletteEntry{
+			name:       e.name
+			network_id: e.network_id
+		}
+		if e.name !in canonical {
+			canonical[e.name] = e.network_id
+		}
+	}
+	h.blocks.register_fallbacks(block_entries)
+
+	mut item_entries := []item.FallbackEntry{cap: h.data.item_entries.len}
+	for it in h.data.item_entries {
+		item_entries << item.FallbackEntry{
+			id:            it.name
+			block_runtime: canonical[it.name] or { 0 }
+		}
+	}
+	h.items.register_fallbacks(item_entries)
 }
 
 pub fn (h &Hub) uptime_seconds() i64 {

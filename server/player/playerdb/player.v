@@ -20,6 +20,10 @@ pub mut:
 	pitch    f32
 	gamemode int
 	items    []InvItem
+	has_last_death bool
+	last_death_x   f32
+	last_death_y   f32
+	last_death_z   f32
 }
 
 // safe_key strips anything that could let a key (which may come from an
