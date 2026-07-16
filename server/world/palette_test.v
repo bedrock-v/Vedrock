@@ -283,3 +283,42 @@ fn test_trapdoor_orientation_uses_stair_direction_encoding() {
 	assert v.states['direction'] == '1'
 	assert v.states['upside_down_bit'] == '1'
 }
+
+fn test_carved_pumpkin_faces_the_clicked_side() {
+	p := load_test_palette() or { return }
+	pumpkin := palette_id_for_test(p, 'minecraft:pumpkin', {
+		'minecraft:cardinal_direction': 'south'
+	})
+	
+	carved := p.carved_pumpkin_id(pumpkin, 2) or { panic('expected a carved pumpkin id') }
+	v := p.variant(carved) or { panic('missing carved pumpkin variant') }
+	assert v.name == 'minecraft:carved_pumpkin'
+	assert v.states['minecraft:cardinal_direction'] == 'north'
+}
+
+fn test_carved_pumpkin_rejects_top_and_bottom_faces() {
+	p := load_test_palette() or { return }
+	pumpkin := palette_id_for_test(p, 'minecraft:pumpkin', {
+		'minecraft:cardinal_direction': 'south'
+	})
+	if _ := p.carved_pumpkin_id(pumpkin, 0) {
+		assert false, 'bottom face should not carve'
+	}
+	if _ := p.carved_pumpkin_id(pumpkin, 1) {
+		assert false, 'top face should not carve'
+	}
+}
+
+fn test_carved_pumpkin_rejects_already_carved_and_other_blocks() {
+	p := load_test_palette() or { return }
+	carved_already := palette_id_for_test(p, 'minecraft:carved_pumpkin', {
+		'minecraft:cardinal_direction': 'south'
+	})
+	if _ := p.carved_pumpkin_id(carved_already, 2) {
+		assert false, 'already-carved pumpkin should not carve again'
+	}
+	stone_id := palette_id_for_test(p, 'minecraft:stone', {})
+	if _ := p.carved_pumpkin_id(stone_id, 2) {
+		assert false, 'non-pumpkin block should not carve'
+	}
+}

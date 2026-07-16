@@ -100,6 +100,10 @@ fn test_update_abilities_roundtrip() {
 	}
 }
 
+fn test_block_update_flags_match_reference_servers() {
+	assert block_update_flags == 11
+}
+
 fn test_mob_effect_packet_roundtrip() {
 	s := &NetworkSession{
 		runtime_id: 7

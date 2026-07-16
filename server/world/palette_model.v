@@ -13,8 +13,7 @@ fn model_for_variant(v BlockVariant) BlockModel {
 		return ladder_model(state_int(v.states, 'facing_direction', 2))
 	}
 	if is_door_name(v.name) {
-		return door_model(cardinal_face(state_string(v.states, 'minecraft:cardinal_direction',
-			'south')), state_bool(v.states, 'open_bit', false))
+		return door_model(door_facing_face(v.states), state_bool(v.states, 'open_bit', false))
 	}
 	if is_trapdoor_name(v.name) {
 		return trapdoor_model(weirdo_face(state_int(v.states, 'direction', 0)), state_bool(v.states,
@@ -90,6 +89,11 @@ fn cardinal_face(value string) int {
 		'east' { 5 }
 		else { 3 }
 	}
+}
+
+fn door_facing_face(states map[string]string) int {
+	return rotate_left_face(cardinal_face(state_string(states, 'minecraft:cardinal_direction',
+		'east')))
 }
 
 fn is_empty_model_name(name string) bool {

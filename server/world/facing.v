@@ -63,6 +63,16 @@ fn cardinal_string(f Facing) string {
 	}
 }
 
+fn rotate_right(f Facing) Facing {
+	return match f {
+		.north { Facing.east }
+		.east { Facing.south }
+		.south { Facing.west }
+		.west { Facing.north }
+		else { f }
+	}
+}
+
 // weirdo_direction (stairs): 0 = east, 1 = west, 2 = south, 3 = north.
 fn weirdo_value(f Facing) int {
 	return match f {
@@ -182,6 +192,11 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 			id
 		}
 	}
+	if is_door_name(v.name) && 'minecraft:cardinal_direction' in v.states {
+		return p.with_state(id, 'minecraft:cardinal_direction', cardinal_string(rotate_right(look))) or {
+			id
+		}
+	}
 	if is_trapdoor_name(v.name) && 'direction' in v.states {
 		mut nid := p.with_state(id, 'direction', weirdo_value(look).str()) or { id }
 		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && 'upside_down_bit' in v.states {
@@ -206,4 +221,19 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 		return p.with_state(id, 'pillar_axis', axis_from_face(click_face)) or { id }
 	}
 	return id
+}
+
+// carved_pumpkin_id returns the carved_pumpkin id matching an uncarved
+// pumpkin at id, facing the clicked face directly - or none if id isn't an
+// uncarved pumpkin, or the click was on the top/bottom face. Matches
+// Dragonfly's Pumpkin.Carve (the carved face is the one clicked, not its
+// opposite - unlike oriented()'s player-facing placement logic above) and
+// Shears.UseOnBlock (top/bottom faces can't be carved).
+pub fn (p &BlockPalette) carved_pumpkin_id(id int, click_face int) ?int {
+	v := p.variant(id) or { return none }
+	if v.name != 'minecraft:pumpkin' || !is_horizontal_face(click_face) {
+		return none
+	}
+	return p.with_named_state('minecraft:carved_pumpkin', 'minecraft:cardinal_direction',
+		cardinal_string(facing_from_face(click_face)))
 }

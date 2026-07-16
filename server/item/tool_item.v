@@ -90,7 +90,7 @@ fn (t ToolTier) tool_durability() int {
 	return match t {
 		.wood { 59 }
 		.stone { 131 }
-		.copper { 192 }
+		.copper { 190 }
 		.iron { 250 }
 		.gold { 32 }
 		.diamond { 1561 }
@@ -124,45 +124,48 @@ fn attack_damage_for(tier ToolTier, typ ToolType) f32 {
 	return match typ {
 		.sword {
 			match tier {
+				.wood, .gold { f32(5.0) }
+				.stone, .copper { f32(6.0) }
+				.iron { f32(7.0) }
+				.diamond { f32(8.0) }
+				.netherite { f32(9.0) }
+			}
+		}
+		.pickaxe {
+			match tier {
+				.wood, .gold { f32(3.0) }
+				.stone, .copper { f32(4.0) }
+				.iron { f32(5.0) }
+				.diamond { f32(6.0) }
+				.netherite { f32(7.0) }
+			}
+		}
+		.axe {
+			match tier {
 				.wood, .gold { f32(4.0) }
-				.copper { f32(4.0) }
-				.stone { f32(5.0) }
+				.stone, .copper { f32(5.0) }
 				.iron { f32(6.0) }
 				.diamond { f32(7.0) }
 				.netherite { f32(8.0) }
 			}
 		}
-		.pickaxe {
+		.shovel {
 			match tier {
 				.wood, .gold { f32(2.0) }
-				.stone { f32(3.0) }
-				.copper, .iron { f32(4.0) }
+				.stone, .copper { f32(3.0) }
+				.iron { f32(4.0) }
 				.diamond { f32(5.0) }
 				.netherite { f32(6.0) }
 			}
 		}
-		.axe {
-			match tier {
-				.copper { f32(4.0) }
-				.wood, .gold { f32(7.0) }
-				.stone, .iron, .diamond { f32(9.0) }
-				.netherite { f32(10.0) }
-			}
-		}
-		.shovel {
-			match tier {
-				.wood, .gold { f32(2.5) }
-				.stone { f32(3.5) }
-				.copper { f32(4.0) }
-				.iron { f32(4.5) }
-				.diamond { f32(5.5) }
-				.netherite { f32(6.5) }
-			}
-		}
 		.hoe {
-			// All hoe tiers deal the same minimal melee damage in current
-			// vanilla; hoes are a farming tool, not a weapon.
-			f32(1.0)
+			match tier {
+				.wood, .gold { f32(3.0) }
+				.stone, .copper { f32(4.0) }
+				.iron { f32(5.0) }
+				.diamond { f32(6.0) }
+				.netherite { f32(7.0) }
+			}
 		}
 	}
 }

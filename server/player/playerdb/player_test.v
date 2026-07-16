@@ -31,6 +31,49 @@ fn test_save_then_load_roundtrip() {
 	assert loaded.items[0].id == 5
 }
 
+fn test_last_death_position_roundtrip() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_playerdb_death_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	data := PlayerData{
+		has_last_death: true
+		last_death_x:   12.5
+		last_death_y:   70.0
+		last_death_z:   -8.0
+	}
+	save_player(dir, 'died', data) or {
+		assert false, 'save failed: ${err}'
+		return
+	}
+	loaded := load_player(dir, 'died') or {
+		assert false, 'load returned none'
+		return
+	}
+	assert loaded.has_last_death
+	assert loaded.last_death_x == 12.5
+	assert loaded.last_death_y == 70.0
+	assert loaded.last_death_z == -8.0
+}
+
+fn test_save_file_predating_last_death_field_decodes_as_no_death() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_playerdb_legacy_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	os.mkdir_all(dir) or {}
+	os.write_file(os.join_path(dir, 'legacy.json'),
+		'{"x":1.0,"y":2.0,"z":3.0,"gamemode":0,"items":[]}') or {
+		assert false, 'write failed: ${err}'
+		return
+	}
+	loaded := load_player(dir, 'legacy') or {
+		assert false, 'load returned none'
+		return
+	}
+	assert !loaded.has_last_death
+}
+
 fn test_save_leaves_no_temp_file() {
 	dir := os.join_path(os.vtmp_dir(), 'vedrock_playerdb_tmp_${os.getpid()}')
 	defer {

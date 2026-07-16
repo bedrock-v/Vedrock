@@ -2,7 +2,7 @@ module item
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 481
+	assert r.len() == 486
 }
 
 fn test_registered_blocks_carry_runtime_id() {
@@ -24,7 +24,7 @@ fn test_sword_never_stacks() {
 	r := new_registry()
 	it := r.get('minecraft:diamond_sword') or { panic('missing sword') }
 	assert it.max_stack_size() == 1
-	assert it.attack_damage() == 7
+	assert it.attack_damage() == 8
 	assert it is ToolItem
 	assert it.durability() == 1561
 }
@@ -35,17 +35,17 @@ fn test_tool_tiers_have_distinct_mining_speed() {
 	netherite_pick := r.get('minecraft:netherite_pickaxe') or { panic('missing netherite_pickaxe') }
 	assert wood_pick.mining_speed() == 2.0
 	assert netherite_pick.mining_speed() == 9.0
-	assert netherite_pick.attack_damage() == 6.0
+	assert netherite_pick.attack_damage() == 7.0
 }
 
 fn test_axe_and_hoe_damage() {
 	r := new_registry()
 	diamond_axe := r.get('minecraft:diamond_axe') or { panic('missing diamond_axe') }
-	assert diamond_axe.attack_damage() == 9.0
+	assert diamond_axe.attack_damage() == 7.0
 	wood_hoe := r.get('minecraft:wooden_hoe') or { panic('missing wooden_hoe') }
 	netherite_hoe := r.get('minecraft:netherite_hoe') or { panic('missing netherite_hoe') }
-	assert wood_hoe.attack_damage() == 1.0
-	assert netherite_hoe.attack_damage() == 1.0
+	assert wood_hoe.attack_damage() == 3.0
+	assert netherite_hoe.attack_damage() == 7.0
 }
 
 fn test_food_saturation() {
@@ -72,12 +72,12 @@ fn test_copper_tools_have_real_stats() {
 	axe := r.get('minecraft:copper_axe') or { panic('missing copper_axe') }
 	assert sword is ToolItem
 	assert sword.max_stack_size() == 1
-	assert sword.durability() == 192
-	assert sword.attack_damage() == 4.0
-	assert pick.durability() == 192
+	assert sword.durability() == 190
+	assert sword.attack_damage() == 6.0
+	assert pick.durability() == 190
 	assert pick.attack_damage() == 4.0
-	assert axe.durability() == 192
-	assert axe.attack_damage() == 4.0
+	assert axe.durability() == 190
+	assert axe.attack_damage() == 5.0
 }
 
 fn test_copper_armor_has_real_stats() {
@@ -128,7 +128,7 @@ fn test_tail_foods_restore_real_values() {
 	assert spider_eye.nutrition() == 2
 	assert spider_eye.saturation() == 3.2
 	assert enchanted_apple.nutrition() == 4
-	assert enchanted_apple.saturation() == 2.4
+	assert enchanted_apple.saturation() == 9.6
 }
 
 fn test_ore_items_and_storage_blocks_registered() {
@@ -253,7 +253,7 @@ fn test_register_fallbacks_never_clobbers_hand_items() {
 	])
 	sword := r.get('minecraft:diamond_sword') or { panic('missing sword') }
 	assert sword.max_stack_size() == 1
-	assert sword.attack_damage() == 7
+	assert sword.attack_damage() == 8
 }
 
 fn test_nether_and_end_block_items_registered() {
@@ -270,4 +270,36 @@ fn test_nether_and_end_block_items_registered() {
 	assert end_bricks is EndBricksItem
 	purpur := r.get('minecraft:purpur_block') or { panic('missing purpur_block item') }
 	assert purpur is PurpurBlockItem
+}
+
+fn test_goat_horn_use_result_by_meta() {
+	r := new_registry()
+	horn := r.get('minecraft:goat_horn') or { panic('missing goat_horn') }
+	assert horn is GoatHornItem
+	assert horn.max_stack_size() == 1
+
+	ponder := r.use_result('minecraft:goat_horn', 0) or { panic('missing use_result for meta 0') }
+	assert ponder.sound == 'item.goat_horn.sound.0'
+	dream := r.use_result('minecraft:goat_horn', 7) or { panic('missing use_result for meta 7') }
+	assert dream.sound == 'item.goat_horn.sound.7'
+
+	// Out-of-range meta falls back to the first sound rather than panicking.
+	clamped := r.use_result('minecraft:goat_horn', 99) or {
+		panic('missing use_result for out-of-range meta')
+	}
+	assert clamped.sound == 'item.goat_horn.sound.0'
+
+	// Items without a UseableItem implementation have no use_result.
+	assert r.use_result('minecraft:stone', 0) == none
+}
+
+fn test_compass_family_has_dedicated_classes() {
+	r := new_registry()
+	compass := r.get('minecraft:compass') or { panic('missing compass') }
+	assert compass is CompassItem
+	assert compass.max_stack_size() == 64
+	recovery := r.get('minecraft:recovery_compass') or { panic('missing recovery_compass') }
+	assert recovery is RecoveryCompassItem
+	lodestone := r.get('minecraft:lodestone_compass') or { panic('missing lodestone_compass') }
+	assert lodestone is LodestoneCompassItem
 }

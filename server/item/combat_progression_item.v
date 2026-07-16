@@ -167,6 +167,10 @@ pub fn combat_progression_items() []Item {
 		damage:         9
 		max_durability: 250
 	}
+	result << DurabilityItem{
+		id:             'minecraft:shears'
+		max_durability: 238
+	}
 
 	result << SimpleItem{
 		id: 'minecraft:arrow'

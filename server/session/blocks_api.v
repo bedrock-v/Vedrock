@@ -29,7 +29,7 @@ fn (mut h Hub) write_block(id int, x int, y int, z int) {
 	h.broadcast(&protocol.UpdateBlockPacket{
 		block_position:   types.BlockPosition{x, y, z}
 		block_runtime_id: id
-		flags:            protocol.update_block_flag_network
+		flags:            block_update_flags
 		data_layer_id:    0
 	})
 }

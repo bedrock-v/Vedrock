@@ -10,6 +10,10 @@ import server.internal.encryption
 
 pub const default_compression_threshold = 256
 
+pub fn is_connection_closed(err IError) bool {
+	return err.code() == raknet.err_code_connection_closed
+}
+
 // Inbound rate limits, enforced per connection over a 1s sliding window. A peer
 // that exceeds either bound is disconnected. Bedrock clients burst on chunk
 // requests and movement but stay well under these ceilings.

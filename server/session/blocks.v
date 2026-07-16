@@ -83,7 +83,7 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 				s.resend_block(neighbor)
 				return
 			}
-			if s.interact_block(ut.block_position, clicked_id)! {
+			if s.interact_block(ut.block_position, clicked_id, int(ut.block_face))! {
 				return
 			}
 			runtime_id := ut.held_item.item_stack.block_runtime_id
@@ -153,8 +153,31 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 		protocol.item_use_action_destroy_block {
 			s.break_block(ut.block_position)!
 		}
+		protocol.item_use_action_click_air {
+			s.use_held_item_in_air()
+		}
 		else {}
 	}
+}
+
+// use_held_item_in_air runs a UseableItem's on use behaviour (e.g. goat_horn's sound).
+fn (mut s NetworkSession) use_held_item_in_air() {
+	if s.dead || !s.can_interact() {
+		return
+	}
+	stack, _ := s.inventory_stack_at(s.held_slot)
+	name := s.hub.data.item_name(stack.id)
+	result := s.hub.items.use_result(name, stack.meta) or { return }
+	if result.sound == '' {
+		return
+	}
+	s.hub.broadcast(&protocol.LevelSoundEventPacket{
+		sound:           result.sound
+		position:        s.current_position()
+		extra_data:      -1
+		entity_type:     'minecraft:player'
+		actor_unique_id: i64(s.runtime_id)
+	})
 }
 
 fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! {
@@ -196,7 +219,7 @@ fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
 	s.transport.send(&protocol.UpdateBlockPacket{
 		block_position:   pos
 		block_runtime_id: s.block_at(pos.x, pos.y, pos.z)
-		flags:            protocol.update_block_flag_network
+		flags:            block_update_flags
 		data_layer_id:    0
 	}) or {}
 }
@@ -320,8 +343,10 @@ fn (mut s NetworkSession) place_door(pos types.BlockPosition, parts world.DoorPl
 		s.resend_block(above)
 		return false
 	}
-	s.set_block_runtime(pos, parts.lower)
-	s.set_block_runtime(above, parts.upper)
+	s.write_block_runtime(pos, parts.lower)
+	s.write_block_runtime(above, parts.upper)
+	s.broadcast_block_update(pos, parts.lower)
+	s.broadcast_block_update(above, parts.upper)
 	s.broadcast_swing()
 	s.after_block_changed(pos)
 	s.after_block_changed(above)
@@ -395,7 +420,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.transport.send(&protocol.UpdateBlockPacket{
 			block_position:   pos
 			block_runtime_id: old_id
-			flags:            protocol.update_block_flag_network
+			flags:            block_update_flags
 			data_layer_id:    0
 		})!
 		return
@@ -412,11 +437,13 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.resend_block(pos)
 		return
 	}
-	s.set_block_runtime(pos, air_id)
+	s.write_block_runtime(pos, air_id)
+	s.broadcast_block_update(pos, air_id)
 	if pair := s.door_pair_pos(pos, old_id) {
 		pair_id := s.block_at(pair.x, pair.y, pair.z)
 		if s.door_pair_matches(old_id, pair_id) {
-			s.set_block_runtime(pair, air_id)
+			s.write_block_runtime(pair, air_id)
+			s.broadcast_block_update(pair, air_id)
 			s.after_block_changed(pair)
 		}
 	}
@@ -425,32 +452,43 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	s.after_block_changed(pos)
 }
 
-fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int) !bool {
+fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, click_face int) !bool {
 	if isnil(s.hub.palette) {
+		return false
+	}
+	if new_id := s.carve_pumpkin(old_id, click_face) {
+		s.set_block_runtime(pos, new_id)
+		s.broadcast_swing()
+		s.after_block_changed(pos)
+		return true
+	}
+	if pair := s.door_pair_pos(pos, old_id) {
+		pair_id := s.block_at(pair.x, pair.y, pair.z)
+		if toggled := s.hub.palette.door_toggled_pair(old_id, pair_id) {
+			s.write_block_runtime(pos, toggled.clicked)
+			s.write_block_runtime(pair, toggled.pair)
+			s.broadcast_block_update(pos, toggled.clicked)
+			s.broadcast_block_update(pair, toggled.pair)
+			s.broadcast_swing()
+			s.after_block_changed(pair)
+			s.after_block_changed(pos)
+			return true
+		}
 		return false
 	}
 	new_id := s.hub.palette.toggled_open(old_id) or { return false }
 	s.set_block_runtime(pos, new_id)
-	if pair := s.door_pair_pos(pos, old_id) {
-		pair_id := s.block_at(pair.x, pair.y, pair.z)
-		if s.door_pair_matches(old_id, pair_id) {
-			pair_new := s.open_state_like(pair_id, new_id)
-			s.set_block_runtime(pair, pair_new)
-			s.after_block_changed(pair)
-		}
-	}
 	s.broadcast_swing()
 	s.after_block_changed(pos)
 	return true
 }
 
-fn (s &NetworkSession) open_state_like(id int, source_id int) int {
-	if isnil(s.hub.palette) {
-		return id
+fn (mut s NetworkSession) carve_pumpkin(old_id int, click_face int) ?int {
+	stack, _ := s.inventory_stack_at(s.held_slot)
+	if s.hub.data.item_name(stack.id) != 'minecraft:shears' {
+		return none
 	}
-	source := s.hub.palette.variant(source_id) or { return id }
-	open := source.states['open_bit'] or { return id }
-	return s.hub.palette.with_state(id, 'open_bit', open) or { id }
+	return s.hub.palette.carved_pumpkin_id(old_id, click_face)
 }
 
 fn (s &NetworkSession) door_pair_pos(pos types.BlockPosition, id int) ?types.BlockPosition {
@@ -473,11 +511,15 @@ fn (s &NetworkSession) door_pair_matches(id int, pair_id int) bool {
 }
 
 fn (mut s NetworkSession) set_block_runtime(pos types.BlockPosition, runtime_id int) {
+	s.write_block_runtime(pos, runtime_id)
+	s.broadcast_block_update(pos, runtime_id)
+}
+
+fn (mut s NetworkSession) write_block_runtime(pos types.BlockPosition, runtime_id int) {
 	mut wld := s.current_world()
 	if !isnil(wld) {
 		wld.set_block(pos.x, pos.y, pos.z, runtime_id)
 	}
-	s.broadcast_block_update(pos, runtime_id)
 }
 
 fn (mut s NetworkSession) after_block_changed(pos types.BlockPosition) {
@@ -530,7 +572,7 @@ fn (mut s NetworkSession) broadcast_block_update(pos types.BlockPosition, runtim
 	s.hub.broadcast(&protocol.UpdateBlockPacket{
 		block_position:   pos
 		block_runtime_id: runtime_id
-		flags:            protocol.update_block_flag_network
+		flags:            block_update_flags
 		data_layer_id:    0
 	})
 }

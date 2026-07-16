@@ -69,8 +69,13 @@ fn fallback_stack_size(name string) int {
 			|| name == 'minecraft:shears' {
 			1
 		}
-		name == 'minecraft:enchanted_book' || name == 'minecraft:written_book'
-			|| name == 'minecraft:writable_book' {
+		name == 'minecraft:enchanted_book' || name == 'minecraft:writable_book' {
+			1
+		}
+		name == 'minecraft:written_book' {
+			16
+		}
+		name == 'minecraft:turtle_helmet' {
 			1
 		}
 		name.ends_with('_stew') || name.ends_with('_soup') || name == 'minecraft:cake' {

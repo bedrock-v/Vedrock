@@ -32,6 +32,19 @@ pub interface ConsumableItem {
 	consume_result(meta int) ConsumeResult
 }
 
+// UseableItem is implemented by items with a behaviour on right-click in air
+// (item_use_action_click_air), separate from ConsumableItem's eat on use flow.
+pub interface UseableItem {
+	use_result(meta int) UseResult
+}
+
+// UseResult describes what happens when a UseableItem is used. sound is
+// broadcast at the user's position if non empty; empty means no sound.
+pub struct UseResult {
+pub:
+	sound string
+}
+
 // SimpleItem is the base class for items that carry no special behaviour
 // (dyes, sticks, string, ...). Concrete simple items embed it and fill in
 // their identity; anything unregistered behaves like a default SimpleItem.

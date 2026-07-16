@@ -1,5 +1,43 @@
 module block
 
+fn shape_base_hardness(base string) ?f32 {
+	return match base {
+		'minecraft:oak', 'minecraft:spruce', 'minecraft:birch', 'minecraft:jungle',
+		'minecraft:acacia', 'minecraft:dark_oak', 'minecraft:mangrove', 'minecraft:cherry',
+		'minecraft:crimson', 'minecraft:warped', 'minecraft:bamboo', 'minecraft:bamboo_mosaic',
+		'minecraft:pale_oak' {
+			f32(2.0)
+		}
+		'minecraft:cobblestone', 'minecraft:mossy_cobblestone', 'minecraft:brick',
+		'minecraft:smooth_sandstone', 'minecraft:smooth_red_sandstone', 'minecraft:nether_brick',
+		'minecraft:red_nether_brick', 'minecraft:smooth_quartz', 'minecraft:polished_blackstone' {
+			f32(2.0)
+		}
+		'minecraft:stone_brick', 'minecraft:mossy_stone_brick', 'minecraft:purpur',
+		'minecraft:prismarine', 'minecraft:dark_prismarine', 'minecraft:andesite',
+		'minecraft:polished_andesite', 'minecraft:diorite', 'minecraft:polished_diorite',
+		'minecraft:granite', 'minecraft:polished_granite', 'minecraft:mud_brick', 'minecraft:tuff',
+		'minecraft:polished_tuff', 'minecraft:tuff_brick', 'minecraft:blackstone',
+		'minecraft:polished_blackstone_brick' {
+			f32(1.5)
+		}
+		'minecraft:sandstone', 'minecraft:red_sandstone', 'minecraft:cut_sandstone',
+		'minecraft:cut_red_sandstone', 'minecraft:quartz' {
+			f32(0.8)
+		}
+		'minecraft:end_brick', 'minecraft:end_stone_brick' {
+			f32(3.0)
+		}
+		'minecraft:deepslate_brick', 'minecraft:deepslate_tile', 'minecraft:cobbled_deepslate',
+		'minecraft:polished_deepslate' {
+			f32(3.5)
+		}
+		else {
+			none
+		}
+	}
+}
+
 // fallback_hardness maps a palette block name to a family level vanilla break
 // hardness for the generic fallback tier. Shape and colour families share one value per family.
 fn fallback_hardness(name string) f32 {
@@ -39,6 +77,16 @@ fn fallback_hardness(name string) f32 {
 			return -1.0
 		}
 		else {}
+	}
+
+	for suffix in ['_stairs', '_double_slab', '_slab', '_wall'] {
+		if name.ends_with(suffix) {
+			base := name[..name.len - suffix.len]
+			if hardness := shape_base_hardness(base) {
+				return hardness
+			}
+			break
+		}
 	}
 
 	return match true {

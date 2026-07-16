@@ -18,10 +18,6 @@ pub enum ArmorSlot {
 	boots
 }
 
-// ArmorItem is the class for every tier x slot combination (e.g. tier
-// .diamond, slot .chestplate -> 'minecraft:diamond_chestplate'). One
-// parametrized struct rather than 20 near-identical classes, same reasoning
-// as ToolItem.
 pub struct ArmorItem {
 pub:
 	id             string

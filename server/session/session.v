@@ -70,6 +70,8 @@ mut:
 	pending_forms      map[int]form.Form
 	last_place_ms      i64
 	effects            effect.Manager
+	has_last_death     bool
+	last_death_pos     types.Vector3
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -147,8 +149,12 @@ pub fn (mut s NetworkSession) handle_loop() {
 		}
 		for p in packets {
 			s.handle(p) or {
-				s.log.warn('Failed to handle ${p.name()}: ${err}')
-				s.disconnect('Internal server error')
+				if network.is_connection_closed(err) {
+					s.log.info('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+				} else {
+					s.log.warn('Failed to handle ${p.name()}: ${err}')
+					s.disconnect('Internal server error')
+				}
 				break
 			}
 		}
@@ -284,6 +290,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_respawn(p)!
 			} else if p is protocol.ModalFormResponsePacket {
 				s.handle_modal_form_response(p)!
+			} else if p is protocol.BookEditPacket {
+				s.handle_book_edit(p)!
 			}
 		}
 		else {}

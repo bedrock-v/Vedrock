@@ -70,6 +70,14 @@ pub fn (r &Registry) consume_result(id string, meta int) ?ConsumeResult {
 	return none
 }
 
+pub fn (r &Registry) use_result(id string, meta int) ?UseResult {
+	it := r.get(id) or { return none }
+	if it is UseableItem {
+		return it.use_result(meta)
+	}
+	return none
+}
+
 // len is the number of registered item classes.
 pub fn (r &Registry) len() int {
 	return r.items.len
@@ -91,6 +99,10 @@ fn default_items() []Item {
 	items << new_grass_block_item()
 	items << new_bedrock_item()
 	items << new_stick()
+	items << new_goat_horn_item()
+	items << new_compass_item()
+	items << new_recovery_compass_item()
+	items << new_lodestone_compass_item()
 
 	for tier in [ToolTier.wood, .stone, .copper, .iron, .gold, .diamond, .netherite] {
 		for typ in [ToolType.sword, .pickaxe, .axe, .shovel, .hoe] {

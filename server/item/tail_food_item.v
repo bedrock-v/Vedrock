@@ -47,7 +47,7 @@ fn tail_food_items() []Item {
 		Item(FoodItem{
 			id:             'minecraft:enchanted_golden_apple'
 			food_points:    4
-			saturation_mod: 2.4
+			saturation_mod: 9.6
 		}),
 	]
 }

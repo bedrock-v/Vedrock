@@ -16,6 +16,12 @@ pub:
 	upper int
 }
 
+pub struct DoorToggle {
+pub:
+	clicked int
+	pair    int
+}
+
 pub fn is_door_name(name string) bool {
 	return name.ends_with('_door') || name == 'minecraft:wooden_door'
 		|| name == 'minecraft:iron_door'
@@ -44,6 +50,25 @@ pub fn (p &BlockPalette) door_pair_id(id int) ?int {
 	upper := v.states['upper_block_bit'] or { return none }
 	next := if upper == '1' || upper == 'true' { '0' } else { '1' }
 	return p.with_state(id, 'upper_block_bit', next)
+}
+
+pub fn (p &BlockPalette) door_toggled_pair(clicked_id int, pair_id int) ?DoorToggle {
+	clicked := p.variant(clicked_id) or { return none }
+	pair := p.variant(pair_id) or { return none }
+	if !is_door_name(clicked.name) || clicked.name != pair.name {
+		return none
+	}
+	clicked_top := state_bool(clicked.states, 'upper_block_bit', false)
+	pair_top := state_bool(pair.states, 'upper_block_bit', false)
+	if clicked_top == pair_top {
+		return none
+	}
+	clicked_open := state_bool(clicked.states, 'open_bit', false)
+	next_open := if clicked_open { '0' } else { '1' }
+	return DoorToggle{
+		clicked: p.with_state(clicked_id, 'open_bit', next_open) or { return none }
+		pair:    p.with_state(pair_id, 'open_bit', next_open) or { return none }
+	}
 }
 
 pub fn (p &BlockPalette) is_door_top(id int) bool {
@@ -107,7 +132,7 @@ pub fn (p &BlockPalette) merged_slab(existing_id int, placing_id int, click_face
 
 fn (p &BlockPalette) door_hinge(lower_id int, neighbors NeighborBlockIDs) int {
 	v := p.variant(lower_id) or { return 0 }
-	face := cardinal_face(state_string(v.states, 'minecraft:cardinal_direction', 'south'))
+	face := door_facing_face(v.states)
 	left := rotate_left_face(face)
 	right := rotate_right_face(face)
 	left_solid := p.neighbor_solid(neighbors, left)

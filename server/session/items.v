@@ -154,12 +154,16 @@ fn (mut s NetworkSession) save_player_data() {
 		}
 	}
 	playerdb.save_player(players_dir, s.player_key(), playerdb.PlayerData{
-		x:        s.position.x
-		y:        s.position.y
-		z:        s.position.z
-		yaw:      s.yaw
-		pitch:    s.pitch
-		gamemode: s.game_mode
-		items:    items
+		x:              s.position.x
+		y:              s.position.y
+		z:              s.position.z
+		yaw:            s.yaw
+		pitch:          s.pitch
+		gamemode:       s.game_mode
+		items:          items
+		has_last_death: s.has_last_death
+		last_death_x:   s.last_death_pos.x
+		last_death_y:   s.last_death_pos.y
+		last_death_z:   s.last_death_pos.z
 	}) or { s.log.warn('Failed to save player ${s.player_key()}: ${err}') }
 }

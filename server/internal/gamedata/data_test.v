@@ -25,6 +25,7 @@ fn test_load_game_data() {
 	assert data.creative_items.len > 0
 	mut has_block := false
 	mut potion_metas := []int{}
+	mut wooden_door_runtime := 0
 	for item in data.creative_items {
 		if item.block_runtime_id != 0 {
 			has_block = true
@@ -32,8 +33,12 @@ fn test_load_game_data() {
 		if item.numeric_id == data.item_id('minecraft:potion') {
 			potion_metas << item.meta
 		}
+		if item.numeric_id == data.item_id('minecraft:wooden_door') {
+			wooden_door_runtime = item.block_runtime_id
+		}
 	}
 	assert has_block
+	assert wooden_door_runtime != 0
 	// creative_items.json encodes this as "damage".
 	assert potion_metas.len > 1
 	mut distinct_metas := map[int]bool{}

@@ -75,6 +75,15 @@ pub fn load(data_dir string) !GameData {
 		component_by_name[name] = component_based
 	}
 
+	compressed := os.read_bytes(os.join_path(data_dir, 'block_palette.nbt'))!
+	block_palette := parse_block_palette(gzip.decompress(compressed)!)!
+	mut canonical_block := map[string]int{}
+	for e in block_palette {
+		if e.name !in canonical_block {
+			canonical_block[e.name] = e.network_id
+		}
+	}
+
 	mut groups := []CreativeGroup{}
 	mut creative := []CreativeItem{}
 	creative_doc := json2.decode[json2.Any](os.read_file(os.join_path(data_dir,
@@ -109,6 +118,8 @@ pub fn load(data_dir string) !GameData {
 		b64 := any_str(m, 'block_state_b64')
 		if b64 != '' {
 			block_runtime_id = block_network_id_from_nbt(base64.decode(b64)) or { 0 }
+		} else {
+			block_runtime_id = canonical_block[name] or { 0 }
 		}
 		creative << CreativeItem{
 			numeric_id:       numeric_id
@@ -124,9 +135,6 @@ pub fn load(data_dir string) !GameData {
 			id_by_block[item.block_runtime_id] = item.numeric_id
 		}
 	}
-
-	compressed := os.read_bytes(os.join_path(data_dir, 'block_palette.nbt'))!
-	block_palette := parse_block_palette(gzip.decompress(compressed)!)!
 
 	return GameData{
 		item_entries:     entries

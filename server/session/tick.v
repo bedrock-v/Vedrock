@@ -48,7 +48,7 @@ fn (mut h Hub) tick_worlds() {
 			h.broadcast(&protocol.UpdateBlockPacket{
 				block_position:   types.BlockPosition{change.x, change.y, change.z}
 				block_runtime_id: change.id
-				flags:            protocol.update_block_flag_network
+				flags:            block_update_flags
 				data_layer_id:    0
 			})
 		}
