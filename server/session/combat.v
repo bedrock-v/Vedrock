@@ -63,8 +63,8 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	// Damage comes from the server-side inventory at the held slot, never the
 	// client-supplied held item - otherwise a client could claim a weapon it
 	// does not own to inflate damage.
-	server_stack, _ := s.inventory_stack_at(s.held_slot)
-	mut damage := s.weapon_damage(s.hub.data.item_name(server_stack.id))
+	_, weapon_name := s.held_stack_and_name()
+	mut damage := s.weapon_damage(weapon_name)
 	critical := s.is_critical()
 	if critical {
 		damage *= critical_multiplier
@@ -255,9 +255,6 @@ fn (s &NetworkSession) weapon_damage(name string) f32 {
 	return weapon_damage_heuristic(name)
 }
 
-// Real Bedrock damage (confirmed by agreement between Dragonfly and PMMP/
-// NetherGames, see attack_damage_for() in server/item/tool_item.v) - this
-// used to carry Java Edition's axe numbers (7/9/9/9/10).
 fn weapon_damage_heuristic(name string) f32 {
 	tier := material_tier(name)
 	if name.contains('_sword') {

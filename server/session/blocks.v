@@ -160,13 +160,19 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 	}
 }
 
+// held_stack_and_name returns the currently held stack together with its
+// namespaced item name, resolved once instead of at each held- tem call site.
+fn (s &NetworkSession) held_stack_and_name() (types.ItemStack, string) {
+	stack, _ := s.inventory_stack_at(s.held_slot)
+	return stack, s.hub.data.item_name(stack.id)
+}
+
 // use_held_item_in_air runs a UseableItem's on use behaviour (e.g. goat_horn's sound).
 fn (mut s NetworkSession) use_held_item_in_air() {
 	if s.dead || !s.can_interact() {
 		return
 	}
-	stack, _ := s.inventory_stack_at(s.held_slot)
-	name := s.hub.data.item_name(stack.id)
+	stack, name := s.held_stack_and_name()
 	result := s.hub.items.use_result(name, stack.meta) or { return }
 	if result.sound == '' {
 		return
@@ -481,8 +487,8 @@ fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, cl
 }
 
 fn (mut s NetworkSession) carve_pumpkin(old_id int, click_face int) ?int {
-	stack, _ := s.inventory_stack_at(s.held_slot)
-	if s.hub.data.item_name(stack.id) != 'minecraft:shears' {
+	_, name := s.held_stack_and_name()
+	if name != 'minecraft:shears' {
 		return none
 	}
 	return s.hub.palette.carved_pumpkin_id(old_id, click_face)
