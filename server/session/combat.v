@@ -79,6 +79,7 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	if ctx.is_cancelled() {
 		return
 	}
+	s.damage_held_item(1)
 	if !s.hub.try_submit(DamageJob{
 		victim_runtime_id: target_runtime_id
 		amount:            ctx.val.damage

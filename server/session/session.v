@@ -72,6 +72,7 @@ mut:
 	effects            effect.Manager
 	has_last_death     bool
 	last_death_pos     types.Vector3
+	cooldown_until map[string]i64
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }

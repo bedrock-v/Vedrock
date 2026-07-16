@@ -33,6 +33,32 @@ fn composter_item() BlockItem {
 	}
 }
 
+const bone_mealable_crops = ['minecraft:wheat', 'minecraft:carrots', 'minecraft:potatoes',
+	'minecraft:beetroot']
+
+// BoneMealItem is the class for 'minecraft:bone_meal'.
+pub struct BoneMealItem {
+	SimpleItem
+}
+
+pub fn (i BoneMealItem) use_on_block_result(block_name string, meta int) ?UseOnBlockResult {
+	if block_name !in bone_mealable_crops {
+		return none
+	}
+	return UseOnBlockResult{
+		state_key:   'growth'
+		state_delta: 1
+	}
+}
+
+pub fn new_bone_meal_item() BoneMealItem {
+	return BoneMealItem{
+		SimpleItem: SimpleItem{
+			id: 'minecraft:bone_meal'
+		}
+	}
+}
+
 // WheatItem is the class for raw 'minecraft:wheat'.
 pub struct WheatItem {
 	SimpleItem
@@ -44,6 +70,10 @@ pub fn new_wheat() WheatItem {
 			id: 'minecraft:wheat'
 		}
 	}
+}
+
+pub fn (i WheatItem) use_on_block_result(block_name string, meta int) ?UseOnBlockResult {
+	return compost_result(block_name)
 }
 
 // CookieItem is the class for 'minecraft:cookie'.
@@ -96,9 +126,7 @@ pub fn farming_items() []Item {
 	result << Item(seed_item('minecraft:wheat_seeds', 'wheat'))
 	result << seed_item('minecraft:beetroot_seeds', 'beetroot')
 	result << composter_item()
-	result << SimpleItem{
-		id: 'minecraft:bone_meal'
-	}
+	result << new_bone_meal_item()
 	result << new_wheat()
 	result << new_cookie()
 	result << new_golden_carrot()

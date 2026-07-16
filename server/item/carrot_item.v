@@ -14,6 +14,10 @@ pub fn (i CarrotItem) block_runtime_id() int {
 	return i.block_runtime
 }
 
+pub fn (i CarrotItem) use_on_block_result(block_name string, meta int) ?UseOnBlockResult {
+	return compost_result(block_name)
+}
+
 pub fn new_carrot() CarrotItem {
 	runtime := world.new_block_with_states('minecraft:carrots', [
 		world.BlockState{

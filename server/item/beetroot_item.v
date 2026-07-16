@@ -14,3 +14,7 @@ pub fn new_beetroot() BeetrootItem {
 		}
 	}
 }
+
+pub fn (i BeetrootItem) use_on_block_result(block_name string, meta int) ?UseOnBlockResult {
+	return compost_result(block_name)
+}

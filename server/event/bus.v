@@ -61,6 +61,12 @@ pub fn (mut b Bus) player_command(mut ctx Context[CommandData]) {
 	}
 }
 
+pub fn (mut b Bus) start_break(mut ctx Context[StartBreakData]) {
+	for mut r in b.handlers {
+		r.handler.on_start_break(mut ctx)
+	}
+}
+
 pub fn (mut b Bus) block_break(mut ctx Context[BlockBreakData]) {
 	for mut r in b.handlers {
 		r.handler.on_block_break(mut ctx)
@@ -76,6 +82,12 @@ pub fn (mut b Bus) block_place(mut ctx Context[BlockPlaceData]) {
 pub fn (mut b Bus) player_interact(mut ctx Context[InteractData]) {
 	for mut r in b.handlers {
 		r.handler.on_player_interact(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) item_use(mut ctx Context[ItemUseData]) {
+	for mut r in b.handlers {
+		r.handler.on_item_use(mut ctx)
 	}
 }
 

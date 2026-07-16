@@ -62,7 +62,7 @@ fn torch_block(name string, facing string) Block {
 	}
 }
 
-fn repeater_block(name string, direction string, delay int) Block {
+fn repeater_network_id(name string, direction string, delay int) int {
 	id := 'minecraft:${name}'
 	runtime := world.new_block_with_states(id, [
 		world.BlockState{
@@ -76,11 +76,40 @@ fn repeater_block(name string, direction string, delay int) Block {
 			int_value: delay
 		},
 	])
-	return SimpleBlock{
-		id:             id
-		block_runtime:  runtime.network_id
-		break_hardness: repeater_hardness
+	return runtime.network_id
+}
+
+// RepeaterBlock is the class for 'minecraft:unpowered_repeater'/
+// 'minecraft:powered_repeater'.
+pub struct RepeaterBlock {
+	SimpleBlock
+	next_delay_id int
+}
+
+pub fn (b RepeaterBlock) interact(x int, y int, z int, click_face int, mut w TickWorld) bool {
+	w.set_block(x, y, z, b.next_delay_id)
+	return true
+}
+
+// repeater_blocks_for builds all 4 delay variants for one (name, direction)
+// pair, each wired to cycle into the next (wrapping 3 -> 0).
+fn repeater_blocks_for(name string, direction string) []Block {
+	mut ids := []int{cap: 4}
+	for delay in 0 .. 4 {
+		ids << repeater_network_id(name, direction, delay)
 	}
+	mut result := []Block{cap: 4}
+	for delay in 0 .. 4 {
+		result << Block(RepeaterBlock{
+			SimpleBlock:   SimpleBlock{
+				id:             'minecraft:${name}'
+				block_runtime:  ids[delay]
+				break_hardness: repeater_hardness
+			}
+			next_delay_id: ids[(delay + 1) % 4]
+		})
+	}
+	return result
 }
 
 fn comparator_block(name string, direction string, lit u8, subtract u8) Block {
@@ -296,10 +325,8 @@ pub fn redstone_component_blocks() []Block {
 		result << torch_block('unlit_redstone_torch', facing)
 	}
 	for direction in cardinal_directions {
-		for delay in 0 .. 4 {
-			result << repeater_block('unpowered_repeater', direction, delay)
-			result << repeater_block('powered_repeater', direction, delay)
-		}
+		result << repeater_blocks_for('unpowered_repeater', direction)
+		result << repeater_blocks_for('powered_repeater', direction)
 	}
 	for direction in cardinal_directions {
 		for lit in [u8(0), 1] {

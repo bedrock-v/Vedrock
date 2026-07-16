@@ -23,6 +23,12 @@ pub fn (i GoatHornItem) use_result(meta int) UseResult {
 	}
 }
 
+const goat_horn_cooldown_ticks = 140
+
+pub fn (i GoatHornItem) cooldown_ticks() int {
+	return goat_horn_cooldown_ticks
+}
+
 pub fn new_goat_horn_item() GoatHornItem {
 	return GoatHornItem{
 		SimpleItem: SimpleItem{
