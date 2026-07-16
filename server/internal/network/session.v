@@ -207,6 +207,17 @@ pub fn (mut s Session) send(p protocol.Packet) ! {
 	s.flush_locked()!
 }
 
+pub fn (mut s Session) send_batch(packets []protocol.Packet) ! {
+	s.write_mutex.lock()
+	defer {
+		s.write_mutex.unlock()
+	}
+	for p in packets {
+		s.queue_locked(p)
+	}
+	s.flush_locked()!
+}
+
 pub fn (mut s Session) remote_addr() string {
 	return s.conn.remote_addr()
 }

@@ -104,6 +104,60 @@ pub const magma_block = new_block('minecraft:magma')
 pub const purpur_block = new_block('minecraft:purpur_block')
 pub const end_bricks = new_block('minecraft:end_bricks')
 
+pub const water = new_block_with_states('minecraft:water', [
+	BlockState{
+		key:       'liquid_depth'
+		kind:      state_kind_int
+		int_value: 0
+	},
+])
+pub const lava = new_block_with_states('minecraft:lava', [
+	BlockState{
+		key:       'liquid_depth'
+		kind:      state_kind_int
+		int_value: 0
+	},
+])
+
+pub const oak_log = new_block_with_states('minecraft:oak_log', [
+	BlockState{
+		key:        'pillar_axis'
+		kind:       state_kind_string
+		string_val: 'y'
+	},
+])
+pub const oak_leaves = new_block_with_states('minecraft:oak_leaves', [
+	BlockState{
+		key:        'persistent_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+	BlockState{
+		key:        'update_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+])
+pub const spruce_log = new_block_with_states('minecraft:spruce_log', [
+	BlockState{
+		key:        'pillar_axis'
+		kind:       state_kind_string
+		string_val: 'y'
+	},
+])
+pub const spruce_leaves = new_block_with_states('minecraft:spruce_leaves', [
+	BlockState{
+		key:        'persistent_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+	BlockState{
+		key:        'update_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+])
+
 fn block_state_hash(name string, states []BlockState) int {
 	if name == 'minecraft:unknown' {
 		return -2

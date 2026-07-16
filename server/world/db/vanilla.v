@@ -332,3 +332,8 @@ pub fn (g StoredGenerator) block_at(x int, y int, z int) int {
 	chunk := g.cached_chunk(x >> 4, z >> 4) or { return g.fallback.block_at(x, y, z) }
 	return chunk.block_id(x & 15, y, z & 15)
 }
+
+pub fn (g StoredGenerator) biome_at(x int, z int) int {
+	chunk := g.cached_chunk(x >> 4, z >> 4) or { return g.fallback.biome_at(x, z) }
+	return chunk.biome_id(x & 15, z & 15)
+}

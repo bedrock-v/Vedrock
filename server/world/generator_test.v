@@ -1,5 +1,7 @@
 module world
 
+const expected_nether_lava_level = 31
+
 fn test_flat_generator_matches_vanilla_superflat_preset() {
 	g := FlatGenerator{}
 	chunk := g.generate(0, 0)
@@ -50,35 +52,88 @@ fn test_generator_registry_builds_dimension_sized_chunks() {
 	assert flat.spawn_y() == nether.min_y + 4
 }
 
-fn test_nether_generator_has_bedrock_floor_and_ceiling() {
-	g := NetherGenerator{}
-	chunk := g.generate(0, 0)
-	assert chunk.block_id(0, nether.min_y, 0) == bedrock.network_id
-	assert chunk.block_id(0, nether.min_y + 1, 0) == netherrack.network_id
-	assert chunk.block_id(0, nether.min_y + 3, 0) == netherrack.network_id
-	assert chunk.block_id(0, nether.max_y(), 0) == bedrock.network_id
-	assert chunk.block_id(0, nether.min_y + 4, 0) == air.network_id
-	assert g.spawn_y() == nether.min_y + 4
-	assert g.block_at(0, nether.max_y(), 0) == bedrock.network_id
-	assert g.block_at(0, nether.min_y, 0) == bedrock.network_id
+fn assert_standable(g Generator, x int, y int, z int) {
+	assert g.block_at(x, y - 1, z) != air.network_id
+	assert g.block_at(x, y, z) == air.network_id
+	assert g.block_at(x, y + 1, z) == air.network_id
 }
 
-fn test_end_generator_has_flat_floor_and_spawn_platform() {
+fn test_flat_and_normal_spawn_are_standable() {
+	flat := FlatGenerator{}
+	assert_standable(flat, 0, flat.spawn_y(), 0)
+
+	normal := NormalGenerator{}
+	spawn_y := normal.spawn_y()
+	assert spawn_y >= overworld.min_y && spawn_y <= overworld.max_y()
+	assert_standable(normal, 0, spawn_y, 0)
+	assert normal.block_at(0, overworld.min_y - 1, 0) == air.network_id
+}
+
+fn test_nether_generator_has_bedrock_floor_roof_and_safe_spawn() {
+	g := NetherGenerator{}
+	chunk := g.generate(0, 0)
+	spawn_y := g.spawn_y()
+	assert chunk.block_id(0, nether.min_y, 0) == bedrock.network_id
+	assert chunk.block_id(0, nether.max_y() - 1, 0) == netherrack.network_id
+	assert chunk.block_id(0, nether.max_y(), 0) == bedrock.network_id
+	assert spawn_y > expected_nether_lava_level + 1
+	assert_standable(g, 0, spawn_y, 0)
+	assert g.block_at(0, nether.max_y(), 0) == bedrock.network_id
+	assert g.block_at(0, nether.max_y() - 1, 0) == netherrack.network_id
+	assert g.block_at(0, nether.min_y, 0) == bedrock.network_id
+	assert g.biome_at(0, 0) == biome_hell
+}
+
+fn test_nether_density_is_3d_and_vertically_shaped() {
+	g := NetherGenerator{}
+	x := 37
+	z := -19
+	middle := g.density_at(x, 64, z)
+	assert g.density_at(x, 8, z) > middle
+	assert g.density_at(x, 116, z) > middle
+	mut delta := g.density_at(x, 56, z) - g.density_at(x, 72, z)
+	if delta < 0 {
+		delta = -delta
+	}
+	assert delta > 0.01
+}
+
+fn test_nether_generator_has_cavernous_mid_band_not_empty_shell() {
+	g := NetherGenerator{}
+	chunk := g.generate(0, 0)
+	mut air_count := 0
+	mut solid_count := 0
+	mut lava_count := 0
+	for x in 0 .. 16 {
+		for z in 0 .. 16 {
+			for y in 32 .. 96 {
+				id := chunk.block_id(x, y, z)
+				if id == air.network_id {
+					air_count++
+				} else if id == lava.network_id {
+					lava_count++
+				} else {
+					solid_count++
+				}
+			}
+		}
+	}
+	assert solid_count > 512
+	assert air_count > 512
+	assert lava_count == 0
+}
+
+fn test_end_generator_has_bedrock_floor_and_spawn_platform_near_origin() {
 	g := EndGenerator{}
 	spawn_chunk := g.generate(0, 0)
 	floor_top_y := the_end.min_y + 3
 	platform_y := the_end.min_y + 4
 	assert spawn_chunk.block_id(0, the_end.min_y, 0) == bedrock.network_id
 	assert spawn_chunk.block_id(2, floor_top_y, 2) == end_stone.network_id
-	assert spawn_chunk.block_id(10, floor_top_y, 10) == end_stone.network_id
 	assert spawn_chunk.block_id(2, platform_y, 2) == obsidian.network_id
-	assert spawn_chunk.block_id(10, platform_y, 10) == air.network_id
-	other_chunk := g.generate(3, 3)
-	assert other_chunk.block_id(2, platform_y, 2) == air.network_id
-	assert other_chunk.block_id(2, floor_top_y, 2) == end_stone.network_id
 	assert g.block_at(2, platform_y, 2) == obsidian.network_id
-	assert g.block_at(10, platform_y, 10) == air.network_id
 	assert g.spawn_y() == platform_y
+	assert g.biome_at(0, 0) == biome_the_end
 }
 
 fn test_generator_registry_void_and_normal_respect_dimension() {

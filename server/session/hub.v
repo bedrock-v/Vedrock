@@ -17,7 +17,6 @@ import server.block
 import server.internal.language
 import server.cmd
 import server.cmd.default as defaultcmd
-import server.world
 import server.world as blockworld
 import server.world.db
 import server.resource
@@ -38,16 +37,16 @@ mut:
 pub mut:
 	world_time         int
 	data               gamedata.GameData
-	items              item.Registry           = item.new_registry()
-	blocks             block.Registry          = block.new_registry()
-	lang               &language.Lang          = unsafe { nil }
-	commands           cmd.Registry            = cmd.new_registry()
-	events             &event.Bus              = unsafe { nil }
-	scheduler          &scheduler.Scheduler    = unsafe { nil }
-	entities           &entity.Manager         = unsafe { nil }
-	liquids            &liquid.LiquidManager   = unsafe { nil }
-	entity_registry    entity.Registry         = entity.new_registry()
-	generators         world.GeneratorRegistry = world.new_generator_registry()
+	items              item.Registry                = item.new_registry()
+	blocks             block.Registry               = block.new_registry()
+	lang               &language.Lang               = unsafe { nil }
+	commands           cmd.Registry                 = cmd.new_registry()
+	events             &event.Bus                   = unsafe { nil }
+	scheduler          &scheduler.Scheduler         = unsafe { nil }
+	entities           &entity.Manager              = unsafe { nil }
+	liquids            &liquid.LiquidManager        = unsafe { nil }
+	entity_registry    entity.Registry              = entity.new_registry()
+	generators         blockworld.GeneratorRegistry = blockworld.new_generator_registry()
 	current_tick       i64
 	started_at         i64
 	worlds             map[string]&db.World
@@ -248,7 +247,7 @@ pub fn (mut h Hub) players_in_world(name string) int {
 
 // register_generator adds or overrides a named world generator. Part of the
 // plugin.ServerView surface.
-pub fn (mut h Hub) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Dimension) blockworld.Generator) {
 	h.generators.register(name, factory)
 }
 
@@ -259,11 +258,12 @@ pub fn (mut h Hub) generator_type_names() []string {
 }
 
 // build_generator resolves a world's own generator by name and dimension
-// through the registry, falling back to the raw (overworld shaped) lookup if
-// the name isn't registered.
-pub fn (h &Hub) build_generator(w &db.World) world.Generator {
+// through the registry.
+pub fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
 	return h.generators.create(w.generator_name, w.dimension) or {
-		world.new_generator(w.generator_name)
+		h.generators.create(w.dimension.default_generator, w.dimension) or {
+			blockworld.new_generator(w.generator_name)
+		}
 	}
 }
 
@@ -271,13 +271,13 @@ pub fn (h &Hub) build_generator(w &db.World) world.Generator {
 // Refuses to clobber an already-loaded or already-on-disk world. Safe to call
 // off the actor thread - it only adds to the worlds map, never mutates a
 // player's active world.
-pub fn (mut h Hub) create_world(name string, dim world.Dimension, generator string) !string {
+pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator string) !string {
 	if _ := h.world(name) {
 		return error('world "${name}" is already loaded')
 	}
 	h.mutex.lock()
 	dir := h.worlds_dir
-	default_generator := if dim.id == world.overworld.id {
+	default_generator := if dim.id == blockworld.overworld.id {
 		h.world_generator
 	} else {
 		dim.default_generator
@@ -303,7 +303,7 @@ pub fn (mut h Hub) load_world(name string) !string {
 	if !db.world_exists(dir, name) {
 		return error('world "${name}" does not exist on disk')
 	}
-	loaded_world := db.load_named(dir, name, default_generator, world.overworld) or {
+	loaded_world := db.load_named(dir, name, default_generator, blockworld.overworld) or {
 		return error('failed to load world "${name}": ${err}')
 	}
 	h.add_world(loaded_world)

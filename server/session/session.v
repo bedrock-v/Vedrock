@@ -72,6 +72,13 @@ mut:
 	effects            effect.Manager
 	has_last_death     bool
 	last_death_pos     types.Vector3
+	view_radius        int
+	last_chunk_x       int
+	last_chunk_z       int
+	chunk_cache        map[u64]world.Chunk
+	sent_chunks        map[u64]bool
+	chunk_cache_mutex  &sync.Mutex = sync.new_mutex()
+	chunk_stream_mutex &sync.Mutex = sync.new_mutex()
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -123,15 +130,19 @@ pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &log
 		generator = spawn_world.make_generator(hub.build_generator(spawn_world))
 	}
 	return &NetworkSession{
-		transport:  transport
-		hub:        hub
-		cfg:        cfg
-		world:      spawn_world
-		generator:  generator
-		runtime_id: hub.allocate_runtime_id()
-		position:   types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}
-		effects:    effect.new_manager()
-		log:        log
+		transport:          transport
+		hub:                hub
+		cfg:                cfg
+		world:              spawn_world
+		generator:          generator
+		runtime_id:         hub.allocate_runtime_id()
+		position:           types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0}
+		effects:            effect.new_manager()
+		chunk_cache:        map[u64]world.Chunk{}
+		sent_chunks:        map[u64]bool{}
+		chunk_cache_mutex:  sync.new_mutex()
+		chunk_stream_mutex: sync.new_mutex()
+		log:                log
 	}
 }
 
@@ -224,6 +235,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	if s.spawned {
 		s.hub.broadcast_except(s.runtime_id, s.move_actor_packet())
 	}
+	s.stream_chunks_if_moved()
 }
 
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {
@@ -261,7 +273,13 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 		}
 		.play {
 			if p is protocol.RequestChunkRadiusPacket {
-				s.handle_request_chunk_radius(p)!
+				if should_stream_chunk_radius_async(s.state, s.spawned) {
+					s.handle_play_chunk_radius_async(p)
+				} else {
+					s.handle_request_chunk_radius(p)!
+				}
+			} else if p is protocol.SubChunkRequestPacket {
+				s.handle_sub_chunk_request(p)!
 			} else if p is protocol.SetLocalPlayerAsInitializedPacket {
 				s.handle_player_initialized(p)!
 			} else if p is protocol.TextPacket {

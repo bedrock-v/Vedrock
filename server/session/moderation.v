@@ -97,9 +97,14 @@ fn (j TeleportJob) run(mut h Hub) {
 // reload_chunks resends the spawn chunks around the player. Runs on its own
 // thread; transport sends are already write-mutex guarded.
 fn (mut s NetworkSession) reload_chunks(radius int) {
+	s.chunk_stream_mutex.lock()
+	defer {
+		s.chunk_stream_mutex.unlock()
+	}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
 	}
+	s.remember_chunk_window(radius)
 }
 
 pub fn (s &NetworkSession) world_name() string {
@@ -126,6 +131,8 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	s.world = target
 	s.generator = gen
 	s.world_mutex.unlock()
+	s.clear_chunk_cache()
+	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
 		s.transport.send(&protocol.ChangeDimensionPacket{
 			dimension: target.dimension.id
