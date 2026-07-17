@@ -119,7 +119,7 @@ other = "§cKullanım: /say <mesaj>§r"
 other = "§cKullanım: /title <oyuncu|@a> <title|subtitle|actionbar> <metin>§r"
 
 [cmd.world.usage]
-other = "§cUsage: /world <list|info|create|load|delete|tp> [name] [dimension] [generator]§r"
+other = "§cKullanım: /world <list|info|create|load|delete|tp> [isim] [boyut] [üretici]§r"
 
 [cmd.world.none]
 other = "§eHiç dünya yüklü değil§r"
