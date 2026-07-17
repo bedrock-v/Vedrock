@@ -1,0 +1,1513 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.session | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li class="active"><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.session" class="doc-node">
+			<div class="title"><h1> server.session</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> players_dir <span class="token operator">=</span> <span class="token string">'players'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> player_eye_height <span class="token operator">=</span> <span class="token builtin">f32</span><span class="token punctuation">(</span><span class="token number">1.62</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> player_half_width <span class="token operator">=</span> <span class="token builtin">f32</span><span class="token punctuation">(</span><span class="token number">0.3</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> player_height <span class="token operator">=</span> <span class="token builtin">f32</span><span class="token punctuation">(</span><span class="token number">1.8</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="new" class="doc-node">
+			<div class="title"><h2>fn new <a href="#new">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new</span><span class="token punctuation">(</span><span class="token keyword">mut</span> transport network<span class="token punctuation">.</span>Session<span class="token punctuation">,</span> <span class="token keyword">mut</span> hub Hub<span class="token punctuation">,</span> cfg conf<span class="token punctuation">.</span>Config<span class="token punctuation">,</span> log <span class="token operator">&amp;</span>logger<span class="token punctuation">.</span>Logger<span class="token punctuation">)</span> <span class="token operator">&amp;</span>NetworkSession</code></pre>
+
+
+</section>
+
+		<section id="new_console_sender" class="doc-node">
+			<div class="title"><h2>fn new_console_sender <a href="#new_console_sender">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_console_sender</span><span class="token punctuation">(</span><span class="token keyword">mut</span> hub Hub<span class="token punctuation">,</span> log <span class="token operator">&amp;</span>logger<span class="token punctuation">.</span>Logger<span class="token punctuation">)</span> <span class="token operator">&amp;</span>ConsoleSender</code></pre>
+
+
+</section>
+
+		<section id="new_hub" class="doc-node">
+			<div class="title"><h2>fn new_hub <a href="#new_hub">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_hub</span><span class="token punctuation">(</span>data gamedata<span class="token punctuation">.</span>GameData<span class="token punctuation">)</span> <span class="token operator">&amp;</span>Hub</code></pre>
+
+
+</section>
+
+		<section id="State.from" class="doc-node">
+			<div class="title"><h2>fn State.from <a href="#State.from">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> State<span class="token punctuation">.</span>from<span class="token punctuation">[</span><span class="token builtin">W</span><span class="token punctuation">]</span><span class="token punctuation">(</span>input <span class="token builtin">W</span><span class="token punctuation">)</span> <span class="token operator">!</span>State</code></pre>
+
+
+</section>
+
+		<section id="WorldJob" class="doc-node">
+			<div class="title"><h2>interface WorldJob <a href="#WorldJob">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">WorldJob</span> <span class="token punctuation">{</span>
+	<span class="token function">run</span><span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="State" class="doc-node">
+			<div class="title"><h2>enum State <a href="#State">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">enum</span> <span class="token symbol">State</span> <span class="token punctuation">{</span>
+	handshake
+	login
+	resource_packs
+	play
+	closed
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender" class="doc-node">
+			<div class="title"><h2>struct ConsoleSender <a href="#ConsoleSender">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">ConsoleSender</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	hub <span class="token operator">&amp;</span>Hub
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	log <span class="token operator">&amp;</span>logger<span class="token punctuation">.</span>Logger <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<p>ConsoleSender adapts the server console to the cmd.Sender interface. It has every permission and writes command output to the server log.</p>
+
+</section>
+
+		<section id="ConsoleSender.broadcast_message" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) broadcast_message <a href="#ConsoleSender.broadcast_message">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">broadcast_message</span><span class="token punctuation">(</span>text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.broadcast_title" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) broadcast_title <a href="#ConsoleSender.broadcast_title">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">broadcast_title</span><span class="token punctuation">(</span>kind <span class="token builtin">int</span><span class="token punctuation">,</span> text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.clear_inventory" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) clear_inventory <a href="#ConsoleSender.clear_inventory">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">clear_inventory</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.clear_scoreboard" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) clear_scoreboard <a href="#ConsoleSender.clear_scoreboard">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">clear_scoreboard</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.find_player" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) find_player <a href="#ConsoleSender.find_player">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">find_player</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>cmd<span class="token punctuation">.</span>Sender</code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.give_item" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) give_item <a href="#ConsoleSender.give_item">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">give_item</span><span class="token punctuation">(</span>id <span class="token builtin">string</span><span class="token punctuation">,</span> count <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.has_permission" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) has_permission <a href="#ConsoleSender.has_permission">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>c <span class="token operator">&amp;</span>ConsoleSender<span class="token punctuation">)</span> <span class="token function">has_permission</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.is_player" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) is_player <a href="#ConsoleSender.is_player">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>c <span class="token operator">&amp;</span>ConsoleSender<span class="token punctuation">)</span> <span class="token function">is_player</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.kill" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) kill <a href="#ConsoleSender.kill">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">kill</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.name" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) name <a href="#ConsoleSender.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>c <span class="token operator">&amp;</span>ConsoleSender<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.place_water" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) place_water <a href="#ConsoleSender.place_water">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">place_water</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.position" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) position <a href="#ConsoleSender.position">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">(</span><span class="token builtin">f32</span><span class="token punctuation">,</span> <span class="token builtin">f32</span><span class="token punctuation">,</span> <span class="token builtin">f32</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.send_form" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) send_form <a href="#ConsoleSender.send_form">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">send_form</span><span class="token punctuation">(</span>f form<span class="token punctuation">.</span>Form<span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.send_message" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) send_message <a href="#ConsoleSender.send_message">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">send_message</span><span class="token punctuation">(</span>message <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.send_translation" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) send_translation <a href="#ConsoleSender.send_translation">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">send_translation</span><span class="token punctuation">(</span>key <span class="token builtin">string</span><span class="token punctuation">,</span> parameters <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.set_difficulty" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) set_difficulty <a href="#ConsoleSender.set_difficulty">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">set_difficulty</span><span class="token punctuation">(</span>value <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.set_gamemode" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) set_gamemode <a href="#ConsoleSender.set_gamemode">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">set_gamemode</span><span class="token punctuation">(</span>mode <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.set_operator" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) set_operator <a href="#ConsoleSender.set_operator">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">set_operator</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span></code></pre>
+<p>The console itself is never a valid target for these (find_player never resolves to a ConsoleSender) but every Sender must implement the full interface.</p>
+
+</section>
+
+		<section id="ConsoleSender.show_scoreboard" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) show_scoreboard <a href="#ConsoleSender.show_scoreboard">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">show_scoreboard</span><span class="token punctuation">(</span>title <span class="token builtin">string</span><span class="token punctuation">,</span> lines <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.show_title" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) show_title <a href="#ConsoleSender.show_title">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">show_title</span><span class="token punctuation">(</span>kind <span class="token builtin">int</span><span class="token punctuation">,</span> text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.teleport" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) teleport <a href="#ConsoleSender.teleport">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">teleport</span><span class="token punctuation">(</span>x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.whitelist_add" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) whitelist_add <a href="#ConsoleSender.whitelist_add">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">whitelist_add</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.whitelist_enabled" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) whitelist_enabled <a href="#ConsoleSender.whitelist_enabled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>c <span class="token operator">&amp;</span>ConsoleSender<span class="token punctuation">)</span> <span class="token function">whitelist_enabled</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.whitelist_names" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) whitelist_names <a href="#ConsoleSender.whitelist_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>c <span class="token operator">&amp;</span>ConsoleSender<span class="token punctuation">)</span> <span class="token function">whitelist_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.whitelist_remove" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) whitelist_remove <a href="#ConsoleSender.whitelist_remove">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">whitelist_remove</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.whitelist_set_enabled" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) whitelist_set_enabled <a href="#ConsoleSender.whitelist_set_enabled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">whitelist_set_enabled</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.world_create" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) world_create <a href="#ConsoleSender.world_create">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">world_create</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> dimension <span class="token builtin">string</span><span class="token punctuation">,</span> generator <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.world_delete" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) world_delete <a href="#ConsoleSender.world_delete">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">world_delete</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.world_info" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) world_info <a href="#ConsoleSender.world_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">world_info</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>cmd<span class="token punctuation">.</span>WorldSummary</code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.world_load" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) world_load <a href="#ConsoleSender.world_load">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">world_load</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.world_names" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) world_names <a href="#ConsoleSender.world_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">world_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="ConsoleSender.world_teleport" class="doc-node">
+			<div class="title"><h2>fn (ConsoleSender) world_teleport <a href="#ConsoleSender.world_teleport">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c ConsoleSender<span class="token punctuation">)</span> <span class="token function">world_teleport</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="Hub" class="doc-node">
+			<div class="title"><h2>struct Hub <a href="#Hub">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Hub</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	sessions        <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span><span class="token operator">&amp;</span>NetworkSession
+	mutex           <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	next_runtime_id <span class="token builtin">u64</span>         <span class="token operator">=</span> <span class="token number">1</span>
+	<span class="token comment">// jobs is the only door into gameplay-mutable state that spans sessions</span>
+	<span class="token comment">// (combat, targeted /gamemode, etc.). run_jobs() is the sole consumer.</span>
+	jobs         <span class="token builtin">chan</span> WorldJob             <span class="token operator">=</span> <span class="token builtin">chan</span> <span class="token symbol">WorldJob</span><span class="token punctuation">{</span>cap<span class="token punctuation">:</span> <span class="token number">256</span><span class="token punctuation">}</span>
+	tps_bits     <span class="token operator">&amp;</span>stdatomic<span class="token punctuation">.</span>AtomicVal<span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span> <span class="token operator">=</span> stdatomic<span class="token punctuation">.</span>new_atomic<span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span><span class="token punctuation">(</span>math<span class="token punctuation">.</span><span class="token function">f64_bits</span><span class="token punctuation">(</span><span class="token number">20.0</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+	load_bits    <span class="token operator">&amp;</span>stdatomic<span class="token punctuation">.</span>AtomicVal<span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span> <span class="token operator">=</span> stdatomic<span class="token punctuation">.</span>new_atomic<span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+	online_count <span class="token operator">&amp;</span>stdatomic<span class="token punctuation">.</span>AtomicVal<span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span> <span class="token operator">=</span> stdatomic<span class="token punctuation">.</span>new_atomic<span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	world_time         <span class="token builtin">int</span>
+	data               gamedata<span class="token punctuation">.</span>GameData
+	items              item<span class="token punctuation">.</span>Registry                <span class="token operator">=</span> item<span class="token punctuation">.</span><span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	blocks             block<span class="token punctuation">.</span>Registry               <span class="token operator">=</span> block<span class="token punctuation">.</span><span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	lang               <span class="token operator">&amp;</span>language<span class="token punctuation">.</span>Lang               <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	commands           cmd<span class="token punctuation">.</span>Registry                 <span class="token operator">=</span> cmd<span class="token punctuation">.</span><span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	events             <span class="token operator">&amp;</span>event<span class="token punctuation">.</span>Bus                   <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	scheduler          <span class="token operator">&amp;</span>scheduler<span class="token punctuation">.</span>Scheduler         <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	entities           <span class="token operator">&amp;</span>entity<span class="token punctuation">.</span>Manager              <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	liquids            <span class="token operator">&amp;</span>liquid<span class="token punctuation">.</span>LiquidManager        <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	entity_registry    entity<span class="token punctuation">.</span>Registry              <span class="token operator">=</span> entity<span class="token punctuation">.</span><span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	custom_items       item<span class="token punctuation">.</span>CustomRegistry          <span class="token operator">=</span> item<span class="token punctuation">.</span><span class="token function">new_custom_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	custom_blocks      block<span class="token punctuation">.</span>CustomRegistry         <span class="token operator">=</span> block<span class="token punctuation">.</span><span class="token function">new_custom_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	custom_entities    entity<span class="token punctuation">.</span>CustomRegistry        <span class="token operator">=</span> entity<span class="token punctuation">.</span><span class="token function">new_custom_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	enchantments       enchant<span class="token punctuation">.</span>Registry             <span class="token operator">=</span> enchant<span class="token punctuation">.</span><span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	generators         blockworld<span class="token punctuation">.</span>GeneratorRegistry <span class="token operator">=</span> blockworld<span class="token punctuation">.</span><span class="token function">new_generator_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	current_tick       <span class="token builtin">i64</span>
+	started_at         <span class="token builtin">i64</span>
+	worlds             <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token operator">&amp;</span>db<span class="token punctuation">.</span>World
+	default_world_name <span class="token builtin">string</span>
+	<span class="token comment">// worlds_dir is the on-disk root for world folders and world_generator the</span>
+	<span class="token comment">// fallback generator name for freshly created worlds. Both are set at boot.</span>
+	worlds_dir      <span class="token builtin">string</span>                   <span class="token operator">=</span> <span class="token string">'worlds'</span>
+	world_generator <span class="token builtin">string</span>                   <span class="token operator">=</span> <span class="token string">'flat'</span>
+	packs           <span class="token operator">&amp;</span>resource<span class="token punctuation">.</span>PackRegistry   <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	palette         <span class="token operator">&amp;</span>blockworld<span class="token punctuation">.</span>BlockPalette <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	ops             permission<span class="token punctuation">.</span>OpList
+	player_grants   permission<span class="token punctuation">.</span>PlayerGrants
+	whitelist       permission<span class="token punctuation">.</span>Whitelist
+	<span class="token comment">// needs vedrock.yml storage.</span>
+	difficulty <span class="token builtin">int</span> <span class="token operator">=</span> protocol<span class="token punctuation">.</span>difficulty_easy
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.add" class="doc-node">
+			<div class="title"><h2>fn (Hub) add <a href="#Hub.add">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">add</span><span class="token punctuation">(</span>target <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.add_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) add_world <a href="#Hub.add_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">add_world</span><span class="token punctuation">(</span>loaded_world <span class="token operator">&amp;</span>db<span class="token punctuation">.</span>World<span class="token punctuation">)</span></code></pre>
+<p>add_world registers a loaded world under its name. The first world added becomes the default unless one is already set.</p>
+
+</section>
+
+		<section id="Hub.allocate_runtime_id" class="doc-node">
+			<div class="title"><h2>fn (Hub) allocate_runtime_id <a href="#Hub.allocate_runtime_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">allocate_runtime_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u64</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.broadcast" class="doc-node">
+			<div class="title"><h2>fn (Hub) broadcast <a href="#Hub.broadcast">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">broadcast</span><span class="token punctuation">(</span>p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.broadcast_except" class="doc-node">
+			<div class="title"><h2>fn (Hub) broadcast_except <a href="#Hub.broadcast_except">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">broadcast_except</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.broadcast_message" class="doc-node">
+			<div class="title"><h2>fn (Hub) broadcast_message <a href="#Hub.broadcast_message">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">broadcast_message</span><span class="token punctuation">(</span>text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+<p>broadcast_message sends a raw chat line to every connected player. Part of the plugin.ServerView surface.</p>
+
+</section>
+
+		<section id="Hub.broadcast_near" class="doc-node">
+			<div class="title"><h2>fn (Hub) broadcast_near <a href="#Hub.broadcast_near">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">broadcast_near</span><span class="token punctuation">(</span>x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">,</span> radius <span class="token builtin">f32</span><span class="token punctuation">,</span> p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span></code></pre>
+<p>broadcast_near delivers p only to players whose position is within radius of the point (x, y, z). Used by the entity Manager for view-distance culling so spawn and move packets never reach players too far away to render the entity. Distance is compared squared to skip the sqrt.</p>
+
+</section>
+
+		<section id="Hub.build_generator" class="doc-node">
+			<div class="title"><h2>fn (Hub) build_generator <a href="#Hub.build_generator">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>h <span class="token operator">&amp;</span>Hub<span class="token punctuation">)</span> <span class="token function">build_generator</span><span class="token punctuation">(</span>w <span class="token operator">&amp;</span>db<span class="token punctuation">.</span>World<span class="token punctuation">)</span> blockworld<span class="token punctuation">.</span>Generator</code></pre>
+<p>build_generator resolves a world's own generator by name and dimension through the registry.</p>
+
+</section>
+
+		<section id="Hub.capture_area" class="doc-node">
+			<div class="title"><h2>fn (Hub) capture_area <a href="#Hub.capture_area">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">capture_area</span><span class="token punctuation">(</span>x1 <span class="token builtin">int</span><span class="token punctuation">,</span> y1 <span class="token builtin">int</span><span class="token punctuation">,</span> z1 <span class="token builtin">int</span><span class="token punctuation">,</span> x2 <span class="token builtin">int</span><span class="token punctuation">,</span> y2 <span class="token builtin">int</span><span class="token punctuation">,</span> z2 <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token operator">&amp;</span>arena<span class="token punctuation">.</span>Snapshot</code></pre>
+<p>capture_area snapshots the block ids over the box between the two corners in the default world. See arena.max_volume for the size cap.</p>
+
+</section>
+
+		<section id="Hub.close_worlds" class="doc-node">
+			<div class="title"><h2>fn (Hub) close_worlds <a href="#Hub.close_worlds">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">close_worlds</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>close_worlds flushes and releases every loaded world's LevelDB handles. Called once on shutdown after all sessions are disconnected.</p>
+
+</section>
+
+		<section id="Hub.collision_boxes" class="doc-node">
+			<div class="title"><h2>fn (Hub) collision_boxes <a href="#Hub.collision_boxes">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">collision_boxes</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>world<span class="token punctuation">.</span>AABB</code></pre>
+
+
+</section>
+
+		<section id="Hub.count" class="doc-node">
+			<div class="title"><h2>fn (Hub) count <a href="#Hub.count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.create_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) create_world <a href="#Hub.create_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">create_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> dim blockworld<span class="token punctuation">.</span>Dimension<span class="token punctuation">,</span> generator <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span><span class="token builtin">string</span></code></pre>
+<p>create_world creates a fresh empty world on disk and registers it as loaded. Refuses to clobber an already-loaded or already-on-disk world. Safe to call off the actor thread - it only adds to the worlds map, never mutates a player's active world.</p>
+
+</section>
+
+		<section id="Hub.custom_block_names" class="doc-node">
+			<div class="title"><h2>fn (Hub) custom_block_names <a href="#Hub.custom_block_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">custom_block_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.custom_entity_names" class="doc-node">
+			<div class="title"><h2>fn (Hub) custom_entity_names <a href="#Hub.custom_entity_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">custom_entity_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.custom_item_names" class="doc-node">
+			<div class="title"><h2>fn (Hub) custom_item_names <a href="#Hub.custom_item_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">custom_item_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.default_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) default_world <a href="#Hub.default_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">default_world</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token operator">&amp;</span>db<span class="token punctuation">.</span>World</code></pre>
+<p>default_world returns the world new players spawn into, or none when no world could be loaded.</p>
+
+</section>
+
+		<section id="Hub.delete_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) delete_world <a href="#Hub.delete_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">delete_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+<p>delete_world unloads the named world and removes its on-disk folder. Refuses the default world and any world that still has players in it. The LevelDB handle is always closed before the files are touched.</p>
+
+</section>
+
+		<section id="Hub.disconnect_all" class="doc-node">
+			<div class="title"><h2>fn (Hub) disconnect_all <a href="#Hub.disconnect_all">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">disconnect_all</span><span class="token punctuation">(</span>message <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.entity_type_names" class="doc-node">
+			<div class="title"><h2>fn (Hub) entity_type_names <a href="#Hub.entity_type_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">entity_type_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>entity_type_names lists every summonable entity type.</p>
+
+</section>
+
+		<section id="Hub.generator_type_names" class="doc-node">
+			<div class="title"><h2>fn (Hub) generator_type_names <a href="#Hub.generator_type_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">generator_type_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>generator_type_names lists every registered generator name. Part of the plugin.ServerView surface.</p>
+
+</section>
+
+		<section id="Hub.get_block" class="doc-node">
+			<div class="title"><h2>fn (Hub) get_block <a href="#Hub.get_block">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">get_block</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>get_block returns the block network id at a position in the default world, preferring a saved override and otherwise falling back to the generator so untouched terrain reads correctly.</p>
+
+</section>
+
+		<section id="Hub.list_worlds" class="doc-node">
+			<div class="title"><h2>fn (Hub) list_worlds <a href="#Hub.list_worlds">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">list_worlds</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>list_worlds returns the names of every loaded world.</p>
+
+</section>
+
+		<section id="Hub.load" class="doc-node">
+			<div class="title"><h2>fn (Hub) load <a href="#Hub.load">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">load</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">f64</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.load_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) load_world <a href="#Hub.load_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">load_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.next_enchantment_id" class="doc-node">
+			<div class="title"><h2>fn (Hub) next_enchantment_id <a href="#Hub.next_enchantment_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">next_enchantment_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>next_enchantment_id returns the next free id in the custom enchantment range.</p>
+
+</section>
+
+		<section id="Hub.on_block_changed" class="doc-node">
+			<div class="title"><h2>fn (Hub) on_block_changed <a href="#Hub.on_block_changed">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">on_block_changed</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>on_block_changed notifies the liquid manager that a block edit happened so nearby water re-evaluates its flow. Cheap and non-blocking - dropped under a full actor queue since the periodic liquid tick will catch up anyway.</p>
+
+</section>
+
+		<section id="Hub.online_count" class="doc-node">
+			<div class="title"><h2>fn (Hub) online_count <a href="#Hub.online_count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">online_count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>online_count is the plugin.ServerView alias for count().</p>
+
+</section>
+
+		<section id="Hub.place_water" class="doc-node">
+			<div class="title"><h2>fn (Hub) place_water <a href="#Hub.place_water">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">place_water</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>place_water sets a water source at the position and enqueues the spread. The write and every spread step run on the actor thread via the liquid tick.</p>
+
+</section>
+
+		<section id="Hub.player_names" class="doc-node">
+			<div class="title"><h2>fn (Hub) player_names <a href="#Hub.player_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">player_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>player_names lists the display names of every connected player. Part of the plugin.ServerView surface.</p>
+
+</section>
+
+		<section id="Hub.players_in_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) players_in_world <a href="#Hub.players_in_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">players_in_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>players_in_world counts the connected players whose active world matches name.</p>
+
+</section>
+
+		<section id="Hub.register_custom_block" class="doc-node">
+			<div class="title"><h2>fn (Hub) register_custom_block <a href="#Hub.register_custom_block">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">register_custom_block</span><span class="token punctuation">(</span>def block<span class="token punctuation">.</span>CustomBlockDefinition<span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>register_custom_block registers a data-driven block definition, allocates its runtime id and adds a matching block class so gameplay lookups (hardness, identifiers) work server-side.</p>
+
+</section>
+
+		<section id="Hub.register_custom_entity" class="doc-node">
+			<div class="title"><h2>fn (Hub) register_custom_entity <a href="#Hub.register_custom_entity">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">register_custom_entity</span><span class="token punctuation">(</span>def entity<span class="token punctuation">.</span>CustomEntityDefinition<span class="token punctuation">,</span> factory entity<span class="token punctuation">.</span>BehaviourFactory<span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>register_custom_entity registers a custom entity type: the definition goes into the AvailableActorIdentifiers list and the factory into the entity registry under the definition's short name, so /summon and spawn_entity work with it.</p>
+
+</section>
+
+		<section id="Hub.register_custom_item" class="doc-node">
+			<div class="title"><h2>fn (Hub) register_custom_item <a href="#Hub.register_custom_item">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">register_custom_item</span><span class="token punctuation">(</span>def item<span class="token punctuation">.</span>CustomItemDefinition<span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>register_custom_item registers a data-driven item definition, allocates its runtime id and exposes it to the item class registry and the numeric id lookup so inventories and creative content resolve it like a vanilla item.</p>
+
+</section>
+
+		<section id="Hub.register_enchantment" class="doc-node">
+			<div class="title"><h2>fn (Hub) register_enchantment <a href="#Hub.register_enchantment">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">register_enchantment</span><span class="token punctuation">(</span>e enchant<span class="token punctuation">.</span>Enchantment<span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>register_enchantment adds an enchantment to the shared registry, returning false when its id or name is already taken.</p>
+
+</section>
+
+		<section id="Hub.register_generator" class="doc-node">
+			<div class="title"><h2>fn (Hub) register_generator <a href="#Hub.register_generator">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">register_generator</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> factory <span class="token keyword">fn</span> <span class="token punctuation">(</span>dim blockworld<span class="token punctuation">.</span>Dimension<span class="token punctuation">)</span> blockworld<span class="token punctuation">.</span>Generator<span class="token punctuation">)</span></code></pre>
+<p>register_generator adds or overrides a named world generator. Part of the plugin.ServerView surface.</p>
+
+</section>
+
+		<section id="Hub.remove" class="doc-node">
+			<div class="title"><h2>fn (Hub) remove <a href="#Hub.remove">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">remove</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.restore_area" class="doc-node">
+			<div class="title"><h2>fn (Hub) restore_area <a href="#Hub.restore_area">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">restore_area</span><span class="token punctuation">(</span>snapshot <span class="token operator">&amp;</span>arena<span class="token punctuation">.</span>Snapshot<span class="token punctuation">)</span></code></pre>
+<p>restore_area writes a snapshot back through the block write path so viewers see the arena reset.</p>
+
+</section>
+
+		<section id="Hub.session_by_name" class="doc-node">
+			<div class="title"><h2>fn (Hub) session_by_name <a href="#Hub.session_by_name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">session_by_name</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token operator">&amp;</span>NetworkSession</code></pre>
+
+
+</section>
+
+		<section id="Hub.session_by_runtime" class="doc-node">
+			<div class="title"><h2>fn (Hub) session_by_runtime <a href="#Hub.session_by_runtime">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">session_by_runtime</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token operator">&amp;</span>NetworkSession</code></pre>
+
+
+</section>
+
+		<section id="Hub.set_block" class="doc-node">
+			<div class="title"><h2>fn (Hub) set_block <a href="#Hub.set_block">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">set_block</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>set_block sets a block by namespaced id in the default world and broadcasts the change. Returns false if name isn't a known block. The name is resolved synchronously; the write itself is routed through the actor thread.</p>
+
+</section>
+
+		<section id="Hub.set_block_id" class="doc-node">
+			<div class="title"><h2>fn (Hub) set_block_id <a href="#Hub.set_block_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">set_block_id</span><span class="token punctuation">(</span>id <span class="token builtin">int</span><span class="token punctuation">,</span> x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>set_block_id writes a raw block network id, used by arena restore. It routes through the same actor-thread write path as set_block.</p>
+
+</section>
+
+		<section id="Hub.set_default_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) set_default_world <a href="#Hub.set_default_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">set_default_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.set_world_config" class="doc-node">
+			<div class="title"><h2>fn (Hub) set_world_config <a href="#Hub.set_world_config">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">set_world_config</span><span class="token punctuation">(</span>worlds_dir <span class="token builtin">string</span><span class="token punctuation">,</span> generator <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+<p>set_world_config records where worlds live on disk and the default generator used for worlds created at runtime. Called once at boot from load_worlds.</p>
+
+</section>
+
+		<section id="Hub.spawn_entity" class="doc-node">
+			<div class="title"><h2>fn (Hub) spawn_entity <a href="#Hub.spawn_entity">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">spawn_entity</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>spawn_entity spawns a registered entity type by name at the given position. Returns false if the type is unknown. Part of the plugin.ServerView surface.</p>
+
+</section>
+
+		<section id="Hub.submit" class="doc-node">
+			<div class="title"><h2>fn (Hub) submit <a href="#Hub.submit">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">submit</span><span class="token punctuation">(</span>job WorldJob<span class="token punctuation">)</span></code></pre>
+<p>submit queues a WorldJob for run_jobs() to execute. Blocks if the queue is full.</p>
+
+</section>
+
+		<section id="Hub.tps" class="doc-node">
+			<div class="title"><h2>fn (Hub) tps <a href="#Hub.tps">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">tps</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">f64</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.try_submit" class="doc-node">
+			<div class="title"><h2>fn (Hub) try_submit <a href="#Hub.try_submit">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">try_submit</span><span class="token punctuation">(</span>job WorldJob<span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>try_submit queues a job without blocking, returning false if the actor queue is full. Used for high-frequency, client- or plugin-driven jobs (attacks, respawns, block edits) so a flood of them can never back up connection threads or stall the tick loop - the excess job is simply dropped.</p>
+
+</section>
+
+		<section id="Hub.unload_world" class="doc-node">
+			<div class="title"><h2>fn (Hub) unload_world <a href="#Hub.unload_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">unload_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+<p>unload_world flushes and releases a loaded world without deleting its files. Refuses the default world and any world that still has players in it.</p>
+
+</section>
+
+		<section id="Hub.uptime_seconds" class="doc-node">
+			<div class="title"><h2>fn (Hub) uptime_seconds <a href="#Hub.uptime_seconds">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>h <span class="token operator">&amp;</span>Hub<span class="token punctuation">)</span> <span class="token function">uptime_seconds</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">i64</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.world" class="doc-node">
+			<div class="title"><h2>fn (Hub) world <a href="#Hub.world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token operator">&amp;</span>db<span class="token punctuation">.</span>World</code></pre>
+
+
+</section>
+
+		<section id="Hub.world_count" class="doc-node">
+			<div class="title"><h2>fn (Hub) world_count <a href="#Hub.world_count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">world_count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="Hub.world_info" class="doc-node">
+			<div class="title"><h2>fn (Hub) world_info <a href="#Hub.world_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h Hub<span class="token punctuation">)</span> <span class="token function">world_info</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>WorldInfo</code></pre>
+<p>world_info gathers a snapshot for the named world, or none when it isn't loaded.</p>
+
+</section>
+
+		<section id="NetworkSession" class="doc-node">
+			<div class="title"><h2>struct NetworkSession <a href="#NetworkSession">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">NetworkSession</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	transport <span class="token operator">&amp;</span>network<span class="token punctuation">.</span>Session <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	hub       <span class="token operator">&amp;</span>Hub             <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	state     State            <span class="token operator">=</span> <span class="token punctuation">.</span>handshake
+	cfg       conf<span class="token punctuation">.</span>Config
+	world     <span class="token operator">&amp;</span>db<span class="token punctuation">.</span>World       <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	generator world<span class="token punctuation">.</span>Generator <span class="token operator">=</span> world<span class="token punctuation">.</span><span class="token symbol">VoidGenerator</span><span class="token punctuation">{</span><span class="token punctuation">}</span>
+	<span class="token comment">// world_mutex guards world and generator - both are swapped from the Hub</span>
+	<span class="token comment">// job thread on a world change while the session thread reads them.</span>
+	world_mutex        <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	identity           auth<span class="token punctuation">.</span>Identity
+	encryption_enabled <span class="token builtin">bool</span>
+	runtime_id         <span class="token builtin">u64</span>
+	pos_mutex          <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	position           types<span class="token punctuation">.</span>Vector3
+	pitch              <span class="token builtin">f32</span>
+	yaw                <span class="token builtin">f32</span>
+	head_yaw           <span class="token builtin">f32</span>
+	spawned            <span class="token builtin">bool</span>
+	inv_opened         <span class="token builtin">bool</span>
+	game_mode          <span class="token builtin">int</span>
+	health             <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">20.0</span>
+	prev_y             <span class="token builtin">f32</span>
+	vy                 <span class="token builtin">f32</span>
+	dead               <span class="token builtin">bool</span>
+	held_item          types<span class="token punctuation">.</span>ItemStackWrapper
+	held_slot          <span class="token builtin">int</span>
+	inv_stacks         <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span>types<span class="token punctuation">.</span>ItemStack
+	inv_slots          <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span><span class="token builtin">int</span>
+	inv_next_id        <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">1</span>
+	pending_creative   <span class="token operator">?</span>types<span class="token punctuation">.</span>ItemStack
+	loaded_items       <span class="token punctuation">[</span><span class="token punctuation">]</span>playerdb<span class="token punctuation">.</span>InvItem
+	pending_radius     <span class="token builtin">int</span>
+	perm               permission<span class="token punctuation">.</span>Permissible
+	give_next_slot     <span class="token builtin">int</span>
+	next_form_id       <span class="token builtin">int</span>
+	pending_forms      <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span>form<span class="token punctuation">.</span>Form
+	last_place_ms      <span class="token builtin">i64</span>
+	effects            effect<span class="token punctuation">.</span>Manager
+	has_last_death     <span class="token builtin">bool</span>
+	last_death_pos     types<span class="token punctuation">.</span>Vector3
+	view_radius        <span class="token builtin">int</span>
+	last_chunk_x       <span class="token builtin">int</span>
+	last_chunk_z       <span class="token builtin">int</span>
+	chunk_cache        <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span>world<span class="token punctuation">.</span>Chunk
+	sent_chunks        <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span><span class="token builtin">bool</span>
+	chunk_cache_mutex  <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	chunk_stream_mutex <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	cooldown_until     <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">i64</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	log <span class="token operator">&amp;</span>logger<span class="token punctuation">.</span>Logger <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.add_effect" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) add_effect <a href="#NetworkSession.add_effect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">add_effect</span><span class="token punctuation">(</span>e effect<span class="token punctuation">.</span>Effect<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.broadcast_message" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) broadcast_message <a href="#NetworkSession.broadcast_message">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">broadcast_message</span><span class="token punctuation">(</span>text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.broadcast_title" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) broadcast_title <a href="#NetworkSession.broadcast_title">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">broadcast_title</span><span class="token punctuation">(</span>kind <span class="token builtin">int</span><span class="token punctuation">,</span> text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.clear_inventory" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) clear_inventory <a href="#NetworkSession.clear_inventory">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">clear_inventory</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.clear_scoreboard" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) clear_scoreboard <a href="#NetworkSession.clear_scoreboard">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">clear_scoreboard</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.deliver" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) deliver <a href="#NetworkSession.deliver">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">deliver</span><span class="token punctuation">(</span>p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.disconnect" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) disconnect <a href="#NetworkSession.disconnect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">disconnect</span><span class="token punctuation">(</span>message <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.find_player" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) find_player <a href="#NetworkSession.find_player">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">find_player</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>cmd<span class="token punctuation">.</span>Sender</code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.give_item" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) give_item <a href="#NetworkSession.give_item">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">give_item</span><span class="token punctuation">(</span>id <span class="token builtin">string</span><span class="token punctuation">,</span> count <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.handle_loop" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) handle_loop <a href="#NetworkSession.handle_loop">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">handle_loop</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.has_permission" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) has_permission <a href="#NetworkSession.has_permission">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>s <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span> <span class="token function">has_permission</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.is_player" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) is_player <a href="#NetworkSession.is_player">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>s <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span> <span class="token function">is_player</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.kill" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) kill <a href="#NetworkSession.kill">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">kill</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.name" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) name <a href="#NetworkSession.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>s <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.place_water" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) place_water <a href="#NetworkSession.place_water">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">place_water</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>place_water sets a water source at the block position and starts its spread. Routes through the actor thread via Hub.place_water.</p>
+
+</section>
+
+		<section id="NetworkSession.position" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) position <a href="#NetworkSession.position">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">(</span><span class="token builtin">f32</span><span class="token punctuation">,</span> <span class="token builtin">f32</span><span class="token punctuation">,</span> <span class="token builtin">f32</span><span class="token punctuation">)</span></code></pre>
+<p>teleport</p>
+
+</section>
+
+		<section id="NetworkSession.refresh_abilities" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) refresh_abilities <a href="#NetworkSession.refresh_abilities">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">refresh_abilities</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.refresh_available_commands" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) refresh_available_commands <a href="#NetworkSession.refresh_available_commands">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">refresh_available_commands</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>refresh_available_commands resends the client's command list. The client only reads permission-gated visibility once (Command.execute checks it live, but the client-side autocomplete/menu does not) - anything that changes what s.perm can do after spawn (op/deop today, a future rank/VIP permission grant tomorrow) must call this or the player's command list stays stale until they reconnect.</p>
+
+</section>
+
+		<section id="NetworkSession.remove_effect" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) remove_effect <a href="#NetworkSession.remove_effect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">remove_effect</span><span class="token punctuation">(</span>typ effect<span class="token punctuation">.</span>Type<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.send_form" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) send_form <a href="#NetworkSession.send_form">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">send_form</span><span class="token punctuation">(</span>f form<span class="token punctuation">.</span>Form<span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.set_difficulty" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) set_difficulty <a href="#NetworkSession.set_difficulty">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">set_difficulty</span><span class="token punctuation">(</span>value <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.set_operator" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) set_operator <a href="#NetworkSession.set_operator">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">set_operator</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.show_scoreboard" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) show_scoreboard <a href="#NetworkSession.show_scoreboard">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">show_scoreboard</span><span class="token punctuation">(</span>title <span class="token builtin">string</span><span class="token punctuation">,</span> lines <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.show_title" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) show_title <a href="#NetworkSession.show_title">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">show_title</span><span class="token punctuation">(</span>kind <span class="token builtin">int</span><span class="token punctuation">,</span> text <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.teleport" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) teleport <a href="#NetworkSession.teleport">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">teleport</span><span class="token punctuation">(</span>x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.teleport_to_world" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) teleport_to_world <a href="#NetworkSession.teleport_to_world">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">teleport_to_world</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">)</span></code></pre>
+<p>teleport_to_world moves the player into another loaded world at the given position. No-op on the hub thread if the world is not loaded.</p>
+
+</section>
+
+		<section id="NetworkSession.whitelist_add" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) whitelist_add <a href="#NetworkSession.whitelist_add">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">whitelist_add</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.whitelist_enabled" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) whitelist_enabled <a href="#NetworkSession.whitelist_enabled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>s <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span> <span class="token function">whitelist_enabled</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.whitelist_names" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) whitelist_names <a href="#NetworkSession.whitelist_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>s <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span> <span class="token function">whitelist_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.whitelist_remove" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) whitelist_remove <a href="#NetworkSession.whitelist_remove">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">whitelist_remove</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.whitelist_set_enabled" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) whitelist_set_enabled <a href="#NetworkSession.whitelist_set_enabled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">whitelist_set_enabled</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.world_create" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_create <a href="#NetworkSession.world_create">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">world_create</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> dimension <span class="token builtin">string</span><span class="token punctuation">,</span> generator <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.world_delete" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_delete <a href="#NetworkSession.world_delete">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">world_delete</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.world_info" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_info <a href="#NetworkSession.world_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">world_info</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>cmd<span class="token punctuation">.</span>WorldSummary</code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.world_load" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_load <a href="#NetworkSession.world_load">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">world_load</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.world_name" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_name <a href="#NetworkSession.world_name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>s <span class="token operator">&amp;</span>NetworkSession<span class="token punctuation">)</span> <span class="token function">world_name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="NetworkSession.world_names" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_names <a href="#NetworkSession.world_names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">world_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>world_admin wires the /world command's needs onto the Hub. Create/delete only touch the worlds map (never a player's active world), so they run directly on the Hub which already guards that map. Teleport goes through the existing TeleportJob so the world swap happens on the actor thread.</p>
+
+</section>
+
+		<section id="NetworkSession.world_teleport" class="doc-node">
+			<div class="title"><h2>fn (NetworkSession) world_teleport <a href="#NetworkSession.world_teleport">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> s NetworkSession<span class="token punctuation">)</span> <span class="token function">world_teleport</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="TickJob" class="doc-node">
+			<div class="title"><h2>struct TickJob <a href="#TickJob">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">TickJob</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	tick       <span class="token builtin">i64</span>
+	world_time <span class="token builtin">int</span>
+	tps        <span class="token builtin">f64</span>
+	load       <span class="token builtin">f64</span>
+<span class="token punctuation">}</span></code></pre>
+<p>TickJob contains the per tick server state passed from tick_loop to Hub. Each snapshot includes the current world time, tps and tick load.</p>
+<p>tick_loop owns the 20 Hz tick cadence and calculates the tps and load metrics on its own thread. It submits one TickJob per tick instead of modifying Hub's fields directly.</p>
+
+</section>
+
+		<section id="WorldInfo" class="doc-node">
+			<div class="title"><h2>struct WorldInfo <a href="#WorldInfo">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">WorldInfo</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	name       <span class="token builtin">string</span>
+	generator  <span class="token builtin">string</span>
+	dimension  <span class="token builtin">string</span>
+	overrides  <span class="token builtin">int</span>
+	is_default <span class="token builtin">bool</span>
+	players    <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>WorldInfo is a read-only snapshot describing a loaded world.</p>
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:59</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#new">fn new</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_console_sender">fn new_console_sender</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_hub">fn new_hub</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#State.from">fn State.from</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#WorldJob">interface WorldJob</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#State">enum State</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#ConsoleSender">struct ConsoleSender</a>        <ul>
+<li><a href="#ConsoleSender.broadcast_message">fn broadcast_message</a></li>
+<li><a href="#ConsoleSender.broadcast_title">fn broadcast_title</a></li>
+<li><a href="#ConsoleSender.clear_inventory">fn clear_inventory</a></li>
+<li><a href="#ConsoleSender.clear_scoreboard">fn clear_scoreboard</a></li>
+<li><a href="#ConsoleSender.find_player">fn find_player</a></li>
+<li><a href="#ConsoleSender.give_item">fn give_item</a></li>
+<li><a href="#ConsoleSender.has_permission">fn has_permission</a></li>
+<li><a href="#ConsoleSender.is_player">fn is_player</a></li>
+<li><a href="#ConsoleSender.kill">fn kill</a></li>
+<li><a href="#ConsoleSender.name">fn name</a></li>
+<li><a href="#ConsoleSender.place_water">fn place_water</a></li>
+<li><a href="#ConsoleSender.position">fn position</a></li>
+<li><a href="#ConsoleSender.send_form">fn send_form</a></li>
+<li><a href="#ConsoleSender.send_message">fn send_message</a></li>
+<li><a href="#ConsoleSender.send_translation">fn send_translation</a></li>
+<li><a href="#ConsoleSender.set_difficulty">fn set_difficulty</a></li>
+<li><a href="#ConsoleSender.set_gamemode">fn set_gamemode</a></li>
+<li><a href="#ConsoleSender.set_operator">fn set_operator</a></li>
+<li><a href="#ConsoleSender.show_scoreboard">fn show_scoreboard</a></li>
+<li><a href="#ConsoleSender.show_title">fn show_title</a></li>
+<li><a href="#ConsoleSender.teleport">fn teleport</a></li>
+<li><a href="#ConsoleSender.whitelist_add">fn whitelist_add</a></li>
+<li><a href="#ConsoleSender.whitelist_enabled">fn whitelist_enabled</a></li>
+<li><a href="#ConsoleSender.whitelist_names">fn whitelist_names</a></li>
+<li><a href="#ConsoleSender.whitelist_remove">fn whitelist_remove</a></li>
+<li><a href="#ConsoleSender.whitelist_set_enabled">fn whitelist_set_enabled</a></li>
+<li><a href="#ConsoleSender.world_create">fn world_create</a></li>
+<li><a href="#ConsoleSender.world_delete">fn world_delete</a></li>
+<li><a href="#ConsoleSender.world_info">fn world_info</a></li>
+<li><a href="#ConsoleSender.world_load">fn world_load</a></li>
+<li><a href="#ConsoleSender.world_names">fn world_names</a></li>
+<li><a href="#ConsoleSender.world_teleport">fn world_teleport</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Hub">struct Hub</a>        <ul>
+<li><a href="#Hub.add">fn add</a></li>
+<li><a href="#Hub.add_world">fn add_world</a></li>
+<li><a href="#Hub.allocate_runtime_id">fn allocate_runtime_id</a></li>
+<li><a href="#Hub.broadcast">fn broadcast</a></li>
+<li><a href="#Hub.broadcast_except">fn broadcast_except</a></li>
+<li><a href="#Hub.broadcast_message">fn broadcast_message</a></li>
+<li><a href="#Hub.broadcast_near">fn broadcast_near</a></li>
+<li><a href="#Hub.build_generator">fn build_generator</a></li>
+<li><a href="#Hub.capture_area">fn capture_area</a></li>
+<li><a href="#Hub.close_worlds">fn close_worlds</a></li>
+<li><a href="#Hub.collision_boxes">fn collision_boxes</a></li>
+<li><a href="#Hub.count">fn count</a></li>
+<li><a href="#Hub.create_world">fn create_world</a></li>
+<li><a href="#Hub.custom_block_names">fn custom_block_names</a></li>
+<li><a href="#Hub.custom_entity_names">fn custom_entity_names</a></li>
+<li><a href="#Hub.custom_item_names">fn custom_item_names</a></li>
+<li><a href="#Hub.default_world">fn default_world</a></li>
+<li><a href="#Hub.delete_world">fn delete_world</a></li>
+<li><a href="#Hub.disconnect_all">fn disconnect_all</a></li>
+<li><a href="#Hub.entity_type_names">fn entity_type_names</a></li>
+<li><a href="#Hub.generator_type_names">fn generator_type_names</a></li>
+<li><a href="#Hub.get_block">fn get_block</a></li>
+<li><a href="#Hub.list_worlds">fn list_worlds</a></li>
+<li><a href="#Hub.load">fn load</a></li>
+<li><a href="#Hub.load_world">fn load_world</a></li>
+<li><a href="#Hub.next_enchantment_id">fn next_enchantment_id</a></li>
+<li><a href="#Hub.on_block_changed">fn on_block_changed</a></li>
+<li><a href="#Hub.online_count">fn online_count</a></li>
+<li><a href="#Hub.place_water">fn place_water</a></li>
+<li><a href="#Hub.player_names">fn player_names</a></li>
+<li><a href="#Hub.players_in_world">fn players_in_world</a></li>
+<li><a href="#Hub.register_custom_block">fn register_custom_block</a></li>
+<li><a href="#Hub.register_custom_entity">fn register_custom_entity</a></li>
+<li><a href="#Hub.register_custom_item">fn register_custom_item</a></li>
+<li><a href="#Hub.register_enchantment">fn register_enchantment</a></li>
+<li><a href="#Hub.register_generator">fn register_generator</a></li>
+<li><a href="#Hub.remove">fn remove</a></li>
+<li><a href="#Hub.restore_area">fn restore_area</a></li>
+<li><a href="#Hub.session_by_name">fn session_by_name</a></li>
+<li><a href="#Hub.session_by_runtime">fn session_by_runtime</a></li>
+<li><a href="#Hub.set_block">fn set_block</a></li>
+<li><a href="#Hub.set_block_id">fn set_block_id</a></li>
+<li><a href="#Hub.set_default_world">fn set_default_world</a></li>
+<li><a href="#Hub.set_world_config">fn set_world_config</a></li>
+<li><a href="#Hub.spawn_entity">fn spawn_entity</a></li>
+<li><a href="#Hub.submit">fn submit</a></li>
+<li><a href="#Hub.tps">fn tps</a></li>
+<li><a href="#Hub.try_submit">fn try_submit</a></li>
+<li><a href="#Hub.unload_world">fn unload_world</a></li>
+<li><a href="#Hub.uptime_seconds">fn uptime_seconds</a></li>
+<li><a href="#Hub.world">fn world</a></li>
+<li><a href="#Hub.world_count">fn world_count</a></li>
+<li><a href="#Hub.world_info">fn world_info</a></li>
+</ul>
+</li>
+<li class="open"><a href="#NetworkSession">struct NetworkSession</a>        <ul>
+<li><a href="#NetworkSession.add_effect">fn add_effect</a></li>
+<li><a href="#NetworkSession.broadcast_message">fn broadcast_message</a></li>
+<li><a href="#NetworkSession.broadcast_title">fn broadcast_title</a></li>
+<li><a href="#NetworkSession.clear_inventory">fn clear_inventory</a></li>
+<li><a href="#NetworkSession.clear_scoreboard">fn clear_scoreboard</a></li>
+<li><a href="#NetworkSession.deliver">fn deliver</a></li>
+<li><a href="#NetworkSession.disconnect">fn disconnect</a></li>
+<li><a href="#NetworkSession.find_player">fn find_player</a></li>
+<li><a href="#NetworkSession.give_item">fn give_item</a></li>
+<li><a href="#NetworkSession.handle_loop">fn handle_loop</a></li>
+<li><a href="#NetworkSession.has_permission">fn has_permission</a></li>
+<li><a href="#NetworkSession.is_player">fn is_player</a></li>
+<li><a href="#NetworkSession.kill">fn kill</a></li>
+<li><a href="#NetworkSession.name">fn name</a></li>
+<li><a href="#NetworkSession.place_water">fn place_water</a></li>
+<li><a href="#NetworkSession.position">fn position</a></li>
+<li><a href="#NetworkSession.refresh_abilities">fn refresh_abilities</a></li>
+<li><a href="#NetworkSession.refresh_available_commands">fn refresh_available_commands</a></li>
+<li><a href="#NetworkSession.remove_effect">fn remove_effect</a></li>
+<li><a href="#NetworkSession.send_form">fn send_form</a></li>
+<li><a href="#NetworkSession.set_difficulty">fn set_difficulty</a></li>
+<li><a href="#NetworkSession.set_operator">fn set_operator</a></li>
+<li><a href="#NetworkSession.show_scoreboard">fn show_scoreboard</a></li>
+<li><a href="#NetworkSession.show_title">fn show_title</a></li>
+<li><a href="#NetworkSession.teleport">fn teleport</a></li>
+<li><a href="#NetworkSession.teleport_to_world">fn teleport_to_world</a></li>
+<li><a href="#NetworkSession.whitelist_add">fn whitelist_add</a></li>
+<li><a href="#NetworkSession.whitelist_enabled">fn whitelist_enabled</a></li>
+<li><a href="#NetworkSession.whitelist_names">fn whitelist_names</a></li>
+<li><a href="#NetworkSession.whitelist_remove">fn whitelist_remove</a></li>
+<li><a href="#NetworkSession.whitelist_set_enabled">fn whitelist_set_enabled</a></li>
+<li><a href="#NetworkSession.world_create">fn world_create</a></li>
+<li><a href="#NetworkSession.world_delete">fn world_delete</a></li>
+<li><a href="#NetworkSession.world_info">fn world_info</a></li>
+<li><a href="#NetworkSession.world_load">fn world_load</a></li>
+<li><a href="#NetworkSession.world_name">fn world_name</a></li>
+<li><a href="#NetworkSession.world_names">fn world_names</a></li>
+<li><a href="#NetworkSession.world_teleport">fn world_teleport</a></li>
+</ul>
+</li>
+<li class="open"><a href="#TickJob">struct TickJob</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#WorldInfo">struct WorldInfo</a>        <ul>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>

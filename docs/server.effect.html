@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.effect | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li class="active"><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.effect" class="doc-node">
+			<div class="title"><h1> server.effect</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> absorption <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">22</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'absorption'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> blindness <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">15</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'blindness'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> conduit_power <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">26</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'conduit_power'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> darkness <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">30</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'darkness'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> ticks_per_second <span class="token operator">=</span> <span class="token number">20</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> fatal_poison <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">25</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'fatal_poison'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> fire_resistance <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">12</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'fire_resistance'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> haste <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">3</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'haste'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> health_boost <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">21</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'health_boost'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> hunger <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">17</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'hunger'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> instant_damage <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>   <span class="token number">7</span>
+	name<span class="token punctuation">:</span> <span class="token string">'instant_damage'</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> instant_health <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>   <span class="token number">6</span>
+	name<span class="token punctuation">:</span> <span class="token string">'instant_health'</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> invisibility <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">14</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'invisibility'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> jump_boost <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">8</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'jump_boost'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> levitation <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">24</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'levitation'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> mining_fatigue <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">4</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'mining_fatigue'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> nausea <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">9</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'nausea'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> night_vision <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">16</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'night_vision'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> poison <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">19</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'poison'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> regeneration <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">10</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'regeneration'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> resistance <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">11</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'resistance'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> saturation <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>   <span class="token number">23</span>
+	name<span class="token punctuation">:</span> <span class="token string">'saturation'</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> slow_falling <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">27</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'slow_falling'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> slowness <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">2</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'slowness'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> speed <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">1</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'speed'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> strength <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">5</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'strength'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> water_breathing <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">13</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'water_breathing'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> weakness <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">18</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'weakness'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> wither <span class="token operator">=</span> <span class="token symbol">Type</span><span class="token punctuation">{</span>
+	id<span class="token punctuation">:</span>      <span class="token number">20</span>
+	name<span class="token punctuation">:</span>    <span class="token string">'wither'</span>
+	lasting<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="new" class="doc-node">
+			<div class="title"><h2>fn new <a href="#new">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">,</span> level <span class="token builtin">int</span><span class="token punctuation">,</span> duration time<span class="token punctuation">.</span>Duration<span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="new_ambient" class="doc-node">
+			<div class="title"><h2>fn new_ambient <a href="#new_ambient">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_ambient</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">,</span> level <span class="token builtin">int</span><span class="token punctuation">,</span> duration time<span class="token punctuation">.</span>Duration<span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="new_infinite" class="doc-node">
+			<div class="title"><h2>fn new_infinite <a href="#new_infinite">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_infinite</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">,</span> level <span class="token builtin">int</span><span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="new_instant" class="doc-node">
+			<div class="title"><h2>fn new_instant <a href="#new_instant">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_instant</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">,</span> level <span class="token builtin">int</span><span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="new_instant_with_potency" class="doc-node">
+			<div class="title"><h2>fn new_instant_with_potency <a href="#new_instant_with_potency">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_instant_with_potency</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">,</span> level <span class="token builtin">int</span><span class="token punctuation">,</span> potency <span class="token builtin">f64</span><span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="new_manager" class="doc-node">
+			<div class="title"><h2>fn new_manager <a href="#new_manager">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_manager</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Manager</code></pre>
+
+
+</section>
+
+		<section id="AddResult" class="doc-node">
+			<div class="title"><h2>struct AddResult <a href="#AddResult">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">AddResult</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	effect   Effect
+	accepted <span class="token builtin">bool</span>
+	stored   <span class="token builtin">bool</span>
+	replaced <span class="token builtin">bool</span>
+	previous Effect
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Effect" class="doc-node">
+			<div class="title"><h2>struct Effect <a href="#Effect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Effect</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	typ              Type
+	level            <span class="token builtin">int</span>
+	duration_ticks   <span class="token builtin">int</span>
+	potency          <span class="token builtin">f64</span> <span class="token operator">=</span> <span class="token number">1.0</span>
+	ambient          <span class="token builtin">bool</span>
+	particles_hidden <span class="token builtin">bool</span>
+	infinite         <span class="token builtin">bool</span>
+	instant          <span class="token builtin">bool</span>
+	tick             <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.without_particles" class="doc-node">
+			<div class="title"><h2>fn (Effect) without_particles <a href="#Effect.without_particles">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">without_particles</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="Effect.effect_type" class="doc-node">
+			<div class="title"><h2>fn (Effect) effect_type <a href="#Effect.effect_type">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">effect_type</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Type</code></pre>
+
+
+</section>
+
+		<section id="Effect.level" class="doc-node">
+			<div class="title"><h2>fn (Effect) level <a href="#Effect.level">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">level</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.duration" class="doc-node">
+			<div class="title"><h2>fn (Effect) duration <a href="#Effect.duration">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">duration</span><span class="token punctuation">(</span><span class="token punctuation">)</span> time<span class="token punctuation">.</span>Duration</code></pre>
+
+
+</section>
+
+		<section id="Effect.duration_ticks" class="doc-node">
+			<div class="title"><h2>fn (Effect) duration_ticks <a href="#Effect.duration_ticks">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">duration_ticks</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.potency" class="doc-node">
+			<div class="title"><h2>fn (Effect) potency <a href="#Effect.potency">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">potency</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">f64</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.ambient" class="doc-node">
+			<div class="title"><h2>fn (Effect) ambient <a href="#Effect.ambient">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">ambient</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.particles_hidden" class="doc-node">
+			<div class="title"><h2>fn (Effect) particles_hidden <a href="#Effect.particles_hidden">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">particles_hidden</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.infinite" class="doc-node">
+			<div class="title"><h2>fn (Effect) infinite <a href="#Effect.infinite">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">infinite</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.instant" class="doc-node">
+			<div class="title"><h2>fn (Effect) instant <a href="#Effect.instant">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">instant</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Effect.tick" class="doc-node">
+			<div class="title"><h2>fn (Effect) tick <a href="#Effect.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="Manager" class="doc-node">
+			<div class="title"><h2>struct Manager <a href="#Manager">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Manager</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	effects <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span>Effect
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Manager.add" class="doc-node">
+			<div class="title"><h2>fn (Manager) add <a href="#Manager.add">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">add</span><span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> Effect</code></pre>
+
+
+</section>
+
+		<section id="Manager.add_result" class="doc-node">
+			<div class="title"><h2>fn (Manager) add_result <a href="#Manager.add_result">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">add_result</span><span class="token punctuation">(</span>e Effect<span class="token punctuation">)</span> AddResult</code></pre>
+
+
+</section>
+
+		<section id="Manager.remove" class="doc-node">
+			<div class="title"><h2>fn (Manager) remove <a href="#Manager.remove">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">remove</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">)</span> <span class="token operator">?</span>Effect</code></pre>
+
+
+</section>
+
+		<section id="Manager.effect" class="doc-node">
+			<div class="title"><h2>fn (Manager) effect <a href="#Manager.effect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>m <span class="token operator">&amp;</span>Manager<span class="token punctuation">)</span> <span class="token function">effect</span><span class="token punctuation">(</span>typ Type<span class="token punctuation">)</span> <span class="token operator">?</span>Effect</code></pre>
+
+
+</section>
+
+		<section id="Manager.effects" class="doc-node">
+			<div class="title"><h2>fn (Manager) effects <a href="#Manager.effects">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>m <span class="token operator">&amp;</span>Manager<span class="token punctuation">)</span> <span class="token function">effects</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>Effect</code></pre>
+
+
+</section>
+
+		<section id="Manager.tick" class="doc-node">
+			<div class="title"><h2>fn (Manager) tick <a href="#Manager.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token punctuation">)</span> TickResult</code></pre>
+
+
+</section>
+
+		<section id="TickResult" class="doc-node">
+			<div class="title"><h2>struct TickResult <a href="#TickResult">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">TickResult</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	active  <span class="token punctuation">[</span><span class="token punctuation">]</span>Effect
+	expired <span class="token punctuation">[</span><span class="token punctuation">]</span>Effect
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Type" class="doc-node">
+			<div class="title"><h2>struct Type <a href="#Type">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Type</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	id      <span class="token builtin">int</span>
+	name    <span class="token builtin">string</span>
+	lasting <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:58</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#new">fn new</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_ambient">fn new_ambient</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_infinite">fn new_infinite</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_instant">fn new_instant</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_instant_with_potency">fn new_instant_with_potency</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_manager">fn new_manager</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#AddResult">struct AddResult</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Effect">struct Effect</a>        <ul>
+<li><a href="#Effect.without_particles">fn without_particles</a></li>
+<li><a href="#Effect.effect_type">fn effect_type</a></li>
+<li><a href="#Effect.level">fn level</a></li>
+<li><a href="#Effect.duration">fn duration</a></li>
+<li><a href="#Effect.duration_ticks">fn duration_ticks</a></li>
+<li><a href="#Effect.potency">fn potency</a></li>
+<li><a href="#Effect.ambient">fn ambient</a></li>
+<li><a href="#Effect.particles_hidden">fn particles_hidden</a></li>
+<li><a href="#Effect.infinite">fn infinite</a></li>
+<li><a href="#Effect.instant">fn instant</a></li>
+<li><a href="#Effect.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Manager">struct Manager</a>        <ul>
+<li><a href="#Manager.add">fn add</a></li>
+<li><a href="#Manager.add_result">fn add_result</a></li>
+<li><a href="#Manager.remove">fn remove</a></li>
+<li><a href="#Manager.effect">fn effect</a></li>
+<li><a href="#Manager.effects">fn effects</a></li>
+<li><a href="#Manager.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#TickResult">struct TickResult</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Type">struct Type</a>        <ul>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>

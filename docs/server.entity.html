@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.entity | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li class="active"><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.entity" class="doc-node">
+			<div class="title"><h1> server.entity</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> custom_entity_runtime_id_start <span class="token operator">=</span> <span class="token number">10000</span></code></pre>
+<p>Runtime ids for custom entity types start above the vanilla list so they never collide with it.</p>
+
+</section>
+
+		<section id="new_custom_registry" class="doc-node">
+			<div class="title"><h2>fn new_custom_registry <a href="#new_custom_registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_custom_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> CustomRegistry</code></pre>
+
+
+</section>
+
+		<section id="new_manager" class="doc-node">
+			<div class="title"><h2>fn new_manager <a href="#new_manager">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_manager</span><span class="token punctuation">(</span>host Host<span class="token punctuation">)</span> <span class="token operator">&amp;</span>Manager</code></pre>
+
+
+</section>
+
+		<section id="new_registry" class="doc-node">
+			<div class="title"><h2>fn new_registry <a href="#new_registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Registry</code></pre>
+
+
+</section>
+
+		<section id="register_defaults" class="doc-node">
+			<div class="title"><h2>fn register_defaults <a href="#register_defaults">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">register_defaults</span><span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span></code></pre>
+<p>register_defaults registers the entity types Vedrock ships with.</p>
+
+</section>
+
+		<section id="Behaviour" class="doc-node">
+			<div class="title"><h2>interface Behaviour <a href="#Behaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Behaviour</span> <span class="token punctuation">{</span>
+	<span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Behaviour drives an Entity's per-tick logic, mirroring dragonfly's Behaviour interface. identifier() returns the network type id used when the entity is spawned for clients; tick() runs once per server tick before physics is applied. A Behaviour mutates the Entity directly (velocity, kill, etc.).</p>
+
+</section>
+
+		<section id="Host" class="doc-node">
+			<div class="title"><h2>interface Host <a href="#Host">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Host</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">broadcast</span><span class="token punctuation">(</span>p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span>
+	<span class="token function">broadcast_near</span><span class="token punctuation">(</span>x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">,</span> radius <span class="token builtin">f32</span><span class="token punctuation">,</span> p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span>
+	<span class="token function">allocate_runtime_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u64</span>
+	<span class="token function">get_block</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">int</span>
+	<span class="token function">collision_boxes</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>world<span class="token punctuation">.</span>AABB
+<span class="token punctuation">}</span></code></pre>
+<p>Host is the slice of the server the entity Manager needs: a broadcaster to send actor packets to every viewer, a radius-limited broadcaster for view-distance culling, the shared runtime-id allocator so entities and players never collide in id space, and a block query for collision. Hub satisfies it.</p>
+
+</section>
+
+		<section id="BehaviourFactory" class="doc-node">
+			<div class="title"><h2>type BehaviourFactory <a href="#BehaviourFactory">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">type</span> BehaviourFactory <span class="token operator">=</span> <span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> Behaviour</code></pre>
+<p>BehaviourFactory builds a fresh Behaviour for a registered entity type. Each spawn gets its own instance so per-entity behaviour state stays isolated.</p>
+
+</section>
+
+		<section id="CustomEntityDefinition" class="doc-node">
+			<div class="title"><h2>struct CustomEntityDefinition <a href="#CustomEntityDefinition">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">CustomEntityDefinition</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	id            <span class="token builtin">string</span>
+	summonable    <span class="token builtin">bool</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+	has_spawn_egg <span class="token builtin">bool</span>
+	runtime_id    <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>CustomEntityDefinition describes an entity type a plugin registers. The definition ends up in the AvailableActorIdentifiersPacket idlist so the client accepts AddActor packets with the custom identifier.</p>
+
+</section>
+
+		<section id="CustomEntityDefinition.short_name" class="doc-node">
+			<div class="title"><h2>fn (CustomEntityDefinition) short_name <a href="#CustomEntityDefinition.short_name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>d <span class="token operator">&amp;</span>CustomEntityDefinition<span class="token punctuation">)</span> <span class="token function">short_name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+<p>short_name derives the registry name from the namespaced id, e.g. 'myplugin:fire_golem' -&gt; 'fire_golem'.</p>
+
+</section>
+
+		<section id="CustomRegistry" class="doc-node">
+			<div class="title"><h2>struct CustomRegistry <a href="#CustomRegistry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">CustomRegistry</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	defs    <span class="token punctuation">[</span><span class="token punctuation">]</span>CustomEntityDefinition
+	ids     <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">int</span>
+	next_id <span class="token builtin">int</span> <span class="token operator">=</span> custom_entity_runtime_id_start
+<span class="token punctuation">}</span></code></pre>
+<p>CustomRegistry owns every registered custom entity definition and hands out runtime ids sequentially, starting at custom_entity_runtime_id_start.</p>
+
+</section>
+
+		<section id="CustomRegistry.register" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) register <a href="#CustomRegistry.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r CustomRegistry<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>def CustomEntityDefinition<span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>register allocates a runtime id for def and stores it, returning false when the id was already registered.</p>
+
+</section>
+
+		<section id="CustomRegistry.all" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) all <a href="#CustomRegistry.all">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>CustomEntityDefinition</code></pre>
+
+
+</section>
+
+		<section id="CustomRegistry.len" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) len <a href="#CustomRegistry.len">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="CustomRegistry.names" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) names <a href="#CustomRegistry.names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="CustomRegistry.identifiers_nbt" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) identifiers_nbt <a href="#CustomRegistry.identifiers_nbt">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">identifiers_nbt</span><span class="token punctuation">(</span><span class="token punctuation">)</span> nbt<span class="token punctuation">.</span>RootTag</code></pre>
+<p>identifiers_nbt builds the AvailableActorIdentifiers root tag: an idlist of one compound per custom entity, in the format the client expects.</p>
+
+</section>
+
+		<section id="Entity" class="doc-node">
+			<div class="title"><h2>struct Entity <a href="#Entity">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Entity</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	unique_id  <span class="token builtin">i64</span>
+	runtime_id <span class="token builtin">u64</span>
+	identifier <span class="token builtin">string</span> <span class="token comment">// network type id, e.g. &#39;minecraft:pig&#39;</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	pos        types<span class="token punctuation">.</span>Vector3
+	velocity   types<span class="token punctuation">.</span>Vector3
+	pitch      <span class="token builtin">f32</span>
+	yaw        <span class="token builtin">f32</span>
+	head_yaw   <span class="token builtin">f32</span>
+	floor_y    <span class="token builtin">f32</span>
+	on_ground  <span class="token builtin">bool</span>
+	no_gravity <span class="token builtin">bool</span>
+	health     <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">20.0</span>
+	dead       <span class="token builtin">bool</span>
+	age        <span class="token builtin">i64</span>
+	behaviour  Behaviour
+<span class="token punctuation">}</span></code></pre>
+<p>Entity is a non-player actor living in the world - a mob, item or projectile. It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable Behaviour that drives its per-tick logic. Players stay as NetworkSession; this system covers everything else the client renders as an actor.</p>
+
+</section>
+
+		<section id="Entity.position" class="doc-node">
+			<div class="title"><h2>fn (Entity) position <a href="#Entity.position">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>Vector3</code></pre>
+<p>position returns the entity's current position.</p>
+
+</section>
+
+		<section id="Entity.is_dead" class="doc-node">
+			<div class="title"><h2>fn (Entity) is_dead <a href="#Entity.is_dead">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">is_dead</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>is_dead reports whether the entity is scheduled for removal.</p>
+
+</section>
+
+		<section id="Entity.kill" class="doc-node">
+			<div class="title"><h2>fn (Entity) kill <a href="#Entity.kill">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">kill</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>kill marks the entity dead. The Manager removes and despawns it on the next tick.</p>
+
+</section>
+
+		<section id="Entity.set_velocity" class="doc-node">
+			<div class="title"><h2>fn (Entity) set_velocity <a href="#Entity.set_velocity">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">set_velocity</span><span class="token punctuation">(</span>v types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span></code></pre>
+<p>set_velocity replaces the entity's velocity (blocks/tick).</p>
+
+</section>
+
+		<section id="Entity.teleport" class="doc-node">
+			<div class="title"><h2>fn (Entity) teleport <a href="#Entity.teleport">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">teleport</span><span class="token punctuation">(</span>pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span></code></pre>
+<p>teleport moves the entity to pos and resets its ground clamp there.</p>
+
+</section>
+
+		<section id="Entity.spawn_packet" class="doc-node">
+			<div class="title"><h2>fn (Entity) spawn_packet <a href="#Entity.spawn_packet">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">spawn_packet</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>protocol<span class="token punctuation">.</span>AddActorPacket</code></pre>
+<p>spawn_packet builds the AddActorPacket that makes this entity appear for a viewer. Public so the session layer can send it to players joining late.</p>
+
+</section>
+
+		<section id="Entity.move_packet" class="doc-node">
+			<div class="title"><h2>fn (Entity) move_packet <a href="#Entity.move_packet">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">move_packet</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>protocol<span class="token punctuation">.</span>MoveActorAbsolutePacket</code></pre>
+<p>move_packet builds the movement update broadcast each tick the entity moves.</p>
+
+</section>
+
+		<section id="Entity.despawn_packet" class="doc-node">
+			<div class="title"><h2>fn (Entity) despawn_packet <a href="#Entity.despawn_packet">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">despawn_packet</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>protocol<span class="token punctuation">.</span>RemoveActorPacket</code></pre>
+<p>despawn_packet builds the RemoveActorPacket that removes this entity from a viewer.</p>
+
+</section>
+
+		<section id="Manager" class="doc-node">
+			<div class="title"><h2>struct Manager <a href="#Manager">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Manager</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	mutex    <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	entities <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span><span class="token operator">&amp;</span>Entity
+	host     Host
+<span class="token punctuation">}</span></code></pre>
+<p>Manager owns every live non-player Entity. spawn/despawn are safe from any thread (mutex-guarded); tick() runs once per server tick on the Hub actor thread, the same place player state is mutated.</p>
+
+</section>
+
+		<section id="Manager.spawn" class="doc-node">
+			<div class="title"><h2>fn (Manager) spawn <a href="#Manager.spawn">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token keyword">spawn</span><span class="token punctuation">(</span>behaviour Behaviour<span class="token punctuation">,</span> pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span> <span class="token operator">&amp;</span>Entity</code></pre>
+<p>spawn creates an entity driven by behaviour at pos, registers it and broadcasts its appearance to all viewers. Returns the live Entity.</p>
+
+</section>
+
+		<section id="Manager.despawn" class="doc-node">
+			<div class="title"><h2>fn (Manager) despawn <a href="#Manager.despawn">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">despawn</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+<p>despawn removes the entity with runtime_id and tells viewers to drop it.</p>
+
+</section>
+
+		<section id="Manager.count" class="doc-node">
+			<div class="title"><h2>fn (Manager) count <a href="#Manager.count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>count reports how many entities are alive.</p>
+
+</section>
+
+		<section id="Manager.snapshot" class="doc-node">
+			<div class="title"><h2>fn (Manager) snapshot <a href="#Manager.snapshot">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">snapshot</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token operator">&amp;</span>Entity</code></pre>
+<p>snapshot returns a stable copy of the live entity list. Used to send existing entities to a player who just joined.</p>
+
+</section>
+
+		<section id="Manager.tick" class="doc-node">
+			<div class="title"><h2>fn (Manager) tick <a href="#Manager.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>tick advances every entity one server tick: run its Behaviour, apply physics, remove the dead, and broadcast movement for the ones that moved.</p>
+
+</section>
+
+		<section id="PassiveBehaviour" class="doc-node">
+			<div class="title"><h2>struct PassiveBehaviour <a href="#PassiveBehaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">PassiveBehaviour</span> <span class="token punctuation">{</span>
+	network_id <span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>PassiveBehaviour is a do-nothing behaviour for stationary/idle mobs. Physics still applies, so the entity falls to floor_y and rests there.</p>
+
+</section>
+
+		<section id="PassiveBehaviour.identifier" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) identifier <a href="#PassiveBehaviour.identifier">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="PassiveBehaviour.tick" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) tick <a href="#PassiveBehaviour.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ProjectileBehaviour" class="doc-node">
+			<div class="title"><h2>struct ProjectileBehaviour <a href="#ProjectileBehaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">ProjectileBehaviour</span> <span class="token punctuation">{</span>
+	network_id <span class="token builtin">string</span>
+	max_age    <span class="token builtin">i64</span> <span class="token operator">=</span> <span class="token number">100</span>
+<span class="token punctuation">}</span></code></pre>
+<p>ProjectileBehaviour flies with its initial velocity and despawns when it hits the ground or outlives max_age ticks - the shape of a snowball or egg.</p>
+
+</section>
+
+		<section id="ProjectileBehaviour.identifier" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) identifier <a href="#ProjectileBehaviour.identifier">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="ProjectileBehaviour.tick" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) tick <a href="#ProjectileBehaviour.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Registry" class="doc-node">
+			<div class="title"><h2>struct Registry <a href="#Registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Registry</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	factories <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span>BehaviourFactory
+<span class="token punctuation">}</span></code></pre>
+<p>Registry maps short type names (e.g. 'pig') to Behaviour factories. It is the lookup /summon and plugins use to spawn entities by name.</p>
+
+</section>
+
+		<section id="Registry.register" class="doc-node">
+			<div class="title"><h2>fn (Registry) register <a href="#Registry.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> factory BehaviourFactory<span class="token punctuation">)</span></code></pre>
+<p>register adds a named entity type. Re-registering a name overwrites it.</p>
+
+</section>
+
+		<section id="Registry.create" class="doc-node">
+			<div class="title"><h2>fn (Registry) create <a href="#Registry.create">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">create</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>Behaviour</code></pre>
+<p>create builds a new Behaviour for name, or none if the type is unknown.</p>
+
+</section>
+
+		<section id="Registry.names" class="doc-node">
+			<div class="title"><h2>fn (Registry) names <a href="#Registry.names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>names lists every registered type name.</p>
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:58</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#new_custom_registry">fn new_custom_registry</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_manager">fn new_manager</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_registry">fn new_registry</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#register_defaults">fn register_defaults</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Behaviour">interface Behaviour</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Host">interface Host</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#BehaviourFactory">type BehaviourFactory</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#CustomEntityDefinition">struct CustomEntityDefinition</a>        <ul>
+<li><a href="#CustomEntityDefinition.short_name">fn short_name</a></li>
+</ul>
+</li>
+<li class="open"><a href="#CustomRegistry">struct CustomRegistry</a>        <ul>
+<li><a href="#CustomRegistry.register">fn register</a></li>
+<li><a href="#CustomRegistry.all">fn all</a></li>
+<li><a href="#CustomRegistry.len">fn len</a></li>
+<li><a href="#CustomRegistry.names">fn names</a></li>
+<li><a href="#CustomRegistry.identifiers_nbt">fn identifiers_nbt</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Entity">struct Entity</a>        <ul>
+<li><a href="#Entity.position">fn position</a></li>
+<li><a href="#Entity.is_dead">fn is_dead</a></li>
+<li><a href="#Entity.kill">fn kill</a></li>
+<li><a href="#Entity.set_velocity">fn set_velocity</a></li>
+<li><a href="#Entity.teleport">fn teleport</a></li>
+<li><a href="#Entity.spawn_packet">fn spawn_packet</a></li>
+<li><a href="#Entity.move_packet">fn move_packet</a></li>
+<li><a href="#Entity.despawn_packet">fn despawn_packet</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Manager">struct Manager</a>        <ul>
+<li><a href="#Manager.spawn">fn spawn</a></li>
+<li><a href="#Manager.despawn">fn despawn</a></li>
+<li><a href="#Manager.count">fn count</a></li>
+<li><a href="#Manager.snapshot">fn snapshot</a></li>
+<li><a href="#Manager.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#PassiveBehaviour">struct PassiveBehaviour</a>        <ul>
+<li><a href="#PassiveBehaviour.identifier">fn identifier</a></li>
+<li><a href="#PassiveBehaviour.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#ProjectileBehaviour">struct ProjectileBehaviour</a>        <ul>
+<li><a href="#ProjectileBehaviour.identifier">fn identifier</a></li>
+<li><a href="#ProjectileBehaviour.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Registry">struct Registry</a>        <ul>
+<li><a href="#Registry.register">fn register</a></li>
+<li><a href="#Registry.create">fn create</a></li>
+<li><a href="#Registry.names">fn names</a></li>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>

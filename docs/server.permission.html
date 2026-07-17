@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.permission | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li class="active"><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.permission" class="doc-node">
+			<div class="title"><h1> server.permission</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> default_permissions_file <span class="token operator">=</span> <span class="token string">'permissions.yml'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> default_player_permissions_file <span class="token operator">=</span> <span class="token string">'player_permissions.yml'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> default_ops_file <span class="token operator">=</span> <span class="token string">'ops.txt'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_version <span class="token operator">=</span> <span class="token string">'vedrock.cmd.version'</span></code></pre>
+<p>Defaults</p>
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_status <span class="token operator">=</span> <span class="token string">'vedrock.cmd.status'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_gamemode_self <span class="token operator">=</span> <span class="token string">'vedrock.cmd.gamemode.self'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_gamemode_other <span class="token operator">=</span> <span class="token string">'vedrock.cmd.gamemode.other'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_op <span class="token operator">=</span> <span class="token string">'vedrock.cmd.op'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_whitelist <span class="token operator">=</span> <span class="token string">'vedrock.cmd.whitelist'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_kill_self <span class="token operator">=</span> <span class="token string">'vedrock.cmd.kill.self'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_kill_other <span class="token operator">=</span> <span class="token string">'vedrock.cmd.kill.other'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_teleport_self <span class="token operator">=</span> <span class="token string">'vedrock.cmd.teleport.self'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_teleport_other <span class="token operator">=</span> <span class="token string">'vedrock.cmd.teleport.other'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_clear_self <span class="token operator">=</span> <span class="token string">'vedrock.cmd.clear.self'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_clear_other <span class="token operator">=</span> <span class="token string">'vedrock.cmd.clear.other'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_give <span class="token operator">=</span> <span class="token string">'vedrock.cmd.give'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_difficulty <span class="token operator">=</span> <span class="token string">'vedrock.cmd.difficulty'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_say <span class="token operator">=</span> <span class="token string">'vedrock.cmd.say'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_title <span class="token operator">=</span> <span class="token string">'vedrock.cmd.title'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> command_world <span class="token operator">=</span> <span class="token string">'vedrock.cmd.world'</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> registry <span class="token operator">=</span> <span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> default_whitelist_file <span class="token operator">=</span> <span class="token string">'whitelist.txt'</span></code></pre>
+
+
+</section>
+
+		<section id="all" class="doc-node">
+			<div class="title"><h2>fn all <a href="#all">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>Permission</code></pre>
+<p>all returns every permission currently known to the shared registry.</p>
+
+</section>
+
+		<section id="load_ops" class="doc-node">
+			<div class="title"><h2>fn load_ops <a href="#load_ops">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">load_ops</span><span class="token punctuation">(</span>path <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>OpList</code></pre>
+
+
+</section>
+
+		<section id="load_permissions_config" class="doc-node">
+			<div class="title"><h2>fn load_permissions_config <a href="#load_permissions_config">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">load_permissions_config</span><span class="token punctuation">(</span>path <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>PermissionsConfig</code></pre>
+
+
+</section>
+
+		<section id="load_player_grants" class="doc-node">
+			<div class="title"><h2>fn load_player_grants <a href="#load_player_grants">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">load_player_grants</span><span class="token punctuation">(</span>path <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>PlayerGrants</code></pre>
+
+
+</section>
+
+		<section id="load_whitelist" class="doc-node">
+			<div class="title"><h2>fn load_whitelist <a href="#load_whitelist">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">load_whitelist</span><span class="token punctuation">(</span>path <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>Whitelist</code></pre>
+
+
+</section>
+
+		<section id="lookup" class="doc-node">
+			<div class="title"><h2>fn lookup <a href="#lookup">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">lookup</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> Permission</code></pre>
+<p>lookup resolves name against the shared registry.</p>
+
+</section>
+
+		<section id="register" class="doc-node">
+			<div class="title"><h2>fn register <a href="#register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">register</span><span class="token punctuation">(</span>perm Permission<span class="token punctuation">)</span></code></pre>
+<p>register adds or replaces a permission definition on the shared registry. Safe to call at any point after startup.</p>
+
+</section>
+
+		<section id="set_default" class="doc-node">
+			<div class="title"><h2>fn set_default <a href="#set_default">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">set_default</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> value DefaultValue<span class="token punctuation">)</span></code></pre>
+<p>set_default overrides a permission's default access level on the shared registry. Safe to call at any point after startup.</p>
+
+</section>
+
+		<section id="DefaultValue.from" class="doc-node">
+			<div class="title"><h2>fn DefaultValue.from <a href="#DefaultValue.from">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> DefaultValue<span class="token punctuation">.</span>from<span class="token punctuation">[</span><span class="token builtin">W</span><span class="token punctuation">]</span><span class="token punctuation">(</span>input <span class="token builtin">W</span><span class="token punctuation">)</span> <span class="token operator">!</span>DefaultValue</code></pre>
+
+
+</section>
+
+		<section id="DefaultValue" class="doc-node">
+			<div class="title"><h2>enum DefaultValue <a href="#DefaultValue">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">enum</span> <span class="token symbol">DefaultValue</span> <span class="token punctuation">{</span>
+	granted <span class="token comment">// everyone has it</span>
+	denied  <span class="token comment">// nobody has it unless explicitly granted</span>
+	op      <span class="token comment">// only operators have it</span>
+	not_op  <span class="token comment">// everyone except operators has it</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="DefaultValue.str" class="doc-node">
+			<div class="title"><h2>fn (DefaultValue) str <a href="#DefaultValue.str">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>v DefaultValue<span class="token punctuation">)</span> <span class="token function">str</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="OpList" class="doc-node">
+			<div class="title"><h2>struct OpList <a href="#OpList">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">OpList</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	path  <span class="token builtin">string</span>
+	names <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="OpList.is_op" class="doc-node">
+			<div class="title"><h2>fn (OpList) is_op <a href="#OpList.is_op">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>o <span class="token operator">&amp;</span>OpList<span class="token punctuation">)</span> <span class="token function">is_op</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="OpList.add" class="doc-node">
+			<div class="title"><h2>fn (OpList) add <a href="#OpList.add">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> o OpList<span class="token punctuation">)</span> <span class="token function">add</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="OpList.remove" class="doc-node">
+			<div class="title"><h2>fn (OpList) remove <a href="#OpList.remove">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> o OpList<span class="token punctuation">)</span> <span class="token function">remove</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="Permissible" class="doc-node">
+			<div class="title"><h2>struct Permissible <a href="#Permissible">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Permissible</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	is_op     <span class="token builtin">bool</span>
+	overrides <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Permissible is attached to a player-session (or console) and answers permission checks for it. An explicit override always wins; otherwise the permission's own default (granted / denied / op / not_op) decides based on whether this Permissible is currently operator.</p>
+
+</section>
+
+		<section id="Permissible.op" class="doc-node">
+			<div class="title"><h2>fn (Permissible) op <a href="#Permissible.op">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>p <span class="token operator">&amp;</span>Permissible<span class="token punctuation">)</span> <span class="token function">op</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Permissible.set_op" class="doc-node">
+			<div class="title"><h2>fn (Permissible) set_op <a href="#Permissible.set_op">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> p Permissible<span class="token punctuation">)</span> <span class="token function">set_op</span><span class="token punctuation">(</span>op <span class="token builtin">bool</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Permissible.has_permission" class="doc-node">
+			<div class="title"><h2>fn (Permissible) has_permission <a href="#Permissible.has_permission">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>p <span class="token operator">&amp;</span>Permissible<span class="token punctuation">)</span> <span class="token function">has_permission</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>has_permission checks name against any explicit override first, then falls back to the permission's registered default.</p>
+
+</section>
+
+		<section id="Permissible.set_permission" class="doc-node">
+			<div class="title"><h2>fn (Permissible) set_permission <a href="#Permissible.set_permission">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> p Permissible<span class="token punctuation">)</span> <span class="token function">set_permission</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> value <span class="token builtin">bool</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Permissible.unset_permission" class="doc-node">
+			<div class="title"><h2>fn (Permissible) unset_permission <a href="#Permissible.unset_permission">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> p Permissible<span class="token punctuation">)</span> <span class="token function">unset_permission</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Permission" class="doc-node">
+			<div class="title"><h2>struct Permission <a href="#Permission">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Permission</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	name        <span class="token builtin">string</span>
+	description <span class="token builtin">string</span>
+	default     DefaultValue <span class="token operator">=</span> <span class="token punctuation">.</span>denied
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="PermissionsConfig" class="doc-node">
+			<div class="title"><h2>struct PermissionsConfig <a href="#PermissionsConfig">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">PermissionsConfig</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	disabled_commands <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="PlayerGrants" class="doc-node">
+			<div class="title"><h2>struct PlayerGrants <a href="#PlayerGrants">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">PlayerGrants</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	by_key <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token punctuation">]</span>PlayerGrant
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="PlayerGrants.apply" class="doc-node">
+			<div class="title"><h2>fn (PlayerGrants) apply <a href="#PlayerGrants.apply">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>g <span class="token operator">&amp;</span>PlayerGrants<span class="token punctuation">)</span> <span class="token function">apply</span><span class="token punctuation">(</span><span class="token keyword">mut</span> p Permissible<span class="token punctuation">,</span> name <span class="token builtin">string</span><span class="token punctuation">,</span> xuid <span class="token builtin">string</span><span class="token punctuation">,</span> uuid <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Registry" class="doc-node">
+			<div class="title"><h2>struct Registry <a href="#Registry">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Registry</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	permissions <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span>Permission
+<span class="token punctuation">}</span></code></pre>
+<p>Registry is a mutable set of known permissions. The shared <code>registry</code> below is the one every Permissible checks against; register() may be called on it at any time after startup (e.g. by a future plugin)</p>
+
+</section>
+
+		<section id="Registry.register" class="doc-node">
+			<div class="title"><h2>fn (Registry) register <a href="#Registry.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>perm Permission<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Registry.get" class="doc-node">
+			<div class="title"><h2>fn (Registry) get <a href="#Registry.get">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">get</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> Permission</code></pre>
+
+
+</section>
+
+		<section id="Registry.set_default" class="doc-node">
+			<div class="title"><h2>fn (Registry) set_default <a href="#Registry.set_default">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span> <span class="token function">set_default</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> value DefaultValue<span class="token punctuation">)</span></code></pre>
+<p>set_default overrides the default access level of an already-registered permission, preserving its name/description. Registers a bare entry (no description) if name isn't known yet.</p>
+
+</section>
+
+		<section id="Registry.all" class="doc-node">
+			<div class="title"><h2>fn (Registry) all <a href="#Registry.all">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>Permission</code></pre>
+<p>all returns every permission currently known to the registry.</p>
+
+</section>
+
+		<section id="Whitelist" class="doc-node">
+			<div class="title"><h2>struct Whitelist <a href="#Whitelist">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Whitelist</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	path    <span class="token builtin">string</span>
+	enabled <span class="token builtin">bool</span>
+	names   <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Whitelist.is_enabled" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) is_enabled <a href="#Whitelist.is_enabled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>w <span class="token operator">&amp;</span>Whitelist<span class="token punctuation">)</span> <span class="token function">is_enabled</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Whitelist.set_enabled" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) set_enabled <a href="#Whitelist.set_enabled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> w Whitelist<span class="token punctuation">)</span> <span class="token function">set_enabled</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="Whitelist.is_allowed" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) is_allowed <a href="#Whitelist.is_allowed">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>w <span class="token operator">&amp;</span>Whitelist<span class="token punctuation">)</span> <span class="token function">is_allowed</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>is_allowed reports whether name may join: always true while the whitelist is disabled, otherwise only true for names explicitly added.</p>
+
+</section>
+
+		<section id="Whitelist.is_whitelisted" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) is_whitelisted <a href="#Whitelist.is_whitelisted">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>w <span class="token operator">&amp;</span>Whitelist<span class="token punctuation">)</span> <span class="token function">is_whitelisted</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="Whitelist.add" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) add <a href="#Whitelist.add">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> w Whitelist<span class="token punctuation">)</span> <span class="token function">add</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="Whitelist.remove" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) remove <a href="#Whitelist.remove">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> w Whitelist<span class="token punctuation">)</span> <span class="token function">remove</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="Whitelist.names_list" class="doc-node">
+			<div class="title"><h2>fn (Whitelist) names_list <a href="#Whitelist.names_list">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>w <span class="token operator">&amp;</span>Whitelist<span class="token punctuation">)</span> <span class="token function">names_list</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:59</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#all">fn all</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#load_ops">fn load_ops</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#load_permissions_config">fn load_permissions_config</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#load_player_grants">fn load_player_grants</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#load_whitelist">fn load_whitelist</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#lookup">fn lookup</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#register">fn register</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#set_default">fn set_default</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#DefaultValue.from">fn DefaultValue.from</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#DefaultValue">enum DefaultValue</a>        <ul>
+<li><a href="#DefaultValue.str">fn str</a></li>
+</ul>
+</li>
+<li class="open"><a href="#OpList">struct OpList</a>        <ul>
+<li><a href="#OpList.is_op">fn is_op</a></li>
+<li><a href="#OpList.add">fn add</a></li>
+<li><a href="#OpList.remove">fn remove</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Permissible">struct Permissible</a>        <ul>
+<li><a href="#Permissible.op">fn op</a></li>
+<li><a href="#Permissible.set_op">fn set_op</a></li>
+<li><a href="#Permissible.has_permission">fn has_permission</a></li>
+<li><a href="#Permissible.set_permission">fn set_permission</a></li>
+<li><a href="#Permissible.unset_permission">fn unset_permission</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Permission">struct Permission</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#PermissionsConfig">struct PermissionsConfig</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#PlayerGrants">struct PlayerGrants</a>        <ul>
+<li><a href="#PlayerGrants.apply">fn apply</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Registry">struct Registry</a>        <ul>
+<li><a href="#Registry.register">fn register</a></li>
+<li><a href="#Registry.get">fn get</a></li>
+<li><a href="#Registry.set_default">fn set_default</a></li>
+<li><a href="#Registry.all">fn all</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Whitelist">struct Whitelist</a>        <ul>
+<li><a href="#Whitelist.is_enabled">fn is_enabled</a></li>
+<li><a href="#Whitelist.set_enabled">fn set_enabled</a></li>
+<li><a href="#Whitelist.is_allowed">fn is_allowed</a></li>
+<li><a href="#Whitelist.is_whitelisted">fn is_whitelisted</a></li>
+<li><a href="#Whitelist.add">fn add</a></li>
+<li><a href="#Whitelist.remove">fn remove</a></li>
+<li><a href="#Whitelist.names_list">fn names_list</a></li>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>
