@@ -1,13 +1,21 @@
 module db
 
 import os
+import server.world
 
 // load_named opens the world stored under worlds_dir/name and pulls its
 // overrides into memory.
-pub fn load_named(worlds_dir string, name string, generator_name string) !&World {
-	path := os.join_path(worlds_dir, name, 'db')
-	store := open_world(path)!
-	mut w := new_world(name, store, generator_name)
+pub fn load_named(worlds_dir string, name string, generator_name string, dim world.Dimension) !&World {
+	full := os.join_path(worlds_dir, name)
+	mut resolved_generator := generator_name
+	mut resolved_dim := dim
+	if meta := read_world_meta(full) {
+		resolved_generator = meta.generator
+		resolved_dim = world.dimension_by_id(meta.dimension) or { dim }
+	}
+	path := os.join_path(full, 'db')
+	store := open_world(path, resolved_dim)!
+	mut w := new_world(name, store, resolved_generator, resolved_dim)
 	w.load()
 	return w
 }

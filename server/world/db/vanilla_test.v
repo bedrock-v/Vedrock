@@ -1,6 +1,7 @@
 module db
 
 import os
+import server.world
 
 const air_id = -604749536
 const stone_id = -2144268767
@@ -112,18 +113,46 @@ fn test_load_chunk_roundtrip() {
 	dir := os.join_path(os.temp_dir(), 'vedrock_vanilla_test')
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
-	mut store := open_world(dir) or { panic(err) }
+	mut store := open_world(dir, world.overworld) or { panic(err) }
 	mut indices := []int{len: 4096}
 	indices[0] = 1
 	data := build_subchunk(indices, 1, [
 		palette_entry('minecraft:air', {}),
 		palette_entry('minecraft:grass_block', {}),
 	])
-	store.db.put(subchunk_key(3, -2, 0), data)
+	store.db.put(subchunk_key(3, -2, 0, world.overworld), data)
 	chunk := store.load_chunk(3, -2) or { panic('chunk not found') }
 	assert chunk.block_id(0, 0, 0) == grass_id
 	assert chunk.block_id(1, 0, 0) == air_id
 	assert store.load_chunk(9, 9) == none
+	store.close()
+	os.rmdir_all(dir) or {}
+	os.rmdir_all(dir + '_overrides') or {}
+}
+
+fn test_subchunk_key_embeds_dimension_id_for_non_overworld() {
+	overworld_key := subchunk_key(3, -2, 0, world.overworld)
+	nether_key := subchunk_key(3, -2, 0, world.nether)
+	assert overworld_key.len == 10
+	assert nether_key.len == 14
+	assert nether_key[8] == 1 && nether_key[9] == 0 && nether_key[10] == 0 && nether_key[11] == 0
+}
+
+fn test_load_chunk_roundtrip_nether_dimension() {
+	dir := os.join_path(os.temp_dir(), 'vedrock_vanilla_nether_test')
+	os.rmdir_all(dir) or {}
+	os.rmdir_all(dir + '_overrides') or {}
+	mut store := open_world(dir, world.nether) or { panic(err) }
+	mut indices := []int{len: 4096}
+	indices[0] = 1
+	data := build_subchunk(indices, 1, [
+		palette_entry('minecraft:air', {}),
+		palette_entry('minecraft:grass_block', {}),
+	])
+	store.db.put(subchunk_key(3, -2, 0, world.nether), data)
+	chunk := store.load_chunk(3, -2) or { panic('chunk not found') }
+	assert chunk.block_id(0, 0, 0) == grass_id
+	assert chunk.block_id(1, 0, 0) == air_id
 	store.close()
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}

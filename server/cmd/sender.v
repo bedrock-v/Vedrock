@@ -43,7 +43,11 @@ mut:
 	// sender; list/info are read-only snapshots.
 	world_names() []string
 	world_info(name string) ?WorldSummary
-	world_create(name string) !
+	// world_create's dimension and generator are names rather than the
+	// world.Dimension/world.Generator types themselves, so the cmd layer never
+	// depends on the world package directly.
+	world_create(name string, dimension string, generator string) !
+	world_load(name string) !
 	world_delete(name string) !
 	world_teleport(name string) !
 }
@@ -54,6 +58,7 @@ pub struct WorldSummary {
 pub:
 	name       string
 	generator  string
+	dimension  string
 	overrides  int
 	is_default bool
 	players    int

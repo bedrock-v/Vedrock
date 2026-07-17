@@ -10,7 +10,7 @@ pub fn (c WorldCommand) name() string {
 }
 
 pub fn (c WorldCommand) description() string {
-	return 'Manages worlds - list, info, create, delete, tp'
+	return 'Manages worlds - list, info, create, load, delete, tp'
 }
 
 pub fn (c WorldCommand) aliases() []string {
@@ -25,10 +25,19 @@ pub fn (c WorldCommand) arguments() []cmd.Argument {
 	return [
 		cmd.StringEnumArgument{
 			arg_name: 'action'
-			values:   ['list', 'info', 'create', 'delete', 'tp']
+			values:   ['list', 'info', 'create', 'load', 'delete', 'tp']
 		},
 		cmd.StringArgument{
 			arg_name:     'name'
+			arg_optional: true
+		},
+		cmd.StringEnumArgument{
+			arg_name:     'dimension'
+			values:       ['overworld', 'nether', 'end']
+			arg_optional: true
+		},
+		cmd.StringArgument{
+			arg_name:     'generator'
 			arg_optional: true
 		},
 	]
@@ -49,6 +58,9 @@ pub fn (c WorldCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		}
 		'create' {
 			c.create(mut sender, ctx)!
+		}
+		'load' {
+			c.load(mut sender, ctx)!
 		}
 		'delete' {
 			c.delete(mut sender, ctx)!
@@ -88,6 +100,7 @@ fn (c WorldCommand) info(mut sender cmd.Sender, ctx cmd.Context) ! {
 	mut lines := []string{}
 	lines << '§6World: §a${info.name}§r'
 	lines << '§6Generator: §f${info.generator}§r'
+	lines << '§6Dimension: §f${info.dimension}§r'
 	lines << '§6Block overrides: §f${info.overrides}§r'
 	lines << '§6Players: §f${info.players}§r'
 	lines << '§6Default: §f${info.is_default}§r'
@@ -99,7 +112,13 @@ fn (c WorldCommand) create(mut sender cmd.Sender, ctx cmd.Context) ! {
 		sender.send_message(ctx.lang.t('cmd.world.usage'))!
 		return
 	}
-	sender.world_create(name) or {
+	dimension := if ctx.args.len >= 3 && ctx.args[2].trim_space() != '' {
+		ctx.args[2]
+	} else {
+		'overworld'
+	}
+	generator := if ctx.args.len >= 4 { ctx.args[3] } else { '' }
+	sender.world_create(name, dimension, generator) or {
 		sender.send_message(ctx.lang.tf('cmd.world.create_failed', {
 			'Name':   name
 			'Reason': err.msg()
@@ -107,6 +126,23 @@ fn (c WorldCommand) create(mut sender cmd.Sender, ctx cmd.Context) ! {
 		return
 	}
 	sender.send_message(ctx.lang.tf('cmd.world.created', {
+		'Name': name
+	}))!
+}
+
+fn (c WorldCommand) load(mut sender cmd.Sender, ctx cmd.Context) ! {
+	name := c.name_arg(ctx) or {
+		sender.send_message(ctx.lang.t('cmd.world.usage'))!
+		return
+	}
+	sender.world_load(name) or {
+		sender.send_message(ctx.lang.tf('cmd.world.load_failed', {
+			'Name':   name
+			'Reason': err.msg()
+		}))!
+		return
+	}
+	sender.send_message(ctx.lang.tf('cmd.world.loaded', {
 		'Name': name
 	}))!
 }

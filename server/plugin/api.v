@@ -4,6 +4,7 @@ import server.cmd
 import server.event
 import server.scheduler
 import server.arena
+import server.world
 import server.internal.logger
 
 // ServerView is the narrow slice of the running server a plugin is allowed to
@@ -30,6 +31,11 @@ mut:
 	capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) ?&arena.Snapshot
 	// restore_area writes a snapshot back so viewers see the arena reset.
 	restore_area(snapshot &arena.Snapshot)
+	// register_generator adds or overrides a named world generator: a plugin
+	// can add a brand new one or replace a builtin by registering the same name.
+	register_generator(name string, factory fn (dim world.Dimension) world.Generator)
+	// generator_type_names lists every registered generator name.
+	generator_type_names() []string
 }
 
 // Api is the single handle handed to a plugin on enable. Everything a plugin can
@@ -66,4 +72,8 @@ pub fn (mut a Api) run_delayed(task scheduler.Task, delay i64) &scheduler.TaskHa
 // run_repeating schedules task to run every period ticks.
 pub fn (mut a Api) run_repeating(task scheduler.Task, period i64) &scheduler.TaskHandler {
 	return a.scheduler.run_repeating(task, period)
+}
+
+pub fn (mut a Api) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+	a.server.register_generator(name, factory)
 }

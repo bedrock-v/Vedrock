@@ -103,9 +103,37 @@ fn test_flat_chunk_structure() {
 	chunk := generate_flat()
 	assert chunk.section_count() == 1
 	payload := chunk.serialize()
-	assert payload[0] == 8
+	assert payload[0] == 9
 	assert payload[1] == 1
+	assert payload[2] == 252
 	assert payload[payload.len - 1] == 0x00
+}
+
+fn test_serialize_subchunk_matches_full_serialize_for_the_populated_section() {
+	chunk := generate_flat()
+	// The flat generator's one populated section is the overworld's bottom
+	// one (min_y=-64 -> absolute index -4).
+	sub := chunk.serialize_subchunk(-4) or { panic('expected section -4 to resolve') }
+	full := chunk.serialize()
+	for i in 0 .. sub.len {
+		assert sub[i] == full[i]
+	}
+}
+
+fn test_serialize_subchunk_out_of_range_returns_none() {
+	chunk := generate_flat()
+	if _ := chunk.serialize_subchunk(1000) {
+		assert false, 'expected an out-of-range absolute index to return none'
+	}
+}
+
+fn test_chunk_height_map_tracks_highest_non_air_block() {
+	chunk := generate_flat()
+	heights := chunk.height_map()
+	assert heights.len == 256
+	assert heights[0] == overworld.min_y + 3
+	assert heights[15] == overworld.min_y + 3
+	assert heights[255] == overworld.min_y + 3
 }
 
 fn test_generator_selection() {
@@ -121,6 +149,14 @@ fn test_generator_selection() {
 	normal := new_generator('normal')
 	assert normal.uses_blocks() == true
 	assert normal.generate(2, -3).section_count() >= 1
+
+	nether_gen := new_generator('nether')
+	assert nether_gen.biome_at(0, 0) == biome_hell
+	assert nether_gen.block_at(0, nether.max_y(), 0) == bedrock.network_id
+
+	end_gen := new_generator('end')
+	assert end_gen.biome_at(0, 0) == biome_the_end
+	assert end_gen.block_at(2, the_end.min_y + 4, 2) == obsidian.network_id
 }
 
 fn test_block_states_affect_hash() {

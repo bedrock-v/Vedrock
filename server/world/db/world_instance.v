@@ -8,7 +8,8 @@ import server.world
 @[heap]
 pub struct World {
 pub:
-	name string
+	name      string
+	dimension world.Dimension = world.overworld
 mut:
 	store        &WorldStore = unsafe { nil }
 	overrides    map[string]int
@@ -31,9 +32,10 @@ fn override_key(x int, y int, z int) string {
 	return '${x}:${y}:${z}'
 }
 
-pub fn new_world(name string, store &WorldStore, generator_name string) &World {
+pub fn new_world(name string, store &WorldStore, generator_name string, dim world.Dimension) &World {
 	return &World{
 		name:           name
+		dimension:      dim
 		store:          store
 		mutex:          sync.new_mutex()
 		generator_name: generator_name
