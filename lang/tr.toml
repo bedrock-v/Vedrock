@@ -137,10 +137,10 @@ other = '§a"{{.Name}}" dünyası oluşturuldu§r'
 other = '§c"{{.Name}}" oluşturulamadı: {{.Reason}}§r'
 
 [cmd.world.loaded]
-other = "§a\"{{.Name}}\" dünyası yüklendi§r"
+other = '§a"{{.Name}}" dünyası yüklendi§r'
 
 [cmd.world.load_failed]
-other = "§c\"{{.Name}}\" yüklenemedi: {{.Reason}}§r"
+other = '§c"{{.Name}}" yüklenemedi: {{.Reason}}§r'
 
 [cmd.world.deleted]
 other = '§a"{{.Name}}" dünyası silindi§r'
