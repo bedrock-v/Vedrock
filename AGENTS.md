@@ -14,8 +14,8 @@ management API, and a chunk upgrader.
 
 Build ONLY with the pinned compiler - newer V master breaks the build:
 
-- V compiler: `0.5.1` (commit `0c3183c`)
-- vc bootstrap pin: `f461dfeb`
+- V compiler: `0.5.2` (commit `f1ef640`)
+- vc bootstrap pin: `bd654de`
 
 Commands:
 

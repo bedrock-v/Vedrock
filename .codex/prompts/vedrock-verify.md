@@ -29,4 +29,4 @@ show the error.
 Report: check result, test pass/total, and whether it logged "Started successfully". A change
 is done only when steps 1 and 2 are fully green.
 
-Build only with V 0.5.1 (0c3183c). See `AGENTS.md` for the pin and dependency layout.
+Build only with V 0.5.2 (f1ef640). See `AGENTS.md` for the pin and dependency layout.

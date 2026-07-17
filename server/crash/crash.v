@@ -5,7 +5,7 @@ import os
 // v_version_note describes the pinned compiler this build is expected to run
 // under. Kept as a note in the dump so a crash report is self-describing even
 // when the reporter no longer knows which V built the binary.
-pub const v_version_note = 'built with V 0.5.1 (0c3183c)'
+pub const v_version_note = 'built with V 0.5.2 (f1ef640)'
 
 // write_dump writes a timestamped crash report into dir and returns the path it
 // wrote. The timestamp is passed in rather than read from the clock so callers

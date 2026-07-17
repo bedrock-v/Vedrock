@@ -27,4 +27,4 @@ failure and show the error output.
 Report: the check result, test pass/total, and whether the log shows "Started successfully". A
 change is done only when steps 1 and 2 are fully green.
 
-Build only with V 0.5.1 (0c3183c) - see AGENTS.md for the pin and dependency layout.
+Build only with V 0.5.2 (f1ef640) - see AGENTS.md for the pin and dependency layout.

@@ -4,8 +4,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git make gcc libc6-dev libssl-dev ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-ARG V_COMMIT=0c3183c
-ARG VC_COMMIT=f461dfeb
+ARG V_COMMIT=f1ef640
+ARG VC_COMMIT=bd654de
 
 RUN git clone https://github.com/vlang/v /opt/v \
     && git -C /opt/v checkout ${V_COMMIT} \
@@ -16,8 +16,8 @@ RUN git clone https://github.com/vlang/v /opt/v \
     && ln -s /opt/v/v /usr/local/bin/v
 
 ARG NBT_COMMIT=48ba491
-ARG RAKNET_COMMIT=10901e3
-ARG PROTOCOL_COMMIT=9d54e57
+ARG RAKNET_COMMIT=490054c
+ARG PROTOCOL_COMMIT=5140ba6
 ARG LEVELDB_COMMIT=38c6dfc
 
 RUN mkdir -p /opt/deps /root/.vmodules \
@@ -29,16 +29,16 @@ RUN mkdir -p /opt/deps /root/.vmodules \
     && git -C /opt/deps/protocol checkout ${PROTOCOL_COMMIT} \
     && git clone https://github.com/vlang/leveldb /opt/deps/leveldb \
     && git -C /opt/deps/leveldb checkout ${LEVELDB_COMMIT} \
-    && ln -s /opt/deps/nbt /root/.vmodules/nbt \
-    && ln -s /opt/deps/raknet /root/.vmodules/raknet \
-    && ln -s /opt/deps/raknet/message /root/.vmodules/message \
-    && ln -s /opt/deps/protocol/src /root/.vmodules/protocol \
-    && ln -s /opt/deps/leveldb /root/.vmodules/leveldb \
+    && cp -a /opt/deps/nbt /root/.vmodules/nbt \
+    && cp -a /opt/deps/raknet /root/.vmodules/raknet \
+    && cp -a /opt/deps/raknet/message /root/.vmodules/message \
+    && cp -a /opt/deps/protocol/src /root/.vmodules/protocol \
+    && cp -a /opt/deps/leveldb /root/.vmodules/leveldb \
     && v install nepinhum.i18n
 
 WORKDIR /build
 COPY . .
-RUN v -prod . -o vedrock
+RUN v -prod -o vedrock .
 
 FROM debian:bookworm-slim
 
