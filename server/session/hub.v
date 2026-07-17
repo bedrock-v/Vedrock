@@ -65,7 +65,6 @@ pub mut:
 	ops             permission.OpList
 	player_grants   permission.PlayerGrants
 	whitelist       permission.Whitelist
-	// needs vedrock.yml storage.
 	difficulty int = protocol.difficulty_easy
 }
 
