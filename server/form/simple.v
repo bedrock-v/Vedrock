@@ -1,6 +1,6 @@
 module form
 
-import json
+import json2
 
 pub struct SimpleForm {
 mut:
@@ -43,9 +43,9 @@ pub fn (mut f SimpleForm) closed(on_close fn ()) SimpleForm {
 pub fn (f &SimpleForm) request_body() string {
 	mut parts := []string{cap: f.buttons.len}
 	for b in f.buttons {
-		parts << json.encode(b)
+		parts << json2.encode(b, escape_unicode: true)
 	}
-	return '{"type":"form","title":${json.encode(f.title)},"content":${json.encode(f.content)},"buttons":[${parts.join(',')}]}'
+	return '{"type":"form","title":${json2.encode(f.title, escape_unicode: true)},"content":${json2.encode(f.content, escape_unicode: true)},"buttons":[${parts.join(',')}]}'
 }
 
 pub fn (f &SimpleForm) has_network_image() bool {

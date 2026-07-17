@@ -3,6 +3,7 @@ module entity
 import protocol
 import protocol.types
 import server.world
+import server.effect
 
 // gravity and drag are applied per tick to any entity that is not marked
 // no_gravity. Values are in blocks/tick, matching Bedrock's ~0.08 gravity and
@@ -40,6 +41,7 @@ pub mut:
 	dead       bool
 	age        i64
 	behaviour  Behaviour
+	effects    effect.Manager
 }
 
 // position returns the entity's current position.
@@ -61,6 +63,45 @@ pub fn (mut e Entity) kill() {
 // set_velocity replaces the entity's velocity (blocks/tick).
 pub fn (mut e Entity) set_velocity(v types.Vector3) {
 	e.velocity = v
+}
+
+pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime_id u64) {
+	if e.dead || amount <= 0 {
+		return
+	}
+	if !fatal && e.health - amount < 1 {
+		e.health = 1
+	} else {
+		e.health -= amount
+	}
+	if e.health < 0 {
+		e.health = 0
+	}
+	host.broadcast(&protocol.ActorEventPacket{
+		actor_runtime_id: e.runtime_id
+		event_id:         protocol.actor_event_hurt
+		event_data:       0
+	})
+	if e.health <= 0 {
+		e.kill()
+		if mut e.behaviour is DeathBehaviour {
+			e.behaviour.on_death(mut e)
+		}
+		return
+	}
+	if mut e.behaviour is HurtBehaviour {
+		e.behaviour.on_hurt(mut e, amount, source_runtime_id)
+	}
+}
+
+pub fn (mut e Entity) heal(amount f32) {
+	if e.dead || amount <= 0 {
+		return
+	}
+	e.health += amount
+	if e.health > 20 {
+		e.health = 20
+	}
 }
 
 // teleport moves the entity to pos and resets its ground clamp there.

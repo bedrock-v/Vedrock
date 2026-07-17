@@ -48,7 +48,7 @@ mut:
 	register_custom_block(def block.CustomBlockDefinition) int
 	// register_custom_entity registers a custom entity type together with the
 	// Behaviour factory used to spawn it, returning false if the id is taken.
-	register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool
+	register_custom_entity(def entity.CustomEntityDefinition, factory fn () entity.Behaviour) bool
 	// register_enchantment adds an enchantment, returning false if its id or
 	// name is already taken.
 	register_enchantment(e enchant.Enchantment) bool
@@ -111,7 +111,7 @@ pub fn (mut a Api) register_custom_block(def block.CustomBlockDefinition) int {
 
 // register_custom_entity registers a custom entity type with its Behaviour
 // factory, making it spawnable via /summon and spawn_entity.
-pub fn (mut a Api) register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool {
+pub fn (mut a Api) register_custom_entity(def entity.CustomEntityDefinition, factory fn () entity.Behaviour) bool {
 	return a.server.register_custom_entity(def, factory)
 }
 

@@ -1,6 +1,6 @@
 module form
 
-import json
+import json2
 
 pub struct CustomForm {
 mut:
@@ -32,7 +32,7 @@ pub fn (f &CustomForm) request_body() string {
 	for e in f.elements {
 		parts << e.encode()
 	}
-	return '{"type":"custom_form","title":${json.encode(f.title)},"content":[${parts.join(',')}]}'
+	return '{"type":"custom_form","title":${json2.encode(f.title, escape_unicode: true)},"content":[${parts.join(',')}]}'
 }
 
 // has_network_image is always false because custom form elements don't carry images.

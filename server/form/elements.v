@@ -1,6 +1,6 @@
 module form
 
-import json
+import json2
 
 pub type Element = Divider | Dropdown | Header | Input | Label | Slider | StepSlider | Toggle
 
@@ -122,13 +122,13 @@ pub fn step_slider(text string, options []string, default_index int) Element {
 
 fn (e Element) encode() string {
 	match e {
-		Divider { return json.encode(e) }
-		Header { return json.encode(e) }
-		Label { return json.encode(e) }
-		Input { return json.encode(e) }
-		Toggle { return json.encode(e) }
-		Slider { return json.encode(e) }
-		Dropdown { return json.encode(e) }
-		StepSlider { return json.encode(e) }
+		Divider { return json2.encode(e, escape_unicode: true) }
+		Header { return json2.encode(e, escape_unicode: true) }
+		Label { return json2.encode(e, escape_unicode: true) }
+		Input { return json2.encode(e, escape_unicode: true) }
+		Toggle { return json2.encode(e, escape_unicode: true) }
+		Slider { return json2.encode(e, escape_unicode: true) }
+		Dropdown { return json2.encode(e, escape_unicode: true) }
+		StepSlider { return json2.encode(e, escape_unicode: true) }
 	}
 }

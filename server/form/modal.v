@@ -1,6 +1,6 @@
 module form
 
-import json
+import json2
 
 pub struct ModalForm {
 mut:
@@ -38,7 +38,7 @@ pub fn (mut f ModalForm) closed(on_close fn ()) ModalForm {
 }
 
 pub fn (f &ModalForm) request_body() string {
-	return '{"type":"modal","title":${json.encode(f.title)},"content":${json.encode(f.content)},"button1":${json.encode(f.button1)},"button2":${json.encode(f.button2)}}'
+	return '{"type":"modal","title":${json2.encode(f.title, escape_unicode: true)},"content":${json2.encode(f.content, escape_unicode: true)},"button1":${json2.encode(f.button1, escape_unicode: true)},"button2":${json2.encode(f.button2, escape_unicode: true)}}'
 }
 
 // has_network_image is always false because modal form buttons don't carry images.

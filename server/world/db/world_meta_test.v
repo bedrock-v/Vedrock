@@ -48,7 +48,7 @@ fn test_load_named_falls_back_when_meta_file_is_absent() {
 		os.rmdir_all(dir) or {}
 	}
 	name := 'legacy_world'
-	
+
 	full := os.join_path(dir, name)
 	os.mkdir_all(full) or { panic(err) }
 	mut store := open_world(os.join_path(full, 'db'), world.overworld) or { panic(err) }

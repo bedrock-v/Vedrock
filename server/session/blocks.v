@@ -42,7 +42,7 @@ fn (s &NetworkSession) can_interact() bool {
 
 // is_replaceable reports whether block_id is silently overwritten by a
 // placement rather than blocking it (short grass, ferns, etc.).
-//see block.Replaceable.
+// see block.Replaceable.
 fn (s &NetworkSession) is_replaceable(block_id int) bool {
 	b := s.hub.blocks.get(block_id) or { return false }
 	if b is block.Replaceable {
