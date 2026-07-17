@@ -21,6 +21,7 @@ import server.world as blockworld
 import server.world.db
 import server.resource
 import server.permission
+import server.enchant
 
 @[heap]
 pub struct Hub {
@@ -46,6 +47,10 @@ pub mut:
 	entities           &entity.Manager              = unsafe { nil }
 	liquids            &liquid.LiquidManager        = unsafe { nil }
 	entity_registry    entity.Registry              = entity.new_registry()
+	custom_items       item.CustomRegistry          = item.new_custom_registry()
+	custom_blocks      block.CustomRegistry         = block.new_custom_registry()
+	custom_entities    entity.CustomRegistry        = entity.new_custom_registry()
+	enchantments       enchant.Registry             = enchant.new_registry()
 	generators         blockworld.GeneratorRegistry = blockworld.new_generator_registry()
 	current_tick       i64
 	started_at         i64
