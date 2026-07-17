@@ -52,6 +52,9 @@ pub const bedrock = new_block_with_states('minecraft:bedrock', [
 	},
 ])
 pub const dirt = new_block('minecraft:dirt')
+pub const netherrack = new_block('minecraft:netherrack')
+pub const end_stone = new_block('minecraft:end_stone')
+pub const obsidian = new_block('minecraft:obsidian')
 
 pub const coal_ore = new_block('minecraft:coal_ore')
 pub const iron_ore = new_block('minecraft:iron_ore')
@@ -82,9 +85,6 @@ pub const diorite = new_block('minecraft:diorite')
 pub const polished_diorite = new_block('minecraft:polished_diorite')
 pub const granite = new_block('minecraft:granite')
 pub const polished_granite = new_block('minecraft:polished_granite')
-pub const netherrack = new_block('minecraft:netherrack')
-pub const end_stone = new_block('minecraft:end_stone')
-pub const obsidian = new_block('minecraft:obsidian')
 pub const ice = new_block('minecraft:ice')
 pub const snow = new_block('minecraft:snow')
 pub const clay = new_block('minecraft:clay')
@@ -103,6 +103,60 @@ pub const glowstone = new_block('minecraft:glowstone')
 pub const magma_block = new_block('minecraft:magma')
 pub const purpur_block = new_block('minecraft:purpur_block')
 pub const end_bricks = new_block('minecraft:end_bricks')
+
+pub const water = new_block_with_states('minecraft:water', [
+	BlockState{
+		key:       'liquid_depth'
+		kind:      state_kind_int
+		int_value: 0
+	},
+])
+pub const lava = new_block_with_states('minecraft:lava', [
+	BlockState{
+		key:       'liquid_depth'
+		kind:      state_kind_int
+		int_value: 0
+	},
+])
+
+pub const oak_log = new_block_with_states('minecraft:oak_log', [
+	BlockState{
+		key:        'pillar_axis'
+		kind:       state_kind_string
+		string_val: 'y'
+	},
+])
+pub const oak_leaves = new_block_with_states('minecraft:oak_leaves', [
+	BlockState{
+		key:        'persistent_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+	BlockState{
+		key:        'update_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+])
+pub const spruce_log = new_block_with_states('minecraft:spruce_log', [
+	BlockState{
+		key:        'pillar_axis'
+		kind:       state_kind_string
+		string_val: 'y'
+	},
+])
+pub const spruce_leaves = new_block_with_states('minecraft:spruce_leaves', [
+	BlockState{
+		key:        'persistent_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+	BlockState{
+		key:        'update_bit'
+		kind:       state_kind_byte
+		byte_value: 0
+	},
+])
 
 fn block_state_hash(name string, states []BlockState) int {
 	if name == 'minecraft:unknown' {

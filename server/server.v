@@ -42,7 +42,7 @@ fn load_worlds(mut hub session.Hub, cfg conf.Config, log &logger.Logger) {
 		}
 	}
 	for name in names {
-		if w := db.load_named(worlds_dir, name, cfg.generator) {
+		if w := db.load_named(worlds_dir, name, cfg.generator, world.overworld) {
 			hub.add_world(w)
 			log.info('Loaded world "${name}" (${w.block_count()} overrides)')
 		} else {

@@ -40,7 +40,7 @@ fn test_scheduled_tick_fires_exactly_once_after_delay() {
 	}
 	registry.register(water)
 
-	mut w := new_world('test', unsafe { nil }, 'void')
+	mut w := new_world('test', unsafe { nil }, 'void', world.overworld)
 	w.set_block(1, 2, 3, 555001)
 	w.schedule_tick(1, 2, 3, 2)
 
@@ -67,7 +67,7 @@ fn test_random_tick_eventually_fires_for_overridden_block() {
 	}
 	registry.register(crop)
 
-	mut w := new_world('test', unsafe { nil }, 'void')
+	mut w := new_world('test', unsafe { nil }, 'void', world.overworld)
 	w.set_block(5, 5, 5, 555002)
 
 	// The expected number of hits over 50000 ticks is about 36.
@@ -129,7 +129,7 @@ fn test_random_tick_uses_block_left_by_same_tick_scheduled_tick() {
 	registry.register(old_block)
 	registry.register(new_block)
 
-	mut w := new_world('test', unsafe { nil }, 'void')
+	mut w := new_world('test', unsafe { nil }, 'void', world.overworld)
 	for _ in 0 .. 50000 {
 		w.set_block(7, 7, 7, 555010)
 		w.schedule_tick(7, 7, 7, 0)
@@ -164,7 +164,7 @@ fn test_scheduled_tick_without_a_block_change_is_not_reported() {
 	}
 	registry.register(noop)
 
-	mut w := new_world('test', unsafe { nil }, 'void')
+	mut w := new_world('test', unsafe { nil }, 'void', world.overworld)
 	w.set_block(9, 9, 9, 555020)
 	w.schedule_tick(9, 9, 9, 1)
 
@@ -174,8 +174,11 @@ fn test_scheduled_tick_without_a_block_change_is_not_reported() {
 }
 
 fn test_block_id_falls_back_to_generator_without_override() {
-	mut w := new_world('test', unsafe { nil }, 'flat')
-	assert w.block_id(0, -64, 0) == world.stone.network_id
+	mut w := new_world('test', unsafe { nil }, 'flat', world.overworld)
+	// Flat's bottom layer is bedrock (see server/world/generator.v's
+	// FlatGenerator.layers()), not stone - this just needs any known solid
+	// block from the generator to prove the override-fallback path.
+	assert w.block_id(0, -64, 0) == world.bedrock.network_id
 	assert w.block_id(0, 10, 0) == world.air.network_id
 
 	w.set_block(0, -64, 0, world.dirt.network_id)
@@ -184,7 +187,7 @@ fn test_block_id_falls_back_to_generator_without_override() {
 
 fn test_tick_ignores_overridden_blocks_without_ticker_behaviour() {
 	registry := block.new_registry()
-	mut w := new_world('test', unsafe { nil }, 'void')
+	mut w := new_world('test', unsafe { nil }, 'void', world.overworld)
 	w.set_block(0, 0, 0, world.stone.network_id)
 	changed := w.tick(&registry)
 	assert changed.len == 0

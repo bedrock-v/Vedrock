@@ -16,6 +16,15 @@ const place_cooldown_ms = i64(100)
 const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
 
+// dimension returns the player's current world's dimension.
+fn (s &NetworkSession) dimension() world.Dimension {
+	wld := s.current_world()
+	if isnil(wld) {
+		return world.overworld
+	}
+	return wld.dimension
+}
+
 fn (s &NetworkSession) block_at(x int, y int, z int) int {
 	wld, gen := s.world_and_generator()
 	if !isnil(wld) {
@@ -106,7 +115,8 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 			if !s.is_replaceable(clicked_id) {
 				target = neighbor
 			}
-			if target.y < world.dimension_min_y || target.y > world.dimension_max_y {
+			dim := s.dimension()
+			if target.y < dim.min_y || target.y > dim.max_y() {
 				s.resend_block(ut.block_position)
 				s.resend_block(neighbor)
 				return
@@ -398,7 +408,8 @@ fn (s &NetworkSession) door_placement(runtime_id int, pos types.BlockPosition, c
 	}
 	above := face_offset(pos, 1)
 	below := face_offset(pos, 0)
-	if pos.y < world.dimension_min_y || above.y > world.dimension_max_y {
+	dim := s.dimension()
+	if pos.y < dim.min_y || above.y > dim.max_y() {
 		return none
 	}
 	if s.block_at(pos.x, pos.y, pos.z) != world.air.network_id

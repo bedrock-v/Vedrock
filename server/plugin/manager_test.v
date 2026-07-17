@@ -4,6 +4,7 @@ import server.cmd
 import server.event
 import server.scheduler
 import server.arena
+import server.world
 import server.internal.logger
 
 struct FakeView {}
@@ -41,6 +42,12 @@ fn (mut v FakeView) capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int)
 }
 
 fn (mut v FakeView) restore_area(snapshot &arena.Snapshot) {}
+
+fn (mut v FakeView) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {}
+
+fn (mut v FakeView) generator_type_names() []string {
+	return []
+}
 
 struct LoggingPlugin {
 	Base
