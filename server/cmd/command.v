@@ -134,6 +134,7 @@ pub fn (r &Registry) names() []string {
 
 pub fn (r &Registry) available_commands(sender Sender) protocol.AvailableCommandsPacket {
 	mut pkt := protocol.AvailableCommandsPacket{}
+	mut enum_value_index := map[string]u32{}
 	for name, cmd in r.commands {
 		if !visible(cmd, sender) {
 			continue
@@ -145,8 +146,13 @@ pub fn (r &Registry) available_commands(sender Sender) protocol.AvailableCommand
 				enum_index := pkt.enums.len
 				mut value_indices := []u32{}
 				for v in values {
-					value_indices << u32(pkt.enum_values.len)
-					pkt.enum_values << v
+					idx := enum_value_index[v] or {
+						new_idx := u32(pkt.enum_values.len)
+						pkt.enum_values << v
+						enum_value_index[v] = new_idx
+						new_idx
+					}
+					value_indices << idx
 				}
 				pkt.enums << protocol.CommandEnumData{
 					name:          '${name}_${a.name()}'

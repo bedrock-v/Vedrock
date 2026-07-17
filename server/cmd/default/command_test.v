@@ -448,3 +448,39 @@ fn test_available_commands_filtered() {
 	assert pkt.commands.len == 1
 	assert pkt.commands[0].name == 'version'
 }
+
+fn test_available_commands_deduplicates_shared_enum_values() {
+	mut r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	pkt := r.available_commands(sender)
+	mut seen := map[string]bool{}
+	for v in pkt.enum_values {
+		assert !seen[v], 'enum_values contains a duplicate: ${v}'
+		seen[v] = true
+	}
+	mut gamemode_enum := protocol.CommandEnumData{}
+	mut difficulty_enum := protocol.CommandEnumData{}
+	for e in pkt.enums {
+		if e.name == 'gamemode_mode' {
+			gamemode_enum = e
+		}
+		if e.name == 'difficulty_difficulty' {
+			difficulty_enum = e
+		}
+	}
+	assert gamemode_enum.name == 'gamemode_mode'
+	assert difficulty_enum.name == 'difficulty_difficulty'
+	mut gamemode_values := []string{}
+	for idx in gamemode_enum.value_indices {
+		gamemode_values << pkt.enum_values[idx]
+	}
+	mut difficulty_values := []string{}
+	for idx in difficulty_enum.value_indices {
+		difficulty_values << pkt.enum_values[idx]
+	}
+	assert gamemode_values == ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2',
+		'spectator']
+	assert difficulty_values == ['peaceful', 'p', '0', 'easy', 'e', '1', 'normal', 'n', '2', 'hard',
+		'h', '3']
+}
