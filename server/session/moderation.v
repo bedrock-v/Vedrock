@@ -101,10 +101,22 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 	defer {
 		s.chunk_stream_mutex.unlock()
 	}
+	s.transport.send(&protocol.ChunkRadiusUpdatedPacket{
+		radius: radius
+	}) or {}
+	s.transport.send(&protocol.NetworkChunkPublisherUpdatePacket{
+		block_position: types.BlockPosition{int(s.position.x), int(s.position.y), int(s.position.z)}
+		radius:         radius * 16
+		saved_chunks:   []types.ChunkPosition{}
+	}) or {}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
+		return
 	}
 	s.remember_chunk_window(radius)
+	s.transport.send(&protocol.PlayStatusPacket{
+		status: 3
+	}) or {}
 }
 
 pub fn (s &NetworkSession) world_name() string {
