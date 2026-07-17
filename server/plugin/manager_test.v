@@ -5,6 +5,10 @@ import server.event
 import server.scheduler
 import server.arena
 import server.world
+import server.item
+import server.block
+import server.entity
+import server.enchant
 import server.internal.logger
 
 struct FakeView {}
@@ -46,6 +50,38 @@ fn (mut v FakeView) restore_area(snapshot &arena.Snapshot) {}
 fn (mut v FakeView) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {}
 
 fn (mut v FakeView) generator_type_names() []string {
+	return []
+}
+
+fn (mut v FakeView) register_custom_item(def item.CustomItemDefinition) int {
+	return 0
+}
+
+fn (mut v FakeView) register_custom_block(def block.CustomBlockDefinition) int {
+	return 0
+}
+
+fn (mut v FakeView) register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool {
+	return false
+}
+
+fn (mut v FakeView) register_enchantment(e enchant.Enchantment) bool {
+	return false
+}
+
+fn (mut v FakeView) next_enchantment_id() int {
+	return enchant.custom_enchantment_id_start
+}
+
+fn (mut v FakeView) custom_item_names() []string {
+	return []
+}
+
+fn (mut v FakeView) custom_block_names() []string {
+	return []
+}
+
+fn (mut v FakeView) custom_entity_names() []string {
 	return []
 }
 

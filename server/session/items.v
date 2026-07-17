@@ -66,9 +66,31 @@ fn (s &NetworkSession) item_registry() &protocol.ItemRegistryPacket {
 			component_nbt:   empty_component_nbt()
 		}
 	}
+	for def in s.hub.custom_items.all() {
+		entries << types.ItemTypeEntry{
+			string_id:       def.id
+			numeric_id:      def.runtime_id
+			component_based: true
+			version:         1
+			component_nbt:   def.components()
+		}
+	}
 	return &protocol.ItemRegistryPacket{
 		entries: entries
 	}
+}
+
+fn (s &NetworkSession) custom_block_entries() []protocol.BlockEntry {
+	defs := s.hub.custom_blocks.all()
+	mut out := []protocol.BlockEntry{cap: defs.len}
+	for def in defs {
+		entry := def.network_entry()
+		out << protocol.BlockEntry{
+			name:       entry.name
+			properties: entry.properties
+		}
+	}
+	return out
 }
 
 fn (s &NetworkSession) creative_content() &protocol.CreativeContentPacket {
@@ -98,6 +120,19 @@ fn (s &NetworkSession) creative_content() &protocol.CreativeContentPacket {
 			}
 			group_id: item.group_index
 		}
+	}
+	mut next_entry := s.hub.data.creative_items.len + 1
+	for def in s.hub.custom_items.all() {
+		items << types.CreativeItemEntry{
+			entry_id: next_entry
+			item:     types.ItemStack{
+				id:             def.runtime_id
+				count:          1
+				raw_extra_data: []u8{}
+			}
+			group_id: def.creative_group_index
+		}
+		next_entry++
 	}
 	return &protocol.CreativeContentPacket{
 		groups: groups
