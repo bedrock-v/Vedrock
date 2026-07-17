@@ -53,7 +53,7 @@ pub fn register_defaults(mut r Registry) {
 		}
 	})
 	r.register('zombie', fn () Behaviour {
-		return &PassiveBehaviour{
+		return &HostileBehaviour{
 			network_id: 'minecraft:zombie'
 		}
 	})

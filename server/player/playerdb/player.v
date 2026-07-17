@@ -1,7 +1,7 @@
 module playerdb
 
 import os
-import json
+import json2
 
 pub struct InvItem {
 pub mut:
@@ -13,13 +13,13 @@ pub mut:
 
 pub struct PlayerData {
 pub mut:
-	x        f32
-	y        f32
-	z        f32
-	yaw      f32
-	pitch    f32
-	gamemode int
-	items    []InvItem
+	x              f32
+	y              f32
+	z              f32
+	yaw            f32
+	pitch          f32
+	gamemode       int
+	items          []InvItem
 	has_last_death bool
 	last_death_x   f32
 	last_death_y   f32
@@ -56,7 +56,7 @@ pub fn load_player(dir string, key string) ?PlayerData {
 		return none
 	}
 	text := os.read_file(path) or { return none }
-	return json.decode(PlayerData, text) or { return none }
+	return json2.decode[PlayerData](text) or { return none }
 }
 
 // save_player writes player data atomically - the JSON goes to a temp file
@@ -66,7 +66,7 @@ pub fn save_player(dir string, key string, data PlayerData) ! {
 	os.mkdir_all(dir)!
 	path := player_path(dir, key)
 	tmp := '${path}.tmp.${os.getpid()}'
-	os.write_file(tmp, json.encode(data)) or {
+	os.write_file(tmp, json2.encode(data, escape_unicode: true)) or {
 		os.rm(tmp) or {}
 		return err
 	}

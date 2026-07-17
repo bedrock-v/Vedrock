@@ -61,7 +61,7 @@ fn (mut v FakeView) register_custom_block(def block.CustomBlockDefinition) int {
 	return 0
 }
 
-fn (mut v FakeView) register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool {
+fn (mut v FakeView) register_custom_entity(def entity.CustomEntityDefinition, factory fn () entity.Behaviour) bool {
 	return false
 }
 

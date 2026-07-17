@@ -4,6 +4,7 @@ import sync
 import protocol
 import protocol.types
 import server.world
+import server.effect
 
 // view_radius is the distance in blocks within which an entity's spawn and move
 // packets are sent to a player. Beyond it the client never hears about the
@@ -21,6 +22,20 @@ mut:
 	allocate_runtime_id() u64
 	get_block(x int, y int, z int) int
 	collision_boxes(x int, y int, z int) []world.AABB
+	// entity_position returns the current position of any live actor (player
+	// or non player entity) the Host knows about or none if runtime_id no
+	// longer exists. Lets a Behaviour target something outside the entity
+	// Manager's own bookkeeping without the entity package
+	// importing session.
+	entity_position(runtime_id u64) ?types.Vector3
+	// entity_hit_test returns the runtime id of the first live actor other
+	// than exclude_runtime_id whose box contains pos or none. Used for
+	// projectile vs entity/player collision.
+	entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64
+	// damage_entity applies damage to the actor at runtime_id (player or
+	// entity), attributed to source_name/source_runtime_id, with
+	// knockback_from as the origin used to compute knockback direction.
+	damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
 }
 
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
@@ -51,6 +66,7 @@ pub fn (mut m Manager) spawn(behaviour Behaviour, pos types.Vector3) &Entity {
 		pos:        pos
 		floor_y:    pos.y
 		behaviour:  behaviour
+		effects:    effect.new_manager()
 	}
 	m.mutex.lock()
 	m.entities[rid] = e
@@ -69,6 +85,37 @@ pub fn (mut m Manager) despawn(runtime_id u64) {
 	m.entities.delete(runtime_id)
 	m.mutex.unlock()
 	m.host.broadcast(e.despawn_packet())
+}
+
+// by_runtime_id returns the live entity with runtime_id.
+pub fn (mut m Manager) by_runtime_id(runtime_id u64) ?&Entity {
+	m.mutex.lock()
+	defer { m.mutex.unlock() }
+	return m.entities[runtime_id] or { none }
+}
+
+pub fn (mut m Manager) hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
+	for e in m.snapshot() {
+		if e.runtime_id == exclude_runtime_id || e.dead {
+			continue
+		}
+		if pos.x >= e.pos.x - entity_half_width && pos.x <= e.pos.x + entity_half_width
+			&& pos.z >= e.pos.z - entity_half_width && pos.z <= e.pos.z + entity_half_width
+			&& pos.y >= e.pos.y && pos.y <= e.pos.y + entity_height {
+			return e.runtime_id
+		}
+	}
+	return none
+}
+
+pub fn (mut m Manager) damage(runtime_id u64, amount f32, fatal bool, mut host Host, source_runtime_id u64) {
+	m.mutex.lock()
+	mut e := m.entities[runtime_id] or {
+		m.mutex.unlock()
+		return
+	}
+	m.mutex.unlock()
+	e.hurt(mut host, amount, fatal, source_runtime_id)
 }
 
 // count reports how many entities are alive.
@@ -102,7 +149,12 @@ pub fn (mut m Manager) tick() {
 		}
 		e.age++
 		before := e.pos
-		e.behaviour.tick(mut e)
+		e.tick_effects(mut m.host)
+		if e.dead {
+			m.despawn(e.runtime_id)
+			continue
+		}
+		e.behaviour.tick(mut e, mut m.host)
 		e.apply_physics(mut m.host)
 		if e.dead {
 			m.despawn(e.runtime_id)

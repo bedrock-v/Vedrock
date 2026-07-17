@@ -36,7 +36,7 @@ pub fn (mut h Hub) register_custom_block(def block.CustomBlockDefinition) int {
 // into the AvailableActorIdentifiers list and the factory into the entity
 // registry under the definition's short name, so /summon and spawn_entity
 // work with it.
-pub fn (mut h Hub) register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool {
+pub fn (mut h Hub) register_custom_entity(def entity.CustomEntityDefinition, factory fn () entity.Behaviour) bool {
 	if !h.custom_entities.register(def) {
 		return false
 	}

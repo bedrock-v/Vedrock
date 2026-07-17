@@ -289,7 +289,7 @@ fn test_carved_pumpkin_faces_the_clicked_side() {
 	pumpkin := palette_id_for_test(p, 'minecraft:pumpkin', {
 		'minecraft:cardinal_direction': 'south'
 	})
-	
+
 	carved := p.carved_pumpkin_id(pumpkin, 2) or { panic('expected a carved pumpkin id') }
 	v := p.variant(carved) or { panic('missing carved pumpkin variant') }
 	assert v.name == 'minecraft:carved_pumpkin'

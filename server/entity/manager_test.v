@@ -1,19 +1,26 @@
 module entity
 
+import time
 import protocol
 import protocol.types
 import server.world
+import server.effect
 
 // FakeHost stands in for Hub: it hands out ids, counts broadcasts and backs a
 // small in-memory block grid so collision can be tested without a real world.
 // Any coordinate not in solids reads as air.
 struct FakeHost {
 mut:
-	next       u64 = 1
-	broadcasts int
-	near       int
-	blocks     map[string]int
-	boxes      map[string][]world.AABB
+	next                   u64 = 1
+	broadcasts             int
+	near                   int
+	blocks                 map[string]int
+	boxes                  map[string][]world.AABB
+	positions              map[u64]types.Vector3
+	hit_target             ?u64
+	damage_calls           int
+	last_damage_runtime_id u64
+	last_damage_amount     f32
 }
 
 fn block_key(x int, y int, z int) string {
@@ -52,6 +59,20 @@ fn (mut h FakeHost) get_block(x int, y int, z int) int {
 
 fn (mut h FakeHost) collision_boxes(x int, y int, z int) []world.AABB {
 	return h.boxes[block_key(x, y, z)] or { []world.AABB{} }
+}
+
+fn (mut h FakeHost) entity_position(runtime_id u64) ?types.Vector3 {
+	return h.positions[runtime_id] or { none }
+}
+
+fn (mut h FakeHost) entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
+	return h.hit_target
+}
+
+fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+	h.damage_calls++
+	h.last_damage_runtime_id = runtime_id
+	h.last_damage_amount = amount
 }
 
 fn test_spawn_registers_and_broadcasts() {
@@ -155,4 +176,77 @@ fn test_projectile_despawns_after_max_age() {
 		m.tick()
 	}
 	assert m.count() == 0
+}
+
+fn test_by_runtime_id_finds_live_entity_and_none_after_despawn() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
+	found := m.by_runtime_id(e.runtime_id) or { panic('expected the entity to be found') }
+	assert found.runtime_id == e.runtime_id
+	m.despawn(e.runtime_id)
+	assert m.by_runtime_id(e.runtime_id) == none
+}
+
+fn test_hostile_behaviour_chases_target_set_by_on_hurt() {
+	mut host := &FakeHost{}
+	host.positions[99] = types.Vector3{10, 5, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	e.no_gravity = true
+	// Before being hurt, a HostileBehaviour has no target and shouldn't
+	// suddenly move toward (10, 5, 0) on its own within a single tick.
+	m.tick()
+	assert e.pos.x < 1.0
+
+	e.hurt(mut host, 5, true, 99)
+	assert e.health == 15
+	m.tick()
+	assert e.velocity.x > 0 // now moving toward the attacker at x=10
+}
+
+fn test_hurt_behaviour_not_dispatched_to_passive_mobs() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	e.hurt(mut host, 5, true, 99)
+	assert e.health == 15 // damage still applies, just no HurtBehaviour reaction
+}
+
+fn test_projectile_hits_entity_via_entity_hit_test() {
+	mut host := &FakeHost{}
+	host.hit_target = u64(42)
+	mut m := new_manager(host)
+	mut e := m.spawn(&ProjectileBehaviour{
+		network_id: 'minecraft:snowball'
+		damage:     3
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2 // past the spawn tick guard
+	m.tick()
+	assert host.damage_calls == 1
+	assert host.last_damage_runtime_id == 42
+	assert host.last_damage_amount == 3
+	assert m.count() == 0 // the projectile kills itself on hit
+}
+
+fn test_entity_takes_poison_damage_on_tick() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	e.add_effect(mut host, effect.new(effect.poison, 1, 5 * time.second))
+	for _ in 0 .. 51 {
+		m.tick()
+	}
+	assert e.health < 20
+}
+
+fn test_entity_heals_from_instant_health_effect() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	e.health = 10
+	e.add_effect(mut host, effect.new_instant(effect.instant_health, 1))
+	assert e.health > 10
 }

@@ -70,7 +70,8 @@ fn (mut s NetworkSession) start_game() ! {
 		s.game_mode = data.gamemode
 		if data.has_last_death {
 			s.has_last_death = true
-			s.last_death_pos = types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z}
+			s.last_death_pos =
+				types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z}
 		}
 	}
 	s.transport.send(&protocol.StartGamePacket{
