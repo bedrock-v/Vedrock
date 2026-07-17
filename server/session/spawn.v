@@ -70,8 +70,7 @@ fn (mut s NetworkSession) start_game() ! {
 		s.game_mode = data.gamemode
 		if data.has_last_death {
 			s.has_last_death = true
-			s.last_death_pos =
-				types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z}
+			s.last_death_pos = types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z}
 		}
 	}
 	s.transport.send(&protocol.StartGamePacket{
@@ -107,8 +106,13 @@ fn (mut s NetworkSession) start_game() ! {
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
 		}
-		blocks:                         []protocol.BlockEntry{}
+		blocks:                         s.custom_block_entries()
 	})!
+	if s.hub.custom_entities.len() > 0 {
+		s.transport.send(&protocol.AvailableActorIdentifiersPacket{
+			identifiers: s.hub.custom_entities.identifiers_nbt()
+		})!
+	}
 	s.transport.send(s.item_registry())!
 	s.transport.send(s.creative_content())!
 	s.transport.send(&protocol.BiomeDefinitionListPacket{

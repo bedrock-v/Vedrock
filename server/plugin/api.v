@@ -5,6 +5,10 @@ import server.event
 import server.scheduler
 import server.arena
 import server.world
+import server.item
+import server.block
+import server.entity
+import server.enchant
 import server.internal.logger
 
 // ServerView is the narrow slice of the running server a plugin is allowed to
@@ -36,6 +40,23 @@ mut:
 	register_generator(name string, factory fn (dim world.Dimension) world.Generator)
 	// generator_type_names lists every registered generator name.
 	generator_type_names() []string
+	// register_custom_item registers a data-driven item definition and returns
+	// its allocated runtime id.
+	register_custom_item(def item.CustomItemDefinition) int
+	// register_custom_block registers a data-driven block definition and
+	// returns its allocated runtime id.
+	register_custom_block(def block.CustomBlockDefinition) int
+	// register_custom_entity registers a custom entity type together with the
+	// Behaviour factory used to spawn it, returning false if the id is taken.
+	register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool
+	// register_enchantment adds an enchantment, returning false if its id or
+	// name is already taken.
+	register_enchantment(e enchant.Enchantment) bool
+	// next_enchantment_id returns the next free custom enchantment id.
+	next_enchantment_id() int
+	custom_item_names() []string
+	custom_block_names() []string
+	custom_entity_names() []string
 }
 
 // Api is the single handle handed to a plugin on enable. Everything a plugin can
@@ -76,4 +97,30 @@ pub fn (mut a Api) run_repeating(task scheduler.Task, period i64) &scheduler.Tas
 
 pub fn (mut a Api) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
 	a.server.register_generator(name, factory)
+}
+
+// register_custom_item registers a data-driven item and returns its runtime id.
+pub fn (mut a Api) register_custom_item(def item.CustomItemDefinition) int {
+	return a.server.register_custom_item(def)
+}
+
+// register_custom_block registers a data-driven block and returns its runtime id.
+pub fn (mut a Api) register_custom_block(def block.CustomBlockDefinition) int {
+	return a.server.register_custom_block(def)
+}
+
+// register_custom_entity registers a custom entity type with its Behaviour
+// factory, making it spawnable via /summon and spawn_entity.
+pub fn (mut a Api) register_custom_entity(def entity.CustomEntityDefinition, factory entity.BehaviourFactory) bool {
+	return a.server.register_custom_entity(def, factory)
+}
+
+// register_enchantment adds an enchantment to the shared registry.
+pub fn (mut a Api) register_enchantment(e enchant.Enchantment) bool {
+	return a.server.register_enchantment(e)
+}
+
+// next_enchantment_id returns the next free custom enchantment id.
+pub fn (mut a Api) next_enchantment_id() int {
+	return a.server.next_enchantment_id()
 }
