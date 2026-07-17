@@ -78,6 +78,30 @@ pub fn (r &Registry) use_result(id string, meta int) ?UseResult {
 	return none
 }
 
+pub fn (r &Registry) use_on_block_result(id string, block_name string, meta int) ?UseOnBlockResult {
+	it := r.get(id) or { return none }
+	if it is UsableOnBlockItem {
+		return it.use_on_block_result(block_name, meta)
+	}
+	return none
+}
+
+pub fn (r &Registry) use_on_entity_result(id string, meta int) ?UseOnEntityResult {
+	it := r.get(id) or { return none }
+	if it is UsableOnEntityItem {
+		return it.use_on_entity_result(meta)
+	}
+	return none
+}
+
+pub fn (r &Registry) cooldown_ticks(id string) ?int {
+	it := r.get(id) or { return none }
+	if it is CooldownItem {
+		return it.cooldown_ticks()
+	}
+	return none
+}
+
 // len is the number of registered item classes.
 pub fn (r &Registry) len() int {
 	return r.items.len

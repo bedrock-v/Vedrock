@@ -69,3 +69,64 @@ fn test_lamp_daylight_and_tripwire_registered() {
 	assert r.get_by_name('minecraft:tripwire_hook') != none
 	assert r.get_by_name('minecraft:trip_wire') != none
 }
+
+// FakeTickWorld is a minimal in memory TickWorld fixture for testing
+// Interactable/RandomTicker/ScheduledTicker blocks without a real db.World.
+struct FakeTickWorld {
+mut:
+	blocks map[string]int
+}
+
+fn (w &FakeTickWorld) block_id(x int, y int, z int) int {
+	return w.blocks['${x}:${y}:${z}'] or { 0 }
+}
+
+fn (mut w FakeTickWorld) set_block(x int, y int, z int, id int) {
+	w.blocks['${x}:${y}:${z}'] = id
+}
+
+fn (mut w FakeTickWorld) schedule_tick(x int, y int, z int, delay int) {}
+
+fn test_repeater_is_interactable_and_cycles_delay_back_to_start() {
+	r := new_registry()
+	base := r.get_by_name('minecraft:unpowered_repeater') or { panic('missing unpowered_repeater') }
+	assert base is RepeaterBlock
+	assert base is Interactable
+
+	mut w := FakeTickWorld{}
+	start_id := base.runtime_id()
+	mut current_id := start_id
+	mut ids := []int{}
+	for _ in 0 .. 4 {
+		cur := r.get(current_id) or { panic('missing repeater variant') }
+		if cur is RepeaterBlock {
+			cur.interact(0, 0, 0, 1, mut w)
+		}
+		current_id = w.block_id(0, 0, 0)
+		ids << current_id
+	}
+	assert ids[3] == start_id
+	assert ids[0] != ids[1]
+	assert ids[1] != ids[2]
+	assert ids[2] != ids[3]
+}
+
+// TestPunchableBlock is a test only fixture proving Punchable's dispatch
+// shape works.
+struct TestPunchableBlock {
+	SimpleBlock
+}
+
+fn (b TestPunchableBlock) punch(x int, y int, z int, click_face int, mut w TickWorld) {
+	w.set_block(x, y, z, 999)
+}
+
+fn test_punchable_dispatches_to_the_block() {
+	b := Block(TestPunchableBlock{})
+	assert b is Punchable
+	mut w := FakeTickWorld{}
+	if b is Punchable {
+		b.punch(0, 0, 0, 1, mut w)
+	}
+	assert w.block_id(0, 0, 0) == 999
+}

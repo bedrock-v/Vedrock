@@ -79,6 +79,7 @@ mut:
 	sent_chunks        map[u64]bool
 	chunk_cache_mutex  &sync.Mutex = sync.new_mutex()
 	chunk_stream_mutex &sync.Mutex = sync.new_mutex()
+	cooldown_until map[string]i64
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }

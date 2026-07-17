@@ -4,7 +4,31 @@ import server.world
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 400
+	assert r.len() == 402
+}
+
+fn test_short_grass_and_fern_are_replaceable() {
+	r := new_registry()
+	short_grass := r.get_by_name('minecraft:short_grass') or { panic('missing short_grass') }
+	assert short_grass is Replaceable
+	if short_grass is Replaceable {
+		assert short_grass.replaceable()
+	}
+	assert short_grass.hardness() == 0.0
+
+	fern := r.get_by_name('minecraft:fern') or { panic('missing fern') }
+	assert fern is Replaceable
+	if fern is Replaceable {
+		assert fern.replaceable()
+	}
+
+	// Ordinary blocks are not Replaceable.
+	stone := r.get_by_name('minecraft:stone') or { panic('missing stone') }
+	mut stone_is_replaceable := false
+	if stone is Replaceable {
+		stone_is_replaceable = true
+	}
+	assert !stone_is_replaceable
 }
 
 fn test_registered_blocks_found_by_runtime_and_name() {

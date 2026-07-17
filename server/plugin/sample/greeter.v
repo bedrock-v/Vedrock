@@ -2,6 +2,7 @@ module sample
 
 import server.cmd
 import server.event
+import server.internal.logger
 import server.plugin
 import server.scheduler
 
@@ -29,6 +30,7 @@ pub fn (mut p GreeterPlugin) on_enable(mut api plugin.Api) {
 	})
 	api.register_listener(&GreeterListener{
 		server: api.server
+		log:    api.log
 	}, event.Priority.normal)
 
 	log := api.log
@@ -55,6 +57,7 @@ struct GreeterListener {
 	event.NopHandler
 mut:
 	server plugin.ServerView
+	log    &logger.Logger = unsafe { nil }
 }
 
 // on_player_join replaces the default join line with a custom welcome.
@@ -79,6 +82,30 @@ pub fn (mut l GreeterListener) on_block_break(mut ctx event.Context[event.BlockB
 	if ctx.val.x >= -8 && ctx.val.x <= 8 && ctx.val.z >= -8 && ctx.val.z <= 8 {
 		ctx.val.player.send_message('§cYou cannot break blocks in spawn.') or {}
 		ctx.cancel()
+	}
+}
+
+pub fn (mut l GreeterListener) on_start_break(mut ctx event.Context[event.StartBreakData]) {
+	if !isnil(l.log) {
+		l.log.debug('${ctx.val.player.name()} started breaking block at (${ctx.val.x}, ${ctx.val.y}, ${ctx.val.z})')
+	}
+}
+
+pub fn (mut l GreeterListener) on_player_interact(mut ctx event.Context[event.InteractData]) {
+	if !isnil(l.log) {
+		l.log.debug('${ctx.val.player.name()} interacted with block at (${ctx.val.x}, ${ctx.val.y}, ${ctx.val.z}) face=${ctx.val.face}')
+	}
+}
+
+// on_item_use fires right before a held item's effect applies.
+pub fn (mut l GreeterListener) on_item_use(mut ctx event.Context[event.ItemUseData]) {
+	if isnil(l.log) {
+		return
+	}
+	if ctx.val.on_block {
+		l.log.debug('${ctx.val.player.name()} used ${ctx.val.item_name} on block at (${ctx.val.x}, ${ctx.val.y}, ${ctx.val.z})')
+	} else {
+		l.log.debug('${ctx.val.player.name()} used ${ctx.val.item_name} in the air')
 	}
 }
 

@@ -50,6 +50,19 @@ pub mut:
 	player cmd.Sender
 }
 
+// StartBreakData is dispatched the moment a player left clicks a block
+// before any break timer starts, separate from BlockBreakData which only
+// fires once the break actually completes.
+pub struct StartBreakData {
+pub:
+	x    int
+	y    int
+	z    int
+	face int
+pub mut:
+	player cmd.Sender
+}
+
 // BlockPlaceData is dispatched before a block is placed. block_id is the block
 // being placed. Cancelling it stops the placement.
 pub struct BlockPlaceData {
@@ -71,6 +84,22 @@ pub:
 	y    int
 	z    int
 	face int
+pub mut:
+	player cmd.Sender
+}
+
+// ItemUseData is dispatched right before a held item's effect is applied,
+// either in the air (e.g. a goat horn's sound) or on a block (e.g. bone meal
+// advancing a crop's growth). on_block reports which; x/y/z are only
+// meaningful when on_block is true. Cancelling it stops the effect.
+pub struct ItemUseData {
+pub:
+	item_name string
+	meta      int
+	on_block  bool
+	x         int
+	y         int
+	z         int
 pub mut:
 	player cmd.Sender
 }
