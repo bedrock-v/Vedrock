@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.event | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li><a href="./server.entity.html">entity</a></li>
+<li class="active"><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.event" class="doc-node">
+			<div class="title"><h1> server.event</h1></div>
+
+
+</section>
+
+		<section id="new_bus" class="doc-node">
+			<div class="title"><h2>fn new_bus <a href="#new_bus">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_bus</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>Bus</code></pre>
+
+
+</section>
+
+		<section id="new_context" class="doc-node">
+			<div class="title"><h2>fn new_context <a href="#new_context">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> new_context<span class="token punctuation">[</span><span class="token builtin">T</span><span class="token punctuation">]</span><span class="token punctuation">(</span>val <span class="token builtin">T</span><span class="token punctuation">)</span> Context<span class="token punctuation">[</span><span class="token builtin">T</span><span class="token punctuation">]</span></code></pre>
+<p>new_context wraps val in a fresh, uncancelled Context.</p>
+
+</section>
+
+		<section id="Priority.from" class="doc-node">
+			<div class="title"><h2>fn Priority.from <a href="#Priority.from">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> Priority<span class="token punctuation">.</span>from<span class="token punctuation">[</span><span class="token builtin">W</span><span class="token punctuation">]</span><span class="token punctuation">(</span>input <span class="token builtin">W</span><span class="token punctuation">)</span> <span class="token operator">!</span>Priority</code></pre>
+
+
+</section>
+
+		<section id="Handler" class="doc-node">
+			<div class="title"><h2>interface Handler <a href="#Handler">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Handler</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">on_player_join</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>JoinData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_quit</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>QuitData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_chat</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>ChatData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_command</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>CommandData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_start_break</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>StartBreakData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_block_break</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>BlockBreakData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_block_place</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>BlockPlaceData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_interact</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>InteractData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_item_use</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>ItemUseData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_attack</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>AttackData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_hurt</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>HurtData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_death</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>DeathData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_respawn</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>RespawnData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_player_move</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>MoveData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+	<span class="token function">on_gamemode_change</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>GameModeChangeData<span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Handler is the dragonfly-style listener interface: one method per event, each receiving a mutable Context. A plugin embeds NopHandler and overrides only the events it cares about.</p>
+
+</section>
+
+		<section id="Context[T].cancel" class="doc-node">
+			<div class="title"><h2>fn (Context[T]) cancel <a href="#Context[T].cancel">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> c Context<span class="token punctuation">[</span><span class="token builtin">T</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token function">cancel</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>cancel marks the event as cancelled. Whether that stops anything is up to the code that dispatched the Context.</p>
+
+</section>
+
+		<section id="Context[T].is_cancelled" class="doc-node">
+			<div class="title"><h2>fn (Context[T]) is_cancelled <a href="#Context[T].is_cancelled">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>c <span class="token operator">&amp;</span>Context<span class="token punctuation">[</span><span class="token builtin">T</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token function">is_cancelled</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>is_cancelled reports whether any handler cancelled the event.</p>
+
+</section>
+
+		<section id="Priority" class="doc-node">
+			<div class="title"><h2>enum Priority <a href="#Priority">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">enum</span> <span class="token symbol">Priority</span> <span class="token punctuation">{</span>
+	lowest
+	low
+	normal
+	high
+	highest
+	monitor
+<span class="token punctuation">}</span></code></pre>
+<p>Priority orders handlers on the Bus. Lowest runs first so that highest and monitor see the final, already-modified state - monitor handlers are expected to only observe, never mutate. Mirrors PocketMine's EventPriority.</p>
+
+</section>
+
+		<section id="AttackData" class="doc-node">
+			<div class="title"><h2>struct AttackData <a href="#AttackData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">AttackData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	victim_runtime_id <span class="token builtin">u64</span>
+	critical          <span class="token builtin">bool</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+	damage <span class="token builtin">f32</span>
+<span class="token punctuation">}</span></code></pre>
+<p>AttackData is dispatched when a player attacks an entity. player is the attacker, victim_runtime_id the target. Editing damage changes the hit; cancelling it deals no damage and no knockback.</p>
+
+</section>
+
+		<section id="BlockBreakData" class="doc-node">
+			<div class="title"><h2>struct BlockBreakData <a href="#BlockBreakData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">BlockBreakData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	x        <span class="token builtin">int</span>
+	y        <span class="token builtin">int</span>
+	z        <span class="token builtin">int</span>
+	block_id <span class="token builtin">int</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+<span class="token punctuation">}</span></code></pre>
+<p>BlockBreakData is dispatched before a block is broken. block_id is the block being removed. Cancelling it leaves the block in place.</p>
+
+</section>
+
+		<section id="BlockPlaceData" class="doc-node">
+			<div class="title"><h2>struct BlockPlaceData <a href="#BlockPlaceData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">BlockPlaceData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	x        <span class="token builtin">int</span>
+	y        <span class="token builtin">int</span>
+	z        <span class="token builtin">int</span>
+	block_id <span class="token builtin">int</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+<span class="token punctuation">}</span></code></pre>
+<p>BlockPlaceData is dispatched before a block is placed. block_id is the block being placed. Cancelling it stops the placement.</p>
+
+</section>
+
+		<section id="Bus" class="doc-node">
+			<div class="title"><h2>struct Bus <a href="#Bus">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Bus</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	handlers <span class="token punctuation">[</span><span class="token punctuation">]</span>Registered
+<span class="token punctuation">}</span></code></pre>
+<p>Bus fans a dispatched Context out to every registered handler in priority order. It is the single event pipe the session code talks to; plugins never touch it directly, they register through the plugin Api.</p>
+
+</section>
+
+		<section id="Bus.register" class="doc-node">
+			<div class="title"><h2>fn (Bus) register <a href="#Bus.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>handler Handler<span class="token punctuation">,</span> priority Priority<span class="token punctuation">)</span></code></pre>
+<p>register adds a handler at the given priority. Handlers are kept sorted so dispatch always walks lowest -&gt; monitor.</p>
+
+</section>
+
+		<section id="Bus.len" class="doc-node">
+			<div class="title"><h2>fn (Bus) len <a href="#Bus.len">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>Bus<span class="token punctuation">)</span> <span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>len reports how many handlers are registered.</p>
+
+</section>
+
+		<section id="Bus.player_join" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_join <a href="#Bus.player_join">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_join</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>JoinData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_quit" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_quit <a href="#Bus.player_quit">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_quit</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>QuitData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_chat" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_chat <a href="#Bus.player_chat">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_chat</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>ChatData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_command" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_command <a href="#Bus.player_command">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_command</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>CommandData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.start_break" class="doc-node">
+			<div class="title"><h2>fn (Bus) start_break <a href="#Bus.start_break">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">start_break</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>StartBreakData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.block_break" class="doc-node">
+			<div class="title"><h2>fn (Bus) block_break <a href="#Bus.block_break">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">block_break</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>BlockBreakData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.block_place" class="doc-node">
+			<div class="title"><h2>fn (Bus) block_place <a href="#Bus.block_place">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">block_place</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>BlockPlaceData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_interact" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_interact <a href="#Bus.player_interact">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_interact</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>InteractData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.item_use" class="doc-node">
+			<div class="title"><h2>fn (Bus) item_use <a href="#Bus.item_use">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">item_use</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>ItemUseData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_attack" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_attack <a href="#Bus.player_attack">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_attack</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>AttackData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_hurt" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_hurt <a href="#Bus.player_hurt">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_hurt</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>HurtData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_death" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_death <a href="#Bus.player_death">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_death</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>DeathData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_respawn" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_respawn <a href="#Bus.player_respawn">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_respawn</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>RespawnData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.player_move" class="doc-node">
+			<div class="title"><h2>fn (Bus) player_move <a href="#Bus.player_move">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">player_move</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>MoveData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Bus.gamemode_change" class="doc-node">
+			<div class="title"><h2>fn (Bus) gamemode_change <a href="#Bus.gamemode_change">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b Bus<span class="token punctuation">)</span> <span class="token function">gamemode_change</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>GameModeChangeData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ChatData" class="doc-node">
+			<div class="title"><h2>struct ChatData <a href="#ChatData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">ChatData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player  cmd<span class="token punctuation">.</span>Sender
+	message <span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>ChatData is dispatched for a public chat message. Cancelling it drops the message; editing message rewrites what everyone sees.</p>
+
+</section>
+
+		<section id="CommandData" class="doc-node">
+			<div class="title"><h2>struct CommandData <a href="#CommandData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">CommandData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player  cmd<span class="token punctuation">.</span>Sender
+	command <span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>CommandData is dispatched before a player command runs. Cancelling it stops the command; editing command rewrites what is executed.</p>
+
+</section>
+
+		<section id="Context" class="doc-node">
+			<div class="title"><h2>struct Context <a href="#Context">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> Context<span class="token punctuation">[</span><span class="token builtin">T</span><span class="token punctuation">]</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	cancelled <span class="token builtin">bool</span>
+	val       <span class="token builtin">T</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Context is a homage to dragonfly's event.Context[T]. It wraps the subject of an event and lets handlers cancel the outcome or mutate the subject in place. Callers dispatch a Context through the Bus, then read back is_cancelled() and the possibly-modified val to decide what actually happens.</p>
+
+</section>
+
+		<section id="DeathData" class="doc-node">
+			<div class="title"><h2>struct DeathData <a href="#DeathData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">DeathData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	params <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player      cmd<span class="token punctuation">.</span>Sender
+	message_key <span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>DeathData is dispatched when a player dies. message_key/params are the death broadcast; cancelling it suppresses the broadcast, editing message_key rewrites it.</p>
+
+</section>
+
+		<section id="GameModeChangeData" class="doc-node">
+			<div class="title"><h2>struct GameModeChangeData <a href="#GameModeChangeData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">GameModeChangeData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+	mode   <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>GameModeChangeData is dispatched before a player's gamemode changes. Editing mode changes the target gamemode; cancelling it keeps the current one.</p>
+
+</section>
+
+		<section id="HurtData" class="doc-node">
+			<div class="title"><h2>struct HurtData <a href="#HurtData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">HurtData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	attacker_name <span class="token builtin">string</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+	amount <span class="token builtin">f32</span>
+<span class="token punctuation">}</span></code></pre>
+<p>HurtData is dispatched when a player takes damage. player is the victim, attacker_name the source. Editing amount changes the damage; cancelling it negates the damage entirely.</p>
+
+</section>
+
+		<section id="InteractData" class="doc-node">
+			<div class="title"><h2>struct InteractData <a href="#InteractData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">InteractData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	x    <span class="token builtin">int</span>
+	y    <span class="token builtin">int</span>
+	z    <span class="token builtin">int</span>
+	face <span class="token builtin">int</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+<span class="token punctuation">}</span></code></pre>
+<p>InteractData is dispatched when a player right-clicks a block, before any placement is decided. Useful for lobby signs and NPC-style interactions. Cancelling it stops the interaction (and any place that would follow).</p>
+
+</section>
+
+		<section id="ItemUseData" class="doc-node">
+			<div class="title"><h2>struct ItemUseData <a href="#ItemUseData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">ItemUseData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	item_name <span class="token builtin">string</span>
+	meta      <span class="token builtin">int</span>
+	on_block  <span class="token builtin">bool</span>
+	x         <span class="token builtin">int</span>
+	y         <span class="token builtin">int</span>
+	z         <span class="token builtin">int</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+<span class="token punctuation">}</span></code></pre>
+<p>ItemUseData is dispatched right before a held item's effect is applied, either in the air (e.g. a goat horn's sound) or on a block (e.g. bone meal advancing a crop's growth). on_block reports which; x/y/z are only meaningful when on_block is true. Cancelling it stops the effect.</p>
+
+</section>
+
+		<section id="JoinData" class="doc-node">
+			<div class="title"><h2>struct JoinData <a href="#JoinData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">JoinData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player  cmd<span class="token punctuation">.</span>Sender
+	message <span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>JoinData is dispatched right after a player finishes spawning. Cancelling it suppresses the broadcast join message; editing message changes it.</p>
+
+</section>
+
+		<section id="MoveData" class="doc-node">
+			<div class="title"><h2>struct MoveData <a href="#MoveData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">MoveData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	x <span class="token builtin">f32</span>
+	y <span class="token builtin">f32</span>
+	z <span class="token builtin">f32</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+<span class="token punctuation">}</span></code></pre>
+<p>MoveData is dispatched when a player moves. Editing x/y/z is ignored; cancel rejects the movement and snaps the player back to where they were.</p>
+
+</section>
+
+		<section id="NopHandler" class="doc-node">
+			<div class="title"><h2>struct NopHandler <a href="#NopHandler">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">NopHandler</span> <span class="token punctuation">{</span><span class="token punctuation">}</span></code></pre>
+<p>NopHandler is an embeddable no-op implementation of Handler. Embed it so a listener satisfies the whole interface while only defining the handlers it actually needs.</p>
+
+</section>
+
+		<section id="NopHandler.on_player_join" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_join <a href="#NopHandler.on_player_join">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_join</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>JoinData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_quit" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_quit <a href="#NopHandler.on_player_quit">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_quit</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>QuitData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_chat" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_chat <a href="#NopHandler.on_player_chat">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_chat</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>ChatData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_command" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_command <a href="#NopHandler.on_player_command">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_command</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>CommandData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_start_break" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_start_break <a href="#NopHandler.on_start_break">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_start_break</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>StartBreakData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_block_break" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_block_break <a href="#NopHandler.on_block_break">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_block_break</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>BlockBreakData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_block_place" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_block_place <a href="#NopHandler.on_block_place">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_block_place</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>BlockPlaceData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_interact" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_interact <a href="#NopHandler.on_player_interact">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_interact</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>InteractData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_item_use" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_item_use <a href="#NopHandler.on_item_use">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_item_use</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>ItemUseData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_attack" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_attack <a href="#NopHandler.on_player_attack">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_attack</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>AttackData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_hurt" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_hurt <a href="#NopHandler.on_player_hurt">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_hurt</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>HurtData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_death" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_death <a href="#NopHandler.on_player_death">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_death</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>DeathData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_respawn" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_respawn <a href="#NopHandler.on_player_respawn">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_respawn</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>RespawnData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_player_move" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_player_move <a href="#NopHandler.on_player_move">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_player_move</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>MoveData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="NopHandler.on_gamemode_change" class="doc-node">
+			<div class="title"><h2>fn (NopHandler) on_gamemode_change <a href="#NopHandler.on_gamemode_change">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> h NopHandler<span class="token punctuation">)</span> <span class="token function">on_gamemode_change</span><span class="token punctuation">(</span><span class="token keyword">mut</span> ctx Context<span class="token punctuation">[</span>GameModeChangeData<span class="token punctuation">]</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="QuitData" class="doc-node">
+			<div class="title"><h2>struct QuitData <a href="#QuitData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">QuitData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player  cmd<span class="token punctuation">.</span>Sender
+	message <span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>QuitData is dispatched when a spawned player leaves. Same rules as JoinData.</p>
+
+</section>
+
+		<section id="RespawnData" class="doc-node">
+			<div class="title"><h2>struct RespawnData <a href="#RespawnData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">RespawnData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+	x      <span class="token builtin">f32</span>
+	y      <span class="token builtin">f32</span>
+	z      <span class="token builtin">f32</span>
+<span class="token punctuation">}</span></code></pre>
+<p>RespawnData is dispatched before a player respawns. Handlers may move the respawn point by editing x/y/z (e.g. to send players back to a lobby).</p>
+
+</section>
+
+		<section id="StartBreakData" class="doc-node">
+			<div class="title"><h2>struct StartBreakData <a href="#StartBreakData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">StartBreakData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	x    <span class="token builtin">int</span>
+	y    <span class="token builtin">int</span>
+	z    <span class="token builtin">int</span>
+	face <span class="token builtin">int</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	player cmd<span class="token punctuation">.</span>Sender
+<span class="token punctuation">}</span></code></pre>
+<p>StartBreakData is dispatched the moment a player left clicks a block before any break timer starts, separate from BlockBreakData which only fires once the break actually completes.</p>
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:58</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#new_bus">fn new_bus</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_context">fn new_context</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Priority.from">fn Priority.from</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Handler">interface Handler</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Context[T].cancel">type Context[T]</a>        <ul>
+<li><a href="#Context[T].cancel">fn cancel</a></li>
+<li><a href="#Context[T].is_cancelled">fn is_cancelled</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Priority">enum Priority</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#AttackData">struct AttackData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#BlockBreakData">struct BlockBreakData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#BlockPlaceData">struct BlockPlaceData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Bus">struct Bus</a>        <ul>
+<li><a href="#Bus.register">fn register</a></li>
+<li><a href="#Bus.len">fn len</a></li>
+<li><a href="#Bus.player_join">fn player_join</a></li>
+<li><a href="#Bus.player_quit">fn player_quit</a></li>
+<li><a href="#Bus.player_chat">fn player_chat</a></li>
+<li><a href="#Bus.player_command">fn player_command</a></li>
+<li><a href="#Bus.start_break">fn start_break</a></li>
+<li><a href="#Bus.block_break">fn block_break</a></li>
+<li><a href="#Bus.block_place">fn block_place</a></li>
+<li><a href="#Bus.player_interact">fn player_interact</a></li>
+<li><a href="#Bus.item_use">fn item_use</a></li>
+<li><a href="#Bus.player_attack">fn player_attack</a></li>
+<li><a href="#Bus.player_hurt">fn player_hurt</a></li>
+<li><a href="#Bus.player_death">fn player_death</a></li>
+<li><a href="#Bus.player_respawn">fn player_respawn</a></li>
+<li><a href="#Bus.player_move">fn player_move</a></li>
+<li><a href="#Bus.gamemode_change">fn gamemode_change</a></li>
+</ul>
+</li>
+<li class="open"><a href="#ChatData">struct ChatData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#CommandData">struct CommandData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Context">struct Context</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#DeathData">struct DeathData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#GameModeChangeData">struct GameModeChangeData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#HurtData">struct HurtData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#InteractData">struct InteractData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#ItemUseData">struct ItemUseData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#JoinData">struct JoinData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#MoveData">struct MoveData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#NopHandler">struct NopHandler</a>        <ul>
+<li><a href="#NopHandler.on_player_join">fn on_player_join</a></li>
+<li><a href="#NopHandler.on_player_quit">fn on_player_quit</a></li>
+<li><a href="#NopHandler.on_player_chat">fn on_player_chat</a></li>
+<li><a href="#NopHandler.on_player_command">fn on_player_command</a></li>
+<li><a href="#NopHandler.on_start_break">fn on_start_break</a></li>
+<li><a href="#NopHandler.on_block_break">fn on_block_break</a></li>
+<li><a href="#NopHandler.on_block_place">fn on_block_place</a></li>
+<li><a href="#NopHandler.on_player_interact">fn on_player_interact</a></li>
+<li><a href="#NopHandler.on_item_use">fn on_item_use</a></li>
+<li><a href="#NopHandler.on_player_attack">fn on_player_attack</a></li>
+<li><a href="#NopHandler.on_player_hurt">fn on_player_hurt</a></li>
+<li><a href="#NopHandler.on_player_death">fn on_player_death</a></li>
+<li><a href="#NopHandler.on_player_respawn">fn on_player_respawn</a></li>
+<li><a href="#NopHandler.on_player_move">fn on_player_move</a></li>
+<li><a href="#NopHandler.on_gamemode_change">fn on_gamemode_change</a></li>
+</ul>
+</li>
+<li class="open"><a href="#QuitData">struct QuitData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#RespawnData">struct RespawnData</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#StartBreakData">struct StartBreakData</a>        <ul>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>

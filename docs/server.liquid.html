@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.liquid | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li class="active"><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.liquid" class="doc-node">
+			<div class="title"><h1> server.liquid</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> max_cells_per_tick <span class="token operator">=</span> <span class="token number">4096</span></code></pre>
+<p>max_cells_per_tick caps how many pending cells the manager drains in a single tick so a large flood can never stall the actor thread. Cells left over stay queued and are processed on later ticks - the flow just spreads a bit slower under heavy load instead of blocking the whole server. 4096 is generous: a flat pool spreading 7 cells in every direction is well under this.</p>
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> source_depth <span class="token operator">=</span> <span class="token number">8</span></code></pre>
+<p>Water depth model, adapted from dragonfly and PocketMine.</p>
+<p>depth runs 1..8 internally: 8 is a source, 1..7 are flowing levels where a higher number is a fuller (taller) cell, and a falling cell behaves like a full column. Each horizontal step loses spread_decay levels, so a source reaches at most 7 cells away before the flow is exhausted.</p>
+<p>Bedrock encodes this in the liquid_depth block state as liquid_depth = 8 - depth, with +8 added when the cell is falling. A source is minecraft:water (still); anything flowing is minecraft:flowing_water.</p>
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> max_flow_depth <span class="token operator">=</span> <span class="token number">7</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> spread_decay <span class="token operator">=</span> <span class="token number">1</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> min_adjacent_sources <span class="token operator">=</span> <span class="token number">2</span></code></pre>
+
+
+</section>
+
+		<section id="new_falling" class="doc-node">
+			<div class="title"><h2>fn new_falling <a href="#new_falling">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_falling</span><span class="token punctuation">(</span><span class="token punctuation">)</span> WaterState</code></pre>
+<p>new_falling is a falling column - it appears full but spreads like flowing.</p>
+
+</section>
+
+		<section id="new_flowing" class="doc-node">
+			<div class="title"><h2>fn new_flowing <a href="#new_flowing">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_flowing</span><span class="token punctuation">(</span>depth <span class="token builtin">int</span><span class="token punctuation">)</span> WaterState</code></pre>
+<p>new_flowing builds a flowing cell at the given depth.</p>
+
+</section>
+
+		<section id="new_manager" class="doc-node">
+			<div class="title"><h2>fn new_manager <a href="#new_manager">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_manager</span><span class="token punctuation">(</span>host Host<span class="token punctuation">)</span> <span class="token operator">&amp;</span>LiquidManager</code></pre>
+<p>new_manager builds a LiquidManager bound to host and precomputes the water id table (all source, flowing and falling states) once.</p>
+
+</section>
+
+		<section id="new_source" class="doc-node">
+			<div class="title"><h2>fn new_source <a href="#new_source">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_source</span><span class="token punctuation">(</span><span class="token punctuation">)</span> WaterState</code></pre>
+<p>new_source is the full still water source.</p>
+
+</section>
+
+		<section id="BlockSink" class="doc-node">
+			<div class="title"><h2>interface BlockSink <a href="#BlockSink">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">BlockSink</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">set_block_id</span><span class="token punctuation">(</span>id <span class="token builtin">int</span><span class="token punctuation">,</span> x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>BlockSink writes a block by network id and broadcasts the change to viewers. Every liquid write routes through this so a spread looks like a normal edit.</p>
+
+</section>
+
+		<section id="BlockSource" class="doc-node">
+			<div class="title"><h2>interface BlockSource <a href="#BlockSource">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">BlockSource</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">get_block</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>BlockSource reads block network ids from a world by absolute coordinates. Hub satisfies it structurally; tests use an in-memory grid.</p>
+
+</section>
+
+		<section id="Host" class="doc-node">
+			<div class="title"><h2>interface Host <a href="#Host">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Host</span> <span class="token punctuation">{</span>
+	BlockSource
+	BlockSink
+<span class="token punctuation">}</span></code></pre>
+<p>Host is what the LiquidManager needs from its world: read and write blocks. Hub satisfies it via get_block/set_block_id, so this module never imports session and stays unit-testable against a fake grid.</p>
+
+</section>
+
+		<section id="LiquidManager" class="doc-node">
+			<div class="title"><h2>struct LiquidManager <a href="#LiquidManager">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">LiquidManager</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	host    Host
+	pending <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span>Pos
+	<span class="token comment">// water_states maps every known water network id to its resolved cell so the</span>
+	<span class="token comment">// manager can tell water apart from other blocks when it reads the world.</span>
+	water_states <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span>WaterState
+	air_id       <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>LiquidManager owns the set of block positions that still need a liquid update and processes them on the actor thread each tick. It holds no world of its own - the Host it is handed reads and writes blocks.</p>
+
+</section>
+
+		<section id="LiquidManager.place_source" class="doc-node">
+			<div class="title"><h2>fn (LiquidManager) place_source <a href="#LiquidManager.place_source">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m LiquidManager<span class="token punctuation">)</span> <span class="token function">place_source</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>place_source sets a water source at the position and queues it for spreading.</p>
+
+</section>
+
+		<section id="LiquidManager.enqueue" class="doc-node">
+			<div class="title"><h2>fn (LiquidManager) enqueue <a href="#LiquidManager.enqueue">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m LiquidManager<span class="token punctuation">)</span> <span class="token function">enqueue</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>enqueue marks a cell as needing a liquid update on a later tick.</p>
+
+</section>
+
+		<section id="LiquidManager.on_block_changed" class="doc-node">
+			<div class="title"><h2>fn (LiquidManager) on_block_changed <a href="#LiquidManager.on_block_changed">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m LiquidManager<span class="token punctuation">)</span> <span class="token function">on_block_changed</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+<p>on_block_changed re-evaluates a cell and its neighbours after a block edit - placing water starts its flow, breaking a block frees a path for adjacent water to spread into. Only water cells actually do anything when processed.</p>
+
+</section>
+
+		<section id="LiquidManager.pending_count" class="doc-node">
+			<div class="title"><h2>fn (LiquidManager) pending_count <a href="#LiquidManager.pending_count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>m <span class="token operator">&amp;</span>LiquidManager<span class="token punctuation">)</span> <span class="token function">pending_count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>pending_count is the number of cells still queued. Used by tests.</p>
+
+</section>
+
+		<section id="LiquidManager.tick" class="doc-node">
+			<div class="title"><h2>fn (LiquidManager) tick <a href="#LiquidManager.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m LiquidManager<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>tick drains up to max_cells_per_tick queued cells and processes each. Cells a processed cell touches (neighbours it fills, or itself when it changes) are re-queued for the next tick, so the flow advances one ring per tick like vanilla. Runs on the actor thread from TickJob.</p>
+
+</section>
+
+		<section id="WaterState" class="doc-node">
+			<div class="title"><h2>struct WaterState <a href="#WaterState">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">WaterState</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	depth   <span class="token builtin">int</span>
+	falling <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+<p>WaterState is a resolved water cell: its internal depth and whether it is falling. It knows how to encode itself into a Bedrock network id.</p>
+
+</section>
+
+		<section id="WaterState.is_source" class="doc-node">
+			<div class="title"><h2>fn (WaterState) is_source <a href="#WaterState.is_source">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>w WaterState<span class="token punctuation">)</span> <span class="token function">is_source</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>is_source reports whether this cell is a full still source.</p>
+
+</section>
+
+		<section id="WaterState.network_id" class="doc-node">
+			<div class="title"><h2>fn (WaterState) network_id <a href="#WaterState.network_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>w WaterState<span class="token punctuation">)</span> <span class="token function">network_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>network_id resolves this water cell to its Bedrock runtime id. Source cells use minecraft:water, flowing/falling cells use minecraft:flowing_water.</p>
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:59</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#new_falling">fn new_falling</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_flowing">fn new_flowing</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_manager">fn new_manager</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_source">fn new_source</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#BlockSink">interface BlockSink</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#BlockSource">interface BlockSource</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Host">interface Host</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#LiquidManager">struct LiquidManager</a>        <ul>
+<li><a href="#LiquidManager.place_source">fn place_source</a></li>
+<li><a href="#LiquidManager.enqueue">fn enqueue</a></li>
+<li><a href="#LiquidManager.on_block_changed">fn on_block_changed</a></li>
+<li><a href="#LiquidManager.pending_count">fn pending_count</a></li>
+<li><a href="#LiquidManager.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#WaterState">struct WaterState</a>        <ul>
+<li><a href="#WaterState.is_source">fn is_source</a></li>
+<li><a href="#WaterState.network_id">fn network_id</a></li>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>

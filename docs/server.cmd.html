@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.cmd | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrock-realupstream</div>
+							<div class="toggle-version-container">
+								<span>0.0.1-alpha2 f1ef640</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li class="active"><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.plugin.html">plugin</a></li>
+<li><a href="./server.plugin.sample.html">plugin.sample</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.cmd" class="doc-node">
+			<div class="title"><h1> server.cmd</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> arg_flag_valid <span class="token operator">=</span> <span class="token builtin">u32</span><span class="token punctuation">(</span><span class="token number">0x100000</span><span class="token punctuation">)</span></code></pre>
+<p>Bedrock protocol "type_info" flags/values used to describe a command parameter to the client for autocomplete. The protocol package stores type_info as an opaque u32 (protocol/src/available_commands_packet.v).</p>
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> arg_flag_enum <span class="token operator">=</span> <span class="token builtin">u32</span><span class="token punctuation">(</span><span class="token number">0x200000</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> arg_type_int <span class="token operator">=</span> <span class="token builtin">u32</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> arg_type_target <span class="token operator">=</span> <span class="token builtin">u32</span><span class="token punctuation">(</span><span class="token number">8</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> arg_type_string <span class="token operator">=</span> <span class="token builtin">u32</span><span class="token punctuation">(</span><span class="token number">56</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> arg_type_rawtext <span class="token operator">=</span> <span class="token builtin">u32</span><span class="token punctuation">(</span><span class="token number">70</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="new_registry" class="doc-node">
+			<div class="title"><h2>fn new_registry <a href="#new_registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Registry</code></pre>
+
+
+</section>
+
+		<section id="usage_line" class="doc-node">
+			<div class="title"><h2>fn usage_line <a href="#usage_line">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">usage_line</span><span class="token punctuation">(</span>cmd Command<span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="validate_arguments" class="doc-node">
+			<div class="title"><h2>fn validate_arguments <a href="#validate_arguments">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">validate_arguments</span><span class="token punctuation">(</span>spec <span class="token punctuation">[</span><span class="token punctuation">]</span>Argument<span class="token punctuation">,</span> raw <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="visible" class="doc-node">
+			<div class="title"><h2>fn visible <a href="#visible">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">visible</span><span class="token punctuation">(</span>cmd Command<span class="token punctuation">,</span> sender Sender<span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>visible reports whether sender is allowed to see/run cmd.</p>
+
+</section>
+
+		<section id="Argument" class="doc-node">
+			<div class="title"><h2>interface Argument <a href="#Argument">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Argument</span> <span class="token punctuation">{</span>
+	<span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+	<span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token comment">// consumes_rest reports whether this argument swallows every remaining</span>
+	<span class="token comment">// raw token (e.g. a trailing chat message). Only the last argument in a command&#39;s list may do this.</span>
+	<span class="token function">consumes_rest</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token comment">// matches reports whether raw (a single token or the joined tail when consumes_rest() is true) is an acceptable value.</span>
+	<span class="token function">matches</span><span class="token punctuation">(</span>raw <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token comment">// network_type_info is the Bedrock protocol type_info payload for</span>
+	<span class="token comment">// non-enum arguments; unused for enum arguments (see enum_values()).</span>
+	<span class="token function">network_type_info</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u32</span>
+	<span class="token comment">// enum_values returns the accepted values for an enum style argument or an empty list for non enum arguments.</span>
+	<span class="token function">enum_values</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Argument is one typed, positional slot in a command's syntax. Registry uses it to validate raw tokens before Command.execute runs and to build real CommandParameter data for the client's AvailableCommandsPacket, replacing per command manual arg-count checks.</p>
+
+</section>
+
+		<section id="Command" class="doc-node">
+			<div class="title"><h2>interface Command <a href="#Command">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Command</span> <span class="token punctuation">{</span>
+	<span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+	<span class="token function">description</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+	<span class="token function">aliases</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+	<span class="token comment">// permission returns the permission node required to run this command</span>
+	<span class="token comment">// or &#39;&#39; if it needs none (public to everyone).</span>
+	<span class="token function">permission</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+	<span class="token comment">// arguments describes this command&#39;s expected syntax; Registry.dispatch</span>
+	<span class="token comment">// validates raw tokens against it before execute runs and available_commands() uses it to</span>
+	<span class="token comment">// build real client autocomplete data.</span>
+	<span class="token function">arguments</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>Argument
+	<span class="token function">execute</span><span class="token punctuation">(</span><span class="token keyword">mut</span> sender Sender<span class="token punctuation">,</span> ctx Context<span class="token punctuation">)</span> <span class="token operator">!</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Sender" class="doc-node">
+			<div class="title"><h2>interface Sender <a href="#Sender">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Sender</span> <span class="token punctuation">{</span>
+	<span class="token function">has_permission</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+	<span class="token function">whitelist_enabled</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token function">whitelist_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+	<span class="token function">is_player</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">send_message</span><span class="token punctuation">(</span>message <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>
+	<span class="token function">send_translation</span><span class="token punctuation">(</span>key <span class="token builtin">string</span><span class="token punctuation">,</span> parameters <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>
+	<span class="token function">set_gamemode</span><span class="token punctuation">(</span>mode <span class="token builtin">int</span><span class="token punctuation">)</span>
+	<span class="token function">find_player</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>Sender
+	<span class="token function">set_operator</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span>
+	<span class="token function">kill</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	<span class="token function">position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">(</span><span class="token builtin">f32</span><span class="token punctuation">,</span> <span class="token builtin">f32</span><span class="token punctuation">,</span> <span class="token builtin">f32</span><span class="token punctuation">)</span>
+	<span class="token function">teleport</span><span class="token punctuation">(</span>x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">)</span>
+	<span class="token comment">// place_water sets a water source at the block position and starts its spread.</span>
+	<span class="token function">place_water</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span>
+	<span class="token function">clear_inventory</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	<span class="token function">give_item</span><span class="token punctuation">(</span>id <span class="token builtin">string</span><span class="token punctuation">,</span> count <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token function">whitelist_add</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span>
+	<span class="token function">whitelist_remove</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span>
+	<span class="token function">whitelist_set_enabled</span><span class="token punctuation">(</span>value <span class="token builtin">bool</span><span class="token punctuation">)</span>
+	<span class="token function">set_difficulty</span><span class="token punctuation">(</span>value <span class="token builtin">int</span><span class="token punctuation">)</span>
+	<span class="token function">broadcast_message</span><span class="token punctuation">(</span>text <span class="token builtin">string</span><span class="token punctuation">)</span>
+	<span class="token comment">// show_title sends a title/subtitle/actionbar to this sender only.</span>
+	<span class="token function">show_title</span><span class="token punctuation">(</span>kind <span class="token builtin">int</span><span class="token punctuation">,</span> text <span class="token builtin">string</span><span class="token punctuation">)</span>
+	<span class="token comment">// broadcast_title sends to every connected player (for /title @a).</span>
+	<span class="token function">broadcast_title</span><span class="token punctuation">(</span>kind <span class="token builtin">int</span><span class="token punctuation">,</span> text <span class="token builtin">string</span><span class="token punctuation">)</span>
+	<span class="token comment">// show_scoreboard displays a sidebar scoreboard to this sender with the</span>
+	<span class="token comment">// given title and lines rendered top-to-bottom.</span>
+	<span class="token function">show_scoreboard</span><span class="token punctuation">(</span>title <span class="token builtin">string</span><span class="token punctuation">,</span> lines <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span><span class="token punctuation">)</span>
+	<span class="token comment">// clear_scoreboard removes the sidebar scoreboard from this sender.</span>
+	<span class="token function">clear_scoreboard</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	<span class="token function">send_form</span><span class="token punctuation">(</span>f form<span class="token punctuation">.</span>Form<span class="token punctuation">)</span> <span class="token operator">!</span>
+	<span class="token comment">// world management. Mutating ops return an error the command relays to the</span>
+	<span class="token comment">// sender; list/info are read-only snapshots.</span>
+	<span class="token function">world_names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+	<span class="token function">world_info</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>WorldSummary
+	<span class="token comment">// world_create&#39;s dimension and generator are names rather than the</span>
+	<span class="token comment">// world.Dimension/world.Generator types themselves, so the cmd layer never</span>
+	<span class="token comment">// depends on the world package directly.</span>
+	<span class="token function">world_create</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> dimension <span class="token builtin">string</span><span class="token punctuation">,</span> generator <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>
+	<span class="token function">world_load</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>
+	<span class="token function">world_delete</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>
+	<span class="token function">world_teleport</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">!</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Sender is the live connection that issued a cmd. Context carries read-only stats for building output; anything a Command needs to send back or mutate goes through Sender instead.</p>
+
+</section>
+
+		<section id="Context" class="doc-node">
+			<div class="title"><h2>struct Context <a href="#Context">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Context</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	lang           <span class="token operator">&amp;</span>language<span class="token punctuation">.</span>Lang <span class="token operator">=</span> <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token keyword">nil</span> <span class="token punctuation">}</span>
+	sender_name    <span class="token builtin">string</span>
+	player_count   <span class="token builtin">int</span>
+	max_players    <span class="token builtin">int</span>
+	server_motd    <span class="token builtin">string</span>
+	uptime_seconds <span class="token builtin">i64</span>
+	tps            <span class="token builtin">f64</span>
+	load           <span class="token builtin">f64</span>
+	args           <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument" class="doc-node">
+			<div class="title"><h2>struct IntArgument <a href="#IntArgument">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">IntArgument</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	arg_name     <span class="token builtin">string</span>
+	arg_optional <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument.name" class="doc-node">
+			<div class="title"><h2>fn (IntArgument) name <a href="#IntArgument.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a IntArgument<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument.optional" class="doc-node">
+			<div class="title"><h2>fn (IntArgument) optional <a href="#IntArgument.optional">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a IntArgument<span class="token punctuation">)</span> <span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument.consumes_rest" class="doc-node">
+			<div class="title"><h2>fn (IntArgument) consumes_rest <a href="#IntArgument.consumes_rest">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a IntArgument<span class="token punctuation">)</span> <span class="token function">consumes_rest</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument.matches" class="doc-node">
+			<div class="title"><h2>fn (IntArgument) matches <a href="#IntArgument.matches">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a IntArgument<span class="token punctuation">)</span> <span class="token function">matches</span><span class="token punctuation">(</span>raw <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument.network_type_info" class="doc-node">
+			<div class="title"><h2>fn (IntArgument) network_type_info <a href="#IntArgument.network_type_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a IntArgument<span class="token punctuation">)</span> <span class="token function">network_type_info</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u32</span></code></pre>
+
+
+</section>
+
+		<section id="IntArgument.enum_values" class="doc-node">
+			<div class="title"><h2>fn (IntArgument) enum_values <a href="#IntArgument.enum_values">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a IntArgument<span class="token punctuation">)</span> <span class="token function">enum_values</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="Registry" class="doc-node">
+			<div class="title"><h2>struct Registry <a href="#Registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Registry</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	commands <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span>Command
+	aliases  <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="Registry.register" class="doc-node">
+			<div class="title"><h2>fn (Registry) register <a href="#Registry.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>cmd Command<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Registry.unregister" class="doc-node">
+			<div class="title"><h2>fn (Registry) unregister <a href="#Registry.unregister">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span> <span class="token function">unregister</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span></code></pre>
+<p>unregister removes a previously registered command (and any aliases pointing to it) by name.</p>
+
+</section>
+
+		<section id="Registry.resolve" class="doc-node">
+			<div class="title"><h2>fn (Registry) resolve <a href="#Registry.resolve">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">resolve</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>Command</code></pre>
+
+
+</section>
+
+		<section id="Registry.dispatch" class="doc-node">
+			<div class="title"><h2>fn (Registry) dispatch <a href="#Registry.dispatch">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">dispatch</span><span class="token punctuation">(</span>line <span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token keyword">mut</span> sender Sender<span class="token punctuation">,</span> ctx_base Context<span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+
+
+</section>
+
+		<section id="Registry.names" class="doc-node">
+			<div class="title"><h2>fn (Registry) names <a href="#Registry.names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="Registry.available_commands" class="doc-node">
+			<div class="title"><h2>fn (Registry) available_commands <a href="#Registry.available_commands">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">available_commands</span><span class="token punctuation">(</span>sender Sender<span class="token punctuation">)</span> protocol<span class="token punctuation">.</span>AvailableCommandsPacket</code></pre>
+
+
+</section>
+
+		<section id="StringArgument" class="doc-node">
+			<div class="title"><h2>struct StringArgument <a href="#StringArgument">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">StringArgument</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	arg_name     <span class="token builtin">string</span>
+	arg_optional <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+<p>StringArgument matches a single non empty token (e.g. a player name).</p>
+
+</section>
+
+		<section id="StringArgument.name" class="doc-node">
+			<div class="title"><h2>fn (StringArgument) name <a href="#StringArgument.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringArgument<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="StringArgument.optional" class="doc-node">
+			<div class="title"><h2>fn (StringArgument) optional <a href="#StringArgument.optional">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringArgument<span class="token punctuation">)</span> <span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="StringArgument.consumes_rest" class="doc-node">
+			<div class="title"><h2>fn (StringArgument) consumes_rest <a href="#StringArgument.consumes_rest">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringArgument<span class="token punctuation">)</span> <span class="token function">consumes_rest</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="StringArgument.matches" class="doc-node">
+			<div class="title"><h2>fn (StringArgument) matches <a href="#StringArgument.matches">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringArgument<span class="token punctuation">)</span> <span class="token function">matches</span><span class="token punctuation">(</span>raw <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="StringArgument.network_type_info" class="doc-node">
+			<div class="title"><h2>fn (StringArgument) network_type_info <a href="#StringArgument.network_type_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringArgument<span class="token punctuation">)</span> <span class="token function">network_type_info</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u32</span></code></pre>
+
+
+</section>
+
+		<section id="StringArgument.enum_values" class="doc-node">
+			<div class="title"><h2>fn (StringArgument) enum_values <a href="#StringArgument.enum_values">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringArgument<span class="token punctuation">)</span> <span class="token function">enum_values</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="StringEnumArgument" class="doc-node">
+			<div class="title"><h2>struct StringEnumArgument <a href="#StringEnumArgument">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">StringEnumArgument</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	arg_name     <span class="token builtin">string</span>
+	arg_optional <span class="token builtin">bool</span>
+	values       <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span>
+<span class="token punctuation">}</span></code></pre>
+<p>StringEnumArgument matches a fixed and case-insensitive set of values (e.g. gamemode names).</p>
+
+</section>
+
+		<section id="StringEnumArgument.name" class="doc-node">
+			<div class="title"><h2>fn (StringEnumArgument) name <a href="#StringEnumArgument.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringEnumArgument<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="StringEnumArgument.optional" class="doc-node">
+			<div class="title"><h2>fn (StringEnumArgument) optional <a href="#StringEnumArgument.optional">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringEnumArgument<span class="token punctuation">)</span> <span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="StringEnumArgument.consumes_rest" class="doc-node">
+			<div class="title"><h2>fn (StringEnumArgument) consumes_rest <a href="#StringEnumArgument.consumes_rest">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringEnumArgument<span class="token punctuation">)</span> <span class="token function">consumes_rest</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="StringEnumArgument.matches" class="doc-node">
+			<div class="title"><h2>fn (StringEnumArgument) matches <a href="#StringEnumArgument.matches">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringEnumArgument<span class="token punctuation">)</span> <span class="token function">matches</span><span class="token punctuation">(</span>raw <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="StringEnumArgument.network_type_info" class="doc-node">
+			<div class="title"><h2>fn (StringEnumArgument) network_type_info <a href="#StringEnumArgument.network_type_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringEnumArgument<span class="token punctuation">)</span> <span class="token function">network_type_info</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u32</span></code></pre>
+
+
+</section>
+
+		<section id="StringEnumArgument.enum_values" class="doc-node">
+			<div class="title"><h2>fn (StringEnumArgument) enum_values <a href="#StringEnumArgument.enum_values">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a StringEnumArgument<span class="token punctuation">)</span> <span class="token function">enum_values</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="TargetArgument" class="doc-node">
+			<div class="title"><h2>struct TargetArgument <a href="#TargetArgument">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">TargetArgument</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	arg_name     <span class="token builtin">string</span>
+	arg_optional <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+<p>TargetArgument matches a single token naming another connected player.</p>
+
+</section>
+
+		<section id="TargetArgument.name" class="doc-node">
+			<div class="title"><h2>fn (TargetArgument) name <a href="#TargetArgument.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TargetArgument<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="TargetArgument.optional" class="doc-node">
+			<div class="title"><h2>fn (TargetArgument) optional <a href="#TargetArgument.optional">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TargetArgument<span class="token punctuation">)</span> <span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="TargetArgument.consumes_rest" class="doc-node">
+			<div class="title"><h2>fn (TargetArgument) consumes_rest <a href="#TargetArgument.consumes_rest">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TargetArgument<span class="token punctuation">)</span> <span class="token function">consumes_rest</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="TargetArgument.matches" class="doc-node">
+			<div class="title"><h2>fn (TargetArgument) matches <a href="#TargetArgument.matches">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TargetArgument<span class="token punctuation">)</span> <span class="token function">matches</span><span class="token punctuation">(</span>raw <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="TargetArgument.network_type_info" class="doc-node">
+			<div class="title"><h2>fn (TargetArgument) network_type_info <a href="#TargetArgument.network_type_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TargetArgument<span class="token punctuation">)</span> <span class="token function">network_type_info</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u32</span></code></pre>
+
+
+</section>
+
+		<section id="TargetArgument.enum_values" class="doc-node">
+			<div class="title"><h2>fn (TargetArgument) enum_values <a href="#TargetArgument.enum_values">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TargetArgument<span class="token punctuation">)</span> <span class="token function">enum_values</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="TextArgument" class="doc-node">
+			<div class="title"><h2>struct TextArgument <a href="#TextArgument">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">TextArgument</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	arg_name     <span class="token builtin">string</span>
+	arg_optional <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+<p>TextArgument consumes the rest of the line as one string (e.g. a chat/kick message). Must be the last argument in a command's list.</p>
+
+</section>
+
+		<section id="TextArgument.name" class="doc-node">
+			<div class="title"><h2>fn (TextArgument) name <a href="#TextArgument.name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TextArgument<span class="token punctuation">)</span> <span class="token function">name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="TextArgument.optional" class="doc-node">
+			<div class="title"><h2>fn (TextArgument) optional <a href="#TextArgument.optional">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TextArgument<span class="token punctuation">)</span> <span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="TextArgument.consumes_rest" class="doc-node">
+			<div class="title"><h2>fn (TextArgument) consumes_rest <a href="#TextArgument.consumes_rest">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TextArgument<span class="token punctuation">)</span> <span class="token function">consumes_rest</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="TextArgument.matches" class="doc-node">
+			<div class="title"><h2>fn (TextArgument) matches <a href="#TextArgument.matches">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TextArgument<span class="token punctuation">)</span> <span class="token function">matches</span><span class="token punctuation">(</span>raw <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="TextArgument.network_type_info" class="doc-node">
+			<div class="title"><h2>fn (TextArgument) network_type_info <a href="#TextArgument.network_type_info">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TextArgument<span class="token punctuation">)</span> <span class="token function">network_type_info</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u32</span></code></pre>
+
+
+</section>
+
+		<section id="TextArgument.enum_values" class="doc-node">
+			<div class="title"><h2>fn (TextArgument) enum_values <a href="#TextArgument.enum_values">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>a TextArgument<span class="token punctuation">)</span> <span class="token function">enum_values</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="WorldSummary" class="doc-node">
+			<div class="title"><h2>struct WorldSummary <a href="#WorldSummary">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">WorldSummary</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	name       <span class="token builtin">string</span>
+	generator  <span class="token builtin">string</span>
+	dimension  <span class="token builtin">string</span>
+	overrides  <span class="token builtin">int</span>
+	is_default <span class="token builtin">bool</span>
+	players    <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>WorldSummary is a read-only snapshot of a loaded world, built for command output so the cmd layer never depends on the db types directly.</p>
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 18 Jul 2026 00:48:58</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#new_registry">fn new_registry</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#usage_line">fn usage_line</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#validate_arguments">fn validate_arguments</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#visible">fn visible</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Argument">interface Argument</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Command">interface Command</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Sender">interface Sender</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Context">struct Context</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#IntArgument">struct IntArgument</a>        <ul>
+<li><a href="#IntArgument.name">fn name</a></li>
+<li><a href="#IntArgument.optional">fn optional</a></li>
+<li><a href="#IntArgument.consumes_rest">fn consumes_rest</a></li>
+<li><a href="#IntArgument.matches">fn matches</a></li>
+<li><a href="#IntArgument.network_type_info">fn network_type_info</a></li>
+<li><a href="#IntArgument.enum_values">fn enum_values</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Registry">struct Registry</a>        <ul>
+<li><a href="#Registry.register">fn register</a></li>
+<li><a href="#Registry.unregister">fn unregister</a></li>
+<li><a href="#Registry.resolve">fn resolve</a></li>
+<li><a href="#Registry.dispatch">fn dispatch</a></li>
+<li><a href="#Registry.names">fn names</a></li>
+<li><a href="#Registry.available_commands">fn available_commands</a></li>
+</ul>
+</li>
+<li class="open"><a href="#StringArgument">struct StringArgument</a>        <ul>
+<li><a href="#StringArgument.name">fn name</a></li>
+<li><a href="#StringArgument.optional">fn optional</a></li>
+<li><a href="#StringArgument.consumes_rest">fn consumes_rest</a></li>
+<li><a href="#StringArgument.matches">fn matches</a></li>
+<li><a href="#StringArgument.network_type_info">fn network_type_info</a></li>
+<li><a href="#StringArgument.enum_values">fn enum_values</a></li>
+</ul>
+</li>
+<li class="open"><a href="#StringEnumArgument">struct StringEnumArgument</a>        <ul>
+<li><a href="#StringEnumArgument.name">fn name</a></li>
+<li><a href="#StringEnumArgument.optional">fn optional</a></li>
+<li><a href="#StringEnumArgument.consumes_rest">fn consumes_rest</a></li>
+<li><a href="#StringEnumArgument.matches">fn matches</a></li>
+<li><a href="#StringEnumArgument.network_type_info">fn network_type_info</a></li>
+<li><a href="#StringEnumArgument.enum_values">fn enum_values</a></li>
+</ul>
+</li>
+<li class="open"><a href="#TargetArgument">struct TargetArgument</a>        <ul>
+<li><a href="#TargetArgument.name">fn name</a></li>
+<li><a href="#TargetArgument.optional">fn optional</a></li>
+<li><a href="#TargetArgument.consumes_rest">fn consumes_rest</a></li>
+<li><a href="#TargetArgument.matches">fn matches</a></li>
+<li><a href="#TargetArgument.network_type_info">fn network_type_info</a></li>
+<li><a href="#TargetArgument.enum_values">fn enum_values</a></li>
+</ul>
+</li>
+<li class="open"><a href="#TextArgument">struct TextArgument</a>        <ul>
+<li><a href="#TextArgument.name">fn name</a></li>
+<li><a href="#TextArgument.optional">fn optional</a></li>
+<li><a href="#TextArgument.consumes_rest">fn consumes_rest</a></li>
+<li><a href="#TextArgument.matches">fn matches</a></li>
+<li><a href="#TextArgument.network_type_info">fn network_type_info</a></li>
+<li><a href="#TextArgument.enum_values">fn enum_values</a></li>
+</ul>
+</li>
+<li class="open"><a href="#WorldSummary">struct WorldSummary</a>        <ul>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>
