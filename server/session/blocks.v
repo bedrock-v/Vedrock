@@ -6,6 +6,8 @@ import protocol.types
 import protocol.enums
 import server.event
 import server.world
+import server.block
+import server.item
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -29,7 +31,14 @@ fn (s &NetworkSession) can_interact() bool {
 		&& s.game_mode != protocol.game_type_creative_spectator
 }
 
-fn is_replaceable(block_id int) bool {
+// is_replaceable reports whether block_id is silently overwritten by a
+// placement rather than blocking it (short grass, ferns, etc.).
+//see block.Replaceable.
+fn (s &NetworkSession) is_replaceable(block_id int) bool {
+	b := s.hub.blocks.get(block_id) or { return false }
+	if b is block.Replaceable {
+		return b.replaceable()
+	}
 	return false
 }
 
@@ -86,12 +95,15 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 			if s.interact_block(ut.block_position, clicked_id, int(ut.block_face))! {
 				return
 			}
+			if s.use_item_on_block(ut.block_position, clicked_id) {
+				return
+			}
 			runtime_id := ut.held_item.item_stack.block_runtime_id
 			if runtime_id == 0 {
 				return
 			}
 			mut target := ut.block_position
-			if !is_replaceable(clicked_id) {
+			if !s.is_replaceable(clicked_id) {
 				target = neighbor
 			}
 			if target.y < world.dimension_min_y || target.y > world.dimension_max_y {
@@ -167,13 +179,109 @@ fn (s &NetworkSession) held_stack_and_name() (types.ItemStack, string) {
 	return stack, s.hub.data.item_name(stack.id)
 }
 
+// use_item_on_block applies the held item's UsableOnBlockItem effect (e.g.
+// bone meal advancing a crop's growth stage) if clicked_id qualifies.
+// Returns false for every item/block combination that doesn't. Callers
+// should then fall through to ordinary placement handling.
+fn (mut s NetworkSession) use_item_on_block(pos types.BlockPosition, clicked_id int) bool {
+	if isnil(s.hub.palette) {
+		return false
+	}
+	v := s.hub.palette.variant(clicked_id) or { return false }
+	stack, name := s.held_stack_and_name()
+	result := s.hub.items.use_on_block_result(name, v.name, stack.meta) or { return false }
+	current := v.states[result.state_key] or { return false }.int()
+	new_id := s.hub.palette.with_state(clicked_id, result.state_key,
+		(current + result.state_delta).str()) or { return false }
+	if new_id == clicked_id {
+		return false
+	}
+	mut use_ctx := event.new_context(event.ItemUseData{
+		player:    s
+		item_name: name
+		meta:      stack.meta
+		on_block:  true
+		x:         pos.x
+		y:         pos.y
+		z:         pos.z
+	})
+	s.hub.events.item_use(mut use_ctx)
+	if use_ctx.is_cancelled() {
+		s.resend_block(pos)
+		return true
+	}
+	s.write_block_runtime(pos, new_id)
+	s.broadcast_block_update(pos, new_id)
+	if result.sound != '' {
+		s.hub.broadcast(&protocol.LevelSoundEventPacket{
+			sound:           result.sound
+			position:        s.current_position()
+			extra_data:      -1
+			entity_type:     'minecraft:player'
+			actor_unique_id: i64(s.runtime_id)
+		})
+	}
+	s.broadcast_swing()
+	if s.game_mode != protocol.game_type_creative {
+		s.consume_held_item()
+	}
+	s.after_block_changed(pos)
+	return true
+}
+
+// damage_held_item applies amount points of durability damage to the
+// currently held item, removing it if it breaks. Creative mode tools never
+// take durability damage.
+fn (mut s NetworkSession) damage_held_item(amount int) {
+	if s.game_mode == protocol.game_type_creative
+		|| s.game_mode == protocol.game_type_creative_spectator {
+		return
+	}
+	stack, net := s.inventory_stack_at(s.held_slot)
+	if net == 0 {
+		return
+	}
+	it := s.hub.items.get(s.hub.data.item_name(stack.id)) or { return }
+	result := item.damage_item(it, stack.meta, amount)
+	if result.broken {
+		s.inv_stacks.delete(net)
+		s.inv_slots.delete(s.held_slot)
+		s.held_item = empty_stack()
+		s.send_slot_update(s.held_slot, empty_stack())
+		return
+	}
+	if result.new_meta == stack.meta {
+		return
+	}
+	mut updated := stack
+	updated.meta = result.new_meta
+	s.inv_stacks[net] = updated
+	s.held_item = wrap_stack_id(updated, net)
+	s.send_slot_update(s.held_slot, s.held_item)
+}
+
 // use_held_item_in_air runs a UseableItem's on use behaviour (e.g. goat_horn's sound).
 fn (mut s NetworkSession) use_held_item_in_air() {
 	if s.dead || !s.can_interact() {
 		return
 	}
 	stack, name := s.held_stack_and_name()
+	if cooldown := s.hub.items.cooldown_ticks(name) {
+		if s.hub.current_tick < s.cooldown_until[name] {
+			return
+		}
+		s.cooldown_until[name] = s.hub.current_tick + i64(cooldown)
+	}
 	result := s.hub.items.use_result(name, stack.meta) or { return }
+	mut use_ctx := event.new_context(event.ItemUseData{
+		player:    s
+		item_name: name
+		meta:      stack.meta
+	})
+	s.hub.events.item_use(mut use_ctx)
+	if use_ctx.is_cancelled() {
+		return
+	}
 	if result.sound == '' {
 		return
 	}
@@ -193,13 +301,44 @@ fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! 
 			s.break_block(p.block_position)!
 		}
 		int(enums.PlayerAction.start_break) {
-			s.broadcast_swing()
+			s.handle_start_break(p.block_position, p.face)
 		}
 		int(enums.PlayerAction.respawn) {
 			s.respawn()
 		}
 		else {}
 	}
+}
+
+fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
+	if s.dead || !s.can_interact() {
+		return
+	}
+	old_id := s.block_at(pos.x, pos.y, pos.z)
+	if old_id == world.air.network_id {
+		return
+	}
+	mut ctx := event.new_context(event.StartBreakData{
+		player: s
+		x:      pos.x
+		y:      pos.y
+		z:      pos.z
+		face:   click_face
+	})
+	s.hub.events.start_break(mut ctx)
+	if ctx.is_cancelled() {
+		s.resend_block(pos)
+		return
+	}
+	if punchable := s.hub.blocks.get(old_id) {
+		if punchable is block.Punchable {
+			mut wld := s.current_world()
+			if !isnil(wld) {
+				punchable.punch(pos.x, pos.y, pos.z, click_face, mut wld)
+			}
+		}
+	}
+	s.broadcast_swing()
 }
 
 // place_reach_sq returns the squared placement reach for the player's
@@ -442,6 +581,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	}
 	s.write_block_runtime(pos, air_id)
 	s.broadcast_block_update(pos, air_id)
+	s.damage_held_item(1)
 	if pair := s.door_pair_pos(pos, old_id) {
 		pair_id := s.block_at(pair.x, pair.y, pair.z)
 		if s.door_pair_matches(old_id, pair_id) {
@@ -479,11 +619,27 @@ fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, cl
 		}
 		return false
 	}
-	new_id := s.hub.palette.toggled_open(old_id) or { return false }
-	s.set_block_runtime(pos, new_id)
-	s.broadcast_swing()
-	s.after_block_changed(pos)
-	return true
+	if new_id := s.hub.palette.toggled_open(old_id) {
+		s.set_block_runtime(pos, new_id)
+		s.broadcast_swing()
+		s.after_block_changed(pos)
+		return true
+	}
+	interactable := s.hub.blocks.get(old_id) or { return false }
+	if interactable is block.Interactable {
+		mut wld := s.current_world()
+		if isnil(wld) {
+			return false
+		}
+		if !interactable.interact(pos.x, pos.y, pos.z, click_face, mut wld) {
+			return false
+		}
+		s.broadcast_block_update(pos, s.block_at(pos.x, pos.y, pos.z))
+		s.broadcast_swing()
+		s.after_block_changed(pos)
+		return true
+	}
+	return false
 }
 
 fn (mut s NetworkSession) carve_pumpkin(old_id int, click_face int) ?int {

@@ -45,6 +45,42 @@ pub:
 	sound string
 }
 
+// UseOnBlockResult describes what a UsableOnBlockItem does when used on a
+// qualifying block: which int block-state to advance and by how much, plus
+// an optional sound.
+pub struct UseOnBlockResult {
+pub:
+	sound       string
+	state_key   string
+	state_delta int
+}
+
+// UsableOnBlockItem is implemented by items with a behaviour when used on a
+// specific kind of block (e.g. bone meal on crops). Returns none if this
+// item does nothing to a block named block_name.
+pub interface UsableOnBlockItem {
+	use_on_block_result(block_name string, meta int) ?UseOnBlockResult
+}
+
+// UseOnEntityResult describes what a UsableOnEntityItem does when used on an
+// entity.
+pub struct UseOnEntityResult {
+pub:
+	sound string
+}
+
+// UsableOnEntityItem is implemented by items with a behaviour when used on
+// an entity.
+pub interface UsableOnEntityItem {
+	use_on_entity_result(meta int) UseOnEntityResult
+}
+
+// CooldownItem is implemented by items that can't be used again for a period
+// after use (e.g. the goat horn).
+pub interface CooldownItem {
+	cooldown_ticks() int
+}
+
 // SimpleItem is the base class for items that carry no special behaviour
 // (dyes, sticks, string, ...). Concrete simple items embed it and fill in
 // their identity; anything unregistered behaves like a default SimpleItem.

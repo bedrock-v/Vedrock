@@ -303,3 +303,64 @@ fn test_compass_family_has_dedicated_classes() {
 	lodestone := r.get('minecraft:lodestone_compass') or { panic('missing lodestone_compass') }
 	assert lodestone is LodestoneCompassItem
 }
+
+fn test_bone_meal_advances_only_crop_growth() {
+	r := new_registry()
+	bone_meal := r.get('minecraft:bone_meal') or { panic('missing bone_meal') }
+	assert bone_meal is BoneMealItem
+
+	result := r.use_on_block_result('minecraft:bone_meal', 'minecraft:wheat', 0) or {
+		panic('expected bone meal to act on wheat')
+	}
+	assert result.state_key == 'growth'
+	assert result.state_delta == 1
+
+	// Not every block is bone mealable.
+	assert r.use_on_block_result('minecraft:bone_meal', 'minecraft:stone', 0) == none
+	// Not every item is a UsableOnBlockItem.
+	assert r.use_on_block_result('minecraft:stone', 'minecraft:wheat', 0) == none
+}
+
+fn test_goat_horn_has_a_cooldown() {
+	r := new_registry()
+	ticks := r.cooldown_ticks('minecraft:goat_horn') or { panic('expected a cooldown') }
+	assert ticks > 0
+	// Items without a CooldownItem implementation have no cooldown.
+	assert r.cooldown_ticks('minecraft:stone') == none
+}
+
+fn test_damage_item_breaks_a_tool_at_max_durability() {
+	pick := new_tool_item(ToolTier.wood, ToolType.pickaxe)
+	max := pick.durability()
+	assert max > 0
+
+	// Two points below max: damaged, not broken.
+	result := damage_item(pick, max - 2, 1)
+	assert !result.broken
+	assert result.new_meta == max - 1
+
+	// Reaches max: broken.
+	broken := damage_item(pick, max - 1, 1)
+	assert broken.broken
+}
+
+fn test_damage_item_is_a_noop_for_non_durable_items() {
+	stone := new_stone_item()
+	result := damage_item(stone, 0, 100)
+	assert !result.broken
+	assert result.new_meta == 0
+}
+
+fn test_crops_compost_on_a_composter_but_do_nothing_elsewhere() {
+	r := new_registry()
+	for id in ['minecraft:wheat', 'minecraft:carrot', 'minecraft:potato', 'minecraft:beetroot'] {
+		result := r.use_on_block_result(id, 'minecraft:composter', 0) or {
+			panic('expected ${id} to compost')
+		}
+		assert result.state_key == 'composter_fill_level'
+		assert result.state_delta == 1
+		assert r.use_on_block_result(id, 'minecraft:stone', 0) == none
+	}
+	// Not every item composts.
+	assert r.use_on_block_result('minecraft:stone', 'minecraft:composter', 0) == none
+}
