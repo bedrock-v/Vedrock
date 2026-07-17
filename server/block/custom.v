@@ -2,8 +2,8 @@ module block
 
 import nbt
 
-// Runtime ids for custom blocks start above the vanilla palette, matching the
-// PowerNukkitX allocation scheme.
+// Runtime ids for custom blocks start above the vanilla palette so they never
+// collide with it.
 pub const custom_block_runtime_id_start = 10000
 
 // MaterialInstance is the render description for one face (or '*' for all).
@@ -111,9 +111,9 @@ fn value_compound(v nbt.Tag) nbt.Tag {
 	return nbt.Tag(c)
 }
 
-// network_entry builds the block property NBT following the PowerNukkitX
-// layout: a components compound, menu_category, molang version and the
-// allocated runtime id under vanilla_block_data.
+// network_entry builds the block property NBT: a components compound,
+// menu_category, molang version and the allocated runtime id under
+// vanilla_block_data.
 pub fn (d &CustomBlockDefinition) network_entry() NetworkEntry {
 	mut comp := nbt.new_compound()
 	name := if d.display_name == '' { d.id } else { d.display_name }

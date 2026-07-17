@@ -2,8 +2,8 @@ module item
 
 import nbt
 
-// Runtime ids for custom items start well above the vanilla palette, matching
-// the PowerNukkitX allocation scheme.
+// Runtime ids for custom items start well above the vanilla palette so they
+// never collide with it.
 pub const custom_item_runtime_id_start = 10000
 
 // FoodComponent makes a custom item edible.
@@ -100,9 +100,9 @@ fn (d &CustomItemDefinition) icon_compound() nbt.Tag {
 	return nbt.Tag(icon)
 }
 
-// components builds the component NBT the client consumes, following the
-// PowerNukkitX layout: an item_properties compound for the base properties and
-// one minecraft:* compound per opted-in component.
+// components builds the component NBT the client consumes: an item_properties
+// compound for the base properties and one minecraft:* compound per opted-in
+// component.
 pub fn (d &CustomItemDefinition) components() nbt.RootTag {
 	mut props := nbt.new_compound()
 	props.set('allow_off_hand', bool_byte(d.allow_off_hand))

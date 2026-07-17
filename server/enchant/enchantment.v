@@ -1,7 +1,7 @@
 module enchant
 
 // Vanilla enchantment ids end below this; plugin enchantments allocate from
-// here up, matching the PowerNukkitX scheme.
+// here up.
 pub const custom_enchantment_id_start = 256
 
 // Enchantment is the behaviour contract every enchantment implements. Vanilla

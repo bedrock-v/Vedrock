@@ -2,8 +2,8 @@ module entity
 
 import nbt
 
-// Runtime ids for custom entity types start above the vanilla list, matching
-// the PowerNukkitX allocation scheme.
+// Runtime ids for custom entity types start above the vanilla list so they
+// never collide with it.
 pub const custom_entity_runtime_id_start = 10000
 
 // CustomEntityDefinition describes an entity type a plugin registers. The
@@ -75,7 +75,7 @@ fn flag_byte(v bool) nbt.Tag {
 }
 
 // identifiers_nbt builds the AvailableActorIdentifiers root tag: an idlist of
-// one compound per custom entity, in the PowerNukkitX entry format.
+// one compound per custom entity, in the format the client expects.
 pub fn (r &CustomRegistry) identifiers_nbt() nbt.RootTag {
 	mut entries := []nbt.Tag{cap: r.defs.len}
 	for def in r.defs {
