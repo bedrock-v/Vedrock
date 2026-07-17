@@ -122,7 +122,7 @@ other = "§cUsage: /say <message>§r"
 other = "§cUsage: /title <player|@a> <title|subtitle|actionbar> <text>§r"
 
 [cmd.world.usage]
-other = "§cUsage: /world <list|info|create|load|delete|tp> [name] [dimension] [generator]§r"
+other = "§cUsage: /world <list|info|create|delete|tp> [name]§r"
 
 [cmd.world.none]
 other = "§eNo worlds are loaded§r"
@@ -138,12 +138,6 @@ other = "§aCreated world \"{{.Name}}\"§r"
 
 [cmd.world.create_failed]
 other = "§cFailed to create \"{{.Name}}\": {{.Reason}}§r"
-
-[cmd.world.loaded]
-other = "§aLoaded world \"{{.Name}}\"§r"
-
-[cmd.world.load_failed]
-other = "§cFailed to load \"{{.Name}}\": {{.Reason}}§r"
 
 [cmd.world.deleted]
 other = "§aDeleted world \"{{.Name}}\"§r"
