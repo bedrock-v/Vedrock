@@ -1,6 +1,7 @@
 module session
 
 import protocol
+import protocol.enums
 import protocol.types
 
 // op / deop
@@ -156,10 +157,10 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			stop_all:   true
 		}) or {}
 		s.transport.send(&protocol.PlayStatusPacket{
-			status: 3
+			status: int(enums.PlayStatus.player_spawn)
 		}) or {}
 		s.transport.send(&protocol.PlayerActionPacket{
-			action:           14
+			action:           int(enums.PlayerAction.dimension_change_ack)
 			actor_runtime_id: s.runtime_id
 		}) or {}
 	}
