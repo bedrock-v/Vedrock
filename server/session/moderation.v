@@ -151,6 +151,17 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			position:  types.Vector3{x, y, z}
 			respawn:   false
 		}) or {}
+		s.transport.send(&protocol.StopSoundPacket{
+			sound_name: ''
+			stop_all:   true
+		}) or {}
+		s.transport.send(&protocol.PlayStatusPacket{
+			status: 3
+		}) or {}
+		s.transport.send(&protocol.PlayerActionPacket{
+			action:           14
+			actor_runtime_id: s.runtime_id
+		}) or {}
 	}
 	return true
 }
