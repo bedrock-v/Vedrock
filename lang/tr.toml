@@ -136,6 +136,12 @@ other = '§a"{{.Name}}" dünyası oluşturuldu§r'
 [cmd.world.create_failed]
 other = '§c"{{.Name}}" oluşturulamadı: {{.Reason}}§r'
 
+[cmd.world.loaded]
+other = '§aLoaded world "{{.Name}}"§r'
+
+[cmd.world.load_failed]
+other = '§cFailed to load "{{.Name}}": {{.Reason}}§r'
+
 [cmd.world.deleted]
 other = '§a"{{.Name}}" dünyası silindi§r'
 
