@@ -32,9 +32,9 @@ pub enum State {
 @[heap]
 pub struct NetworkSession {
 mut:
-	transport &network.Session = unsafe { nil }
-	hub       &Hub             = unsafe { nil }
-	state     State            = .handshake
+	transport network.Transport = FakeTransport{}
+	hub       &Hub              = unsafe { nil }
+	state     State             = .handshake
 	cfg       conf.Config
 	world     &db.World       = unsafe { nil }
 	generator world.Generator = world.VoidGenerator{}
@@ -124,7 +124,7 @@ pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 	return target
 }
 
-pub fn new(mut transport network.Session, mut hub Hub, cfg conf.Config, log &logger.Logger) &NetworkSession {
+pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &logger.Logger) &NetworkSession {
 	mut generator := world.new_generator(cfg.generator)
 	spawn_world := hub.default_world() or { &db.World(unsafe { nil }) }
 	if !isnil(spawn_world) {

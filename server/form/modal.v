@@ -38,7 +38,11 @@ pub fn (mut f ModalForm) closed(on_close fn ()) ModalForm {
 }
 
 pub fn (f &ModalForm) request_body() string {
-	return '{"type":"modal","title":${json2.encode(f.title, escape_unicode: true)},"content":${json2.encode(f.content, escape_unicode: true)},"button1":${json2.encode(f.button1, escape_unicode: true)},"button2":${json2.encode(f.button2, escape_unicode: true)}}'
+	return '{"type":"modal","title":${json2.encode(f.title, escape_unicode: true)},"content":${json2.encode(f.content,
+		escape_unicode: true
+	)},"button1":${json2.encode(f.button1, escape_unicode: true)},"button2":${json2.encode(f.button2,
+		escape_unicode: true
+	)}}'
 }
 
 // has_network_image is always false because modal form buttons don't carry images.

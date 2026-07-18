@@ -45,7 +45,9 @@ pub fn (f &SimpleForm) request_body() string {
 	for b in f.buttons {
 		parts << json2.encode(b, escape_unicode: true)
 	}
-	return '{"type":"form","title":${json2.encode(f.title, escape_unicode: true)},"content":${json2.encode(f.content, escape_unicode: true)},"buttons":[${parts.join(',')}]}'
+	return '{"type":"form","title":${json2.encode(f.title, escape_unicode: true)},"content":${json2.encode(f.content,
+		escape_unicode: true
+	)},"buttons":[${parts.join(',')}]}'
 }
 
 pub fn (f &SimpleForm) has_network_image() bool {
