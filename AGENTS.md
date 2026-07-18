@@ -61,10 +61,12 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
 - `server/plugin/` - in-tree plugin system. A `Plugin` gets one `Api` on enable to register
   commands, event listeners, and scheduled tasks. Built-ins wired in `server/server.v`
   `register_plugins`. Example: `server/plugin/sample/greeter.v`.
-- `server/event/` - dragonfly-style event bus. Generic `Context[T]` (cancel + mutable `val`),
-  a `Handler` interface with one method per event, embeddable `NopHandler`, priority-ordered
-  `Bus`. 13 events dispatched from real session hooks (join/quit/chat/command/block break-place/
-  interact/attack/hurt/death/respawn/move/gamemode). See `server/event/events.v`.
+- `server/event/` - Event bus. Generic `Context[T]` (`context.v`) and the
+  narrow `PlayerView` interface (`player.v`), a `Handler` interface with one method per event,
+  embeddable `NopHandler`, priority-ordered `Bus`. 15 events dispatched from real session hooks
+  (join/quit/chat/command/block break-place/start-break/interact/item-use/attack/hurt/death/
+  respawn/move/gamemode). Event data structs are grouped by domain: `events_player.v`,
+  `events_block.v`, `events_item.v`, `events_combat.v`.
 - `server/scheduler/` - PocketMine-style tick scheduler. `Task`/`ClosureTask`, `TaskHandler`,
   delayed + repeating, mutex-guarded, `heartbeat(tick)` on the actor thread. 20 ticks = 1s.
 - `server/entity/` - non-player actors (mobs/projectiles). `Entity` + pluggable `Behaviour`
@@ -87,8 +89,9 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
   like a human would. Do not narrate the obvious.
 - Documentation/markdown: use "-" not em-dashes.
 - Keep new packages self-contained and avoid import cycles - lower layers (`event`, `scheduler`,
-  `entity`) must not import `session`. They take primitives or shared interfaces (`cmd.Sender`,
-  `plugin.ServerView`) instead.
+  `entity`) must not import `session`. They take primitives or their own narrow interfaces
+  instead - each layer declares exactly what it needs and lets `NetworkSession`/`Hub` satisfy it
+  structurally (see `event.PlayerView`, `plugin.ServerView`, `world/light`'s engine interface).
 - Every exported struct/method is `pub` and the struct name is capitalized (V requirement).
 
 ## Extending the server
