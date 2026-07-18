@@ -190,7 +190,7 @@ Priorities (`lowest low normal high highest monitor`): lowest runs first, monito
 `monitor` should only observe.
 
 Events and their `ctx.val` fields (structs grouped by domain in `events_player.v`,
-`events_block.v`, `events_item.v`, `events_combat.v`; `player` is an `event.PlayerView`):
+`events_block.v`, `events_item.v`, `events_combat.v`; `player` is a `player.View`):
 - `on_player_join(JoinData)` - `player`, `message`
 - `on_player_quit(QuitData)` - `player`, `message`
 - `on_player_chat(ChatData)` - `player`, `message`

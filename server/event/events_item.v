@@ -1,5 +1,7 @@
 module event
 
+import server.player
+
 // ItemUseData is dispatched right before a held item's effect is applied,
 // either in the air (e.g. a goat horn's sound) or on a block (e.g. bone meal
 // advancing a crop's growth). on_block reports which; x/y/z are only
@@ -13,5 +15,5 @@ pub:
 	y         int
 	z         int
 pub mut:
-	player PlayerView
+	player player.View
 }
