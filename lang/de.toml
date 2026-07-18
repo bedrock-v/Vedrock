@@ -1,5 +1,3 @@
-# de.toml - Deutsch
-
 [server.starting]
 other = "Starte Vedrock für Minecraft Bedrock {{.Version}} (protocol {{.Protocol}})"
 
@@ -34,7 +32,10 @@ other = "§cLeerer Befehl"
 other = "§cDu hast nicht die benötigten Berechtigungen, um diesen Befehl auszuführen"
 
 [cmd.version.body]
-other = "Dieser Server verwendet §a{{.Software}}§r\nServer Version: §a{{.Version}}§r (git: §a{{.Hash}}§r)\nKompatible MC Version: §a{{.MCVersion}}§r (Protokoll §a{{.Protocol}}§r)"
+other = """
+Dieser Server verwendet §a{{.Software}}§r
+Server Version: §a{{.Version}}§r (git: §a{{.Hash}}§r)
+Kompatible MC Version: §a{{.MCVersion}}§r (Protokoll §a{{.Protocol}}§r)"""
 
 [cmd.status.header]
 other = "§a---- §6Server Status §a----§r"
@@ -53,10 +54,6 @@ other = "§cSpieler {{.Name}} konnte nicht gefunden werden"
 
 [cmd.player_only]
 other = "§cDieser Befehl kann nur im Spiel verwendet werden§r"
-
-
-
-
 
 [cmd.whitelist.usage]
 other = "§cVerwendung: /whitelist <add|remove|on|off|list> [Spieler]§r"
@@ -131,28 +128,28 @@ other = "§eKeine Welten wurden geladen§r"
 other = "§6Welten ({{.Count}}): §a{{.Worlds}}§r"
 
 [cmd.world.not_found]
-other = "§cWelt \"{{.Name}}\" wurde nicht geladen§r"
+other = '§cWelt "{{.Name}}" wurde nicht geladen§r'
 
 [cmd.world.created]
-other = "§aWelt \"{{.Name}}\" wurde erstellt§r"
+other = '§aWelt "{{.Name}}" wurde erstellt§r'
 
 [cmd.world.create_failed]
-other = "§cErstellen von \"{{.Name}}\" ist fehlgeschlagen: {{.Reason}}§r"
+other = '§cErstellen von "{{.Name}}" ist fehlgeschlagen: {{.Reason}}§r'
 
 [cmd.world.loaded]
-other = "§aWelt \"{{.Name}}\" wurde geladen§r"
+other = '§aWelt "{{.Name}}" wurde geladen§r'
 
 [cmd.world.load_failed]
-other = "§cDas Laden der Welt \"{{.Name}}\" ist fehlgeschlagen: {{.Reason}}§r"
+other = '§cDas Laden der Welt "{{.Name}}" ist fehlgeschlagen: {{.Reason}}§r'
 
 [cmd.world.deleted]
-other = "§aWelt \"{{.Name}}\" wurde gelöscht§r"
+other = '§aWelt "{{.Name}}" wurde gelöscht§r'
 
 [cmd.world.delete_failed]
-other = "§cWelt \"{{.Name}}\" konnte nicht gelöscht werden: {{.Reason}}§r"
+other = '§cWelt "{{.Name}}" konnte nicht gelöscht werden: {{.Reason}}§r'
 
 [cmd.world.tp]
-other = "§aZur Welt \"{{.Name}}\" teleportiert§r"
+other = '§aZur Welt "{{.Name}}" teleportiert§r'
 
 [cmd.world.tp_failed]
-other = "§cDas Teleportieren zur Welt \"{{.Name}}\" ist fehlgeschlafen: {{.Reason}}§r"
+other = '§cDas Teleportieren zur Welt "{{.Name}}" ist fehlgeschlafen: {{.Reason}}§r'
