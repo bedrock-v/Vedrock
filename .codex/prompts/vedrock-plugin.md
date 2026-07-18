@@ -189,15 +189,17 @@ Register: `api.register_listener(&MyListener{ server: api.server }, event.Priori
 Priorities (`lowest low normal high highest monitor`): lowest runs first, monitor last -
 `monitor` should only observe.
 
-Events and their `ctx.val` fields (all in `server/event/events.v`; `player` is a
-`cmd.Sender`):
+Events and their `ctx.val` fields (structs grouped by domain in `events_player.v`,
+`events_block.v`, `events_item.v`, `events_combat.v`; `player` is a `player.View`):
 - `on_player_join(JoinData)` - `player`, `message`
 - `on_player_quit(QuitData)` - `player`, `message`
 - `on_player_chat(ChatData)` - `player`, `message`
 - `on_player_command(CommandData)` - `player`, `command`
+- `on_start_break(StartBreakData)` - `x y z face`, `player`
 - `on_block_break(BlockBreakData)` - `x y z block_id`, `player`
 - `on_block_place(BlockPlaceData)` - `x y z block_id`, `player`
 - `on_player_interact(InteractData)` - `x y z face`, `player`
+- `on_item_use(ItemUseData)` - `item_name meta on_block x y z`, `player`
 - `on_player_attack(AttackData)` - `victim_runtime_id critical`, `player damage`
 - `on_player_hurt(HurtData)` - `attacker_name`, `player amount`
 - `on_player_death(DeathData)` - `params`, `player message_key`

@@ -1,6 +1,6 @@
 module event
 
-// Handler is the dragonfly-style listener interface: one method per event, each
+// Handler is the listener interface: one method per event, each
 // receiving a mutable Context. A plugin embeds NopHandler and overrides only the
 // events it cares about.
 pub interface Handler {

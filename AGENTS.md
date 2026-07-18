@@ -61,10 +61,14 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
 - `server/plugin/` - in-tree plugin system. A `Plugin` gets one `Api` on enable to register
   commands, event listeners, and scheduled tasks. Built-ins wired in `server/server.v`
   `register_plugins`. Example: `server/plugin/sample/greeter.v`.
-- `server/event/` - dragonfly-style event bus. Generic `Context[T]` (cancel + mutable `val`),
-  a `Handler` interface with one method per event, embeddable `NopHandler`, priority-ordered
-  `Bus`. 13 events dispatched from real session hooks (join/quit/chat/command/block break-place/
-  interact/attack/hurt/death/respawn/move/gamemode). See `server/event/events.v`.
+- `server/player/` - `View`, the narrow capability-only interface for "acts like a player"
+  (identity, permission, messaging, movement, inventory, UI, etc.). Exists so lower layers can
+  reference a player without importing `session`.
+- `server/event/` - Event bus. Generic `Context[T]` (`context.v`), a `Handler` interface with
+  one method per event, embeddable `NopHandler`, priority-ordered `Bus`. 15 events dispatched
+  from real session hooks (join/quit/chat/command/block break-place/start-break/interact/
+  item-use/attack/hurt/death/respawn/move/gamemode). Event data structs are grouped by domain:
+  `events_player.v`, `events_block.v`, `events_item.v`, `events_combat.v`.
 - `server/scheduler/` - PocketMine-style tick scheduler. `Task`/`ClosureTask`, `TaskHandler`,
   delayed + repeating, mutex-guarded, `heartbeat(tick)` on the actor thread. 20 ticks = 1s.
 - `server/entity/` - non-player actors (mobs/projectiles). `Entity` + pluggable `Behaviour`
@@ -77,7 +81,9 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
 - `server/world/upgrader/` - schema-driven block-state upgrader (df-mc/worldupgrader model).
   Versioned upgrade steps (rename, meta->state, value remap) applied on chunk load via a hook
   in `server/world/db/vanilla.v`; current-version data is a pass-through no-op.
-- `server/cmd/` - `Command` interface + `Registry`. Defaults in `server/cmd/default/`.
+- `server/cmd/` - `Command` interface + `Registry`. `Sender` embeds `player.View` and adds
+  admin-only methods (whitelist/difficulty/broadcast/world management). Defaults in
+  `server/cmd/default/`.
 - `server/permission/`, `server/form/`, `server/resource/`, `server/item/`, `server/block/`.
 
 ## Conventions
@@ -87,8 +93,13 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
   like a human would. Do not narrate the obvious.
 - Documentation/markdown: use "-" not em-dashes.
 - Keep new packages self-contained and avoid import cycles - lower layers (`event`, `scheduler`,
-  `entity`) must not import `session`. They take primitives or shared interfaces (`cmd.Sender`,
-  `plugin.ServerView`) instead.
+  `entity`) must not import `session`. They take primitives, or a narrow interface that
+  `NetworkSession`/`Hub` satisfies structurally. Prefer reusing a shared one over deriving a new
+  one per package: `player.View` is the canonical "acts like a player" contract (`cmd.Sender`
+  embeds it rather than duplicating it) - a package needing player capabilities should import
+  `server.player` directly rather than redefining its own slice. `plugin.ServerView` and
+  `world/light`'s engine interface follow the same narrow-interface pattern for `Hub`-shaped
+  needs, where no shared type exists yet.
 - Every exported struct/method is `pub` and the struct name is capitalized (V requirement).
 
 ## Extending the server
