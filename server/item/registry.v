@@ -86,10 +86,10 @@ pub fn (r &Registry) use_on_block_result(id string, block_name string, meta int)
 	return none
 }
 
-pub fn (r &Registry) use_on_entity_result(id string, meta int) ?UseOnEntityResult {
+pub fn (r &Registry) use_on_entity_result(id string, entity_name string, meta int) ?UseOnEntityResult {
 	it := r.get(id) or { return none }
 	if it is UsableOnEntityItem {
-		return it.use_on_entity_result(meta)
+		return it.use_on_entity_result(entity_name, meta)
 	}
 	return none
 }
@@ -124,6 +124,7 @@ fn default_items() []Item {
 	items << new_bedrock_item()
 	items << new_stick()
 	items << new_goat_horn_item()
+	items << new_bucket_item()
 	items << new_compass_item()
 	items << new_recovery_compass_item()
 	items << new_lodestone_compass_item()

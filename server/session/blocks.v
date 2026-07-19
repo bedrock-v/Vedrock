@@ -1,5 +1,6 @@
 module session
 
+import math
 import time
 import protocol
 import protocol.types
@@ -15,6 +16,28 @@ const place_cooldown_ms = i64(100)
 
 const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
+
+// break_grace_ticks absorbs latency jitter around the expected break time
+// boundary so a legitimate client isn't rejected for arriving a tick or two
+// early.
+const break_grace_ticks = i64(2)
+
+// required_break_ticks approximates vanilla's break time formula
+// (hardness * 30 / mining_speed). This is deliberately not vanilla exact.
+fn required_break_ticks(hardness f32, mining_speed f32) i64 {
+	if hardness <= 0 {
+		return 0
+	}
+	return i64(math.ceil(hardness * 30.0 / mining_speed))
+}
+
+fn (s &NetworkSession) held_mining_speed() f32 {
+	_, name := s.held_stack_and_name()
+	if it := s.hub.items.get(name) {
+		return it.mining_speed()
+	}
+	return 1.0
+}
 
 // dimension returns the player's current world's dimension.
 fn (s &NetworkSession) dimension() world.Dimension {
@@ -68,6 +91,8 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 		ue := p.use_item_on_entity
 		if ue.action_type == protocol.item_use_on_entity_action_attack {
 			s.handle_attack(ue.target_entity_runtime_id)!
+		} else if ue.action_type == protocol.item_use_on_entity_action_interact {
+			s.handle_entity_interact(ue.target_entity_runtime_id)
 		}
 		return
 	}
@@ -107,7 +132,23 @@ fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTrans
 			if s.use_item_on_block(ut.block_position, clicked_id) {
 				return
 			}
-			runtime_id := ut.held_item.item_stack.block_runtime_id
+			// The item stack's own block_runtime_id is 0 for at least some
+			// items (confirmed via packet capture: signs and doors). The
+			// transaction's own top-level block_runtime_id field is NOT a
+			// usable fallback for this - packet capture against a real
+			// client shows it's actually an echo of the clicked/support
+			// block (e.g. the grass block placed against, not the item
+			// placing it), not the held item's block form. The reliable
+			// source is the server's own item registry, resolving the held
+			// item's name from its wire id the same way held_stack_and_name
+			// does elsewhere.
+			mut runtime_id := ut.held_item.item_stack.block_runtime_id
+			if runtime_id == 0 && ut.held_item.item_stack.id != 0 {
+				held_name := s.hub.data.item_name(ut.held_item.item_stack.id)
+				if held_item := s.hub.items.get(held_name) {
+					runtime_id = held_item.block_runtime_id()
+				}
+			}
 			if runtime_id == 0 {
 				return
 			}
@@ -340,6 +381,7 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		s.resend_block(pos)
 		return
 	}
+	s.breaking = BreakProgress{pos.x, pos.y, pos.z, old_id, s.hub.current_tick}
 	if punchable := s.hub.blocks.get(old_id) {
 		if punchable is block.Punchable {
 			mut wld := s.current_world()
@@ -448,6 +490,8 @@ fn (mut s NetworkSession) place_block(pos types.BlockPosition, runtime_id int) !
 	s.broadcast_block_update(pos, runtime_id)
 	s.broadcast_swing()
 	s.after_block_changed(pos)
+	s.create_sign_tile(pos, runtime_id)
+	s.maybe_open_sign_editor(pos, runtime_id)
 	return true
 }
 
@@ -467,6 +511,8 @@ fn (mut s NetworkSession) replace_block(pos types.BlockPosition, runtime_id int)
 	s.set_block_runtime(pos, runtime_id)
 	s.broadcast_swing()
 	s.after_block_changed(pos)
+	s.create_sign_tile(pos, runtime_id)
+	s.maybe_open_sign_editor(pos, runtime_id)
 	return true
 }
 
@@ -578,6 +624,20 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		})!
 		return
 	}
+	if s.game_mode != protocol.game_type_creative {
+		required := required_break_ticks(s.hub.blocks.hardness(old_id), s.held_mining_speed())
+		matches := if bp := s.breaking {
+			bp.x == pos.x && bp.y == pos.y && bp.z == pos.z && bp.block_id == old_id
+		} else {
+			false
+		}
+		elapsed := if bp := s.breaking { s.hub.current_tick - bp.started_tick } else { 0 }
+		if !matches || elapsed < required - break_grace_ticks {
+			s.resend_block(pos)
+			return
+		}
+	}
+	s.breaking = none
 	mut ctx := event.new_context(event.BlockBreakData{
 		player:   s
 		x:        pos.x
@@ -607,6 +667,19 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 }
 
 fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, click_face int) !bool {
+	if b := s.hub.blocks.get(old_id) {
+		if b is block.SignBlock {
+			if !isnil(s.log) {
+				s.log.debug('[sign-debug] interact_block: recognized sign at (${pos.x}, ${pos.y}, ${pos.z}), old_id=${old_id}, click_face=${click_face} - reopening editor')
+			}
+			s.maybe_open_sign_editor(pos, old_id)
+			return true
+		}
+	} else {
+		if !isnil(s.log) {
+			s.log.debug('[sign-debug] interact_block: block_at(${pos.x},${pos.y},${pos.z})=${old_id} not found in registry at all')
+		}
+	}
 	if isnil(s.hub.palette) {
 		return false
 	}
@@ -690,30 +763,48 @@ fn (mut s NetworkSession) set_block_runtime(pos types.BlockPosition, runtime_id 
 // the plugin/command path, so a player placing/breaking a block is
 // serialized against scheduled ticks/liquid spread/arena restores touching
 // the same cell instead of writing directly on the connection thread.
+//
+// done signals once the write has actually landed in World.overrides.
+// write_block_runtime blocks on it - submit() only guarantees the job is
+// queued, not applied, and every write is immediately followed by
+// synchronous reads of the same position (occupancy checks, interact
+// dispatch, resend-on-reject) on the connection thread. Without waiting,
+// a fast enough follow-up action (most visibly: placing a block and
+// immediately clicking it again, as signs invite) can read the position
+// before the actor thread applies the write, see stale (pre-write) state,
+// and resend it to the client - which looks like the just-placed block
+// vanishing, since nothing else ever corrects that resend afterward.
 struct PlayerBlockWriteJob {
 	session_runtime_id u64
 	x                  int
 	y                  int
 	z                  int
 	block_id           int
+	done               chan bool = chan bool{cap: 1}
 }
 
 fn (j PlayerBlockWriteJob) run(mut h Hub) {
-	mut owner := h.session_by_runtime(j.session_runtime_id) or { return }
+	mut owner := h.session_by_runtime(j.session_runtime_id) or {
+		j.done <- true
+		return
+	}
 	mut wld := owner.current_world()
 	if !isnil(wld) {
 		wld.set_block(j.x, j.y, j.z, j.block_id)
 	}
+	j.done <- true
 }
 
 fn (mut s NetworkSession) write_block_runtime(pos types.BlockPosition, runtime_id int) {
-	s.hub.submit(PlayerBlockWriteJob{
+	job := PlayerBlockWriteJob{
 		session_runtime_id: s.runtime_id
 		x:                  pos.x
 		y:                  pos.y
 		z:                  pos.z
 		block_id:           runtime_id
-	})
+	}
+	s.hub.submit(job)
+	_ := <-job.done
 }
 
 fn (mut s NetworkSession) after_block_changed(pos types.BlockPosition) {

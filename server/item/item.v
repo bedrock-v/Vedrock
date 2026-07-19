@@ -62,17 +62,20 @@ pub interface UsableOnBlockItem {
 	use_on_block_result(block_name string, meta int) ?UseOnBlockResult
 }
 
-// UseOnEntityResult describes what a UsableOnEntityItem does when used on an
-// entity.
+// UseOnEntityResult describes what a UsableOnEntityItem does when used on a
+// qualifying entity: an optional sound plus an optional item id the held
+// stack is replaced with (empty means no swap, just the sound).
 pub struct UseOnEntityResult {
 pub:
-	sound string
+	sound         string
+	replaces_with string
 }
 
-// UsableOnEntityItem is implemented by items with a behaviour when used on
-// an entity.
+// UsableOnEntityItem is implemented by items with a behaviour when used on a
+// specific kind of entity (e.g. milk bucket on a cow). Returns none if this
+// item does nothing to an entity named entity_name.
 pub interface UsableOnEntityItem {
-	use_on_entity_result(meta int) UseOnEntityResult
+	use_on_entity_result(entity_name string, meta int) ?UseOnEntityResult
 }
 
 // CooldownItem is implemented by items that can't be used again for a period
