@@ -29,12 +29,24 @@ pub enum State {
 	closed
 }
 
+// BreakProgress tracks the one block a player is currently breaking, armed by
+// handle_start_break and checked in break_block to reject a destroy action
+// that arrives before enough ticks have elapsed for the block's hardness.
+struct BreakProgress {
+	x            int
+	y            int
+	z            int
+	block_id     int
+	started_tick i64
+}
+
 @[heap]
 pub struct NetworkSession {
 mut:
 	transport network.Transport = FakeTransport{}
-	hub       &Hub              = unsafe { nil }
-	state     State             = .handshake
+	breaking  ?BreakProgress
+	hub       &Hub  = unsafe { nil }
+	state     State = .handshake
 	cfg       conf.Config
 	world     &db.World       = unsafe { nil }
 	generator world.Generator = world.VoidGenerator{}
@@ -311,6 +323,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_modal_form_response(p)!
 			} else if p is protocol.BookEditPacket {
 				s.handle_book_edit(p)!
+			} else if p is protocol.BlockActorDataPacket {
+				s.handle_block_actor_data(p)!
 			}
 		}
 		else {}

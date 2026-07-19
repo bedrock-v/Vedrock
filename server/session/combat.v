@@ -91,6 +91,60 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	}
 }
 
+// handle_entity_interact runs a UsableOnEntityItem's behaviour when a player
+// uses the held item on an entity (the "interact", as opposed to "attack",
+// use item onentity action) - e.g. milking a cow with an empty bucket.
+fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
+	if s.dead || !s.can_interact() {
+		return
+	}
+	target := s.hub.entities.by_runtime_id(target_runtime_id) or { return }
+	dx := s.position.x - target.pos.x
+	dy := s.position.y - target.pos.y
+	dz := s.position.z - target.pos.z
+	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
+		return
+	}
+	stack, name := s.held_stack_and_name()
+	result := s.hub.items.use_on_entity_result(name, target.identifier, stack.meta) or { return }
+	mut ctx := event.new_context(event.ItemUseData{
+		player:    s
+		item_name: name
+		meta:      stack.meta
+	})
+	s.hub.events.item_use(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
+	if result.replaces_with != '' {
+		s.replace_held_item(result.replaces_with)
+	}
+	if result.sound != '' {
+		s.hub.broadcast(&protocol.LevelSoundEventPacket{
+			sound:           result.sound
+			position:        target.pos
+			extra_data:      -1
+			entity_type:     target.identifier
+			actor_unique_id: i64(target.runtime_id)
+		})
+	}
+}
+
+// replace_held_item swaps the held stack for a single new item id, reusing
+// the same slot-bookkeeping primitives consume_held_item uses to decrement.
+fn (mut s NetworkSession) replace_held_item(item_name string) {
+	new_id := s.hub.data.item_id_by_name[item_name] or { return }
+	new_stack := types.ItemStack{
+		id:    new_id
+		count: 1
+	}
+	net_id := s.track_stack(new_stack)
+	s.inv_slots[s.held_slot] = net_id
+	wrapped := wrap_stack_id(new_stack, net_id)
+	s.held_item = wrapped
+	s.send_slot_update(s.held_slot, wrapped)
+}
+
 fn (s &NetworkSession) is_critical() bool {
 	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_spectator {
 		return false

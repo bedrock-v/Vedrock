@@ -98,6 +98,10 @@ fn sign_block_name(wood_type string, shape string) string {
 	return 'minecraft:${prefix}${shape}'
 }
 
+pub struct SignBlock {
+	SimpleBlock
+}
+
 fn standing_sign_block(wood_type string, direction int) Block {
 	id := sign_block_name(wood_type, 'standing_sign')
 	runtime := world.new_block_with_states(id, [
@@ -107,10 +111,12 @@ fn standing_sign_block(wood_type string, direction int) Block {
 			int_value: direction
 		},
 	])
-	return SimpleBlock{
-		id:             id
-		block_runtime:  runtime.network_id
-		break_hardness: sign_hardness
+	return SignBlock{
+		SimpleBlock: SimpleBlock{
+			id:             id
+			block_runtime:  runtime.network_id
+			break_hardness: sign_hardness
+		}
 	}
 }
 
@@ -123,10 +129,12 @@ fn wall_sign_block(wood_type string, facing int) Block {
 			int_value: facing
 		},
 	])
-	return SimpleBlock{
-		id:             id
-		block_runtime:  runtime.network_id
-		break_hardness: sign_hardness
+	return SignBlock{
+		SimpleBlock: SimpleBlock{
+			id:             id
+			block_runtime:  runtime.network_id
+			break_hardness: sign_hardness
+		}
 	}
 }
 

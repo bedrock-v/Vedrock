@@ -308,6 +308,7 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 		mut chunk := s.generated_chunk(gen, target.x, target.z)
 		apply_overrides(mut chunk, wld, target.x, target.z)
 		batch << level_chunk_packet(dim, target.x, target.z, chunk)
+		batch << tile_data_packets(wld, target.x, target.z)
 		batch_keys << chunk_cache_key(target.x, target.z)
 		if batch.len >= chunk_send_batch_size {
 			s.transport.send_batch(batch)!
@@ -386,6 +387,23 @@ fn apply_overrides(mut chunk world.Chunk, wld &db.World, cx int, cz int) {
 	}
 }
 
+// tile_data_packets builds one BlockActorDataPacket per tile data entry
+// (currently only sign text) in the given chunk column, so a freshly-loaded
+// chunk shows existing sign text without waiting for a re-edit.
+fn tile_data_packets(wld &db.World, cx int, cz int) []protocol.Packet {
+	mut packets := []protocol.Packet{}
+	if isnil(wld) {
+		return packets
+	}
+	for entry in wld.tile_entries_in_chunk(cx, cz) {
+		packets << &protocol.BlockActorDataPacket{
+			block_position: types.BlockPosition{entry.x, entry.y, entry.z}
+			nbt:            build_sign_nbt(entry.x, entry.y, entry.z, entry.text)
+		}
+	}
+	return packets
+}
+
 const subchunk_result_success = u8(1)
 const subchunk_result_invalid_dimension = u8(3)
 const subchunk_result_index_out_of_bounds = u8(5)
@@ -442,6 +460,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p protocol.SubChunkRequestPac
 
 	mut entries := []protocol.SubChunkEntry{cap: p.entries.len}
 	mut height_cache := map[u64][]int{}
+	mut tile_sent_columns := map[u64]bool{}
 	for off in p.entries {
 		target_cx := int(p.base_x) + int(off.x_offset)
 		target_cz := int(p.base_z) + int(off.z_offset)
@@ -449,6 +468,12 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p protocol.SubChunkRequestPac
 		mut chunk := s.generated_chunk(gen, target_cx, target_cz)
 		apply_overrides(mut chunk, wld, target_cx, target_cz)
 		cache_key := chunk_cache_key(target_cx, target_cz)
+		if cache_key !in tile_sent_columns {
+			tile_sent_columns[cache_key] = true
+			for pkt in tile_data_packets(wld, target_cx, target_cz) {
+				s.transport.send(pkt) or {}
+			}
+		}
 		height_map := height_cache[cache_key] or {
 			heights := chunk.height_map()
 			height_cache[cache_key] = heights

@@ -39,6 +39,18 @@ fn block_key(x int, y int, z int) []u8 {
 	return b
 }
 
+// tile_key uses the same 13-byte x/y/z layout as block_key with a distinct
+// prefix byte ('t' instead of 'b'), so tile data safely coexists with block
+// overrides in the same LevelDB handle.
+fn tile_key(x int, y int, z int) []u8 {
+	mut b := []u8{}
+	b << u8(`t`)
+	put_i32(mut b, x)
+	put_i32(mut b, y)
+	put_i32(mut b, z)
+	return b
+}
+
 pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) {
 	mut v := []u8{}
 	put_i32(mut v, runtime_id)
@@ -51,6 +63,21 @@ pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
 			return
 		}
 		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), read_i32(value, 0))
+	})
+}
+
+// set_tile_text persists a block-entity's tex at a position, sharing the overrides handle with a distinct key
+// prefix rather than opening a third LevelDB handle for no isolation benefit.
+pub fn (w &WorldStore) set_tile_text(x int, y int, z int, text string) {
+	w.overrides.put(tile_key(x, y, z), text.bytes())
+}
+
+pub fn (w &WorldStore) each_tile(cb fn (x int, y int, z int, text string)) {
+	w.overrides.each(fn [cb] (key []u8, value []u8) {
+		if key.len != 13 || key[0] != u8(`t`) {
+			return
+		}
+		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), value.bytestr())
 	})
 }
 
