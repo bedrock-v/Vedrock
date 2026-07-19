@@ -126,8 +126,7 @@ pub fn (w &World) overrides_in_chunk(cx int, cz int) []BlockOverride {
 	return out
 }
 
-// set_tile_text stores a position's tile text (currently only signs use
-// this), writing through to the store the same way set_block does.
+// set_tile_text stores a position's tile text, writing through to the store the same way set_block does.
 pub fn (mut w World) set_tile_text(x int, y int, z int, text string) {
 	w.mutex.lock()
 	w.tile_data[override_key(x, y, z)] = TileData{
