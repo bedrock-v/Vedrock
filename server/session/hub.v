@@ -65,8 +65,10 @@ pub mut:
 	ops             permission.OpList
 	player_grants   permission.PlayerGrants
 	whitelist       permission.Whitelist
-	// needs vedrock.yml storage.
 	difficulty int = protocol.difficulty_easy
+	// conf_file is the path to vedrock.yml so runtime difficulty changes can
+	// persist across restarts.
+	conf_file string
 }
 
 pub fn (mut h Hub) tps() f64 {

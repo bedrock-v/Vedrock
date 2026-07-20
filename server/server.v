@@ -127,6 +127,8 @@ pub fn new(cfg conf.Config) &Server {
 	log.info('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
 	mut hub := session.new_hub(data)
 	hub.lang = lang
+	hub.difficulty = conf.difficulty_from_string(cfg.difficulty)
+	hub.conf_file = conf.default_file
 	hub.ops = permission.load_ops(permission.default_ops_file) or {
 		log.warn('Failed to load ops file: ${err}')
 		permission.OpList{}
