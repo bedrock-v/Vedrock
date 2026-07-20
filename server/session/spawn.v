@@ -120,6 +120,9 @@ fn (mut s NetworkSession) start_game() ! {
 		biome_definitions: []protocol.BiomeDefinition{}
 		string_list:       []string{}
 	})!
+	s.transport.send(&protocol.SetDifficultyPacket{
+		difficulty: s.hub.difficulty
+	})!
 	s.transport.send(&protocol.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	})!
