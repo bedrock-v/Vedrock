@@ -17,6 +17,8 @@ struct DamageJob {
 	amount            f32
 	attacker_name     string
 	knockback_from    types.Vector3
+	knockback_force   f32 = knockback_horizontal
+	knockback_height  f32 = knockback_vertical
 	critical          bool
 }
 
@@ -26,7 +28,7 @@ fn (j DamageJob) run(mut h Hub) {
 		|| victim.game_mode == protocol.game_type_spectator {
 		return
 	}
-	victim.apply_knockback(j.knockback_from)
+	victim.apply_knockback(j.knockback_from, j.knockback_force, j.knockback_height)
 	victim.take_damage(j.amount, j.attacker_name)
 	if j.critical {
 		h.broadcast(&protocol.AnimatePacket{
@@ -74,6 +76,8 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 		victim_runtime_id: target_runtime_id
 		critical:          critical
 		damage:            damage
+		knockback_force:   knockback_horizontal
+		knockback_height:  knockback_vertical
 	})
 	s.hub.events.player_attack(mut ctx)
 	if ctx.is_cancelled() {
@@ -85,6 +89,8 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 		amount:            ctx.val.damage
 		attacker_name:     s.identity.display_name
 		knockback_from:    s.position
+		knockback_force:   ctx.val.knockback_force
+		knockback_height:  ctx.val.knockback_height
 		critical:          critical
 	}) {
 		s.log.debug('Dropped attack job - actor queue full')
@@ -188,15 +194,15 @@ fn (mut s NetworkSession) die(message_key string, parameters []string) {
 		params:      parameters
 	})
 	s.hub.events.player_death(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
 	s.dead = true
 	s.hub.broadcast_except(s.runtime_id, &protocol.ActorEventPacket{
 		actor_runtime_id: s.runtime_id
 		event_id:         protocol.actor_event_death
 		event_data:       0
 	})
-	if ctx.is_cancelled() {
-		return
-	}
 	s.has_last_death = true
 	s.last_death_pos = s.current_position()
 	s.hub.broadcast(&protocol.TextPacket{
@@ -277,7 +283,7 @@ fn (mut s NetworkSession) current_position() types.Vector3 {
 	return s.position
 }
 
-fn (mut s NetworkSession) apply_knockback(from types.Vector3) {
+fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height f32) {
 	pos := s.current_position()
 	mut dx := pos.x - from.x
 	mut dz := pos.z - from.z
@@ -288,9 +294,9 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3) {
 		dist = 1.0
 	}
 	motion := types.Vector3{
-		x: dx / dist * knockback_horizontal
-		y: knockback_vertical
-		z: dz / dist * knockback_horizontal
+		x: dx / dist * force
+		y: height
+		z: dz / dist * force
 	}
 	s.transport.send(&protocol.SetActorMotionPacket{
 		actor_runtime_id: s.runtime_id

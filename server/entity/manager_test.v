@@ -21,6 +21,11 @@ mut:
 	damage_calls           int
 	last_damage_runtime_id u64
 	last_damage_amount     f32
+	// players is the settable pool nearest_player searches: keyed by runtime
+	// id, distinct from the generic entity positions map above.
+	players               map[u64]types.Vector3
+	despawn_notify_calls   int
+	last_despawn_id        string
 }
 
 fn block_key(x int, y int, z int) string {
@@ -73,6 +78,33 @@ fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string
 	h.damage_calls++
 	h.last_damage_runtime_id = runtime_id
 	h.last_damage_amount = amount
+}
+
+fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
+	h.despawn_notify_calls++
+	h.last_despawn_id = identifier
+}
+
+fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
+	radius_sq := radius * radius
+	mut best_rid := u64(0)
+	mut best_dist_sq := radius_sq
+	mut found := false
+	for rid, p in h.players {
+		dx := p.x - pos.x
+		dy := p.y - pos.y
+		dz := p.z - pos.z
+		dist_sq := dx * dx + dy * dy + dz * dz
+		if dist_sq <= best_dist_sq {
+			best_rid = rid
+			best_dist_sq = dist_sq
+			found = true
+		}
+	}
+	if !found {
+		return none
+	}
+	return best_rid
 }
 
 fn test_spawn_registers_and_broadcasts() {
@@ -249,4 +281,111 @@ fn test_entity_heals_from_instant_health_effect() {
 	e.health = 10
 	e.add_effect(mut host, effect.new_instant(effect.instant_health, 1))
 	assert e.health > 10
+}
+
+fn test_projectile_survives_block_collision_and_freezes() {
+	mut host := &FakeHost{}
+	host.set_solid(1, 5, 0) // wall east of the spawn point
+	mut m := new_manager(host)
+	mut e := m.spawn(&ProjectileBehaviour{
+		network_id:              'minecraft:arrow'
+		survive_block_collision: true
+	}, types.Vector3{0.5, 5, 0.5})
+	e.floor_y = 5
+	e.no_gravity = true
+	e.age = 2 // past the spawn tick guard
+	e.set_velocity(types.Vector3{0.5, 0, 0})
+	m.tick() // hits the wall this tick, cancels velocity, flags hit_block
+	m.tick() // behaviour sees hit_block and freezes
+	assert m.count() == 1 // stuck, not despawned
+	stuck_pos := e.pos
+	m.tick()
+	m.tick()
+	assert e.pos.x == stuck_pos.x // frozen in place
+	assert e.velocity.x == 0
+	assert m.count() == 1
+}
+
+fn test_projectile_without_survive_despawns_on_wall_hit() {
+	mut host := &FakeHost{}
+	host.set_solid(1, 5, 0) // wall east of the spawn point
+	mut m := new_manager(host)
+	mut e := m.spawn(&ProjectileBehaviour{
+		network_id:              'minecraft:snowball'
+		survive_block_collision: false
+	}, types.Vector3{0.5, 5, 0.5})
+	e.floor_y = 5
+	e.no_gravity = true
+	e.age = 2
+	e.set_velocity(types.Vector3{0.5, 0, 0})
+	m.tick() // hits the wall this tick, cancels velocity, flags hit_block
+	m.tick() // behaviour sees hit_block and despawns
+	// previously only landing on top (on_ground) despawned a projectile.
+	assert m.count() == 0
+}
+
+fn test_projectile_gravity_is_configurable_per_instance() {
+	mut light_host := &FakeHost{}
+	mut light_m := new_manager(light_host)
+	mut light := light_m.spawn(&ProjectileBehaviour{
+		network_id:    'minecraft:snowball'
+		gravity_accel: 0.03
+	}, types.Vector3{0, 100, 0})
+	light.floor_y = -1000
+	light.age = 2
+
+	mut heavy_host := &FakeHost{}
+	mut heavy_m := new_manager(heavy_host)
+	mut heavy := heavy_m.spawn(&ProjectileBehaviour{
+		network_id:    'minecraft:arrow'
+		gravity_accel: 0.05
+	}, types.Vector3{0, 100, 0})
+	heavy.floor_y = -1000
+	heavy.age = 2
+
+	for _ in 0 .. 20 {
+		light_m.tick()
+		heavy_m.tick()
+	}
+	assert heavy.pos.y < light.pos.y // heavier gravity falls faster
+}
+
+fn test_hostile_behaviour_proactively_targets_nearby_player_without_being_hurt() {
+	mut host := &FakeHost{}
+	// players drives the nearest_player scan; positions drives the
+	// existing entity_position lookup the chase step already uses.
+	// A real Hub resolves both from the same live session, FakeHost keeps
+	// them as two settable maps.
+	host.players[99] = types.Vector3{10, 5, 0}
+	host.positions[99] = types.Vector3{10, 5, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{
+		network_id:       'minecraft:zombie'
+		detection_radius: 16.0
+	}, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	e.no_gravity = true
+	m.tick()
+	m.tick() // target acquired last tick; this tick moves toward it
+	assert e.velocity.x > 0
+}
+
+fn test_hostile_behaviour_gives_up_target_out_of_range() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{
+		network_id:       'minecraft:zombie'
+		detection_radius: 10.0
+	}, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	e.no_gravity = true
+	e.hurt(mut host, 1, true, 99)
+	host.positions[99] = types.Vector3{9, 5, 0} // within detection_radius * 1.5
+	m.tick()
+	assert e.velocity.x > 0 // still chasing
+
+	host.positions[99] = types.Vector3{100, 5, 0} // far past the giveup range
+	e.set_velocity(types.Vector3{})
+	m.tick()
+	assert e.velocity.x == 0 // gave up, back to wandering
 }

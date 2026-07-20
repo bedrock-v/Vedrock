@@ -427,6 +427,16 @@ pub fn (mut h Hub) online_count() int {
 // Returns false if the type is unknown. Part of the plugin.ServerView surface.
 pub fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
 	behaviour := h.entity_registry.create(name) or { return false }
+	mut ctx := event.new_context(event.EntitySpawnData{
+		identifier: behaviour.identifier()
+		x:          x
+		y:          y
+		z:          z
+	})
+	h.events.entity_spawn(mut ctx)
+	if ctx.is_cancelled() {
+		return false
+	}
 	h.entities.spawn(behaviour, types.Vector3{x, y, z})
 	return true
 }

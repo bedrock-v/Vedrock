@@ -20,6 +20,13 @@ mut:
 	on_player_respawn(mut ctx Context[RespawnData])
 	on_player_move(mut ctx Context[MoveData])
 	on_gamemode_change(mut ctx Context[GameModeChangeData])
+	on_entity_spawn(mut ctx Context[EntitySpawnData])
+	on_entity_despawn(mut ctx Context[EntityDespawnData])
+	on_item_consume(mut ctx Context[ItemConsumeData])
+	on_world_load(mut ctx Context[WorldLoadData])
+	on_world_unload(mut ctx Context[WorldUnloadData])
+	on_effect_add(mut ctx Context[EffectAddData])
+	on_effect_remove(mut ctx Context[EffectRemoveData])
 }
 
 // NopHandler is an embeddable no-op implementation of Handler. Embed it so a
@@ -56,3 +63,17 @@ pub fn (mut h NopHandler) on_player_respawn(mut ctx Context[RespawnData]) {}
 pub fn (mut h NopHandler) on_player_move(mut ctx Context[MoveData]) {}
 
 pub fn (mut h NopHandler) on_gamemode_change(mut ctx Context[GameModeChangeData]) {}
+
+pub fn (mut h NopHandler) on_entity_spawn(mut ctx Context[EntitySpawnData]) {}
+
+pub fn (mut h NopHandler) on_entity_despawn(mut ctx Context[EntityDespawnData]) {}
+
+pub fn (mut h NopHandler) on_item_consume(mut ctx Context[ItemConsumeData]) {}
+
+pub fn (mut h NopHandler) on_world_load(mut ctx Context[WorldLoadData]) {}
+
+pub fn (mut h NopHandler) on_world_unload(mut ctx Context[WorldUnloadData]) {}
+
+pub fn (mut h NopHandler) on_effect_add(mut ctx Context[EffectAddData]) {}
+
+pub fn (mut h NopHandler) on_effect_remove(mut ctx Context[EffectRemoveData]) {}
