@@ -36,6 +36,13 @@ mut:
 	// entity), attributed to source_name/source_runtime_id, with
 	// knockback_from as the origin used to compute knockback direction.
 	damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
+	// nearest_player returns the runtime id of the closest connected player
+	// within radius of pos or none if nobody is that close. Used for
+	// proactive mob targeting (HostileBehaviour scanning for a target it
+	// hasn't been hit by yet).
+	nearest_player(pos types.Vector3, radius f32) ?u64
+	// notify_entity_despawn lets the entity package announce a despawn.
+	notify_entity_despawn(identifier string, x f32, y f32, z f32)
 }
 
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
@@ -85,6 +92,7 @@ pub fn (mut m Manager) despawn(runtime_id u64) {
 	m.entities.delete(runtime_id)
 	m.mutex.unlock()
 	m.host.broadcast(e.despawn_packet())
+	m.host.notify_entity_despawn(e.identifier, e.pos.x, e.pos.y, e.pos.z)
 }
 
 // by_runtime_id returns the live entity with runtime_id.

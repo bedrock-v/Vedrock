@@ -59,7 +59,20 @@ pub fn register_defaults(mut r Registry) {
 	})
 	r.register('snowball', fn () Behaviour {
 		return &ProjectileBehaviour{
-			network_id: 'minecraft:snowball'
+			network_id:              'minecraft:snowball'
+			gravity_accel:           0.03
+			drag_factor:             0.01
+			survive_block_collision: false
+		}
+	})
+	r.register('arrow', fn () Behaviour {
+		return &ProjectileBehaviour{
+			network_id:              'minecraft:arrow'
+			max_age:                 1200
+			damage:                  2.0
+			gravity_accel:           0.05
+			drag_factor:             0.01
+			survive_block_collision: true
 		}
 	})
 }

@@ -484,3 +484,36 @@ fn test_empty_hand_interact_places_nothing() {
 	assert s.block_at(2, -60, 12) == world.air.network_id
 	assert s.block_at(2, -60, 11) == world.air.network_id
 }
+
+struct CancelItemConsumeHandler {
+	event.NopHandler
+}
+
+fn (mut h CancelItemConsumeHandler) on_item_consume(mut ctx event.Context[event.ItemConsumeData]) {
+	ctx.cancel()
+}
+
+fn test_cancelled_consume_keeps_stack() {
+	mut hub := new_hub(gamedata.GameData{})
+	hub.events.register(&CancelItemConsumeHandler{}, .normal)
+	mut s := &NetworkSession{
+		identity:   auth.Identity{
+			display_name: 'Alex'
+		}
+		runtime_id: 1
+		hub:        hub
+	}
+	hub.add(s)
+	stack := types.ItemStack{
+		id:    300
+		count: 1
+	}
+	net_id := s.track_stack(stack)
+	s.inv_slots[s.held_slot] = net_id
+
+	s.consume_held_item()
+
+	got, got_net := s.inventory_stack_at(s.held_slot)
+	assert got_net == net_id
+	assert got.count == 1
+}

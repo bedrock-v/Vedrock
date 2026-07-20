@@ -85,6 +85,10 @@ fn (mut v FakeView) custom_entity_names() []string {
 	return []
 }
 
+fn (mut v FakeView) nearest_player_name(x f32, y f32, z f32, radius f32) ?string {
+	return none
+}
+
 struct LoggingPlugin {
 	Base
 mut:

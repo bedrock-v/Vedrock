@@ -3,6 +3,7 @@ module session
 import math
 import protocol
 import server.effect
+import server.event
 
 const mob_effect_add = 1
 const mob_effect_remove = 3
@@ -42,6 +43,16 @@ pub fn (mut s NetworkSession) remove_effect(typ effect.Type) {
 }
 
 fn (mut s NetworkSession) apply_add_effect(e effect.Effect) {
+	mut ctx := event.new_context(event.EffectAddData{
+		effect_name:    e.effect_type().name
+		level:          e.level()
+		duration_ticks: e.duration_ticks()
+		player:         s
+	})
+	s.hub.events.effect_add(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
 	result := s.effects.add_result(e)
 	if result.accepted {
 		if result.replaced {
@@ -56,6 +67,14 @@ fn (mut s NetworkSession) apply_add_effect(e effect.Effect) {
 }
 
 fn (mut s NetworkSession) apply_remove_effect(typ effect.Type) {
+	mut ctx := event.new_context(event.EffectRemoveData{
+		effect_name: typ.name
+		player:      s
+	})
+	s.hub.events.effect_remove(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
 	removed := s.effects.remove(typ) or { return }
 	s.apply_effect_end(removed)
 	s.send_effect_removal(typ)
