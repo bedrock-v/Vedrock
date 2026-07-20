@@ -78,7 +78,7 @@ fn (mut r NbtReader) next() u8 {
 }
 
 fn (mut r NbtReader) u16be() int {
-	return (int(r.next()) << 8) | int(r.next())
+	return int((u16(r.next()) << 8) | u16(r.next()))
 }
 
 fn (mut r NbtReader) i32be() int {
