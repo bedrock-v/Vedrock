@@ -4,6 +4,7 @@ import time
 import protocol
 import protocol.types
 import server.effect
+import server.event
 import server.internal.gamedata
 import server.internal.auth
 
@@ -16,6 +17,7 @@ fn test_add_effect_job_stores_lasting_effect() {
 		runtime_id: 1
 		health:     20
 		effects:    effect.new_manager()
+		hub:        hub
 	}
 	hub.add(player)
 
@@ -38,6 +40,7 @@ fn test_lasting_effect_applies_on_tick_not_add() {
 		runtime_id: 1
 		health:     10
 		effects:    effect.new_manager()
+		hub:        hub
 	}
 	hub.add(player)
 
@@ -60,6 +63,7 @@ fn test_tick_job_expires_effects() {
 		runtime_id: 1
 		health:     20
 		effects:    effect.new_manager()
+		hub:        hub
 	}
 	hub.add(player)
 
@@ -85,6 +89,7 @@ fn test_instant_health_applies_without_storing() {
 		runtime_id: 1
 		health:     10
 		effects:    effect.new_manager()
+		hub:        hub
 	}
 	hub.add(player)
 
@@ -142,4 +147,76 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	assert replacement.id == 101
 	assert replacement.count == 1
 	assert changes[0].info.stack_network_id == replacement_net
+}
+
+struct CancelEffectAddHandler {
+	event.NopHandler
+}
+
+fn (mut h CancelEffectAddHandler) on_effect_add(mut ctx event.Context[event.EffectAddData]) {
+	ctx.cancel()
+}
+
+fn test_cancelled_effect_add_rejects_effect() {
+	mut hub := new_hub(gamedata.GameData{})
+	hub.events.register(&CancelEffectAddHandler{}, .normal)
+	mut player := &NetworkSession{
+		identity:   auth.Identity{
+			display_name: 'Alex'
+		}
+		runtime_id: 1
+		health:     20
+		effects:    effect.new_manager()
+		hub:        hub
+	}
+	hub.add(player)
+
+	AddEffectJob{
+		runtime_id: 1
+		effect:     effect.new(effect.regeneration, 1, 5 * time.second)
+	}.run(mut hub)
+
+	if _ := player.effects.effect(effect.regeneration) {
+		assert false
+	}
+}
+
+struct CancelEffectRemoveHandler {
+	event.NopHandler
+}
+
+fn (mut h CancelEffectRemoveHandler) on_effect_remove(mut ctx event.Context[event.EffectRemoveData]) {
+	ctx.cancel()
+}
+
+fn test_cancelled_effect_remove_keeps_effect() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut player := &NetworkSession{
+		identity:   auth.Identity{
+			display_name: 'Alex'
+		}
+		runtime_id: 1
+		health:     20
+		effects:    effect.new_manager()
+		hub:        hub
+	}
+	hub.add(player)
+
+	AddEffectJob{
+		runtime_id: 1
+		effect:     effect.new(effect.regeneration, 1, 5 * time.second)
+	}.run(mut hub)
+	active := player.effects.effect(effect.regeneration) or { panic('missing effect') }
+	assert active.level() == 1
+
+	hub.events.register(&CancelEffectRemoveHandler{}, .normal)
+	RemoveEffectJob{
+		runtime_id: 1
+		typ:        effect.regeneration
+	}.run(mut hub)
+
+	still_active := player.effects.effect(effect.regeneration) or {
+		panic('effect should still be active')
+	}
+	assert still_active.level() == 1
 }

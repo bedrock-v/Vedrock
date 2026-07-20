@@ -2,6 +2,7 @@ module session
 
 import protocol
 import protocol.types
+import server.event
 
 // broadcast_near delivers p only to players whose position is within radius of
 // the point (x, y, z). Used by the entity Manager for view-distance culling so
@@ -51,7 +52,7 @@ pub fn (mut h Hub) entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u
 
 pub fn (mut h Hub) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
 	if mut target := h.session_by_runtime(runtime_id) {
-		target.apply_knockback(knockback_from)
+		target.apply_knockback(knockback_from, knockback_horizontal, knockback_vertical)
 		target.take_damage(amount, source_name)
 		return
 	}
@@ -64,6 +65,18 @@ pub fn (mut h Hub) nearest_player(pos types.Vector3, radius f32) ?u64 {
 		return none
 	}
 	return rid
+}
+
+// notify_entity_despawn dispatches EntityDespawnData. Observational only,
+// so cancellation isn't checked here.
+pub fn (mut h Hub) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
+	mut ctx := event.new_context(event.EntityDespawnData{
+		identifier: identifier
+		x:          x
+		y:          y
+		z:          z
+	})
+	h.events.entity_despawn(mut ctx)
 }
 
 // nearest_player_name is the plugin.ServerView facing form of nearest_player.

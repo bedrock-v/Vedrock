@@ -23,7 +23,9 @@ mut:
 	last_damage_amount     f32
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
-	players map[u64]types.Vector3
+	players               map[u64]types.Vector3
+	despawn_notify_calls   int
+	last_despawn_id        string
 }
 
 fn block_key(x int, y int, z int) string {
@@ -76,6 +78,11 @@ fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string
 	h.damage_calls++
 	h.last_damage_runtime_id = runtime_id
 	h.last_damage_amount = amount
+}
+
+fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
+	h.despawn_notify_calls++
+	h.last_despawn_id = identifier
 }
 
 fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {

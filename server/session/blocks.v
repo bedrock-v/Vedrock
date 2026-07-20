@@ -557,6 +557,15 @@ fn (mut s NetworkSession) consume_held_item() {
 	if net == 0 || stack.count <= 0 {
 		return
 	}
+	item_name := s.hub.data.item_name(stack.id)
+	mut ctx := event.new_context(event.ItemConsumeData{
+		item_name: item_name
+		player:    s
+	})
+	s.hub.events.item_consume(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
 	s.inv_stacks.delete(net)
 	mut wrapped := empty_stack()
 	if stack.count > 1 {
@@ -669,15 +678,8 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, click_face int) !bool {
 	if b := s.hub.blocks.get(old_id) {
 		if b is block.SignBlock {
-			if !isnil(s.log) {
-				s.log.debug('[sign-debug] interact_block: recognized sign at (${pos.x}, ${pos.y}, ${pos.z}), old_id=${old_id}, click_face=${click_face} - reopening editor')
-			}
 			s.maybe_open_sign_editor(pos, old_id)
 			return true
-		}
-	} else {
-		if !isnil(s.log) {
-			s.log.debug('[sign-debug] interact_block: block_at(${pos.x},${pos.y},${pos.z})=${old_id} not found in registry at all')
 		}
 	}
 	if isnil(s.hub.palette) {
