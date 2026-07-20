@@ -31,7 +31,7 @@ pub mut:
 	debug                 bool
 }
 
-const default_file = 'vedrock.yml'
+pub const default_file = 'vedrock.yml'
 
 pub fn load() !Config {
 	return load_from(default_file)
@@ -147,4 +147,32 @@ pub fn difficulty_from_string(s string) int {
 		'hard', 'h', '3' { protocol.difficulty_hard }
 		else { protocol.difficulty_normal }
 	}
+}
+
+// difficulty_name returns the canonical name for a protocol difficulty constant.
+pub fn difficulty_name(value int) string {
+	return match value {
+		protocol.difficulty_peaceful { 'peaceful' }
+		protocol.difficulty_easy { 'easy' }
+		protocol.difficulty_normal { 'normal' }
+		protocol.difficulty_hard { 'hard' }
+		else { 'normal' }
+	}
+}
+
+// update_difficulty_in_file rewrites the difficulty line in a vedrock.yml file.
+pub fn update_difficulty_in_file(path string, new_name string) ! {
+	mut lines := os.read_lines(path)!
+	mut found := false
+	for mut line in lines {
+		if line.starts_with('difficulty:') {
+			line = 'difficulty: "${new_name}"'
+			found = true
+			break
+		}
+	}
+	if !found {
+		return error("difficulty key not found in ${path}")
+	}
+	os.write_file(path, lines.join_lines())!
 }
