@@ -37,6 +37,9 @@ pub mut:
 	floor_y    f32
 	on_ground  bool
 	no_gravity bool
+	gravity_accel f32 = gravity
+	drag_factor   f32 = drag
+	hit_block  bool
 	health     f32 = 20.0
 	dead       bool
 	age        i64
@@ -121,22 +124,26 @@ pub fn (mut e Entity) teleport(pos types.Vector3) {
 // over ungenerated terrain.
 fn (mut e Entity) apply_physics(mut host Host) {
 	if !e.no_gravity {
-		e.velocity.y -= gravity
+		e.velocity.y -= e.gravity_accel
 	}
-	e.velocity.x *= (1.0 - drag)
-	e.velocity.y *= (1.0 - drag)
-	e.velocity.z *= (1.0 - drag)
+	e.velocity.x *= (1.0 - e.drag_factor)
+	e.velocity.y *= (1.0 - e.drag_factor)
+	e.velocity.z *= (1.0 - e.drag_factor)
+
+	e.hit_block = false
 
 	e.pos.x += e.velocity.x
 	if e.collides(mut host) {
 		e.pos.x -= e.velocity.x
 		e.velocity.x = 0.0
+		e.hit_block = true
 	}
 
 	e.pos.z += e.velocity.z
 	if e.collides(mut host) {
 		e.pos.z -= e.velocity.z
 		e.velocity.z = 0.0
+		e.hit_block = true
 	}
 
 	e.on_ground = false
@@ -151,6 +158,7 @@ fn (mut e Entity) apply_physics(mut host Host) {
 			e.pos.y -= e.velocity.y
 		}
 		e.velocity.y = 0.0
+		e.hit_block = true
 	}
 
 	if e.pos.y <= e.floor_y {
