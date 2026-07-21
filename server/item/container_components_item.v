@@ -61,6 +61,7 @@ pub fn container_items() []Item {
 	result << facing_bit_item('hopper', 'toggle_bit')
 	result << facing_bit_item('dispenser', 'triggered_bit')
 	result << facing_bit_item('dropper', 'triggered_bit')
+	result << simple_container_item('crafting_table')
 	result << simple_container_item('undyed_shulker_box')
 	for color in shulker_colors {
 		result << simple_container_item('${color}_shulker_box')
