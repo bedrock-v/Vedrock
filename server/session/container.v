@@ -37,6 +37,24 @@ fn (mut s NetworkSession) open_crafting_container(pos types.BlockPosition) ! {
 		block_position:  pos
 		actor_unique_id: -1
 	})!
+	// Send empty contents so the client initializes the crafting grid.
+	empty_wrapper := types.item_stack_wrapper_legacy(types.ItemStack{})
+	mut empty9 := []types.ItemStackWrapper{len: 9}
+	for i in 0 .. 9 {
+		empty9[i] = empty_wrapper
+	}
+	s.transport.send(&protocol.InventoryContentPacket{
+		window_id:      crafting_window_id
+		items:          empty9
+		container_name: types.FullContainerName{container_id: container_crafting_input}
+		storage:        empty_wrapper
+	})!
+	s.transport.send(&protocol.InventoryContentPacket{
+		window_id:      crafting_window_id
+		items:          [empty_wrapper]
+		container_name: types.FullContainerName{container_id: container_crafting_output}
+		storage:        empty_wrapper
+	})!
 }
 
 fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket) ! {
@@ -46,4 +64,26 @@ fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket
 		window_type: p.window_type
 		server:      false
 	})!
+	if p.window_id == crafting_window_id {
+		s.return_crafting_items()
+		// Send full inventory content so the client refreshes its view.
+		mut items := []types.ItemStackWrapper{}
+		for i in 0 .. inventory_slot_count {
+			if net_id := s.inv_slots[i] {
+				stack := s.inv_stacks[net_id] or {
+					items << types.item_stack_wrapper_legacy(types.ItemStack{})
+					continue
+				}
+				items << wrap_stack_id(stack, net_id)
+			} else {
+				items << types.item_stack_wrapper_legacy(types.ItemStack{})
+			}
+		}
+		s.transport.send(&protocol.InventoryContentPacket{
+			window_id:      0
+			items:          items
+			container_name: types.FullContainerName{container_id: 0}
+			storage:        types.item_stack_wrapper_legacy(types.ItemStack{})
+		}) or {}
+	}
 }

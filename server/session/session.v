@@ -63,6 +63,9 @@ mut:
 	head_yaw           f32
 	spawned            bool
 	inv_opened         bool
+	crafting_input     map[u8]int
+	crafting_output    int
+	cursor_slot        int
 	game_mode          int
 	health             f32 = 20.0
 	prev_y             f32
