@@ -153,6 +153,7 @@ fn default_blocks() []Block {
 	]
 	result << wood_blocks()
 	result << redstone_component_blocks()
+	result << Block(new_crafting_table())
 	result << container_blocks()
 	result << farming_blocks()
 	result << combat_progression_blocks()
