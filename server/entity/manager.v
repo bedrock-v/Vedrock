@@ -43,6 +43,7 @@ mut:
 	nearest_player(pos types.Vector3, radius f32) ?u64
 	// notify_entity_despawn lets the entity package announce a despawn.
 	notify_entity_despawn(identifier string, x f32, y f32, z f32)
+	pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) bool
 }
 
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
@@ -74,6 +75,27 @@ pub fn (mut m Manager) spawn(behaviour Behaviour, pos types.Vector3) &Entity {
 		floor_y:    pos.y
 		behaviour:  behaviour
 		effects:    effect.new_manager()
+	}
+	m.mutex.lock()
+	m.entities[rid] = e
+	m.mutex.unlock()
+	m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.spawn_packet())
+	return e
+}
+
+pub fn (mut m Manager) spawn_item(stack types.ItemStack, pos types.Vector3, velocity types.Vector3, pickup_delay i64) &Entity {
+	rid := m.host.allocate_runtime_id()
+	mut e := &Entity{
+		unique_id:    i64(rid)
+		runtime_id:   rid
+		identifier:   'minecraft:item'
+		pos:          pos
+		velocity:     velocity
+		floor_y:      pos.y - 320.0
+		behaviour:    &ItemBehaviour{}
+		effects:      effect.new_manager()
+		item:         stack
+		pickup_delay: pickup_delay
 	}
 	m.mutex.lock()
 	m.entities[rid] = e

@@ -662,6 +662,9 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	s.write_block_runtime(pos, air_id)
 	s.broadcast_block_update(pos, air_id)
 	s.damage_held_item(1)
+	if s.drops_on_break() {
+		s.drop_block_item(pos, old_id)
+	}
 	if pair := s.door_pair_pos(pos, old_id) {
 		pair_id := s.block_at(pair.x, pair.y, pair.z)
 		if s.door_pair_matches(old_id, pair_id) {

@@ -15,6 +15,29 @@ mut:
 	tick(mut e Entity, mut host Host)
 }
 
+@[heap]
+pub struct ItemBehaviour {}
+
+pub fn (b &ItemBehaviour) identifier() string {
+	return 'minecraft:item'
+}
+
+pub fn (mut b ItemBehaviour) tick(mut e Entity, mut host Host) {
+	if e.age >= item_despawn_ticks {
+		e.kill()
+		return
+	}
+	if e.pickup_delay > 0 {
+		e.pickup_delay--
+		return
+	}
+	if stack := e.item {
+		if host.pickup_item(e.runtime_id, stack, e.pos) {
+			e.kill()
+		}
+	}
+}
+
 // HurtBehaviour is an opt-in capability: a Behaviour implementing it is
 // notified whenever its Entity survives a hit, letting e.g. a hostile mob
 // start targeting whoever hit it.
@@ -31,6 +54,8 @@ pub interface DeathBehaviour {
 mut:
 	on_death(mut e Entity)
 }
+
+const item_despawn_ticks = i64(6000)
 
 const wander_interval_ticks = i64(100)
 const wander_speed = f32(0.08)

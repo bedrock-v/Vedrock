@@ -109,8 +109,11 @@ fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestP
 				protocol.stack_request_action_swap {
 					changes << s.apply_swap(action)
 				}
-				protocol.stack_request_action_destroy, protocol.stack_request_action_drop {
+				protocol.stack_request_action_destroy {
 					changes << s.apply_remove(action)
+				}
+				protocol.stack_request_action_drop {
+					changes << s.apply_drop(action)
 				}
 				protocol.stack_request_action_consume {
 					changes << s.apply_consume(action)
@@ -257,6 +260,33 @@ fn (mut s NetworkSession) apply_remove(action protocol.StackRequestAction) []Slo
 		net = s.track_stack(st)
 	}
 	s.set_slot_stack(src.container, src.slot, net)
+	return [
+		slot_change(src.container, src.slot, u8(remaining), net),
+	]
+}
+
+fn (mut s NetworkSession) apply_drop(action protocol.StackRequestAction) []SlotChange {
+	src := action.source
+	item := s.inv_stacks[src.stack_network_id] or { types.ItemStack{} }
+	mut take := int(action.count)
+	if take == 0 || take > item.count {
+		take = item.count
+	}
+	if take <= 0 {
+		return []SlotChange{}
+	}
+	remaining := item.count - take
+	s.inv_stacks.delete(src.stack_network_id)
+	mut net := 0
+	if remaining > 0 {
+		mut st := item
+		st.count = remaining
+		net = s.track_stack(st)
+	}
+	s.set_slot_stack(src.container, src.slot, net)
+	mut dropped := item
+	dropped.count = take
+	s.throw_item(dropped)
 	return [
 		slot_change(src.container, src.slot, u8(remaining), net),
 	]

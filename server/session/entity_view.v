@@ -79,6 +79,31 @@ pub fn (mut h Hub) notify_entity_despawn(identifier string, x f32, y f32, z f32)
 	h.events.entity_despawn(mut ctx)
 }
 
+const pickup_radius = f32(1.4)
+
+pub fn (mut h Hub) pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) bool {
+	rid, _, found := h.find_nearest_player(pos, pickup_radius)
+	if !found {
+		return false
+	}
+	mut target := h.session_by_runtime(rid) or { return false }
+	if !target.apply_pickup(stack) {
+		return false
+	}
+	h.broadcast(&protocol.TakeItemActorPacket{
+		item_actor_runtime_id:  item_runtime_id
+		taker_actor_runtime_id: rid
+	})
+	return true
+}
+
+pub fn (mut h Hub) drop_item(stack types.ItemStack, x f32, y f32, z f32, vx f32, vy f32, vz f32, pickup_delay i64) {
+	if stack.id == 0 || stack.count <= 0 {
+		return
+	}
+	h.entities.spawn_item(stack, types.Vector3{x, y, z}, types.Vector3{vx, vy, vz}, pickup_delay)
+}
+
 // nearest_player_name is the plugin.ServerView facing form of nearest_player.
 // It resolves the runtime id back to a display name rather than leaking the
 // internal runtime id concept into the plugin surface.
