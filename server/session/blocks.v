@@ -288,6 +288,11 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 		|| s.game_mode == protocol.game_type_creative_spectator {
 		return
 	}
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	stack, net := s.inventory_stack_at(s.held_slot)
 	if net == 0 {
 		return
@@ -553,6 +558,11 @@ fn (mut s NetworkSession) place_door(pos types.BlockPosition, parts world.DoorPl
 }
 
 fn (mut s NetworkSession) consume_held_item() {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	stack, net := s.inventory_stack_at(s.held_slot)
 	if net == 0 || stack.count <= 0 {
 		return
@@ -662,6 +672,9 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	s.write_block_runtime(pos, air_id)
 	s.broadcast_block_update(pos, air_id)
 	s.damage_held_item(1)
+	if s.drops_on_break() {
+		s.drop_block_item(pos, old_id)
+	}
 	if pair := s.door_pair_pos(pos, old_id) {
 		pair_id := s.block_at(pair.x, pair.y, pair.z)
 		if s.door_pair_matches(old_id, pair_id) {
@@ -872,6 +885,11 @@ fn (mut s NetworkSession) broadcast_swing() {
 }
 
 fn (mut s NetworkSession) handle_block_pick_request(p protocol.BlockPickRequestPacket) ! {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	runtime_id := s.block_at(p.block_position.x, p.block_position.y, p.block_position.z)
 	if runtime_id == world.air.network_id {
 		return

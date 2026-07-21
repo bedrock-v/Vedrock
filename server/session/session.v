@@ -73,6 +73,7 @@ mut:
 	inv_stacks         map[int]types.ItemStack
 	inv_slots          map[int]int
 	inv_next_id        int = 1
+	inv_mutex          &sync.Mutex = sync.new_mutex()
 	pending_creative   ?types.ItemStack
 	loaded_items       []playerdb.InvItem
 	pending_radius     int

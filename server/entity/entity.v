@@ -45,6 +45,8 @@ pub mut:
 	age        i64
 	behaviour  Behaviour
 	effects    effect.Manager
+	item         ?types.ItemStack
+	pickup_delay i64
 }
 
 // position returns the entity's current position.
@@ -203,9 +205,22 @@ fn math_floor(v f32) f32 {
 	return if v < i { i - 1.0 } else { i }
 }
 
-// spawn_packet builds the AddActorPacket that makes this entity appear for a
-// viewer. Public so the session layer can send it to players joining late.
-pub fn (e &Entity) spawn_packet() &protocol.AddActorPacket {
+pub fn (e &Entity) spawn_packet() protocol.Packet {
+	if stack := e.item {
+		return &protocol.AddItemActorPacket{
+			actor_unique_id:  e.unique_id
+			actor_runtime_id: e.runtime_id
+			item:             types.ItemStackWrapper{
+				stack_id:         0
+				stack_id_variant: 0
+				item_stack:       stack
+			}
+			position:        e.pos
+			motion:          e.velocity
+			metadata:        []types.MetadataEntry{}
+			is_from_fishing: false
+		}
+	}
 	return &protocol.AddActorPacket{
 		actor_unique_id:   e.unique_id
 		actor_runtime_id:  e.runtime_id

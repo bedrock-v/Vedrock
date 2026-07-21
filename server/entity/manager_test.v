@@ -26,6 +26,8 @@ mut:
 	players               map[u64]types.Vector3
 	despawn_notify_calls   int
 	last_despawn_id        string
+	pickup_take  int
+	pickup_calls int
 }
 
 fn block_key(x int, y int, z int) string {
@@ -105,6 +107,11 @@ fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 		return none
 	}
 	return best_rid
+}
+
+fn (mut h FakeHost) pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) int {
+	h.pickup_calls++
+	return h.pickup_take
 }
 
 fn test_spawn_registers_and_broadcasts() {
@@ -368,6 +375,82 @@ fn test_hostile_behaviour_proactively_targets_nearby_player_without_being_hurt()
 	m.tick()
 	m.tick() // target acquired last tick; this tick moves toward it
 	assert e.velocity.x > 0
+}
+
+fn test_item_entity_spawns_as_item_actor() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	stack := types.ItemStack{
+		id:    5
+		count: 3
+	}
+	e := m.spawn_item(stack, types.Vector3{0, 10, 0}, types.Vector3{}, 10)
+	assert m.count() == 1
+	assert e.identifier == 'minecraft:item'
+	assert e.pickup_delay == 10
+	got := e.item or { panic('expected the item stack to be set') }
+	assert got.id == 5
+	assert got.count == 3
+	assert host.near == 1
+}
+
+fn test_item_entity_waits_out_pickup_delay_then_is_collected() {
+	mut host := &FakeHost{
+		pickup_take: 1
+	}
+	mut m := new_manager(host)
+	mut e := m.spawn_item(types.ItemStack{ id: 5, count: 1 }, types.Vector3{0, 5, 0},
+		types.Vector3{}, 2)
+	e.floor_y = 5
+	m.tick()
+	assert host.pickup_calls == 0
+	m.tick()
+	assert host.pickup_calls == 0
+	assert m.count() == 1
+	m.tick()
+	assert host.pickup_calls == 1
+	assert m.count() == 0
+}
+
+fn test_item_entity_stays_when_pickup_refused() {
+	mut host := &FakeHost{
+		pickup_take: 0
+	}
+	mut m := new_manager(host)
+	mut e := m.spawn_item(types.ItemStack{ id: 5, count: 1 }, types.Vector3{0, 5, 0},
+		types.Vector3{}, 0)
+	e.floor_y = 5
+	m.tick()
+	assert host.pickup_calls == 1
+	assert m.count() == 1
+}
+
+fn test_item_entity_partial_pickup_reduces_stack() {
+	mut host := &FakeHost{
+		pickup_take: 2
+	}
+	mut m := new_manager(host)
+	mut e := m.spawn_item(types.ItemStack{ id: 5, count: 5 }, types.Vector3{0, 5, 0},
+		types.Vector3{}, 0)
+	e.floor_y = 5
+	m.tick()
+	assert host.pickup_calls == 1
+	assert m.count() == 1
+	got := e.item or { panic('expected the item stack to remain') }
+	assert got.count == 3
+}
+
+fn test_item_entity_despawns_after_lifetime() {
+	mut host := &FakeHost{
+		pickup_take: 0
+	}
+	mut m := new_manager(host)
+	mut e := m.spawn_item(types.ItemStack{ id: 5, count: 1 }, types.Vector3{0, 5, 0},
+		types.Vector3{}, 0)
+	e.floor_y = 5
+	e.age = item_despawn_ticks
+	m.tick()
+	assert m.count() == 0
 }
 
 fn test_hostile_behaviour_gives_up_target_out_of_range() {
