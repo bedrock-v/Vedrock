@@ -32,8 +32,13 @@ pub fn (mut b ItemBehaviour) tick(mut e Entity, mut host Host) {
 		return
 	}
 	if stack := e.item {
-		if host.pickup_item(e.runtime_id, stack, e.pos) {
+		taken := host.pickup_item(e.runtime_id, stack, e.pos)
+		if taken >= stack.count {
 			e.kill()
+		} else if taken > 0 {
+			mut reduced := stack
+			reduced.count -= taken
+			e.item = reduced
 		}
 	}
 }

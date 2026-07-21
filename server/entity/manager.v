@@ -43,7 +43,7 @@ mut:
 	nearest_player(pos types.Vector3, radius f32) ?u64
 	// notify_entity_despawn lets the entity package announce a despawn.
 	notify_entity_despawn(identifier string, x f32, y f32, z f32)
-	pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) bool
+	pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) int
 }
 
 // Manager owns every live non-player Entity. spawn/despawn are safe from any

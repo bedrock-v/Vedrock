@@ -17,15 +17,10 @@ fn (mut s NetworkSession) drop_block_item(pos types.BlockPosition, block_id int)
 	if item_id == 0 {
 		return
 	}
-	mut block_runtime := 0
-	name := s.hub.data.item_name(item_id)
-	if it := s.hub.items.get(name) {
-		block_runtime = it.block_runtime_id()
-	}
 	stack := types.ItemStack{
 		id:               item_id
 		count:            1
-		block_runtime_id: block_runtime
+		block_runtime_id: block_id
 		raw_extra_data:   []u8{}
 	}
 	s.hub.drop_item(stack, f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5, 0.0, 0.15,
@@ -49,70 +44,55 @@ fn (mut s NetworkSession) throw_item(stack types.ItemStack) {
 		drop_pickup_delay)
 }
 
-fn (mut s NetworkSession) apply_pickup(stack types.ItemStack) bool {
+fn (mut s NetworkSession) apply_pickup(stack types.ItemStack) int {
 	if stack.id == 0 || stack.count <= 0 {
-		return true
+		return 0
+	}
+	mut m := s.inv_mutex
+	m.lock()
+	defer {
+		m.unlock()
 	}
 	max := s.max_stack_size_for_numeric(stack.id)
-	mut needed := stack.count
+	mut inserted := 0
 
-	mut merge_plan := map[int]int{}
 	for slot, net in s.inv_slots {
-		existing := s.inv_stacks[net] or { continue }
-		if existing.id != stack.id || existing.meta != stack.meta {
+		if inserted >= stack.count {
+			break
+		}
+		mut existing := s.inv_stacks[net] or { continue }
+		if existing.id != stack.id || existing.meta != stack.meta
+			|| existing.block_runtime_id != stack.block_runtime_id
+			|| existing.raw_extra_data != stack.raw_extra_data {
 			continue
 		}
 		space := max - existing.count
 		if space <= 0 {
 			continue
 		}
-		add := if space < needed { space } else { needed }
-		merge_plan[slot] = add
-		needed -= add
-		if needed == 0 {
-			break
-		}
-	}
-
-	mut new_slots := []int{}
-	if needed > 0 {
-		for slot in 0 .. inventory_slot_count {
-			if slot in s.inv_slots {
-				continue
-			}
-			new_slots << slot
-			needed -= if needed < max { needed } else { max }
-			if needed <= 0 {
-				break
-			}
-		}
-	}
-
-	if needed > 0 {
-		return false
-	}
-
-	mut remaining := stack.count
-	for slot, add in merge_plan {
-		net := s.inv_slots[slot] or { continue }
-		mut existing := s.inv_stacks[net] or { continue }
+		remaining := stack.count - inserted
+		add := if space < remaining { space } else { remaining }
 		existing.count += add
 		s.inv_stacks[net] = existing
 		s.send_slot_update(slot, wrap_stack_id(existing, net))
-		remaining -= add
+		inserted += add
 	}
 
-	for slot in new_slots {
-		if remaining <= 0 {
+	for slot in 0 .. inventory_slot_count {
+		if inserted >= stack.count {
 			break
 		}
+		if slot in s.inv_slots {
+			continue
+		}
+		remaining := stack.count - inserted
 		put := if remaining < max { remaining } else { max }
 		mut placed := stack
 		placed.count = put
 		net := s.track_stack(placed)
 		s.inv_slots[slot] = net
 		s.send_slot_update(slot, wrap_stack_id(placed, net))
-		remaining -= put
+		inserted += put
 	}
-	return true
+	return inserted
 }

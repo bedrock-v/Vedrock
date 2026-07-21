@@ -96,6 +96,11 @@ fn slot_change(container types.FullContainerName, slot u8, count u8, net_id int)
 }
 
 fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	mut responses := []protocol.ItemStackResponseEntry{}
 	for request in p.requests {
 		mut changes := []SlotChange{}

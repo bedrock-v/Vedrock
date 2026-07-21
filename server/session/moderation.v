@@ -218,6 +218,11 @@ fn (j ClearInventoryJob) run(mut h Hub) {
 }
 
 fn (mut s NetworkSession) apply_clear_inventory() {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	s.inv_stacks = map[int]types.ItemStack{}
 	s.inv_slots = map[int]int{}
 	mut items := []types.ItemStackWrapper{}
@@ -265,6 +270,11 @@ fn (j GiveItemJob) run(mut h Hub) {
 }
 
 fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, count int) {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	slot := s.give_next_slot % give_hotbar_size
 	s.give_next_slot++
 	stack := types.ItemStack{

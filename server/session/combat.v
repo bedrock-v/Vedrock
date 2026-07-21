@@ -139,6 +139,11 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 // replace_held_item swaps the held stack for a single new item id, reusing
 // the same slot-bookkeeping primitives consume_held_item uses to decrement.
 fn (mut s NetworkSession) replace_held_item(item_name string) {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	new_id := s.hub.data.item_id_by_name[item_name] or { return }
 	new_stack := types.ItemStack{
 		id:    new_id
