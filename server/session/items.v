@@ -36,6 +36,17 @@ fn empty_stack() types.ItemStackWrapper {
 	return wrap_stack(types.ItemStack{})
 }
 
+fn (s &NetworkSession) crafting_data() &protocol.CraftingDataPacket {
+	data := s.hub.recipes.crafting_data_packet(s.hub.data.item_id_by_name)
+	return &protocol.CraftingDataPacket{
+		recipes:                         data.recipes
+		potion_recipes:                  data.potion_recipes
+		potion_container_change_recipes: data.potion_container_change_recipes
+		material_reducers:               data.material_reducers
+		clear_recipes:                   true
+	}
+}
+
 fn (s &NetworkSession) max_stack_size_for_numeric(id int) int {
 	name := s.hub.data.item_name(id)
 	if name == '' {
