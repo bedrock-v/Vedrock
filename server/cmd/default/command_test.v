@@ -39,6 +39,7 @@ mut:
 	pos_z            f32
 	cleared          bool
 	given_id         string
+	given_meta       int
 	given_count      int
 	given_ok         bool = true
 	whitelisted      []string
@@ -111,12 +112,17 @@ fn (mut s RecordingSender) clear_inventory() {
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
+	return s.give_item_meta(id, 0, count) > 0
+}
+
+fn (mut s RecordingSender) give_item_meta(id string, meta int, count int) int {
 	if !s.given_ok {
-		return false
+		return 0
 	}
 	s.given_id = id
+	s.given_meta = meta
 	s.given_count = count
-	return true
+	return count
 }
 
 fn (s &RecordingSender) whitelist_enabled() bool {
