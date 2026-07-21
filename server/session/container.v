@@ -66,24 +66,11 @@ fn (mut s NetworkSession) handle_container_close(p protocol.ContainerClosePacket
 	})!
 	if p.window_id == crafting_window_id {
 		s.return_crafting_items()
-		// Send full inventory content so the client refreshes its view.
-		mut items := []types.ItemStackWrapper{}
-		for i in 0 .. inventory_slot_count {
-			if net_id := s.inv_slots[i] {
-				stack := s.inv_stacks[net_id] or {
-					items << types.item_stack_wrapper_legacy(types.ItemStack{})
-					continue
-				}
-				items << wrap_stack_id(stack, net_id)
-			} else {
-				items << types.item_stack_wrapper_legacy(types.ItemStack{})
-			}
+		// Sync each changed slot individually so the client sees the
+		// returned items in its inventory HUD.
+		for flat, net_id in s.inv_slots {
+			stack := s.inv_stacks[net_id] or { continue }
+			s.send_slot_update(flat, wrap_stack_id(stack, net_id))
 		}
-		s.transport.send(&protocol.InventoryContentPacket{
-			window_id:      0
-			items:          items
-			container_name: types.FullContainerName{container_id: 0}
-			storage:        types.item_stack_wrapper_legacy(types.ItemStack{})
-		}) or {}
 	}
 }
