@@ -22,6 +22,8 @@ pub fn (c GiveCommand) permission() string {
 	return permission.command_give
 }
 
+const give_max_count = 32767
+
 pub fn (c GiveCommand) arguments() []cmd.Argument {
 	return [
 		cmd.StringArgument{
@@ -31,7 +33,11 @@ pub fn (c GiveCommand) arguments() []cmd.Argument {
 			arg_name: 'item'
 		},
 		cmd.IntArgument{
-			arg_name:     'count'
+			arg_name:     'amount'
+			arg_optional: true
+		},
+		cmd.IntArgument{
+			arg_name:     'data'
 			arg_optional: true
 		},
 	]
@@ -56,21 +62,34 @@ pub fn (c GiveCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 			return
 		}
 	}
-	if count < 1 {
-		count = 1
+	if count < 1 || count > give_max_count {
+		sender.send_message(ctx.lang.t('cmd.give.usage'))!
+		return
 	}
-	if !target.give_item(item_id, count) {
+	mut data := 0
+	if ctx.args.len > 3 {
+		data = strconv.atoi(ctx.args[3]) or {
+			sender.send_message(ctx.lang.t('cmd.give.usage'))!
+			return
+		}
+		if data < 0 {
+			sender.send_message(ctx.lang.t('cmd.give.usage'))!
+			return
+		}
+	}
+	given := target.give_item_meta(item_id, data, count)
+	if given < 1 {
 		sender.send_message(ctx.lang.tf('cmd.give.unknown_item', {
 			'Item': item_id
 		}))!
 		return
 	}
 	target.send_message(ctx.lang.tf('cmd.give.received', {
-		'Count': count.str()
+		'Count': given.str()
 		'Item':  item_id
 	}))!
 	sender.send_message(ctx.lang.tf('cmd.give.success', {
-		'Count': count.str()
+		'Count': given.str()
 		'Item':  item_id
 		'Name':  target.name()
 	}))!

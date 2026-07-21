@@ -261,48 +261,70 @@ struct GiveItemJob {
 	runtime_id       u64
 	numeric_id       int
 	block_runtime_id int
+	meta             int
 	count            int
+	stack_max        int
 }
 
 fn (j GiveItemJob) run(mut h Hub) {
 	mut target := h.session_by_runtime(j.runtime_id) or { return }
-	target.apply_give_item(j.numeric_id, j.block_runtime_id, j.count)
+	target.apply_give_item(j.numeric_id, j.block_runtime_id, j.meta, j.count, j.stack_max)
 }
 
-fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, count int) {
+fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, meta int, count int, stack_max int) {
 	mut mtx := s.inv_mutex
 	mtx.lock()
 	defer {
 		mtx.unlock()
 	}
-	slot := s.give_next_slot % give_hotbar_size
-	s.give_next_slot++
-	stack := types.ItemStack{
-		id:               numeric_id
-		meta:             0
-		count:            count
-		block_runtime_id: block_runtime_id
-		raw_extra_data:   []u8{}
+	per := if stack_max < 1 { 1 } else { stack_max }
+	mut remaining := count
+	for remaining > 0 {
+		amount := if remaining < per { remaining } else { per }
+		remaining -= amount
+		slot := s.give_next_slot % give_hotbar_size
+		s.give_next_slot++
+		stack := types.ItemStack{
+			id:               numeric_id
+			meta:             meta
+			count:            amount
+			block_runtime_id: block_runtime_id
+			raw_extra_data:   []u8{}
+		}
+		net_id := s.track_stack(stack)
+		s.inv_slots[slot] = net_id
+		s.send_slot_update(slot, wrap_stack_id(stack, net_id))
 	}
-	net_id := s.track_stack(stack)
-	s.inv_slots[slot] = net_id
-	s.send_slot_update(slot, wrap_stack_id(stack, net_id))
 }
 
 pub fn (mut s NetworkSession) give_item(id string, count int) bool {
+	return s.give_item_meta(id, 0, count) > 0
+}
+
+pub fn (mut s NetworkSession) give_item_meta(id string, meta int, count int) int {
 	numeric_id := s.hub.data.item_id(id)
 	if numeric_id == 0 && id != 'minecraft:air' {
-		return false
+		return 0
 	}
 	mut block_runtime_id := 0
+	mut stack_max := 64
 	if it := s.hub.items.get(id) {
 		block_runtime_id = it.block_runtime_id()
+		stack_max = it.max_stack_size()
+	}
+	per := if stack_max < 1 { 1 } else { stack_max }
+	max_total := per * give_hotbar_size
+	given := if count > max_total { max_total } else { count }
+	if given < 1 {
+		return 0
 	}
 	s.hub.submit(GiveItemJob{
 		runtime_id:       s.runtime_id
 		numeric_id:       numeric_id
 		block_runtime_id: block_runtime_id
-		count:            count
+		meta:             meta
+		count:            given
+		stack_max:        stack_max
 	})
-	return true
+	return given
 }
