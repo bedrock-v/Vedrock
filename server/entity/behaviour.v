@@ -27,6 +27,10 @@ pub fn (mut b ItemBehaviour) tick(mut e Entity, mut host Host) {
 		e.kill()
 		return
 	}
+	if e.on_ground {
+		e.velocity.x *= item_ground_friction
+		e.velocity.z *= item_ground_friction
+	}
 	if e.pickup_delay > 0 {
 		e.pickup_delay--
 		return
@@ -61,6 +65,7 @@ mut:
 }
 
 const item_despawn_ticks = i64(6000)
+const item_ground_friction = f32(0.5)
 
 const wander_interval_ticks = i64(100)
 const wander_speed = f32(0.08)

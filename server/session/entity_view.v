@@ -80,9 +80,33 @@ pub fn (mut h Hub) notify_entity_despawn(identifier string, x f32, y f32, z f32)
 }
 
 const pickup_radius = f32(1.4)
+const pickup_vertical_margin = f32(0.5)
+
+fn (mut h Hub) nearest_pickup_player(pos types.Vector3) (u64, bool) {
+	mut best_rid := u64(0)
+	mut best_dist := pickup_radius * pickup_radius
+	mut found := false
+	for mut target in h.snapshot() {
+		tp := target.current_position()
+		feet_y := tp.y - player_eye_height
+		if pos.y < feet_y - pickup_vertical_margin
+			|| pos.y > feet_y + player_height + pickup_vertical_margin {
+			continue
+		}
+		dx := tp.x - pos.x
+		dz := tp.z - pos.z
+		dist := dx * dx + dz * dz
+		if dist <= best_dist {
+			best_dist = dist
+			best_rid = target.runtime_id
+			found = true
+		}
+	}
+	return best_rid, found
+}
 
 pub fn (mut h Hub) pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) int {
-	rid, _, found := h.find_nearest_player(pos, pickup_radius)
+	rid, found := h.nearest_pickup_player(pos)
 	if !found {
 		return 0
 	}

@@ -96,13 +96,17 @@ fn slot_change(container types.FullContainerName, slot u8, count u8, net_id int)
 }
 
 fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
+	s.handle_stack_requests(p.requests)!
+}
+
+fn (mut s NetworkSession) handle_stack_requests(requests []protocol.ItemStackRequestEntry) ! {
 	mut mtx := s.inv_mutex
 	mtx.lock()
 	defer {
 		mtx.unlock()
 	}
 	mut responses := []protocol.ItemStackResponseEntry{}
-	for request in p.requests {
+	for request in requests {
 		mut changes := []SlotChange{}
 		for action in request.actions {
 			match action.action_type {
@@ -272,7 +276,16 @@ fn (mut s NetworkSession) apply_remove(action protocol.StackRequestAction) []Slo
 
 fn (mut s NetworkSession) apply_drop(action protocol.StackRequestAction) []SlotChange {
 	src := action.source
-	item := s.inv_stacks[src.stack_network_id] or { types.ItemStack{} }
+	mut item := s.inv_stacks[src.stack_network_id] or { types.ItemStack{} }
+	mut net := src.stack_network_id
+	if item.count == 0 {
+		if flat := flat_slot(src.container, src.slot) {
+			item, net = s.inventory_stack_at(flat)
+		}
+	}
+	if item.count == 0 {
+		return []SlotChange{}
+	}
 	mut take := int(action.count)
 	if take == 0 || take > item.count {
 		take = item.count
@@ -281,19 +294,19 @@ fn (mut s NetworkSession) apply_drop(action protocol.StackRequestAction) []SlotC
 		return []SlotChange{}
 	}
 	remaining := item.count - take
-	s.inv_stacks.delete(src.stack_network_id)
-	mut net := 0
+	s.inv_stacks.delete(net)
+	mut new_net := 0
 	if remaining > 0 {
 		mut st := item
 		st.count = remaining
-		net = s.track_stack(st)
+		new_net = s.track_stack(st)
 	}
-	s.set_slot_stack(src.container, src.slot, net)
+	s.set_slot_stack(src.container, src.slot, new_net)
 	mut dropped := item
 	dropped.count = take
 	s.throw_item(dropped)
 	return [
-		slot_change(src.container, src.slot, u8(remaining), net),
+		slot_change(src.container, src.slot, u8(remaining), new_net),
 	]
 }
 
