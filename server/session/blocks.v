@@ -396,52 +396,38 @@ fn (mut s NetworkSession) handle_normal_transaction(actions []protocol.Inventory
 			}
 		}
 	}
-	if sources.len == 0 || drops.len != sources.len {
+	if drops.len != 1 || sources.len != 1 {
 		s.reject_normal_transaction(actions)
 		return
 	}
-	mut used := []bool{len: drops.len}
-	mut planned := []PlannedDrop{}
-	for a in sources {
-		flat := int(a.inventory_slot)
-		if flat < 0 || flat >= inventory_slot_count {
-			s.reject_normal_transaction(actions)
-			return
-		}
-		server_stack, net := s.inventory_stack_at(flat)
-		if net == 0 || !stacks_match(server_stack, a.old_item.item_stack)
-			|| server_stack.count != a.old_item.item_stack.count {
-			s.reject_normal_transaction(actions)
-			return
-		}
-		new_stack := a.new_item.item_stack
-		if new_stack.count < 0 || new_stack.count >= server_stack.count {
-			s.reject_normal_transaction(actions)
-			return
-		}
-		if new_stack.count > 0 && !stacks_match(server_stack, new_stack) {
-			s.reject_normal_transaction(actions)
-			return
-		}
-		take := server_stack.count - new_stack.count
-		mut matched := false
-		for i, d in drops {
-			if used[i] || d.count != take || !stacks_match(server_stack, d) {
-				continue
-			}
-			used[i] = true
-			matched = true
-			break
-		}
-		if !matched {
-			s.reject_normal_transaction(actions)
-			return
-		}
-		planned << PlannedDrop{flat, server_stack, net, take}
+	src := sources[0]
+	flat := int(src.inventory_slot)
+	if flat < 0 || flat >= inventory_slot_count {
+		s.reject_normal_transaction(actions)
+		return
 	}
-	for pd in planned {
-		s.apply_slot_drop(pd)
+	server_stack, net := s.inventory_stack_at(flat)
+	if net == 0 || !stacks_match(server_stack, src.old_item.item_stack)
+		|| server_stack.count != src.old_item.item_stack.count {
+		s.reject_normal_transaction(actions)
+		return
 	}
+	new_stack := src.new_item.item_stack
+	if new_stack.count < 0 || new_stack.count >= server_stack.count {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	if new_stack.count > 0 && !stacks_match(server_stack, new_stack) {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	take := server_stack.count - new_stack.count
+	dropped := drops[0]
+	if dropped.count != take || !stacks_match(server_stack, dropped) {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	s.apply_slot_drop(PlannedDrop{flat, server_stack, net, take})
 }
 
 fn (mut s NetworkSession) apply_slot_drop(pd PlannedDrop) {

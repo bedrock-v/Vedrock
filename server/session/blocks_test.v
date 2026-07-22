@@ -656,3 +656,35 @@ fn test_normal_transaction_rejects_drop_count_mismatch() {
 	assert got.count == 3
 	assert hub.entities.count() == 0
 }
+
+fn test_normal_transaction_rejects_duplicated_actions() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{}
+	mut s := &NetworkSession{
+		runtime_id: 1
+		transport:  transport
+		hub:        hub
+	}
+	hub.add(s)
+	stack := types.ItemStack{
+		id:    5
+		count: 3
+	}
+	net := s.track_stack(stack)
+	s.inv_slots[0] = net
+	mut remaining := stack
+	remaining.count = 2
+	dropped := types.ItemStack{
+		id:    5
+		count: 1
+	}
+	mut actions := drop_actions(0, stack, remaining, dropped)
+	actions << drop_actions(0, stack, remaining, dropped)
+
+	s.handle_normal_transaction(actions)
+
+	got, got_net := s.inventory_stack_at(0)
+	assert got_net == net
+	assert got.count == 3
+	assert hub.entities.count() == 0
+}
