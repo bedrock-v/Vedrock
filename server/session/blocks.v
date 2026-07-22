@@ -377,7 +377,8 @@ fn (mut s NetworkSession) handle_normal_transaction(actions []protocol.Inventory
 	for a in actions {
 		match a.source_type {
 			protocol.inventory_action_source_world {
-				if a.old_item.item_stack.id != 0 || a.new_item.item_stack.count <= 0 {
+				if a.inventory_slot != 0 || a.old_item.item_stack.id != 0
+					|| a.new_item.item_stack.count <= 0 {
 					s.reject_normal_transaction(actions)
 					return
 				}
