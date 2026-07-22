@@ -87,6 +87,10 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 }
 
 fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTransactionPacket) ! {
+	if p.transaction_type == protocol.inventory_transaction_type_normal {
+		s.handle_normal_transaction(p.actions)
+		return
+	}
 	if p.transaction_type == protocol.inventory_transaction_type_use_item_on_entity {
 		ue := p.use_item_on_entity
 		if ue.action_type == protocol.item_use_on_entity_action_attack {
@@ -348,6 +352,20 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		entity_type:     'minecraft:player'
 		actor_unique_id: i64(s.runtime_id)
 	})
+}
+
+fn (mut s NetworkSession) handle_normal_transaction(actions []protocol.InventoryAction) {
+	for a in actions {
+		match a.source_type {
+			protocol.inventory_action_source_world {
+				s.throw_item(a.new_item.item_stack)
+			}
+			protocol.inventory_action_source_container {
+				s.sync_inventory_slot(int(a.inventory_slot), a.new_item.item_stack)
+			}
+			else {}
+		}
+	}
 }
 
 fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! {
