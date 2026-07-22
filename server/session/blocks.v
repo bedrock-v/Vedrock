@@ -354,17 +354,129 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	})
 }
 
+struct PlannedDrop {
+	slot  int
+	stack types.ItemStack
+	net   int
+	take  int
+}
+
+fn stacks_match(a types.ItemStack, b types.ItemStack) bool {
+	return a.id == b.id && a.meta == b.meta && a.block_runtime_id == b.block_runtime_id
+		&& a.raw_extra_data == b.raw_extra_data
+}
+
 fn (mut s NetworkSession) handle_normal_transaction(actions []protocol.InventoryAction) {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
+	mut drops := []types.ItemStack{}
+	mut sources := []protocol.InventoryAction{}
 	for a in actions {
 		match a.source_type {
 			protocol.inventory_action_source_world {
-				s.throw_item(a.new_item.item_stack)
+				if a.old_item.item_stack.id != 0 || a.new_item.item_stack.count <= 0 {
+					s.reject_normal_transaction(actions)
+					return
+				}
+				drops << a.new_item.item_stack
 			}
 			protocol.inventory_action_source_container {
-				s.sync_inventory_slot(int(a.inventory_slot), a.new_item.item_stack)
+				if int(a.window_id) != inventory_window_id {
+					s.reject_normal_transaction(actions)
+					return
+				}
+				sources << a
 			}
-			else {}
+			else {
+				s.reject_normal_transaction(actions)
+				return
+			}
 		}
+	}
+	if sources.len == 0 || drops.len != sources.len {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	mut used := []bool{len: drops.len}
+	mut planned := []PlannedDrop{}
+	for a in sources {
+		flat := int(a.inventory_slot)
+		if flat < 0 || flat >= inventory_slot_count {
+			s.reject_normal_transaction(actions)
+			return
+		}
+		server_stack, net := s.inventory_stack_at(flat)
+		if net == 0 || !stacks_match(server_stack, a.old_item.item_stack)
+			|| server_stack.count != a.old_item.item_stack.count {
+			s.reject_normal_transaction(actions)
+			return
+		}
+		new_stack := a.new_item.item_stack
+		if new_stack.count < 0 || new_stack.count >= server_stack.count {
+			s.reject_normal_transaction(actions)
+			return
+		}
+		if new_stack.count > 0 && !stacks_match(server_stack, new_stack) {
+			s.reject_normal_transaction(actions)
+			return
+		}
+		take := server_stack.count - new_stack.count
+		mut matched := false
+		for i, d in drops {
+			if used[i] || d.count != take || !stacks_match(server_stack, d) {
+				continue
+			}
+			used[i] = true
+			matched = true
+			break
+		}
+		if !matched {
+			s.reject_normal_transaction(actions)
+			return
+		}
+		planned << PlannedDrop{flat, server_stack, net, take}
+	}
+	for pd in planned {
+		s.apply_slot_drop(pd)
+	}
+}
+
+fn (mut s NetworkSession) apply_slot_drop(pd PlannedDrop) {
+	remaining := pd.stack.count - pd.take
+	s.inv_stacks.delete(pd.net)
+	mut wrapped := empty_stack()
+	if remaining > 0 {
+		mut st := pd.stack
+		st.count = remaining
+		new_net := s.track_stack(st)
+		s.inv_slots[pd.slot] = new_net
+		wrapped = wrap_stack_id(st, new_net)
+	} else {
+		s.inv_slots.delete(pd.slot)
+	}
+	s.send_slot_update(pd.slot, wrapped)
+	if pd.slot == s.held_slot {
+		s.held_item = wrapped
+	}
+	mut dropped := pd.stack
+	dropped.count = pd.take
+	s.throw_item(dropped)
+}
+
+fn (mut s NetworkSession) reject_normal_transaction(actions []protocol.InventoryAction) {
+	for a in actions {
+		if a.source_type != protocol.inventory_action_source_container {
+			continue
+		}
+		flat := int(a.inventory_slot)
+		if flat < 0 || flat >= inventory_slot_count {
+			continue
+		}
+		stack, net := s.inventory_stack_at(flat)
+		s.send_slot_update(flat, wrap_stack_id(stack, net))
 	}
 }
 

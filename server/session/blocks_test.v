@@ -15,14 +15,15 @@ fn test_within_place_reach_survival_vs_creative() {
 		position:  types.Vector3{0.0, player_eye_height, 0.0}
 		game_mode: protocol.game_type_survival
 	}
-	near := types.BlockPosition{0, 5, 0}
+	// near/far avoided as names: legacy Windows headers define them as macros.
+	near_pos := types.BlockPosition{0, 5, 0}
 	// Beyond survival's reach but within creative's reach.
-	far := types.BlockPosition{10, 0, 0}
-	assert s.within_place_reach(near)
-	assert !s.within_place_reach(far)
+	far_pos := types.BlockPosition{10, 0, 0}
+	assert s.within_place_reach(near_pos)
+	assert !s.within_place_reach(far_pos)
 
 	s.game_mode = protocol.game_type_creative
-	assert s.within_place_reach(far)
+	assert s.within_place_reach(far_pos)
 }
 
 fn test_place_block_rejects_when_occupied() {
@@ -516,4 +517,142 @@ fn test_cancelled_consume_keeps_stack() {
 	got, got_net := s.inventory_stack_at(s.held_slot)
 	assert got_net == net_id
 	assert got.count == 1
+}
+
+fn drop_actions(slot int, old types.ItemStack, new_stack types.ItemStack, dropped types.ItemStack) []protocol.InventoryAction {
+	return [
+		protocol.InventoryAction{
+			source_type: protocol.inventory_action_source_world
+			new_item:    types.ItemStackWrapper{
+				item_stack: dropped
+			}
+		},
+		protocol.InventoryAction{
+			source_type:    protocol.inventory_action_source_container
+			window_id:      i8(inventory_window_id)
+			inventory_slot: u32(slot)
+			old_item:       types.ItemStackWrapper{
+				item_stack: old
+			}
+			new_item:       types.ItemStackWrapper{
+				item_stack: new_stack
+			}
+		},
+	]
+}
+
+fn test_normal_transaction_drops_from_matching_slot() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{}
+	mut s := &NetworkSession{
+		runtime_id: 1
+		transport:  transport
+		hub:        hub
+	}
+	hub.add(s)
+	stack := types.ItemStack{
+		id:    5
+		count: 3
+	}
+	net := s.track_stack(stack)
+	s.inv_slots[0] = net
+	mut remaining := stack
+	remaining.count = 2
+	dropped := types.ItemStack{
+		id:    5
+		count: 1
+	}
+
+	s.handle_normal_transaction(drop_actions(0, stack, remaining, dropped))
+
+	got, _ := s.inventory_stack_at(0)
+	assert got.count == 2
+	assert hub.entities.count() == 1
+}
+
+fn test_normal_transaction_rejects_world_action_without_source_slot() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{}
+	mut s := &NetworkSession{
+		runtime_id: 1
+		transport:  transport
+		hub:        hub
+	}
+	hub.add(s)
+
+	s.handle_normal_transaction([
+		protocol.InventoryAction{
+			source_type: protocol.inventory_action_source_world
+			new_item:    types.ItemStackWrapper{
+				item_stack: types.ItemStack{
+					id:    276
+					count: 64
+				}
+			}
+		},
+	])
+
+	assert hub.entities.count() == 0
+}
+
+fn test_normal_transaction_rejects_mismatched_old_item() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{}
+	mut s := &NetworkSession{
+		runtime_id: 1
+		transport:  transport
+		hub:        hub
+	}
+	hub.add(s)
+	stack := types.ItemStack{
+		id:    5
+		count: 3
+	}
+	net := s.track_stack(stack)
+	s.inv_slots[0] = net
+	claimed := types.ItemStack{
+		id:    5
+		count: 64
+	}
+	dropped := types.ItemStack{
+		id:    5
+		count: 64
+	}
+
+	s.handle_normal_transaction(drop_actions(0, claimed, types.ItemStack{}, dropped))
+
+	got, got_net := s.inventory_stack_at(0)
+	assert got_net == net
+	assert got.count == 3
+	assert hub.entities.count() == 0
+}
+
+fn test_normal_transaction_rejects_drop_count_mismatch() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{}
+	mut s := &NetworkSession{
+		runtime_id: 1
+		transport:  transport
+		hub:        hub
+	}
+	hub.add(s)
+	stack := types.ItemStack{
+		id:    5
+		count: 3
+	}
+	net := s.track_stack(stack)
+	s.inv_slots[0] = net
+	mut remaining := stack
+	remaining.count = 2
+	dropped := types.ItemStack{
+		id:    7
+		count: 1
+	}
+
+	s.handle_normal_transaction(drop_actions(0, stack, remaining, dropped))
+
+	got, got_net := s.inventory_stack_at(0)
+	assert got_net == net
+	assert got.count == 3
+	assert hub.entities.count() == 0
 }

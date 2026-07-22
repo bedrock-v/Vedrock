@@ -13,7 +13,7 @@ struct FakeHost {
 mut:
 	next                   u64 = 1
 	broadcasts             int
-	near                   int
+	near_broadcasts        int
 	blocks                 map[string]int
 	boxes                  map[string][]world.AABB
 	positions              map[u64]types.Vector3
@@ -51,7 +51,7 @@ fn (mut h FakeHost) broadcast(p protocol.Packet) {
 }
 
 fn (mut h FakeHost) broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet) {
-	h.near++
+	h.near_broadcasts++
 }
 
 fn (mut h FakeHost) allocate_runtime_id() u64 {
@@ -121,7 +121,7 @@ fn test_spawn_registers_and_broadcasts() {
 	assert m.count() == 1
 	assert e.identifier == 'minecraft:pig'
 	assert e.runtime_id == 1
-	assert host.near == 1 // AddActor routed through broadcast_near
+	assert host.near_broadcasts == 1 // AddActor routed through broadcast_near
 	assert host.broadcasts == 0
 }
 
@@ -131,7 +131,7 @@ fn test_despawn_removes_and_broadcasts() {
 	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:cow' }, types.Vector3{0, 0, 0})
 	m.despawn(e.runtime_id)
 	assert m.count() == 0
-	assert host.near == 1 // AddActor via broadcast_near
+	assert host.near_broadcasts == 1 // AddActor via broadcast_near
 	assert host.broadcasts == 1 // RemoveActor via broadcast
 }
 
@@ -202,7 +202,7 @@ fn test_spawn_uses_near_broadcast() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
 	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
-	assert host.near == 1 // AddActor routed through broadcast_near
+	assert host.near_broadcasts == 1 // AddActor routed through broadcast_near
 }
 
 fn test_projectile_despawns_after_max_age() {
@@ -391,7 +391,7 @@ fn test_item_entity_spawns_as_item_actor() {
 	got := e.item or { panic('expected the item stack to be set') }
 	assert got.id == 5
 	assert got.count == 3
-	assert host.near == 1
+	assert host.near_broadcasts == 1
 }
 
 fn test_item_entity_waits_out_pickup_delay_then_is_collected() {

@@ -76,21 +76,6 @@ fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! 
 	})
 }
 
-fn (mut s NetworkSession) sync_inventory_slot(flat int, stack types.ItemStack) {
-	if flat < 0 || flat >= inventory_slot_count {
-		return
-	}
-	if old := s.inv_slots[flat] {
-		s.inv_stacks.delete(old)
-	}
-	if stack.id == 0 || stack.count <= 0 {
-		s.inv_slots.delete(flat)
-		return
-	}
-	net := s.track_stack(stack)
-	s.inv_slots[flat] = net
-}
-
 fn (mut s NetworkSession) track_stack(stack types.ItemStack) int {
 	id := s.inv_next_id
 	s.inv_next_id++
@@ -111,13 +96,17 @@ fn slot_change(container types.FullContainerName, slot u8, count u8, net_id int)
 }
 
 fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
+	s.handle_stack_requests(p.requests)!
+}
+
+fn (mut s NetworkSession) handle_stack_requests(requests []protocol.ItemStackRequestEntry) ! {
 	mut mtx := s.inv_mutex
 	mtx.lock()
 	defer {
 		mtx.unlock()
 	}
 	mut responses := []protocol.ItemStackResponseEntry{}
-	for request in p.requests {
+	for request in requests {
 		mut changes := []SlotChange{}
 		for action in request.actions {
 			match action.action_type {

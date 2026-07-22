@@ -72,7 +72,7 @@ mut:
 	held_slot          int
 	inv_stacks         map[int]types.ItemStack
 	inv_slots          map[int]int
-	inv_next_id        int = 1
+	inv_next_id        int         = 1
 	inv_mutex          &sync.Mutex = sync.new_mutex()
 	pending_creative   ?types.ItemStack
 	loaded_items       []playerdb.InvItem
@@ -302,6 +302,9 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.update_movement(p.position, p.pitch, p.yaw, p.head_yaw)
 			} else if p is protocol.PlayerAuthInputPacket {
 				s.update_movement(p.position, p.pitch, p.yaw, p.head_yaw)
+				if p.item_stack_request.actions.len > 0 {
+					s.handle_stack_requests([p.item_stack_request])!
+				}
 			} else if p is protocol.InteractPacket {
 				s.handle_interact(p)!
 			} else if p is protocol.ContainerClosePacket {
