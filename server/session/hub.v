@@ -22,6 +22,7 @@ import server.world.db
 import server.resource
 import server.permission
 import server.enchant
+import server.crafting
 
 @[heap]
 pub struct Hub {
@@ -51,6 +52,7 @@ pub mut:
 	custom_blocks      block.CustomRegistry         = block.new_custom_registry()
 	custom_entities    entity.CustomRegistry        = entity.new_custom_registry()
 	enchantments       enchant.Registry             = enchant.new_registry()
+	recipes            crafting.Registry            = crafting.new_registry()
 	generators         blockworld.GeneratorRegistry = blockworld.new_generator_registry()
 	current_tick       i64
 	started_at         i64
@@ -104,6 +106,9 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 	}
 	hub.entities = entity.new_manager(hub)
 	hub.liquids = liquid.new_manager(hub)
+	for rec in crafting.vanilla_recipes() {
+		hub.recipes.register(rec)
+	}
 	hub.register_palette_fallbacks()
 	spawn hub.run_jobs()
 	return hub

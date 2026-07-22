@@ -4,7 +4,7 @@ import server.world
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 402
+	assert r.len() == 403
 }
 
 fn test_short_grass_and_fern_are_replaceable() {

@@ -841,6 +841,12 @@ fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, cl
 		s.after_block_changed(pos)
 		return true
 	}
+	if b := s.hub.blocks.get(old_id) {
+		if b is block.CraftingTableBlock {
+			s.open_crafting_container(pos)!
+			return true
+		}
+	}
 	interactable := s.hub.blocks.get(old_id) or { return false }
 	if interactable is block.Interactable {
 		mut wld := s.current_world()

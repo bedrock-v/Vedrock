@@ -109,6 +109,13 @@ fn (mut s NetworkSession) start_game() ! {
 		}
 		blocks:                         s.custom_block_entries()
 	})!
+	s.transport.send(&protocol.SetPlayerInventoryOptionsPacket{
+		left_tab:         0
+		right_tab:        0
+		filtering:        false
+		inventory_layout: 1
+		crafting_layout:  1
+	})!
 	if s.hub.custom_entities.len() > 0 {
 		s.transport.send(&protocol.AvailableActorIdentifiersPacket{
 			identifiers: s.hub.custom_entities.identifiers_nbt()
@@ -537,6 +544,8 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 	s.transport.send(s.restore_inventory())!
 	s.refresh_available_commands()
 	s.log.info('${s.identity.display_name} spawned in the world (${s.hub.count()} online)')
+	// Send crafting data after spawn so the client has fully initialized.
+	s.transport.send(s.crafting_data())!
 }
 
 // refresh_available_commands resends the client's command list. The client

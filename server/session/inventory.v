@@ -10,6 +10,9 @@ struct SlotChange {
 }
 
 const container_combined_hotbar_and_inventory = 12
+const container_crafting_input = 13
+const container_crafting_output = 14
+const container_cursor = 59
 const container_hotbar = 28
 const container_inventory = 29
 
@@ -25,6 +28,22 @@ fn flat_slot(container types.FullContainerName, slot u8) ?int {
 }
 
 fn (mut s NetworkSession) set_slot_stack(container types.FullContainerName, slot u8, net_id int) {
+	if container.container_id == container_crafting_input {
+		if net_id == 0 {
+			s.crafting_input.delete(slot)
+		} else {
+			s.crafting_input[slot] = net_id
+		}
+		return
+	}
+	if container.container_id == container_crafting_output {
+		s.crafting_output = net_id
+		return
+	}
+	if container.container_id == container_cursor {
+		s.cursor_slot = net_id
+		return
+	}
 	flat := flat_slot(container, slot) or { return }
 	if net_id == 0 {
 		s.inv_slots.delete(flat)
@@ -164,7 +183,11 @@ fn (mut s NetworkSession) set_pending_creative(entry_id int) {
 fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotChange {
 	src := action.source
 	dst := action.destination
-	mut moved := s.inv_stacks[src.stack_network_id] or { types.ItemStack{} }
+	mut moved := if src.container.container_id == container_cursor {
+		s.inv_stacks[s.cursor_slot] or { types.ItemStack{} }
+	} else {
+		s.inv_stacks[src.stack_network_id] or { types.ItemStack{} }
+	}
 	mut from_creative := false
 	if moved.count == 0 {
 		if pending := s.pending_creative {
