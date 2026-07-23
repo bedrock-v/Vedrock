@@ -5,11 +5,68 @@ import time
 pub const ticks_per_second = 20
 const tick_duration = time.second / ticks_per_second
 
+// Category labels whether an effect is helpful, harmful, or neither.
+// Used for UI tinting and for colour-blend weighting.
+pub enum Category {
+	beneficial
+	harmful
+	neutral
+}
+
 pub struct Type {
 pub:
-	id      int
-	name    string
-	lasting bool
+	id       int
+	name     string
+	lasting  bool
+	rgb      [3]u8
+	category Category = .neutral
+}
+
+// colour returns the RGB value packed into an ARGB int (A=0xFF), suitable for
+// entity metadata.
+pub fn (t Type) colour() int {
+	return int(u32(0xff) << 24 | u32(t.rgb[0]) << 16 | u32(t.rgb[1]) << 8 | u32(t.rgb[2]))
+}
+
+// blend_colour averages the RGB colours of all lasting effects and returns a single
+// packed ARGB int. Returns 0 when effects is empty or none of the effects have
+// visible potion particles — the client hides particles when the colour is 0.
+// https://minecraft.fandom.com/fr/wiki/Effet#Particules
+pub fn blend_colour(effects []Effect) int {
+	if effects.len == 0 {
+		return 0
+	}
+	mut r_sum := 0
+	mut g_sum := 0
+	mut b_sum := 0
+	mut count := 0
+	for e in effects {
+		if !e.effect_type().lasting || e.particles_hidden {
+			continue
+		}
+		r_sum += int(e.typ.rgb[0])
+		g_sum += int(e.typ.rgb[1])
+		b_sum += int(e.typ.rgb[2])
+		count++
+	}
+	if count == 0 {
+		return 0
+	}
+	r := u8(r_sum / count)
+	g := u8(g_sum / count)
+	b := u8(b_sum / count)
+	return int(u32(0xff) << 24 | u32(r) << 16 | u32(g) << 8 | u32(b))
+}
+
+// any_ambient reports whether any of the active effects has its ambient flag set.
+// Drives the entity metadata flag that dims potion particles (beacon style).
+pub fn any_ambient(effects []Effect) bool {
+	for e in effects {
+		if e.ambient {
+			return true
+		}
+	}
+	return false
 }
 
 pub struct Effect {
