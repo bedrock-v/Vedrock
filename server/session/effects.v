@@ -2,6 +2,7 @@ module session
 
 import math
 import protocol
+import protocol.types
 import server.effect
 import server.event
 
@@ -64,6 +65,7 @@ fn (mut s NetworkSession) apply_add_effect(e effect.Effect) {
 		}
 	}
 	s.send_effect(result.effect)
+	s.update_effect_metadata()
 }
 
 fn (mut s NetworkSession) apply_remove_effect(typ effect.Type) {
@@ -78,6 +80,7 @@ fn (mut s NetworkSession) apply_remove_effect(typ effect.Type) {
 	removed := s.effects.remove(typ) or { return }
 	s.apply_effect_end(removed)
 	s.send_effect_removal(typ)
+	s.update_effect_metadata()
 }
 
 fn (mut h Hub) tick_effects() {
@@ -94,6 +97,9 @@ fn (mut s NetworkSession) tick_effects() {
 	for e in result.expired {
 		s.apply_effect_end(e)
 		s.send_effect_removal(e.effect_type())
+	}
+	if result.expired.len > 0 {
+		s.update_effect_metadata()
 	}
 }
 
@@ -227,6 +233,37 @@ fn (mut s NetworkSession) damage_from_effect(amount f32, fatal bool) {
 	if s.health <= 0 {
 		s.die('%death.attack.magic', [s.identity.display_name])
 	}
+}
+
+// update_effect_metadata recalculates the blended potion particle colour from all
+// active effects and pushes it, together with the ambient flag, as entity metadata
+// so the client renders the correct swirling particles around the player.
+fn (mut s NetworkSession) update_effect_metadata() {
+	if !s.spawned {
+		return
+	}
+	active := s.effects.effects()
+	colour := effect.blend_colour(active)
+	ambient := effect.any_ambient(active)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
+	s.hub.broadcast(&protocol.SetActorDataPacket{
+		actor_runtime_id: s.runtime_id
+		metadata: [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{value: colour}
+			},
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_ambience
+				value: types.MetaByte{value: i8(ambient_byte)}
+			},
+		]
+		synced_properties: types.PropertySyncData{}
+		tick:              0
+	})
 }
 
 fn (mut s NetworkSession) send_health() {

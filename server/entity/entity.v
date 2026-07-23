@@ -205,6 +205,10 @@ fn math_floor(v f32) f32 {
 	return if v < i { i - 1.0 } else { i }
 }
 
+// spawn_packet builds the packet that makes this entity appear for a viewer.
+// Item entities use AddItemActorPacket; everything else uses AddActorPacket with
+// effect colour metadata. Public so the session layer can send it to players
+// joining late.
 pub fn (e &Entity) spawn_packet() protocol.Packet {
 	if stack := e.item {
 		return &protocol.AddItemActorPacket{
@@ -221,6 +225,13 @@ pub fn (e &Entity) spawn_packet() protocol.Packet {
 			is_from_fishing: false
 		}
 	}
+	active := e.effects.effects()
+	colour := effect.blend_colour(active)
+	ambient := effect.any_ambient(active)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
 	return &protocol.AddActorPacket{
 		actor_unique_id:   e.unique_id
 		actor_runtime_id:  e.runtime_id
@@ -232,7 +243,16 @@ pub fn (e &Entity) spawn_packet() protocol.Packet {
 		head_yaw:          e.head_yaw
 		body_yaw:          e.yaw
 		attributes:        []types.ActorAttribute{}
-		metadata:          []types.MetadataEntry{}
+		metadata:          [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{value: colour}
+			},
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_ambience
+				value: types.MetaByte{value: i8(ambient_byte)}
+			},
+		]
 		synced_properties: types.PropertySyncData{}
 		links:             []types.EntityLink{}
 	}
