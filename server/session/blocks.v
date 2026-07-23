@@ -320,12 +320,43 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 	s.send_slot_update(s.held_slot, s.held_item)
 }
 
-// use_held_item_in_air runs a UseableItem's on use behaviour (e.g. goat_horn's sound).
+// use_held_item_in_air runs a UseableItem or ConsumableItem's behaviour when
+// the player right-clicks in air (goat horn sound, drinking a potion).
 fn (mut s NetworkSession) use_held_item_in_air() {
 	if s.dead || !s.can_interact() {
 		return
 	}
 	stack, name := s.held_stack_and_name()
+
+	// ConsumableItem path — potions and other drinkables. The client sends
+	// this packet when the drinking animation completes, carrying the
+	// inventory action (old item → replacement) in the transaction.
+	if consume := s.hub.items.consume_result(name, stack.meta) {
+		mut use_ctx := event.new_context(event.ItemUseData{
+			player:    s
+			item_name: name
+			meta:      stack.meta
+		})
+		s.hub.events.item_use(mut use_ctx)
+		if use_ctx.is_cancelled() {
+			return
+		}
+		for e in consume.effects {
+			s.apply_add_effect(e)
+		}
+		if consume.sound != '' {
+			s.hub.broadcast(&protocol.LevelSoundEventPacket{
+				sound:           consume.sound
+				position:        s.current_position()
+				extra_data:      -1
+				entity_type:     'minecraft:player'
+				actor_unique_id: i64(s.runtime_id)
+			})
+		}
+		return
+	}
+
+	// UseableItem path — goat horn, etc.
 	if cooldown := s.hub.items.cooldown_ticks(name) {
 		if s.hub.current_tick < s.cooldown_until[name] {
 			return
@@ -333,13 +364,13 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		s.cooldown_until[name] = s.hub.current_tick + i64(cooldown)
 	}
 	result := s.hub.items.use_result(name, stack.meta) or { return }
-	mut use_ctx := event.new_context(event.ItemUseData{
+	mut use_ctx2 := event.new_context(event.ItemUseData{
 		player:    s
 		item_name: name
 		meta:      stack.meta
 	})
-	s.hub.events.item_use(mut use_ctx)
-	if use_ctx.is_cancelled() {
+	s.hub.events.item_use(mut use_ctx2)
+	if use_ctx2.is_cancelled() {
 		return
 	}
 	if result.sound == '' {

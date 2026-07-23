@@ -3,11 +3,20 @@ module item
 import time
 import server.effect
 
+// TODO: 1.21 potion types (wind_charged, weaving, oozing, infested) — need
+// corresponding effect Type definitions in server/effect/ first.
+// TODO: brewing stand — needs block entity, UI form, recipe matching, blaze
+// powder fuel, and 20-second brew timer. Out of scope for initial potion
+// drinking.
+
+
+
 pub struct ConsumeResult {
 pub:
 	effects           []effect.Effect
 	replacement_id    string
 	replacement_count int
+	sound             string
 }
 
 pub struct PotionType {
@@ -202,5 +211,6 @@ pub fn (i PotionItem) consume_result(meta int) ConsumeResult {
 		effects:           potion_from_meta(meta).effects()
 		replacement_id:    'minecraft:glass_bottle'
 		replacement_count: 1
+		sound:             'random.drink'
 	}
 }

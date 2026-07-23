@@ -318,6 +318,15 @@ fn (mut s NetworkSession) apply_consume(action protocol.StackRequestAction) []Sl
 	for e in result.effects {
 		s.apply_add_effect(e)
 	}
+	if result.sound != '' {
+		s.hub.broadcast(&protocol.LevelSoundEventPacket{
+			sound:           result.sound
+			position:        s.current_position()
+			extra_data:      -1
+			entity_type:     'minecraft:player'
+			actor_unique_id: i64(s.runtime_id)
+		})
+	}
 	return s.replace_consumed_stack(action, stack, result)
 }
 
