@@ -59,7 +59,6 @@ mut:
 	// it and broadcasts its appearance. Returns the spawned Entity.
 	spawn_behaviour(b Behaviour, pos types.Vector3) &Entity
 }
-
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
 // thread (mutex-guarded); tick() runs once per server tick on the Hub actor
 // thread, the same place player state is mutated.

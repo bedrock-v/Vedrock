@@ -205,10 +205,17 @@ fn math_floor(v f32) f32 {
 	return if v < i { i - 1.0 } else { i }
 }
 
+// CustomSpawnBehaviour is an optional interface a Behaviour can implement to
+// provide a custom AddActorPacket instead of the default mob-style one. Area
+// Effect Clouds implement it to send radius metadata instead of effect colour.
+pub interface CustomSpawnBehaviour {
+	spawn_packet(e &Entity) &protocol.AddActorPacket
+}
+
 // spawn_packet builds the packet that makes this entity appear for a viewer.
-// Item entities use AddItemActorPacket; everything else uses AddActorPacket with
-// effect colour metadata. Public so the session layer can send it to players
-// joining late.
+// Item entities use AddItemActorPacket; entities whose Behaviour implements
+// CustomSpawnBehaviour delegate to it; everything else uses the default
+// mob-style AddActorPacket with effect colour metadata.
 pub fn (e &Entity) spawn_packet() protocol.Packet {
 	if stack := e.item {
 		return &protocol.AddItemActorPacket{
@@ -224,6 +231,10 @@ pub fn (e &Entity) spawn_packet() protocol.Packet {
 			metadata:        []types.MetadataEntry{}
 			is_from_fishing: false
 		}
+	}
+	mut b := e.behaviour
+	if mut b is CustomSpawnBehaviour {
+		return b.spawn_packet(e)
 	}
 	active := e.effects.effects()
 	colour := effect.blend_colour(active)

@@ -2,18 +2,24 @@ module entity
 
 import math
 import protocol
+import protocol.types
 import server.effect
 import server.item
 
 // SplashPotionBehaviour is a projectile that applies potion effects to every
 // actor within splash_radius on impact (entity or block). The meta field
 // selects which potion type (use PotionType.effects() from server/item).
-// https://minecraft.fandom.com/fr/wiki/Potion_jetable — radius 4.0 blocks.
+// When lingering is true the projectile spawns an Area Effect Cloud instead of
+// applying effects directly — used for lingering potions.
+// https://minecraft.wiki/w/Splash_Potion — radius 4.0 blocks.
 @[heap]
 pub struct SplashPotionBehaviour {
 pub:
 	network_id string = 'minecraft:splash_potion'
 	meta       int // potion meta value (5-42), same as drinkable potions
+	// lingering makes the projectile spawn an Area Effect Cloud on impact
+	// rather than applying effects immediately.
+	lingering bool
 pub mut:
 	gravity_accel f32 = 0.05
 	drag_factor   f32 = 0.01
@@ -23,6 +29,43 @@ pub mut:
 
 pub fn (b &SplashPotionBehaviour) identifier() string {
 	return b.network_id
+}
+
+// spawn_packet builds the AddActorPacket for a thrown potion projectile.
+// Sets the effect colour and ambience metadata so the client renders the
+// correct coloured particle trail while the potion is in flight.
+pub fn (b &SplashPotionBehaviour) spawn_packet(e &Entity) &protocol.AddActorPacket {
+	effects := item.potion_from_meta(b.meta).effects()
+	colour := blend_splash_colour(effects)
+	ambient := effect.any_ambient(effects)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
+	return &protocol.AddActorPacket{
+		actor_unique_id:  e.unique_id
+		actor_runtime_id: e.runtime_id
+		type:             e.identifier
+		position:         e.pos
+		motion:           e.velocity
+		pitch:            e.pitch
+		yaw:              e.yaw
+		head_yaw:         e.head_yaw
+		body_yaw:         e.yaw
+		attributes:        []types.ActorAttribute{}
+		metadata:          [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{value: colour}
+			},
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_ambience
+				value: types.MetaByte{value: i8(ambient_byte)}
+			},
+		]
+		synced_properties: types.PropertySyncData{}
+		links:             []types.EntityLink{}
+	}
 }
 
 pub fn (mut b SplashPotionBehaviour) tick(mut e Entity, mut host Host) {
@@ -55,27 +98,22 @@ pub fn (mut b SplashPotionBehaviour) tick(mut e Entity, mut host Host) {
 	}
 }
 
-// resolve_impact either applies splash effects immediately (splash
-// potion) or spawns a lingering cloud entity (lingering potion).
+// resolve_impact either applies splash effects immediately (splash potion)
+// or spawns an area effect cloud (lingering potion).
 fn (mut b SplashPotionBehaviour) resolve_impact(mut e Entity, mut host Host) {
-	if b.network_id.contains('lingering') {
-		// Lingering potion: spawn Area Effect Cloud that applies
-		// reduced effects over time and broadcasts the impact sound.
-		cloud := &LingeringCloudBehaviour{
-			network_id: 'minecraft:lingering_potion'
-			meta:       b.meta
-		}
-		host.spawn_behaviour(cloud, e.pos)
-		// Glass break sound at impact (same as splash).
+	if b.lingering {
+		e.kill()
+		host.spawn_behaviour(&LingeringCloudBehaviour{
+			meta: b.meta
+		}, e.pos)
 		host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, 8.0, &protocol.LevelSoundEventPacket{
 			sound:           'random.glass'
 			position:        e.pos
 			extra_data:      -1
-			entity_type:     'minecraft:lingering_potion'
+			entity_type:     'minecraft:area_effect_cloud'
 			actor_unique_id: e.unique_id
 		})
 	} else {
-		// Splash potion: immediate area-of-effect.
 		b.apply_splash(mut e, mut host)
 	}
 }
@@ -170,8 +208,9 @@ fn invert_undead_instant(ef effect.Effect) effect.Effect {
 // blend_splash_colour averages the RGB colours of all effects (including
 // instant ones) for the splash particle. Separate from effect.blend_colour
 // which skips non-lasting types — those are needed for entity metadata
-// particles but NOT for the impact splash, which should match the potion.
-fn blend_splash_colour(effects []effect.Effect) int {
+// particles but NOT for the impact splash or projectile trail, which should
+// match the potion colour.
+pub fn blend_splash_colour(effects []effect.Effect) int {
 	if effects.len == 0 {
 		return 0
 	}
