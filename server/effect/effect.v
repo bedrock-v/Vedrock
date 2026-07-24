@@ -117,6 +117,16 @@ pub fn new_instant_with_potency(typ Type, level int, potency f64) Effect {
 	}
 }
 
+// new_with_ticks creates a lasting effect with a duration expressed in ticks
+// instead of a time.Duration. Used when scaling durations, e.g. splash potions.
+pub fn new_with_ticks(typ Type, level int, ticks int) Effect {
+	return Effect{
+		typ:            typ
+		level:          level
+		duration_ticks: ticks
+	}
+}
+
 pub fn (e Effect) without_particles() Effect {
 	mut out := e
 	out.particles_hidden = true
