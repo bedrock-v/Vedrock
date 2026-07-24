@@ -63,6 +63,8 @@ pub fn (mut c ConsoleSender) set_operator(value bool) {}
 
 pub fn (mut c ConsoleSender) kill() {}
 
+pub fn (mut c ConsoleSender) disconnect(message string) {}
+
 pub fn (mut c ConsoleSender) position() (f32, f32, f32) {
 	return 0.0, 0.0, 0.0
 }

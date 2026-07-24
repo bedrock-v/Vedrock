@@ -1,0 +1,55 @@
+name: Setup V
+description: Build the pinned V compiler (0.5.2 @ f1ef640, vc @ bd654de) and install module dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Cache V compiler
+      id: cache-v
+      uses: actions/cache@v4
+      with:
+        path: ~/vlang
+        key: vlang-f1ef640-bd654de-${{ runner.os }}
+
+    - name: Build pinned V
+      if: steps.cache-v.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --filter=blob:none https://github.com/vlang/v ~/vlang
+        cd ~/vlang
+        git checkout f1ef640
+        git clone --filter=blob:none https://github.com/vlang/vc vc
+        git -C vc checkout bd654de
+        git clone --depth 1 --branch thirdparty-linux-amd64 https://github.com/vlang/tccbin thirdparty/tcc
+        make local=1
+
+    - name: Add V to PATH
+      shell: bash
+      run: |
+        echo "$HOME/vlang" >> "$GITHUB_PATH"
+        ~/vlang/v version
+
+    - name: Install module dependencies
+      shell: bash
+      run: |
+        deps="$HOME/vedrock-deps"
+        vmod="$HOME/.vmodules"
+
+        rm -rf "$deps" \
+          "$vmod/raknet" \
+          "$vmod/message" \
+          "$vmod/nbt" \
+          "$vmod/protocol"
+
+        mkdir -p "$deps" "$vmod"
+
+        git clone --depth 1 https://github.com/bedrock-v/raknet "$deps/raknet"
+        git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
+        git clone --depth 1 https://github.com/bedrock-v/protocol "$deps/protocol"
+
+        cp -a "$deps/raknet" "$vmod/raknet"
+        cp -a "$deps/raknet/message" "$vmod/message"
+        cp -a "$deps/nbt" "$vmod/nbt"
+        cp -a "$deps/protocol/src" "$vmod/protocol"
+
+        ~/vlang/v install nepinhum.i18n

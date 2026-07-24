@@ -16,6 +16,7 @@ mut:
 	send_translation(key string, parameters []string) !
 	set_gamemode(mode int)
 	kill()
+	disconnect(message string)
 	position() (f32, f32, f32)
 	teleport(x f32, y f32, z f32)
 	clear_inventory()

@@ -1,0 +1,81 @@
+name: Bug report
+description: Report something in Vedrock not working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. Vedrock is early-stage (alpha), so
+        bugs are expected - but a clear, reproducible report is what actually gets them fixed.
+
+        > [!IMPORTANT]
+        > Vedrock has an in-tree plugin system. If you run a custom plugin, please try to
+        > reproduce the bug without it first. This saves everyone time if the plugin is the cause.
+
+  - type: dropdown
+    attributes:
+      label: Are plugins involved?
+      description: Vedrock loads plugins at startup. Tell us whether a custom plugin is in play.
+      options:
+        - "No custom plugins loaded"
+        - "Bug still happens without custom plugins"
+        - "Bug only happens with a custom plugin (describe below)"
+        - "Not sure / haven't tested without plugins"
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: Exact steps to trigger the bug. This is the most important field.
+      placeholder: |
+        1. Start the server with ...
+        2. Connect and do ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Expected behaviour
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Actual behaviour
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Logs / crash output
+      description: Paste any server logs, panic traces or crash output. This is auto-formatted, no backticks needed.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: Vedrock version / commit
+      description: Version from v.mod, or the git commit you built from.
+      placeholder: e.g. 0.0.1-alpha2 (commit dbae6f5)
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: V compiler version
+      description: Output of `v version`. Note that Vedrock is pinned to V 0.5.2 (commit f1ef640).
+      placeholder: e.g. V 0.5.2 f1ef640
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Operating system
+      placeholder: e.g. Ubuntu 24.04, Windows 11, macOS 14
+    validations:
+      required: true

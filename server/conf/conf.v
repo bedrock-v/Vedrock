@@ -51,7 +51,7 @@ pub fn load() !Config {
 
 pub fn load_from(path string) !Config {
 	if !os.exists(path) {
-		mut cfg := if should_run_wizard() { run_wizard() } else { Config{} }
+		mut cfg := Config{}
 		cfg.config_file = path
 		write_default(path, cfg)!
 		return cfg

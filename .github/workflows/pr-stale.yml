@@ -1,0 +1,34 @@
+# Marks inactive PRs stale, then closes them if still untouched.
+# Conservative timings. Issues are left alone.
+name: Stale PRs
+
+on:
+  schedule:
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Flag stale PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v10
+        with:
+          # Issues are not touched.
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: stale
+          stale-pr-message: >
+            This PR has had no activity for 30 days and is now marked stale.
+            It will be closed in 14 days if there is no further activity.
+          close-pr-message: >
+            Closing this PR due to inactivity. Feel free to reopen it if you
+            want to continue the work.
+          exempt-pr-labels: pinned,security
+          exempt-all-assignees: true

@@ -1,0 +1,40 @@
+# Uploads source strings (lang/en.toml) to Crowdin on every push to master
+# that touches the source file. Manual runs via workflow_dispatch.
+#
+# Required repo secrets:
+#   - CROWDIN_PROJECT_ID
+#   - CROWDIN_PERSONAL_TOKEN
+name: Crowdin upload
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - lang/en.toml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crowdin-upload
+  cancel-in-progress: true
+
+jobs:
+  upload:
+    name: Upload sources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Upload sources to Crowdin
+        uses: crowdin/github-action@v2
+        with:
+          upload_sources: true
+          upload_translations: false
+          download_translations: false
+        env:
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+          CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
