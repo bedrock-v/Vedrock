@@ -73,6 +73,10 @@ struct PlayerMobEquipmentTask {
 	window_id      int
 }
 
+fn (t PlayerMobEquipmentTask) name() string {
+	return 'PlayerMobEquipmentTask'
+}
+
 fn (t PlayerMobEquipmentTask) run(mut tx WorldTx) {
 	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
 	target.player.set_held(t.hotbar_slot, t.item)

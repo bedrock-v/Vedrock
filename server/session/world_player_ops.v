@@ -29,10 +29,12 @@ fn (mut tx WorldTx) register_player(session &NetworkSession) {
 		session: session
 		epoch:   session.world_binding().epoch
 	}
+	tx.wr.publish_player_count()
 }
 
 fn (mut tx WorldTx) deregister_player(runtime_id u64) {
 	tx.wr.players.delete(runtime_id)
+	tx.wr.publish_player_count()
 }
 
 // player_for_epoch resolves a player from the world's local registry and

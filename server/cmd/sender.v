@@ -31,6 +31,7 @@ mut:
 	// sender; list/info are read-only snapshots.
 	world_names() []string
 	world_info(name string) ?WorldSummary
+	world_metrics(name string) ?WorldMetricsSummary
 	// world_create's dimension and generator are names rather than the
 	// world.Dimension/world.Generator types themselves, so the cmd layer never
 	// depends on the world package directly.
@@ -50,4 +51,25 @@ pub:
 	overrides  int
 	is_default bool
 	players    int
+}
+
+// WorldMetricsSummary is a readonly snapshot of a world's runtime health.
+// Plain values keep command and reporting code independent of session internals.
+pub struct WorldMetricsSummary {
+pub:
+	name                      string
+	current_tick              i64
+	queued_tasks              int
+	oldest_queued_task_age_ms i64
+	last_tick_duration_ms     i64
+	longest_task_duration_ms  i64
+	longest_task_name         string
+	catchup_events            i64
+	tick_overruns             i64
+	scheduled_backlog         int
+	liquid_backlog            int
+	entity_count              int
+	player_count              i64
+	outbound_overflow_count   i64
+	outbound_peak_depth       i64
 }

@@ -28,9 +28,12 @@ enum WorldLifecycle {
 }
 
 // WorldTask runs on its owning WorldRuntime's actor thread and receives a
-// WorldTx for world access.
+// WorldTx for world access. name identifies the task's concrete type for
+// metrics, so a slow task is attributable to a cause rather than showing up
+// only as an unexplained tick duration spike.
 interface WorldTask {
 	run(mut tx WorldTx)
+	name() string
 }
 
 // WorldRuntime owns one world's actor and serializes its simulation state.
@@ -48,6 +51,11 @@ mut:
 	inflight  int
 
 	jobs chan WorldTask = chan WorldTask{cap: 256}
+
+	// Timestamps for tasks waiting in the world queue, ordered oldest first.
+	// They are added when a task is queued and removed when the world thread
+	// begins processing it, allowing queue wait time to be measured safely.
+	queue_times []time.Time
 
 	// Coalesces tick requests to at most one pending wakeup.
 	tick_wakeup chan bool = chan bool{cap: 1}
@@ -74,9 +82,22 @@ mut:
 	events   &event.Bus            = unsafe { nil }
 	entities &entity.Manager       = unsafe { nil }
 
-	// Cross thread instrumentation snapshots.
-	published_tick_runs       &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
-	published_simulated_steps &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	// Cross thread metric snapshots. The world thread publishes simulation
+	// values, session threads publish outbound values and other threads only
+	// read them.
+	published_tick_runs               &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_simulated_steps         &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_catchup_events          &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_tick_overruns           &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_last_tick_ns            &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_liquid_backlog          &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_player_count            &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_outbound_overflow_count &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_outbound_peak_depth     &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_longest_task_ns         &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	// longest_task_name uses the runtime mutex because V atomics can't store
+	// strings. It is updated only when a task sets a new duration record.
+	longest_task_name string
 }
 
 // new_world_runtime creates a runtime for an already loaded world and starts
@@ -191,6 +212,7 @@ fn (mut wr WorldRuntime) submit(task WorldTask) bool {
 
 	wr.mutex.lock()
 	wr.inflight--
+	wr.queue_times << time.now()
 	wr.mutex.unlock()
 	return true
 }
@@ -209,6 +231,7 @@ fn (mut wr WorldRuntime) try_submit(task WorldTask) bool {
 	// Holding the lifecycle lock here is safe.
 	select {
 		wr.jobs <- task {
+			wr.queue_times << time.now()
 			return true
 		}
 		else {
@@ -216,6 +239,19 @@ fn (mut wr WorldRuntime) try_submit(task WorldTask) bool {
 		}
 	}
 	return false
+}
+
+fn (mut wr WorldRuntime) pop_queue_time() ?time.Time {
+	wr.mutex.lock()
+	defer {
+		wr.mutex.unlock()
+	}
+	if wr.queue_times.len == 0 {
+		return none
+	}
+	t := wr.queue_times[0]
+	wr.queue_times.delete(0)
+	return t
 }
 
 // shutdown stops accepting work, waits for accepted submissions to finish
@@ -257,7 +293,7 @@ fn (mut wr WorldRuntime) run_jobs() {
 	for {
 		select {
 			task := <-wr.jobs {
-				task.run(mut tx)
+				wr.run_task(mut tx, task)
 			}
 			_ := <-wr.tick_wakeup {
 				tx.run_due_tick()
@@ -268,7 +304,7 @@ fn (mut wr WorldRuntime) run_jobs() {
 				for {
 					select {
 						task := <-wr.jobs {
-							task.run(mut tx)
+							wr.run_task(mut tx, task)
 						}
 						_ := <-wr.tick_wakeup {
 							tx.run_due_tick()
@@ -282,6 +318,21 @@ fn (mut wr WorldRuntime) run_jobs() {
 				return
 			}
 		}
+	}
+}
+
+fn (mut wr WorldRuntime) run_task(mut tx WorldTx, task WorldTask) {
+	wr.pop_queue_time() or {}
+	start := time.now()
+	task.run(mut tx)
+	dur := time.since(start).nanoseconds()
+
+	mut longest := wr.published_longest_task_ns
+	if dur > longest.load() {
+		longest.store(dur)
+		wr.mutex.lock()
+		wr.longest_task_name = task.name()
+		wr.mutex.unlock()
 	}
 }
 
@@ -330,6 +381,79 @@ fn (wr &WorldRuntime) simulated_steps_count() i64 {
 	return steps.load()
 }
 
+// WorldMetrics is a point in time reading of one world's runtime health,
+// meant to answer why a world fell behind: whether it is buried in queued
+// tasks, stuck simulating one slow task or genuinely under heavy load from
+// entities, liquids or scheduled block updates.
+pub struct WorldMetrics {
+pub:
+	world_name              string
+	queued_tasks            int
+	oldest_queued_task_age  time.Duration
+	current_tick            i64
+	tick_runs               i64
+	simulated_steps         i64
+	catchup_events          i64
+	tick_overruns           i64
+	last_tick_duration      time.Duration
+	longest_task_duration   time.Duration
+	longest_task_name       string
+	scheduled_backlog       int
+	liquid_backlog          int
+	entity_count            int
+	player_count            i64
+	outbound_overflow_count i64
+	outbound_peak_depth     i64
+}
+
+fn (mut wr WorldRuntime) metrics() WorldMetrics {
+	mut oldest_age := time.Duration(0)
+	wr.mutex.lock()
+	if wr.queue_times.len > 0 {
+		oldest_age = time.since(wr.queue_times[0])
+	}
+	longest_task_name := wr.longest_task_name
+	wr.mutex.unlock()
+
+	mut tick_runs := wr.published_tick_runs
+	mut simulated_steps := wr.published_simulated_steps
+	mut catchup_events := wr.published_catchup_events
+	mut tick_overruns := wr.published_tick_overruns
+	mut last_tick_ns := wr.published_last_tick_ns
+	mut liquid_backlog := wr.published_liquid_backlog
+	mut player_count := wr.published_player_count
+	mut outbound_overflow_count := wr.published_outbound_overflow_count
+	mut outbound_peak_depth := wr.published_outbound_peak_depth
+	mut longest_task_ns := wr.published_longest_task_ns
+
+	return WorldMetrics{
+		world_name:              wr.world.name
+		queued_tasks:            int(wr.jobs.len)
+		oldest_queued_task_age:  oldest_age
+		current_tick:            wr.tick_snapshot()
+		tick_runs:               tick_runs.load()
+		simulated_steps:         simulated_steps.load()
+		catchup_events:          catchup_events.load()
+		tick_overruns:           tick_overruns.load()
+		last_tick_duration:      time.Duration(last_tick_ns.load())
+		longest_task_duration:   time.Duration(longest_task_ns.load())
+		longest_task_name:       longest_task_name
+		scheduled_backlog:       wr.world.scheduled_backlog_count()
+		liquid_backlog:          int(liquid_backlog.load())
+		entity_count:            wr.entities.count()
+		player_count:            player_count.load()
+		outbound_overflow_count: outbound_overflow_count.load()
+		outbound_peak_depth:     outbound_peak_depth.load()
+	}
+}
+
+// publish_player_count refreshes the cross thread player count snapshot.
+// Called only from register_player/deregister_player, both actor only.
+fn (mut wr WorldRuntime) publish_player_count() {
+	mut count := wr.published_player_count
+	count.store(i64(wr.players.len))
+}
+
 // advance_tick owns one centralized catch-up loop - subsystems never run
 // their own. If this called w.tick()-equivalent logic, liquids.tick(), and
 // a scheduler each with their own independent notion of "how far behind are
@@ -343,8 +467,13 @@ fn (wr &WorldRuntime) simulated_steps_count() i64 {
 // 50ms-apart tick would.
 fn (mut tx WorldTx) advance_tick(target i64) {
 	mut wr := tx.wr
+	tick_start := time.now()
 	debt := target - wr.current_tick
 	steps := if debt > max_world_catchup_ticks { max_world_catchup_ticks } else { debt }
+	if steps > 1 {
+		mut catchup := wr.published_catchup_events
+		catchup.add(1)
+	}
 	for _ in 0 .. steps {
 		wr.current_tick++
 		mut simulated := wr.published_simulated_steps
@@ -361,13 +490,29 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 	wr.current_tick = target // always resync the clock, regardless of how much was actually simulated
 	mut p := wr.published_tick
 	p.store(wr.current_tick)
+
+	mut liquid_backlog := wr.published_liquid_backlog
+	liquid_backlog.store(i64(wr.liquids.pending_count()))
+	mut last_tick_ns := wr.published_last_tick_ns
+	last_tick_ns.store(time.since(tick_start).nanoseconds())
 }
 
 // tick_effects advances active effects for players currently registered in
 // this world. Effect damage and death stay on the same runtime as the player.
+// It also samples each session's outbound queue depth, since this loop
+// already visits every registered player once per simulated step and a
+// separate pass would repeat that work purely for metrics.
 fn (mut tx WorldTx) tick_effects() {
 	for mut entry in tx.wr.players.values() {
 		entry.session.tick_effects(mut tx.wr)
+		tx.wr.sample_outbound_depth(int(entry.session.outbound.len))
+	}
+}
+
+fn (mut wr WorldRuntime) sample_outbound_depth(depth int) {
+	mut peak := wr.published_outbound_peak_depth
+	if i64(depth) > peak.load() {
+		peak.store(i64(depth))
 	}
 }
 
@@ -417,7 +562,14 @@ fn (mut tx WorldTx) run_random_ticks() {
 // max_world_catchup_ticks could absorb. Runtime-level reporting currently uses
 // stderr because WorldRuntime does not own a logger.
 fn (mut tx WorldTx) log_tick_overrun(debt i64) {
+	mut overruns := tx.wr.published_tick_overruns
+	overruns.add(1)
 	eprintln('[world ${tx.wr.world.name}] tick overrun: ${debt} ticks behind, catch-up capped at ${max_world_catchup_ticks}')
+}
+
+fn (mut wr WorldRuntime) record_outbound_overflow() {
+	mut overflows := wr.published_outbound_overflow_count
+	overflows.add(1)
 }
 
 // register_event submits event-bus mutation to the owning runtime so
@@ -435,6 +587,10 @@ struct RegisterEventTask {
 	priority event.Priority
 }
 
+fn (t RegisterEventTask) name() string {
+	return 'RegisterEventTask'
+}
+
 fn (t RegisterEventTask) run(mut tx WorldTx) {
 	tx.wr.events.register(t.handler, t.priority)
 }
@@ -450,6 +606,10 @@ fn (wr &WorldRuntime) unregister_event(handler event.Handler) {
 
 struct UnregisterEventTask {
 	handler event.Handler
+}
+
+fn (t UnregisterEventTask) name() string {
+	return 'UnregisterEventTask'
 }
 
 fn (t UnregisterEventTask) run(mut tx WorldTx) {

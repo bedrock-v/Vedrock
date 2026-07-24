@@ -6,6 +6,10 @@ struct WorldCallTask {
 	run_fn fn (mut tx WorldTx) = unsafe { nil }
 }
 
+fn (t WorldCallTask) name() string {
+	return 'WorldCallTask'
+}
+
 fn (t WorldCallTask) run(mut tx WorldTx) {
 	t.run_fn(mut tx)
 }

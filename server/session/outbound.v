@@ -106,6 +106,10 @@ fn (mut s NetworkSession) try_enqueue(msg OutboundMessage, is_disconnect bool) !
 	}
 	s.close_mutex.unlock()
 	if result == .queue_full {
+		mut wr := s.current_world_runtime()
+		if !isnil(wr) {
+			wr.record_outbound_overflow()
+		}
 		s.log.warn('outbound queue full (capacity ${outbound_queue_capacity}) for ${s.player.name()}, aborting session')
 	}
 	return result

@@ -10,6 +10,10 @@ struct SetBlockTask {
 	id int
 }
 
+fn (t SetBlockTask) name() string {
+	return 'SetBlockTask'
+}
+
 fn (t SetBlockTask) run(mut tx WorldTx) {
 	tx.set_block(t.x, t.y, t.z, t.id)
 }
@@ -98,6 +102,10 @@ struct PlaceWaterTask {
 	z int
 }
 
+fn (t PlaceWaterTask) name() string {
+	return 'PlaceWaterTask'
+}
+
 fn (t PlaceWaterTask) run(mut tx WorldTx) {
 	tx.place_water(t.x, t.y, t.z)
 }
@@ -120,6 +128,10 @@ struct BlockChangedTask {
 	z int
 }
 
+fn (t BlockChangedTask) name() string {
+	return 'BlockChangedTask'
+}
+
 fn (t BlockChangedTask) run(mut tx WorldTx) {
 	tx.on_block_changed(t.x, t.y, t.z)
 }
@@ -137,13 +149,53 @@ pub fn (mut h Hub) on_block_changed(x int, y int, z int) {
 }
 
 // capture_area snapshots the block ids over the box between the two corners in
-// the default world. See arena.max_volume for the size cap.
+// the default world. See arena.max_volume for the size cap. This is a plain
+// synchronous read against Hub.get_block, not a WorldTask, so it never
+// competes with the world's own task queue - only restoring needs the
+// budgeted treatment below.
 pub fn (mut h Hub) capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) ?&arena.Snapshot {
 	return arena.capture(mut h, arena.new_box(x1, y1, z1, x2, y2, z2)) or { return none }
 }
 
-// restore_area writes a snapshot back through the block write path so viewers
-// see the arena reset.
+// arena_restore_batch_size limits how many blocks one restore task writes
+// before yielding to other work queued for the world.
+const arena_restore_batch_size = 4096
+
+// ArenaRestoreTask restores a snapshot in bounded batches, then resubmits
+// itself for the remaining blocks so movement, combat and ticks can run
+// between batches.
+struct ArenaRestoreTask {
+	snapshot &arena.Snapshot
+	next     int
+}
+
+fn (t ArenaRestoreTask) name() string {
+	return 'ArenaRestoreTask'
+}
+
+fn (t ArenaRestoreTask) run(mut tx WorldTx) {
+	total := t.snapshot.len()
+	end := if t.next + arena_restore_batch_size > total {
+		total
+	} else {
+		t.next + arena_restore_batch_size
+	}
+	for i := t.next; i < end; i++ {
+		entry := t.snapshot.entry_at(i)
+		tx.set_block(entry.x, entry.y, entry.z, entry.id)
+	}
+	if end >= total {
+		return
+	}
+	if !tx.wr.try_submit(ArenaRestoreTask{ snapshot: t.snapshot, next: end }) {
+		eprintln('[world ${tx.wr.world.name}] arena restore stalled at ${end}/${total} blocks, queue full')
+	}
+}
+
 pub fn (mut h Hub) restore_area(snapshot &arena.Snapshot) {
-	snapshot.restore(mut h)
+	mut wr := h.default_world_runtime() or { return }
+	wr.submit(ArenaRestoreTask{
+		snapshot: snapshot
+		next:     0
+	})
 }

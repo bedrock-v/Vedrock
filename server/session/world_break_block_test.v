@@ -209,6 +209,10 @@ struct BreakBarrierTask {
 	release chan bool
 }
 
+fn (t BreakBarrierTask) name() string {
+	return 'BreakBarrierTask'
+}
+
 fn (t BreakBarrierTask) run(mut tx WorldTx) {
 	t.started <- true
 	_ := <-t.release

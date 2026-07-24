@@ -10,7 +10,7 @@ pub fn (c WorldCommand) name() string {
 }
 
 pub fn (c WorldCommand) description() string {
-	return 'Manages worlds - list, info, create, load, delete, tp'
+	return 'Manages worlds - list, info, metrics, create, load, delete, tp'
 }
 
 pub fn (c WorldCommand) aliases() []string {
@@ -25,7 +25,7 @@ pub fn (c WorldCommand) arguments() []cmd.Argument {
 	return [
 		cmd.StringEnumArgument{
 			arg_name: 'action'
-			values:   ['list', 'info', 'create', 'load', 'delete', 'tp']
+			values:   ['list', 'info', 'metrics', 'create', 'load', 'delete', 'tp']
 		},
 		cmd.StringArgument{
 			arg_name:     'name'
@@ -55,6 +55,9 @@ pub fn (c WorldCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		}
 		'info' {
 			c.info(mut sender, ctx)!
+		}
+		'metrics' {
+			c.metrics(mut sender, ctx)!
 		}
 		'create' {
 			c.create(mut sender, ctx)!
@@ -104,6 +107,28 @@ fn (c WorldCommand) info(mut sender cmd.Sender, ctx cmd.Context) ! {
 	lines << '§6Block overrides: §f${info.overrides}§r'
 	lines << '§6Players: §f${info.players}§r'
 	lines << '§6Default: §f${info.is_default}§r'
+	sender.send_message(lines.join('\n'))!
+}
+
+fn (c WorldCommand) metrics(mut sender cmd.Sender, ctx cmd.Context) ! {
+	name := c.name_arg(ctx) or {
+		sender.send_message(ctx.lang.t('cmd.world.usage'))!
+		return
+	}
+	m := sender.world_metrics(name) or {
+		sender.send_message(ctx.lang.tf('cmd.world.not_found', {
+			'Name': name
+		}))!
+		return
+	}
+	mut lines := []string{}
+	lines << '§6World: §a${m.name}§r'
+	lines << '§6Tick: §f${m.current_tick} (last tick §f${m.last_tick_duration_ms}ms§6, §f${m.catchup_events}§6 catch up runs, §f${m.tick_overruns}§6 overruns)§r'
+	lines << '§6Queued tasks: §f${m.queued_tasks}§6 (oldest §f${m.oldest_queued_task_age_ms}ms§6)§r'
+	lines << '§6Longest task: §f${m.longest_task_name} (§f${m.longest_task_duration_ms}ms§6)§r'
+	lines << '§6Scheduled backlog: §f${m.scheduled_backlog}§6, liquid backlog: §f${m.liquid_backlog}§r'
+	lines << '§6Entities: §f${m.entity_count}§6, players: §f${m.player_count}§r'
+	lines << '§6Outbound overflows: §f${m.outbound_overflow_count}§6, peak queue depth: §f${m.outbound_peak_depth}§r'
 	sender.send_message(lines.join('\n'))!
 }
 

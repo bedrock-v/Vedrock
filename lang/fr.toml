@@ -119,7 +119,7 @@ other = "§cUtilisation : /say <message>§r"
 other = "§cUtilisation : /title <joueur|@a> <title|subtitle|actionbar> <texte>§r"
 
 [cmd.world.usage]
-other = "§cUtilisation : /world <list|info|create|load|delete|tp> [nom] [dimension] [générateur]§r"
+other = "§cUtilisation : /world <list|info|metrics|create|load|delete|tp> [nom] [dimension] [générateur]§r"
 
 [cmd.world.none]
 other = "§eAucun monde chargé§r"

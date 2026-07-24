@@ -15,6 +15,10 @@ fn new_test_world_runtime() &WorldRuntime {
 // NoopTask does nothing, used purely as a synchronization/traffic filler.
 struct NoopTask {}
 
+fn (t NoopTask) name() string {
+	return 'NoopTask'
+}
+
 fn (t NoopTask) run(mut tx WorldTx) {}
 
 fn test_submit_runs_task_on_actor_thread() {
@@ -120,6 +124,10 @@ fn test_shutdown_blocks_while_a_task_holds_the_actor() {
 struct BarrierTask {
 	started chan bool
 	release chan bool
+}
+
+fn (t BarrierTask) name() string {
+	return 'BarrierTask'
 }
 
 fn (t BarrierTask) run(mut tx WorldTx) {

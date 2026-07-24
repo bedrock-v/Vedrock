@@ -34,6 +34,8 @@ mut:
 	peers            map[string]cmd.Sender
 	sender_name      string = 'Steve'
 	killed           bool
+	disconnected     bool
+	disconnect_msg   string
 	pos_x            f32
 	pos_y            f32
 	pos_z            f32
@@ -88,6 +90,11 @@ fn (mut s RecordingSender) find_player(name string) ?cmd.Sender {
 
 fn (mut s RecordingSender) set_operator(value bool) {
 	s.perm.set_op(value)
+}
+
+fn (mut s RecordingSender) disconnect(message string) {
+	s.disconnected = true
+	s.disconnect_msg = message
 }
 
 fn (mut s RecordingSender) kill() {
@@ -179,6 +186,15 @@ fn (mut s RecordingSender) world_info(name string) ?cmd.WorldSummary {
 		return none
 	}
 	return cmd.WorldSummary{
+		name: name
+	}
+}
+
+fn (mut s RecordingSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
+	if name !in s.worlds {
+		return none
+	}
+	return cmd.WorldMetricsSummary{
 		name: name
 	}
 }
@@ -382,6 +398,24 @@ fn test_world_list_reports_loaded_worlds() {
 	r.dispatch('/world list', mut sender, base_ctx())!
 	assert sender.messages[0].contains('world')
 	assert sender.messages[0].contains('nether')
+}
+
+fn test_world_metrics_reports_for_loaded_world() {
+	r := full_registry()
+	mut sender := RecordingSender{
+		worlds: ['world']
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/world metrics world', mut sender, base_ctx())!
+	assert sender.messages[0].contains('world')
+}
+
+fn test_world_metrics_missing_world_reports_not_found() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/world metrics ghost_world', mut sender, base_ctx())!
+	assert sender.messages.last().contains('ghost_world')
 }
 
 fn test_world_create_and_delete() {

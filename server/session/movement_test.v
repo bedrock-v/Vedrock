@@ -13,6 +13,10 @@ struct SlowFillerTask {
 	gate chan bool
 }
 
+fn (t SlowFillerTask) name() string {
+	return 'SlowFillerTask'
+}
+
 fn (t SlowFillerTask) run(mut tx WorldTx) {
 	_ := <-t.gate
 }
@@ -20,6 +24,10 @@ fn (t SlowFillerTask) run(mut tx WorldTx) {
 // FastFillerTask is a no-op WorldTask used purely to occupy queue capacity.
 struct FastFillerTask {
 	id int
+}
+
+fn (t FastFillerTask) name() string {
+	return 'FastFillerTask'
 }
 
 fn (t FastFillerTask) run(mut tx WorldTx) {}

@@ -98,6 +98,10 @@ struct EntityTickBarrierTask {
 	release chan bool
 }
 
+fn (t EntityTickBarrierTask) name() string {
+	return 'EntityTickBarrierTask'
+}
+
 fn (t EntityTickBarrierTask) run(mut tx WorldTx) {
 	t.started <- true
 	_ := <-t.release

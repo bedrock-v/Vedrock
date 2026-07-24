@@ -440,6 +440,10 @@ struct PlayerBreakBlockTask {
 	done               chan bool = chan bool{cap: 1}
 }
 
+fn (t PlayerBreakBlockTask) name() string {
+	return 'PlayerBreakBlockTask'
+}
+
 fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.done <- true
@@ -500,6 +504,10 @@ struct PlayerPlaceBlockTask {
 	last_place_ms      i64
 	is_creative        bool
 	result             chan bool = chan bool{cap: 1}
+}
+
+fn (t PlayerPlaceBlockTask) name() string {
+	return 'PlayerPlaceBlockTask'
 }
 
 fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {

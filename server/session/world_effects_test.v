@@ -14,6 +14,10 @@ struct EffectsTickBarrierTask {
 	release chan bool
 }
 
+fn (t EffectsTickBarrierTask) name() string {
+	return 'EffectsTickBarrierTask'
+}
+
 fn (t EffectsTickBarrierTask) run(mut tx WorldTx) {
 	t.started <- true
 	_ := <-t.release

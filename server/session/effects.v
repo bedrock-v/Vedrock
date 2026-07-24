@@ -18,6 +18,10 @@ struct PlayerAddEffectTask {
 	effect     effect.Effect
 }
 
+fn (t PlayerAddEffectTask) name() string {
+	return 'PlayerAddEffectTask'
+}
+
 fn (t PlayerAddEffectTask) run(mut tx WorldTx) {
 	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
 	s.apply_add_effect(mut tx.wr, t.effect)
@@ -27,6 +31,10 @@ struct PlayerRemoveEffectTask {
 	runtime_id u64
 	epoch      i64
 	typ        effect.Type
+}
+
+fn (t PlayerRemoveEffectTask) name() string {
+	return 'PlayerRemoveEffectTask'
 }
 
 fn (t PlayerRemoveEffectTask) run(mut tx WorldTx) {

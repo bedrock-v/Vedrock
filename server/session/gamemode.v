@@ -22,6 +22,10 @@ struct PlayerSetGamemodeTask {
 	mode       int
 }
 
+fn (t PlayerSetGamemodeTask) name() string {
+	return 'PlayerSetGamemodeTask'
+}
+
 fn (t PlayerSetGamemodeTask) run(mut tx WorldTx) {
 	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
 	s.apply_gamemode(mut tx.wr.events, t.mode)

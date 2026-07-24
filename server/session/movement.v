@@ -97,6 +97,10 @@ struct PlayerMoveTask {
 // run resolves the session through Hub because stale tasks must still clear
 // movement_scheduled even after the player leaves this world or its epoch changes.
 // The lookup happens once per coalesced movement batch, not per packet.
+fn (t PlayerMoveTask) name() string {
+	return 'PlayerMoveTask'
+}
+
 fn (t PlayerMoveTask) run(mut tx WorldTx) {
 	mut s := tx.wr.hub.session_by_runtime(t.runtime_id) or { return }
 	for {

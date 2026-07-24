@@ -25,6 +25,10 @@ struct PlayerAttackTask {
 	critical            bool
 }
 
+fn (t PlayerAttackTask) name() string {
+	return 'PlayerAttackTask'
+}
+
 fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	mut attacker := tx.player_for_epoch(t.attacker_runtime_id, t.attacker_epoch) or { return }
 	victim_entry := tx.wr.players[t.victim_runtime_id] or { return }
@@ -262,6 +266,10 @@ fn (mut s NetworkSession) apply_death(mut wr WorldRuntime, message_key string, p
 struct PlayerRespawnTask {
 	runtime_id u64
 	epoch      i64
+}
+
+fn (t PlayerRespawnTask) name() string {
+	return 'PlayerRespawnTask'
 }
 
 fn (t PlayerRespawnTask) run(mut tx WorldTx) {

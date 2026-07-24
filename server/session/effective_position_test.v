@@ -12,6 +12,10 @@ struct EffPosFillerTask {
 	gate chan bool
 }
 
+fn (t EffPosFillerTask) name() string {
+	return 'EffPosFillerTask'
+}
+
 fn (t EffPosFillerTask) run(mut tx WorldTx) {
 	_ := <-t.gate
 }

@@ -71,6 +71,32 @@ fn test_single_block_box() {
 	assert w.get_block(10, 20, 30) == 42
 }
 
+fn test_entry_at_matches_capture_order() {
+	mut w := &FakeWorld{}
+	for x in 0 .. 3 {
+		for y in 0 .. 2 {
+			for z in 0 .. 4 {
+				w.blocks[key(x, y, z)] = x * 100 + y * 10 + z
+			}
+		}
+	}
+	snap := capture(mut w, new_box(0, 0, 0, 2, 1, 3))!
+	mut i := 0
+	for y in 0 .. 2 {
+		for x in 0 .. 3 {
+			for z in 0 .. 4 {
+				entry := snap.entry_at(i)
+				assert entry.x == x
+				assert entry.y == y
+				assert entry.z == z
+				assert entry.id == x * 100 + y * 10 + z
+				i++
+			}
+		}
+	}
+	assert i == snap.len()
+}
+
 fn test_capture_rejects_oversized_box() {
 	mut w := &FakeWorld{}
 	// one axis alone past the cap guarantees volume > max_volume.

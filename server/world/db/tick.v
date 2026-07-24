@@ -65,6 +65,17 @@ pub fn (mut w World) due_scheduled_entries(current i64, max int) []ScheduledEntr
 	return due
 }
 
+// scheduled_backlog_count reports how many scheduled tick entries are
+// currently queued, for runtime metrics. Safe to call from any thread.
+pub fn (w &World) scheduled_backlog_count() int {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return w.scheduled.len
+}
+
 // override_positions returns the positions of all currently overridden blocks.
 // Callers can use the snapshot to perform their own random tick selection.
 pub fn (w &World) override_positions() []TickPosition {

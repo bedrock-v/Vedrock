@@ -49,6 +49,10 @@ struct PlayerOpRefreshTask {
 	result     chan bool = chan bool{cap: 1}
 }
 
+fn (t PlayerOpRefreshTask) name() string {
+	return 'PlayerOpRefreshTask'
+}
+
 fn (t PlayerOpRefreshTask) run(mut tx WorldTx) {
 	mut applied := false
 	defer {
@@ -93,6 +97,10 @@ fn (mut s NetworkSession) try_refresh_op_state_once() bool {
 struct PlayerKillTask {
 	runtime_id u64
 	epoch      i64
+}
+
+fn (t PlayerKillTask) name() string {
+	return 'PlayerKillTask'
 }
 
 fn (t PlayerKillTask) run(mut tx WorldTx) {
@@ -309,6 +317,10 @@ struct PlayerClearInventoryTask {
 	epoch      i64
 }
 
+fn (t PlayerClearInventoryTask) name() string {
+	return 'PlayerClearInventoryTask'
+}
+
 fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
 	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
 	s.apply_clear_inventory()
@@ -360,6 +372,10 @@ struct PlayerGiveItemTask {
 	numeric_id       int
 	block_runtime_id int
 	count            int
+}
+
+fn (t PlayerGiveItemTask) name() string {
+	return 'PlayerGiveItemTask'
 }
 
 fn (t PlayerGiveItemTask) run(mut tx WorldTx) {

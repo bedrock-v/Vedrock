@@ -49,6 +49,10 @@ struct SetSignTextTask {
 	done chan bool = chan bool{cap: 1}
 }
 
+fn (t SetSignTextTask) name() string {
+	return 'SetSignTextTask'
+}
+
 fn (t SetSignTextTask) run(mut tx WorldTx) {
 	defer {
 		t.done <- true

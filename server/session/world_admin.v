@@ -20,6 +20,11 @@ pub fn (mut s NetworkSession) world_info(name string) ?cmd.WorldSummary {
 	return to_world_summary(info)
 }
 
+pub fn (mut s NetworkSession) world_metrics(name string) ?cmd.WorldMetricsSummary {
+	m := s.hub.world_metrics(name)?
+	return to_world_metrics_summary(m)
+}
+
 pub fn (mut s NetworkSession) world_create(name string, dimension string, generator string) ! {
 	dim := world.dimension_by_name(dimension) or {
 		return error('unknown dimension "${dimension}"')
@@ -69,6 +74,11 @@ pub fn (mut c ConsoleSender) world_info(name string) ?cmd.WorldSummary {
 	return to_world_summary(info)
 }
 
+pub fn (mut c ConsoleSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
+	m := c.hub.world_metrics(name)?
+	return to_world_metrics_summary(m)
+}
+
 pub fn (mut c ConsoleSender) world_create(name string, dimension string, generator string) ! {
 	dim := world.dimension_by_name(dimension) or {
 		return error('unknown dimension "${dimension}"')
@@ -114,6 +124,26 @@ fn to_world_summary(info WorldInfo) cmd.WorldSummary {
 		overrides:  info.overrides
 		is_default: info.is_default
 		players:    info.players
+	}
+}
+
+fn to_world_metrics_summary(m WorldMetrics) cmd.WorldMetricsSummary {
+	return cmd.WorldMetricsSummary{
+		name:                      m.world_name
+		current_tick:              m.current_tick
+		queued_tasks:              m.queued_tasks
+		oldest_queued_task_age_ms: m.oldest_queued_task_age.milliseconds()
+		last_tick_duration_ms:     m.last_tick_duration.milliseconds()
+		longest_task_duration_ms:  m.longest_task_duration.milliseconds()
+		longest_task_name:         m.longest_task_name
+		catchup_events:            m.catchup_events
+		tick_overruns:             m.tick_overruns
+		scheduled_backlog:         m.scheduled_backlog
+		liquid_backlog:            m.liquid_backlog
+		entity_count:              m.entity_count
+		player_count:              m.player_count
+		outbound_overflow_count:   m.outbound_overflow_count
+		outbound_peak_depth:       m.outbound_peak_depth
 	}
 }
 

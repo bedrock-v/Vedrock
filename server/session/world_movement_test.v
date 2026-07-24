@@ -35,6 +35,10 @@ struct MovementIsolationBarrierTask {
 	release chan bool
 }
 
+fn (t MovementIsolationBarrierTask) name() string {
+	return 'MovementIsolationBarrierTask'
+}
+
 fn (t MovementIsolationBarrierTask) run(mut tx WorldTx) {
 	t.started <- true
 	_ := <-t.release

@@ -310,6 +310,13 @@ pub fn (mut h Hub) world_info(name string) ?WorldInfo {
 	}
 }
 
+// world_metrics gathers a runtime health snapshot for the named world or
+// none when it isn't loaded. See WorldRuntime.metrics for what it covers.
+pub fn (h &Hub) world_metrics(name string) ?WorldMetrics {
+	mut wr := h.world_runtime(name) or { return none }
+	return wr.metrics()
+}
+
 // players_in_world counts the connected players whose active world matches name.
 pub fn (mut h Hub) players_in_world(name string) int {
 	h.mutex.lock()

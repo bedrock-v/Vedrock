@@ -10,6 +10,10 @@ struct ConcurrencyBarrierTask {
 	release chan bool
 }
 
+fn (t ConcurrencyBarrierTask) name() string {
+	return 'ConcurrencyBarrierTask'
+}
+
 fn (t ConcurrencyBarrierTask) run(mut tx WorldTx) {
 	t.started <- true
 	_ := <-t.release

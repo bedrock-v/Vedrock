@@ -156,6 +156,10 @@ struct SpawnEntityTask {
 	result    chan bool = chan bool{cap: 1}
 }
 
+fn (t SpawnEntityTask) name() string {
+	return 'SpawnEntityTask'
+}
+
 fn (t SpawnEntityTask) run(mut tx WorldTx) {
 	mut spawned := false
 	defer {

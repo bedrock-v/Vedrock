@@ -51,6 +51,7 @@ pub fn (b Box) volume() i64 {
 // Snapshot holds the block ids of a Box captured at some point in time. It is
 // a flat array so a full restore is a single linear pass. Memory cost is
 // 4 bytes per block - a 64^3 arena is ~1 MB.
+@[heap]
 pub struct Snapshot {
 pub:
 	box Box
@@ -95,4 +96,38 @@ pub fn (s &Snapshot) restore(mut sink BlockSink) {
 // len is the number of blocks stored in the snapshot.
 pub fn (s &Snapshot) len() int {
 	return s.ids.len
+}
+
+// BlockEntry stores a captured block's position and ID. Public entries let
+// callers restore large snapshots in smaller batches.
+pub struct BlockEntry {
+pub:
+	x  int
+	y  int
+	z  int
+	id int
+}
+pub struct BlockEntry {
+pub:
+	x  int
+	y  int
+	z  int
+	id int
+}
+
+// entry_at returns the block captured at flat index i, in the same order
+// capture and restore already iterate: y outermost, then x, then z.
+pub fn (s &Snapshot) entry_at(i int) BlockEntry {
+	dx := s.box.max_x - s.box.min_x + 1
+	dz := s.box.max_z - s.box.min_z + 1
+	y_offset := i / (dx * dz)
+	rem := i % (dx * dz)
+	x_offset := rem / dz
+	z_offset := rem % dz
+	return BlockEntry{
+		x:  s.box.min_x + x_offset
+		y:  s.box.min_y + y_offset
+		z:  s.box.min_z + z_offset
+		id: s.ids[i]
+	}
 }

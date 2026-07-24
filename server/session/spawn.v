@@ -235,12 +235,13 @@ fn (mut s NetworkSession) handle_play_chunk_radius(p protocol.RequestChunkRadius
 	s.remember_chunk_window(radius)
 }
 
+// stream_chunks_if_moved checks whether movement crossed into a new chunk
+// column, then sends the required columns to the generation worker so the
+// world thread is not held up by chunk generation.
 fn (mut s NetworkSession) stream_chunks_if_moved() {
 	s.chunk_stream_mutex.lock()
-	defer {
-		s.chunk_stream_mutex.unlock()
-	}
 	if s.view_radius <= 0 {
+		s.chunk_stream_mutex.unlock()
 		return
 	}
 	own := s.player.position()
@@ -249,16 +250,89 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	old_cx := s.last_chunk_x
 	old_cz := s.last_chunk_z
 	if cx == old_cx && cz == old_cz {
+		s.chunk_stream_mutex.unlock()
 		return
 	}
 	s.last_chunk_x = cx
 	s.last_chunk_z = cz
+	radius := s.view_radius
+	prune_sent_chunks(mut s.sent_chunks, cx, cz, radius)
+	targets := chunk_send_targets(cx, cz, radius, s.sent_chunks)
+	for target in targets {
+		s.sent_chunks[chunk_cache_key(target.x, target.z)] = true
+	}
+	s.chunk_stream_mutex.unlock()
+
 	s.send_packet(&protocol.NetworkChunkPublisherUpdatePacket{
 		block_position: types.BlockPosition{int(own.x), int(own.y), int(own.z)}
-		radius:         s.view_radius * 16
+		radius:         radius * 16
 		saved_chunks:   []types.ChunkPosition{}
 	}) or { return }
-	s.send_needed_chunks(cx, cz, s.view_radius) or {}
+	if targets.len == 0 {
+		return
+	}
+	binding := s.world_binding()
+	spawn s.generate_and_deliver_chunks(binding, targets)
+}
+
+// generate_and_deliver_chunks builds and encodes the requested columns away
+// from the world thread, using the world binding captured when they were
+// scheduled.
+//
+// Concurrent block edits are not version checked here because their own
+// UpdateBlockPacket broadcasts correct any stale column data afterward.
+fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targets []ChunkSendTarget) {
+	dim := if isnil(binding.world) { world.overworld } else { binding.world.dimension }
+	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
+	for target in targets {
+		mut chunk := s.generated_chunk(binding.generator, target.x, target.z)
+		apply_overrides(mut chunk, binding.world, target.x, target.z)
+		batch << level_chunk_packet(dim, target.x, target.z, chunk)
+		batch << tile_data_packets(binding.world, target.x, target.z)
+		if batch.len >= chunk_send_batch_size {
+			s.commit_chunk_batch(binding, batch.clone())
+			batch.clear()
+		}
+	}
+	if batch.len > 0 {
+		s.commit_chunk_batch(binding, batch.clone())
+	}
+}
+
+// commit_chunk_batch returns generated columns to their original world.
+// The world thread delivers them only if the same player is still
+// registered under the captured epoch.
+//
+// Columns that have since moved outside the player's view radius may still
+// be sent; this wastes bandwidth but does not send incorrect world data.
+fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []protocol.Packet) {
+	if isnil(binding.world_runtime) {
+		return
+	}
+	mut wr := binding.world_runtime
+	wr.try_submit(ChunkDeliveryTask{
+		runtime_id: s.runtime_id
+		epoch:      binding.epoch
+		packets:    batch
+	})
+}
+
+// ChunkDeliveryTask validates a generated chunk batch against the player's
+// captured world binding, then queues it for delivery. Chunk streaming only
+// runs for spawned players, so normal send_batch is sufficient here.
+struct ChunkDeliveryTask {
+	runtime_id u64
+	epoch      i64
+	packets    []protocol.Packet
+}
+
+fn (t ChunkDeliveryTask) name() string {
+	return 'ChunkDeliveryTask'
+}
+
+fn (t ChunkDeliveryTask) run(mut tx WorldTx) {
+	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	s.send_batch(t.packets) or {}
 }
 
 fn (mut s NetworkSession) remember_chunk_window(radius int) {
