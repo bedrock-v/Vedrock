@@ -70,17 +70,6 @@ pub fn any_ambient(effects []Effect) bool {
 	return false
 }
 
-// rgb_from_colour unpacks a packed ARGB/RGB int into separate u8 components.
-pub fn rgb_from_colour(c int) (u8, u8, u8) {
-	return u8((c >> 16) & 0xff), u8((c >> 8) & 0xff), u8(c & 0xff)
-}
-
-// mobspell_molang_json builds the Molang variable JSON for the mobspell_emitter
-// particle colour. Format: array of {name, value} with float RGB in [0,1].
-pub fn mobspell_molang_json(r u8, g u8, b u8) string {
-	return '[{"name":"variable.color","value":{"0":${f64(r) / 255.0},"1":${f64(g) / 255.0},"2":${f64(b) / 255.0},"3":1.0}}]'
-}
-
 pub struct Effect {
 mut:
 	typ              Type

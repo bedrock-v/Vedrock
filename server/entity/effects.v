@@ -138,5 +138,4 @@ fn (e &Entity) update_effect_metadata(mut host Host) {
 	})
 }
 
-// mobspell_molang_json builds the Molang variable JSON for the mobspell_emitter
 // particle colour. Format: array of {name, value} with float RGB in [0,1].
