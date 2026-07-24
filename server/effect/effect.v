@@ -25,7 +25,7 @@ pub:
 // colour returns the RGB value packed into an ARGB int (A=0xFF), suitable for
 // entity metadata.
 pub fn (t Type) colour() int {
-	return int(u32(0xff) << 24 | u32(t.rgb[0]) << 16 | u32(t.rgb[1]) << 8 | u32(t.rgb[2]))
+	return int(u32(t.rgb[0]) << 16 | u32(t.rgb[1]) << 8 | u32(t.rgb[2]))
 }
 
 // blend_colour averages the RGB colours of all lasting effects and returns a single
@@ -55,7 +55,8 @@ pub fn blend_colour(effects []Effect) int {
 	r := u8(r_sum / count)
 	g := u8(g_sum / count)
 	b := u8(b_sum / count)
-	return int(u32(0xff) << 24 | u32(r) << 16 | u32(g) << 8 | u32(b))
+	// Bedrock EFFECT_COLOR metadata uses 24-bit RGB (no alpha).
+	return int(u32(r) << 16 | u32(g) << 8 | u32(b))
 }
 
 // any_ambient reports whether any of the active effects has its ambient flag set.
@@ -67,6 +68,17 @@ pub fn any_ambient(effects []Effect) bool {
 		}
 	}
 	return false
+}
+
+// rgb_from_colour unpacks a packed ARGB/RGB int into separate u8 components.
+pub fn rgb_from_colour(c int) (u8, u8, u8) {
+	return u8((c >> 16) & 0xff), u8((c >> 8) & 0xff), u8(c & 0xff)
+}
+
+// mobspell_molang_json builds the Molang variable JSON for the mobspell_emitter
+// particle colour. Format: array of {name, value} with float RGB in [0,1].
+pub fn mobspell_molang_json(r u8, g u8, b u8) string {
+	return '[{"name":"variable.color","value":{"0":${f64(r) / 255.0},"1":${f64(g) / 255.0},"2":${f64(b) / 255.0},"3":1.0}}]'
 }
 
 pub struct Effect {
