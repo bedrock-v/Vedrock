@@ -61,12 +61,12 @@ fn test_type_colour_packs_argb() {
 }
 
 fn test_blend_colour_averages_rgb() {
-	// RGBs: speed (0x33,0xeb,0xff), slowness (0x5a,0x6c,0x81)
-	// avg: ((51+90)/2, (235+108)/2, (255+129)/2) = (70, 171, 192) = 0x46ABC0
+	// RGBs: speed (0x33,0xeb,0xff), slowness (0x8b,0xaf,0xe0)
+	// avg: ((51+139)/2, (235+175)/2, (255+224)/2) = (95, 205, 239) = 0x5FCDEF
 	e1 := new(speed, 1, 1 * time.second)
 	e2 := new(slowness, 1, 1 * time.second)
 	c := blend_colour([e1, e2])
-	assert c == 0xff46abc0
+	assert c == 0xff5fcdef
 }
 
 fn test_blend_colour_empty_returns_zero() {
