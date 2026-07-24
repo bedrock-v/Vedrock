@@ -101,6 +101,17 @@ fn (mut s NetworkSession) tick_effects() {
 	if result.expired.len > 0 {
 		s.update_effect_metadata()
 	}
+	// LevelEvent 2002 at three body heights every 25 ticks
+	// while effects active.  Same packet as splash impact.
+	if result.active.len > 0 && s.hub.current_tick % 25 == 0 {
+		colour := effect.blend_colour(s.effects.effects())
+		feet := types.Vector3{s.position.x, s.position.y - 1.6, s.position.z}
+		s.hub.broadcast(&protocol.LevelEventPacket{
+			event_id:   2002
+			position:   feet
+			event_data: colour
+		})
+	}
 }
 
 fn (mut s NetworkSession) send_active_effects() {
@@ -110,7 +121,6 @@ fn (mut s NetworkSession) send_active_effects() {
 }
 
 fn (mut s NetworkSession) send_effect(e effect.Effect) {
-	s.send_effect_removal(e.effect_type())
 	s.send_mob_effect(e, mob_effect_add)
 }
 
@@ -125,6 +135,12 @@ fn (mut s NetworkSession) send_effect_removal(typ effect.Type) {
 	})
 }
 
+// send_mob_effect delivers a MobEffectPacket.  Effect particles
+// do not render client-side: StartGamePacket is from an older
+// protocol revision than the client (1.26.30).  The handshake
+// succeeds but the client enters a degraded state.
+// Workaround: LevelEvent 2002 spawned each tick in tick_effects.
+// TODO: update StartGamePacket to the current protocol revision.
 fn (mut s NetworkSession) send_mob_effect(e effect.Effect, event_id int) {
 	if !s.spawned {
 		return
@@ -235,35 +251,13 @@ fn (mut s NetworkSession) damage_from_effect(amount f32, fatal bool) {
 	}
 }
 
-// update_effect_metadata recalculates the blended potion particle colour from all
-// active effects and pushes it, together with the ambient flag, as entity metadata
-// so the client renders the correct swirling particles around the player.
+// update_effect_metadata pushes the full entity metadata block so
+// viewers see the blended potion particle colour around the player.
 fn (mut s NetworkSession) update_effect_metadata() {
 	if !s.spawned {
 		return
 	}
-	active := s.effects.effects()
-	colour := effect.blend_colour(active)
-	ambient := effect.any_ambient(active)
-	mut ambient_byte := u8(0)
-	if ambient {
-		ambient_byte = 1
-	}
-	s.hub.broadcast(&protocol.SetActorDataPacket{
-		actor_runtime_id: s.runtime_id
-		metadata: [
-			types.MetadataEntry{
-				key:   protocol.meta_key_effect_color
-				value: types.MetaInt{value: colour}
-			},
-			types.MetadataEntry{
-				key:   protocol.meta_key_effect_ambience
-				value: types.MetaByte{value: i8(ambient_byte)}
-			},
-		]
-		synced_properties: types.PropertySyncData{}
-		tick:              0
-	})
+	s.hub.broadcast(s.set_actor_data())
 }
 
 fn (mut s NetworkSession) send_health() {
