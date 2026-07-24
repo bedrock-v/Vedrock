@@ -331,6 +331,21 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	}
 	stack, name := s.held_stack_and_name()
 
+	// Splash/lingering potions — throw as projectile.
+	if name == 'minecraft:splash_potion' || name == 'minecraft:lingering_potion' {
+		mut use_ctx := event.new_context(event.ItemUseData{
+			player:    s
+			item_name: name
+			meta:      stack.meta
+		})
+		s.hub.events.item_use(mut use_ctx)
+		if use_ctx.is_cancelled() {
+			return
+		}
+		s.throw_splash_potion(name, stack.meta)
+		return
+	}
+
 	// ConsumableItem — potions, drinkables.
 	if consume := s.hub.items.consume_result(name, stack.meta) {
 		mut use_ctx := event.new_context(event.ItemUseData{
