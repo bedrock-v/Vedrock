@@ -101,15 +101,16 @@ fn (mut s NetworkSession) tick_effects() {
 	if result.expired.len > 0 {
 		s.update_effect_metadata()
 	}
-	// LevelEvent 2002 at three body heights every 25 ticks
-	// while effects active.  Same packet as splash impact.
-	if result.active.len > 0 && s.hub.current_tick % 25 == 0 {
-		colour := effect.blend_colour(s.effects.effects())
+	// mobspell_emitter particle every 5 ticks while effects active.
+	// Linked via actor_unique_id so the client reads the entity colour
+	// from key-8 metadata — same system as the area effect cloud.
+	if result.active.len > 0 && s.hub.current_tick % 5 == 0 {
 		feet := types.Vector3{s.position.x, s.position.y - 1.6, s.position.z}
-		s.hub.broadcast(&protocol.LevelEventPacket{
-			event_id:   2002
-			position:   feet
-			event_data: colour
+		s.hub.broadcast_near(feet.x, feet.y, feet.z, 32.0, &protocol.SpawnParticleEffectPacket{
+			dimension_id:    0
+			actor_unique_id: i64(s.runtime_id)
+			position:        feet
+			particle_name:   'minecraft:mobspell_emitter'
 		})
 	}
 }
@@ -139,7 +140,9 @@ fn (mut s NetworkSession) send_effect_removal(typ effect.Type) {
 // do not render client-side: StartGamePacket is from an older
 // protocol revision than the client (1.26.30).  The handshake
 // succeeds but the client enters a degraded state.
-// Workaround: LevelEvent 2002 spawned each tick in tick_effects.
+// Workaround: mobspell_emitter particle every 5 ticks in tick_effects,
+// linked via actor_unique_id so the client reads colour from key-8
+// metadata.
 // TODO: update StartGamePacket to the current protocol revision.
 fn (mut s NetworkSession) send_mob_effect(e effect.Effect, event_id int) {
 	if !s.spawned {
@@ -251,13 +254,36 @@ fn (mut s NetworkSession) damage_from_effect(amount f32, fatal bool) {
 	}
 }
 
-// update_effect_metadata pushes the full entity metadata block so
-// viewers see the blended potion particle colour around the player.
+// update_effect_metadata pushes the blended potion particle colour
+// and ambience flag as entity metadata so viewers see the swirling
+// particles around the player. Only keys 8-9 are updated — the full
+// metadata block is sent at spawn via visible_name_metadata.
 fn (mut s NetworkSession) update_effect_metadata() {
 	if !s.spawned {
 		return
 	}
-	s.hub.broadcast(s.set_actor_data())
+	active := s.effects.effects()
+	colour := effect.blend_colour(active)
+	ambient := effect.any_ambient(active)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
+	s.hub.broadcast(&protocol.SetActorDataPacket{
+		actor_runtime_id: s.runtime_id
+		metadata:         [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{value: colour}
+			},
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_ambience
+				value: types.MetaByte{value: i8(ambient_byte)}
+			},
+		]
+		synced_properties: types.PropertySyncData{}
+		tick:              0
+	})
 }
 
 fn (mut s NetworkSession) send_health() {
