@@ -6,6 +6,7 @@ import protocol.types
 import server.effect
 import server.entity
 import server.event
+import server.item
 
 // broadcast_near delivers p only to players whose position is within radius of
 // the point (x, y, z). Used by the entity Manager for view-distance culling so
@@ -279,10 +280,29 @@ fn (mut s NetworkSession) throw_splash_potion(entity_type string, meta int) {
 	speed := f32(0.5)
 
 	behaviour := &entity.SplashPotionBehaviour{
-		network_id: entity_type
+		network_id: 'minecraft:splash_potion'
 		meta:       meta
+		lingering:  entity_type == 'minecraft:lingering_potion'
 	}
 	mut projectile := s.hub.entities.spawn(behaviour, pos)
+
+	// Set the projectile's particle colour to match the potion. The default
+	// spawn packet has no effects on a fresh projectile, so the client
+	// renders a water-blue trail. Send an immediate metadata update with the
+	// blended potion colour so the trail matches the thrown potion.
+	effects := item.potion_from_meta(meta).effects()
+	colour := entity.blend_splash_colour(effects)
+	s.hub.broadcast_near(pos.x, pos.y, pos.z, 64.0, &protocol.SetActorDataPacket{
+		actor_runtime_id: projectile.runtime_id
+		metadata:         [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{value: colour}
+			},
+		]
+		synced_properties: types.PropertySyncData{}
+	})
+
 	projectile.velocity = types.Vector3{vx * speed, vy * speed, vz * speed}
 	projectile.pitch = s.pitch
 	projectile.yaw = s.yaw
