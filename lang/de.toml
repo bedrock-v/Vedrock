@@ -1,0 +1,155 @@
+[server.starting]
+other = "Starte Vedrock für Minecraft Bedrock {{.Version}} (protocol {{.Protocol}})"
+
+[server.listening]
+other = "Erreichbar unter {{.Address}}"
+
+[server.stopping]
+other = "Server am stoppen"
+
+[server.gamedata_loaded]
+other = "{{.Items}} Items and {{.CreativeItems}} Creative-Items wurden geladen"
+
+[server.world_loaded]
+other = "Welt mit {{.Blocks}} Blockänderungen geladen"
+
+[player.join_log]
+other = "{{.Name}} ist dem Spiel beigetreten"
+
+[player.leave_log]
+other = "{{.Name}} hat das Spiel verlassen ({{.Online}} online)"
+
+[player.incoming]
+other = "Eingehende Verbindung von {{.Address}}"
+
+[cmd.unknown]
+other = "§cUnbekannter Befehl: {{.Name}}"
+
+[cmd.empty]
+other = "§cLeerer Befehl"
+
+[cmd.no_permission]
+other = "§cDu hast nicht die benötigten Berechtigungen, um diesen Befehl auszuführen"
+
+[cmd.version.body]
+other = """
+Dieser Server verwendet §a{{.Software}}§r
+Server Version: §a{{.Version}}§r (git: §a{{.Hash}}§r)
+Kompatible MC Version: §a{{.MCVersion}}§r (Protokoll §a{{.Protocol}}§r)"""
+
+[cmd.status.header]
+other = "§a---- §6Server Status §a----§r"
+
+[cmd.gamemode.usage]
+other = "§cVerwendung: /gamemode <survival|creative|adventure|spectator>"
+
+[cmd.gamemode.unknown]
+other = "§cUnbekannter Gamemode: {{.Mode}}"
+
+[cmd.gamemode.set]
+other = "Der Gamemode wurde zu §a{{.Mode}}§r geändert"
+
+[cmd.player_not_found]
+other = "§cSpieler {{.Name}} konnte nicht gefunden werden"
+
+[cmd.player_only]
+other = "§cDieser Befehl kann nur im Spiel verwendet werden§r"
+
+[cmd.whitelist.usage]
+other = "§cVerwendung: /whitelist <add|remove|on|off|list> [Spieler]§r"
+
+[cmd.whitelist.added]
+other = "§a{{.Name}} wurde zur Whitelist hinzugefügt§r"
+
+[cmd.whitelist.removed]
+other = "§a{{.Name}} wurde von der Whitelist entfernt§r"
+
+[cmd.whitelist.enabled]
+other = "§aDie Whitelist ist nun aktiv§r"
+
+[cmd.whitelist.disabled]
+other = "§aDie Whitelist ist nun deaktiviert§r"
+
+[cmd.whitelist.list_empty]
+other = "§7Keine Spieler wurden gewhitelistet§r"
+
+[cmd.kill_self]
+other = "§aDu bist gestorben§r"
+
+[cmd.kill_other]
+other = "§aDu hast {{.Name}} getötet§r"
+
+[cmd.teleport.usage]
+other = "§cVerwendung: /tp <x> <y> <z> | /tp <Spieler> | /tp <Ziel> <x> <y> <z> | /tp <Ziel> <Spieler>§r"
+
+[cmd.teleport.moved]
+other = "§aZu {{.X}}, {{.Y}}, {{.Z}} teleportiert§r"
+
+[cmd.teleport.moved_other]
+other = "§a{{.Name}} zu {{.X}}, {{.Y}}, {{.Z}} teleportiert§r"
+
+[cmd.clear_self]
+other = "§aDein Inventar wurde gelöscht§r"
+
+[cmd.clear_other]
+other = "§a{{.Name}}'s Inventar wurde gelöscht§r"
+
+[cmd.give.usage]
+other = "§cVerwendung: /give <Spieler> <Item> [Anzahl]§r"
+
+[cmd.give.unknown_item]
+other = "§cUnbekanntes Item: {{.Item}}§r"
+
+[cmd.give.success]
+other = "§aGab {{.Name}} {{.Count}}x {{.Item}}§r"
+
+[cmd.give.received]
+other = "§aDu hast {{.Count}}x {{.Item}} erhalten§r"
+
+[cmd.difficulty.usage]
+other = "§cVerwendung: /difficulty <peaceful|easy|normal|hard>§r"
+
+[cmd.difficulty.set]
+other = "§aDie Schwierigkeitsstufe wurde auf {{.Difficulty}} gesetzt§r"
+
+[cmd.say.usage]
+other = "§cVerwendung: /say <Nachricht>§r"
+
+[cmd.title.usage]
+other = "§cVerwendung: /title <Spieler|@a> <title|subtitle|actionbar> <Text>§r"
+
+[cmd.world.usage]
+other = "§cVerwendung: /world <list|info|create|load|delete|tp> [Name] [Dimension] [Generator]§r"
+
+[cmd.world.none]
+other = "§eKeine Welten wurden geladen§r"
+
+[cmd.world.list]
+other = "§6Welten ({{.Count}}): §a{{.Worlds}}§r"
+
+[cmd.world.not_found]
+other = '§cWelt "{{.Name}}" wurde nicht geladen§r'
+
+[cmd.world.created]
+other = '§aWelt "{{.Name}}" wurde erstellt§r'
+
+[cmd.world.create_failed]
+other = '§cErstellen von "{{.Name}}" ist fehlgeschlagen: {{.Reason}}§r'
+
+[cmd.world.loaded]
+other = '§aWelt "{{.Name}}" wurde geladen§r'
+
+[cmd.world.load_failed]
+other = '§cDas Laden der Welt "{{.Name}}" ist fehlgeschlagen: {{.Reason}}§r'
+
+[cmd.world.deleted]
+other = '§aWelt "{{.Name}}" wurde gelöscht§r'
+
+[cmd.world.delete_failed]
+other = '§cWelt "{{.Name}}" konnte nicht gelöscht werden: {{.Reason}}§r'
+
+[cmd.world.tp]
+other = '§aZur Welt "{{.Name}}" teleportiert§r'
+
+[cmd.world.tp_failed]
+other = '§cDas Teleportieren zur Welt "{{.Name}}" ist fehlgeschlafen: {{.Reason}}§r'

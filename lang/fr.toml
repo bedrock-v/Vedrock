@@ -1,0 +1,155 @@
+[server.starting]
+other = "Démarrage de Vedrock pour Minecraft Bedrock {{.Version}} (protocole {{.Protocol}})"
+
+[server.listening]
+other = "Écoute sur {{.Address}}"
+
+[server.stopping]
+other = "Arrêt du serveur"
+
+[server.gamedata_loaded]
+other = "{{.Items}} objets et {{.CreativeItems}} entrées créatives chargés"
+
+[server.world_loaded]
+other = "Monde chargé avec {{.Blocks}} modifications de blocs enregistrées"
+
+[player.join_log]
+other = "{{.Name}} a rejoint la partie"
+
+[player.leave_log]
+other = "{{.Name}} a quitté la partie ({{.Online}} en ligne)"
+
+[player.incoming]
+other = "Connexion entrante depuis {{.Address}}"
+
+[cmd.unknown]
+other = "§cCommande inconnue : {{.Name}}"
+
+[cmd.empty]
+other = "§cCommande vide"
+
+[cmd.no_permission]
+other = "§cVous n'avez pas la permission d'utiliser cette commande"
+
+[cmd.version.body]
+other = """
+Ce serveur utilise §a{{.Software}}§r
+Version du serveur : §a{{.Version}}§r (git : §a{{.Hash}}§r)
+MC compatible : §a{{.MCVersion}}§r (protocole §a{{.Protocol}}§r)"""
+
+[cmd.status.header]
+other = "§a---- §6Statut du serveur §a----§r"
+
+[cmd.gamemode.usage]
+other = "§cUtilisation : /gamemode <survival|creative|adventure|spectator>"
+
+[cmd.gamemode.unknown]
+other = "§cMode de jeu inconnu : {{.Mode}}"
+
+[cmd.gamemode.set]
+other = "Mode de jeu défini sur §a{{.Mode}}§r"
+
+[cmd.player_not_found]
+other = "§cJoueur {{.Name}} introuvable"
+
+[cmd.player_only]
+other = "§cCette commande ne peut être utilisée qu'en jeu§r"
+
+[cmd.whitelist.usage]
+other = "§cUtilisation : /whitelist <add|remove|on|off|list> [joueur]§r"
+
+[cmd.whitelist.added]
+other = "§a{{.Name}} ajouté à la liste blanche§r"
+
+[cmd.whitelist.removed]
+other = "§a{{.Name}} retiré de la liste blanche§r"
+
+[cmd.whitelist.enabled]
+other = "§aLa liste blanche est maintenant activée§r"
+
+[cmd.whitelist.disabled]
+other = "§aLa liste blanche est maintenant désactivée§r"
+
+[cmd.whitelist.list_empty]
+other = "§7Aucun joueur dans la liste blanche§r"
+
+[cmd.kill_self]
+other = "§aVous êtes mort§r"
+
+[cmd.kill_other]
+other = "§a{{.Name}} a été tué§r"
+
+[cmd.teleport.usage]
+other = "§cUtilisation : /tp <x> <y> <z> | /tp <joueur> | /tp <cible> <x> <y> <z> | /tp <cible> <joueur>§r"
+
+[cmd.teleport.moved]
+other = "§aTéléporté en {{.X}}, {{.Y}}, {{.Z}}§r"
+
+[cmd.teleport.moved_other]
+other = "§a{{.Name}} téléporté en {{.X}}, {{.Y}}, {{.Z}}§r"
+
+[cmd.clear_self]
+other = "§aInventaire vidé§r"
+
+[cmd.clear_other]
+other = "§aInventaire de {{.Name}} vidé§r"
+
+[cmd.give.usage]
+other = "§cUtilisation : /give <joueur> <objet> [quantité]§r"
+
+[cmd.give.unknown_item]
+other = "§cObjet inconnu : {{.Item}}§r"
+
+[cmd.give.success]
+other = "§a{{.Count}}x {{.Item}} donné à {{.Name}}§r"
+
+[cmd.give.received]
+other = "§aVous avez reçu {{.Count}}x {{.Item}}§r"
+
+[cmd.difficulty.usage]
+other = "§cUtilisation : /difficulty <peaceful|easy|normal|hard>§r"
+
+[cmd.difficulty.set]
+other = "§aDifficulté définie sur {{.Difficulty}}§r"
+
+[cmd.say.usage]
+other = "§cUtilisation : /say <message>§r"
+
+[cmd.title.usage]
+other = "§cUtilisation : /title <joueur|@a> <title|subtitle|actionbar> <texte>§r"
+
+[cmd.world.usage]
+other = "§cUtilisation : /world <list|info|create|load|delete|tp> [nom] [dimension] [générateur]§r"
+
+[cmd.world.none]
+other = "§eAucun monde chargé§r"
+
+[cmd.world.list]
+other = "§6Mondes ({{.Count}}) : §a{{.Worlds}}§r"
+
+[cmd.world.not_found]
+other = "§cLe monde \"{{.Name}}\" n'est pas chargé§r"
+
+[cmd.world.created]
+other = '§aMonde "{{.Name}}" créé§r'
+
+[cmd.world.create_failed]
+other = '§cÉchec de la création de "{{.Name}}" : {{.Reason}}§r'
+
+[cmd.world.loaded]
+other = '§aMonde "{{.Name}}" chargé§r'
+
+[cmd.world.load_failed]
+other = '§cÉchec du chargement de "{{.Name}}" : {{.Reason}}§r'
+
+[cmd.world.deleted]
+other = '§aMonde "{{.Name}}" supprimé§r'
+
+[cmd.world.delete_failed]
+other = '§cÉchec de la suppression de "{{.Name}}" : {{.Reason}}§r'
+
+[cmd.world.tp]
+other = '§aTéléporté dans le monde "{{.Name}}"§r'
+
+[cmd.world.tp_failed]
+other = '§cÉchec de la téléportation vers "{{.Name}}" : {{.Reason}}§r'

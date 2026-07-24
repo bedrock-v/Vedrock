@@ -1,0 +1,155 @@
+[server.starting]
+other = "Minecraft Bedrock {{.Version}} (protokol {{.Protocol}}) için Vedrock başlatılıyor"
+
+[server.listening]
+other = "{{.Address}} adresinde dinleniyor"
+
+[server.stopping]
+other = "Sunucu durduruluyor"
+
+[server.gamedata_loaded]
+other = "{{.Items}} eşya ve {{.CreativeItems}} yaratıcı envanter girdisi yüklendi"
+
+[server.world_loaded]
+other = "{{.Blocks}} kayıtlı blok değişikliği içeren dünya yüklendi"
+
+[player.join_log]
+other = "{{.Name}} oyuna katıldı"
+
+[player.leave_log]
+other = "{{.Name}} oyundan ayrıldı ({{.Online}} oyuncu çevrim içi)"
+
+[player.incoming]
+other = "{{.Address}} adresinden gelen bağlantı"
+
+[cmd.unknown]
+other = "§cBilinmeyen komut: {{.Name}}"
+
+[cmd.empty]
+other = "§cBoş komut"
+
+[cmd.no_permission]
+other = "§cBu komutu kullanma izniniz yok"
+
+[cmd.version.body]
+other = """
+Bu sunucu §a{{.Software}}§r üzerinde çalışıyor
+Sunucu sürümü: §a{{.Version}}§r (git: §a{{.Hash}}§r)
+Uyumlu Minecraft sürümü: §a{{.MCVersion}}§r (protokol §a{{.Protocol}}§r)"""
+
+[cmd.status.header]
+other = "§a---- §6Sunucu durumu §a----§r"
+
+[cmd.gamemode.usage]
+other = "§cKullanım: /gamemode <survival|creative|adventure|spectator>"
+
+[cmd.gamemode.unknown]
+other = "§cBilinmeyen oyun modu: {{.Mode}}"
+
+[cmd.gamemode.set]
+other = "Oyun modu §a{{.Mode}}§r olarak ayarlandı"
+
+[cmd.player_not_found]
+other = "§c{{.Name}} adlı oyuncu bulunamadı"
+
+[cmd.player_only]
+other = "§cBu komut sadece oyun içinden kullanılabilir§r"
+
+[cmd.whitelist.usage]
+other = "§cKullanım: /whitelist <add|remove|on|off|list> [oyuncu]§r"
+
+[cmd.whitelist.added]
+other = "§a{{.Name}} beyaz listeye eklendi§r"
+
+[cmd.whitelist.removed]
+other = "§a{{.Name}} beyaz listeden çıkarıldı§r"
+
+[cmd.whitelist.enabled]
+other = "§aBeyaz liste artık etkin§r"
+
+[cmd.whitelist.disabled]
+other = "§aBeyaz liste artık devre dışı§r"
+
+[cmd.whitelist.list_empty]
+other = "§7Beyaz listede oyuncu yok§r"
+
+[cmd.kill_self]
+other = "§aÖldünüz§r"
+
+[cmd.kill_other]
+other = "§a{{.Name}} öldürüldü§r"
+
+[cmd.teleport.usage]
+other = "§cKullanım: /tp <x> <y> <z> | /tp <oyuncu> | /tp <hedef> <x> <y> <z> | /tp <hedef> <oyuncu>§r"
+
+[cmd.teleport.moved]
+other = "§a{{.X}}, {{.Y}}, {{.Z}} konumuna ışınlandınız§r"
+
+[cmd.teleport.moved_other]
+other = "§a{{.Name}} {{.X}}, {{.Y}}, {{.Z}} konumuna ışınlandı§r"
+
+[cmd.clear_self]
+other = "§aEnvanterin temizlendi§r"
+
+[cmd.clear_other]
+other = "§a{{.Name}} adlı oyuncunun envanteri temizlendi§r"
+
+[cmd.give.usage]
+other = "§cKullanım: /give <oyuncu> <eşya> [adet]§r"
+
+[cmd.give.unknown_item]
+other = "§cBilinmeyen eşya: {{.Item}}§r"
+
+[cmd.give.success]
+other = "§a{{.Name}} adlı oyuncuya {{.Count}}x {{.Item}} verildi§r"
+
+[cmd.give.received]
+other = "§a{{.Count}}x {{.Item}} aldınız§r"
+
+[cmd.difficulty.usage]
+other = "§cKullanım: /difficulty <peaceful|easy|normal|hard>§r"
+
+[cmd.difficulty.set]
+other = "§aZorluk {{.Difficulty}} olarak ayarlandı§r"
+
+[cmd.say.usage]
+other = "§cKullanım: /say <mesaj>§r"
+
+[cmd.title.usage]
+other = "§cKullanım: /title <oyuncu|@a> <title|subtitle|actionbar> <metin>§r"
+
+[cmd.world.usage]
+other = "§cKullanım: /world <list|info|create|load|delete|tp> [isim] [boyut] [üretici]§r"
+
+[cmd.world.none]
+other = "§eHiç dünya yüklü değil§r"
+
+[cmd.world.list]
+other = "§6Dünyalar ({{.Count}}): §a{{.Worlds}}§r"
+
+[cmd.world.not_found]
+other = '§c"{{.Name}}" dünyası yüklü değil§r'
+
+[cmd.world.created]
+other = '§a"{{.Name}}" dünyası oluşturuldu§r'
+
+[cmd.world.create_failed]
+other = '§c"{{.Name}}" oluşturulamadı: {{.Reason}}§r'
+
+[cmd.world.loaded]
+other = '§aLoaded world "{{.Name}}"§r'
+
+[cmd.world.load_failed]
+other = '§cFailed to load "{{.Name}}": {{.Reason}}§r'
+
+[cmd.world.deleted]
+other = '§a"{{.Name}}" dünyası silindi§r'
+
+[cmd.world.delete_failed]
+other = '§c"{{.Name}}" silinemedi: {{.Reason}}§r'
+
+[cmd.world.tp]
+other = '§a"{{.Name}}" dünyasına ışınlandınız§r'
+
+[cmd.world.tp_failed]
+other = '§c"{{.Name}}" dünyasına ışınlanılamadı: {{.Reason}}§r'

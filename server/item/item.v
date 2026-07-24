@@ -1,0 +1,130 @@
+module item
+
+// Item is the behaviour contract every item class implements. Every item is
+// its own class built on a family base struct (ToolItem, ArmorItem, FoodItem,
+// BlockItem, SimpleItem) and registered in the Registry so the session layer
+// can look it up by its string identifier (e.g. 'minecraft:diamond_sword').
+pub interface Item {
+	// identifier returns the namespaced item id used on the wire.
+	identifier() string
+	// max_stack_size is how many of this item fit in a single slot.
+	max_stack_size() int
+	// attack_damage is the melee damage dealt on hit, 0 for non-weapons.
+	attack_damage() f32
+	// nutrition is the hunger points restored on eat, 0 for non-food.
+	nutrition() int
+	// saturation is the saturation modifier applied on eat, 0 for non-food.
+	saturation() f32
+	// block_runtime_id is the block placed on use, 0 for non-block items.
+	block_runtime_id() int
+	// durability is the max number of uses before the item breaks, 0 for
+	// items that don't take durability damage.
+	durability() int
+	// mining_speed is the block breaking speed multiplier this item grants
+	// as a tool, 1.0 (no bonus) for non-tools.
+	mining_speed() f32
+	// armor_points is the defense value this item grants when worn, 0 for
+	// non-armor.
+	armor_points() int
+}
+
+pub interface ConsumableItem {
+	consume_result(meta int) ConsumeResult
+}
+
+// UseableItem is implemented by items with a behaviour on right-click in air
+// (item_use_action_click_air), separate from ConsumableItem's eat on use flow.
+pub interface UseableItem {
+	use_result(meta int) UseResult
+}
+
+// UseResult describes what happens when a UseableItem is used. sound is
+// broadcast at the user's position if non empty; empty means no sound.
+pub struct UseResult {
+pub:
+	sound string
+}
+
+// UseOnBlockResult describes what a UsableOnBlockItem does when used on a
+// qualifying block: which int block-state to advance and by how much, plus
+// an optional sound.
+pub struct UseOnBlockResult {
+pub:
+	sound       string
+	state_key   string
+	state_delta int
+}
+
+// UsableOnBlockItem is implemented by items with a behaviour when used on a
+// specific kind of block (e.g. bone meal on crops). Returns none if this
+// item does nothing to a block named block_name.
+pub interface UsableOnBlockItem {
+	use_on_block_result(block_name string, meta int) ?UseOnBlockResult
+}
+
+// UseOnEntityResult describes what a UsableOnEntityItem does when used on a
+// qualifying entity: an optional sound plus an optional item id the held
+// stack is replaced with (empty means no swap, just the sound).
+pub struct UseOnEntityResult {
+pub:
+	sound         string
+	replaces_with string
+}
+
+// UsableOnEntityItem is implemented by items with a behaviour when used on a
+// specific kind of entity (e.g. milk bucket on a cow). Returns none if this
+// item does nothing to an entity named entity_name.
+pub interface UsableOnEntityItem {
+	use_on_entity_result(entity_name string, meta int) ?UseOnEntityResult
+}
+
+// CooldownItem is implemented by items that can't be used again for a period
+// after use (e.g. the goat horn).
+pub interface CooldownItem {
+	cooldown_ticks() int
+}
+
+// SimpleItem is the base class for items that carry no special behaviour
+// (dyes, sticks, string, ...). Concrete simple items embed it and fill in
+// their identity; anything unregistered behaves like a default SimpleItem.
+pub struct SimpleItem {
+pub:
+	id        string
+	stack_max int = 64
+}
+
+pub fn (i SimpleItem) identifier() string {
+	return i.id
+}
+
+pub fn (i SimpleItem) max_stack_size() int {
+	return i.stack_max
+}
+
+pub fn (i SimpleItem) attack_damage() f32 {
+	return 0
+}
+
+pub fn (i SimpleItem) nutrition() int {
+	return 0
+}
+
+pub fn (i SimpleItem) saturation() f32 {
+	return 0
+}
+
+pub fn (i SimpleItem) block_runtime_id() int {
+	return 0
+}
+
+pub fn (i SimpleItem) durability() int {
+	return 0
+}
+
+pub fn (i SimpleItem) mining_speed() f32 {
+	return 1.0
+}
+
+pub fn (i SimpleItem) armor_points() int {
+	return 0
+}
