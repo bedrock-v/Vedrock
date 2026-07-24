@@ -16,8 +16,8 @@ pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
 	if !result.stored {
 		e.apply_effect_tick(mut host, result.effect)
 	}
-	host.broadcast(e.mob_effect_packet(result.effect, mob_effect_add))
 	e.update_effect_metadata(mut host)
+	host.broadcast(e.mob_effect_packet(result.effect, mob_effect_add))
 }
 
 // remove_effect strips typ from e, if present, and tells viewers.
@@ -118,18 +118,25 @@ fn (e &Entity) update_effect_metadata(mut host Host) {
 		ambient_byte = 1
 	}
 	host.broadcast(&protocol.SetActorDataPacket{
-		actor_runtime_id: e.runtime_id
-		metadata: [
+		actor_runtime_id:  e.runtime_id
+		metadata:          [
 			types.MetadataEntry{
 				key:   protocol.meta_key_effect_color
-				value: types.MetaInt{value: colour}
+				value: types.MetaInt{
+					value: colour
+				}
 			},
 			types.MetadataEntry{
 				key:   protocol.meta_key_effect_ambience
-				value: types.MetaByte{value: i8(ambient_byte)}
+				value: types.MetaByte{
+					value: i8(ambient_byte)
+				}
 			},
 		]
 		synced_properties: types.PropertySyncData{}
 		tick:              0
 	})
 }
+
+// mobspell_molang_json builds the Molang variable JSON for the mobspell_emitter
+// particle colour. Format: array of {name, value} with float RGB in [0,1].
