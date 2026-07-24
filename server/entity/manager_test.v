@@ -102,6 +102,10 @@ fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32
 	h.last_despawn_id = identifier
 }
 
+fn (mut h FakeHost) spawn_behaviour(b Behaviour, pos types.Vector3) &Entity {
+	return &Entity{}
+}
+
 fn (mut h FakeHost) is_undead(runtime_id u64) bool {
 	return h.undead_ids[runtime_id] or { false }
 }

@@ -175,6 +175,13 @@ pub fn (mut h Hub) drop_item(stack types.ItemStack, x f32, y f32, z f32, vx f32,
 // is_undead reports whether the actor at runtime_id is an undead mob.
 // Players and non-undead entities return false.
 // https://minecraft.fandom.com/fr/wiki/Mort-vivant
+
+// spawn_behaviour creates a new entity from a behaviour at the given
+// position and returns the live Entity reference.
+pub fn (mut h Hub) spawn_behaviour(b entity.Behaviour, pos types.Vector3) &entity.Entity {
+	return h.entities.spawn(b, pos)
+}
+
 pub fn (mut h Hub) is_undead(runtime_id u64) bool {
 	if h.session_by_runtime(runtime_id) != none {
 		return false

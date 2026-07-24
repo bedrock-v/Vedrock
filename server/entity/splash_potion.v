@@ -43,15 +43,40 @@ pub fn (mut b SplashPotionBehaviour) tick(mut e Entity, mut host Host) {
 	}
 	// Check if we hit an entity.
 	if _ := host.entity_hit_test(e.pos, e.runtime_id) {
-		b.apply_splash(mut e, mut host)
+		b.resolve_impact(mut e, mut host)
 		e.kill()
 		return
 	}
 	// Check if we hit a block.
 	if e.hit_block {
-		b.apply_splash(mut e, mut host)
+		b.resolve_impact(mut e, mut host)
 		e.kill()
 		return
+	}
+}
+
+// resolve_impact either applies splash effects immediately (splash
+// potion) or spawns a lingering cloud entity (lingering potion).
+fn (mut b SplashPotionBehaviour) resolve_impact(mut e Entity, mut host Host) {
+	if b.network_id.contains('lingering') {
+		// Lingering potion: spawn Area Effect Cloud that applies
+		// reduced effects over time and broadcasts the impact sound.
+		cloud := &LingeringCloudBehaviour{
+			network_id: 'minecraft:lingering_potion'
+			meta:       b.meta
+		}
+		host.spawn_behaviour(cloud, e.pos)
+		// Glass break sound at impact (same as splash).
+		host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, 8.0, &protocol.LevelSoundEventPacket{
+			sound:           'random.glass'
+			position:        e.pos
+			extra_data:      -1
+			entity_type:     'minecraft:lingering_potion'
+			actor_unique_id: e.unique_id
+		})
+	} else {
+		// Splash potion: immediate area-of-effect.
+		b.apply_splash(mut e, mut host)
 	}
 }
 

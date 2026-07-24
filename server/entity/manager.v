@@ -55,6 +55,9 @@ mut:
 	// instant health/damage effects — Healing harms undead, Harming heals.
 	// Players and non-undead entities return false.
 	is_undead(runtime_id u64) bool
+	// spawn_behaviour creates a new entity driven by b at pos, registers
+	// it and broadcasts its appearance. Returns the spawned Entity.
+	spawn_behaviour(b Behaviour, pos types.Vector3) &Entity
 }
 
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
@@ -113,6 +116,12 @@ pub fn (mut m Manager) spawn_item(stack types.ItemStack, pos types.Vector3, velo
 	m.mutex.unlock()
 	m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.spawn_packet())
 	return e
+}
+
+// spawn_behaviour is the Host-facing spawn: it delegates to Manager.spawn
+// so behaviours can create new entities without importing session.
+pub fn (mut m Manager) spawn_behaviour(b Behaviour, pos types.Vector3) &Entity {
+	return m.spawn(b, pos)
 }
 
 // add_effect applies ef to the entity at runtime_id.

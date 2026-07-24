@@ -78,4 +78,7 @@ pub fn register_defaults(mut r Registry) {
 	r.register('splash_potion', fn () Behaviour {
 		return &SplashPotionBehaviour{}
 	})
+	r.register('lingering_potion', fn () Behaviour {
+		return &LingeringCloudBehaviour{}
+	})
 }
