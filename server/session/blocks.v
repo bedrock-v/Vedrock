@@ -331,7 +331,7 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	}
 	stack, name := s.held_stack_and_name()
 
-	// Splash/lingering potions — throw as projectile.
+	// Splash/lingering potions  -  throw as projectile.
 	if name == 'minecraft:splash_potion' || name == 'minecraft:lingering_potion' {
 		mut use_ctx := event.new_context(event.ItemUseData{
 			player:    s
@@ -346,7 +346,7 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		return
 	}
 
-	// ConsumableItem — potions, drinkables.
+	// ConsumableItem  -  potions, drinkables.
 	if consume := s.hub.items.consume_result(name, stack.meta) {
 		mut use_ctx := event.new_context(event.ItemUseData{
 			player:    s
@@ -374,7 +374,7 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		return
 	}
 
-	// UseableItem — goat horn etc.
+	// UseableItem  -  goat horn etc.
 	if cooldown := s.hub.items.cooldown_ticks(name) {
 		if s.hub.current_tick < s.cooldown_until[name] {
 			return
@@ -759,13 +759,13 @@ fn (mut s NetworkSession) consume_held_item() {
 
 // replace_held_stack_with swaps the held item stack for replacement_id (count
 // items). Does nothing in creative mode. An empty replacement_id leaves the
-// slot empty — used after drinking a potion to give back a glass bottle.
+// slot empty  -  used after drinking a potion to give back a glass bottle.
 fn (mut s NetworkSession) replace_held_stack_with(replacement_id string, count int) {
 	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_creative_spectator {
 		return
 	}
 	if replacement_id == '' || count <= 0 {
-		// No replacement — just remove the held stack.
+		// No replacement  -  just remove the held stack.
 		s.consume_held_item()
 		return
 	}

@@ -311,7 +311,7 @@ fn (mut s NetworkSession) throw_splash_potion(entity_type string, meta int) {
 	// the potion arcs freely.
 	projectile.floor_y = -64
 
-	// Throw sound - broadcast at the player's position.
+		// Throw sound - broadcast at the player's position.
 	s.hub.broadcast(&protocol.LevelSoundEventPacket{
 		sound:           'random.bow'
 		position:        s.current_position()
@@ -330,8 +330,7 @@ fn (mut s NetworkSession) throw_splash_potion(entity_type string, meta int) {
 // throwable_offset applies a pitch correction for thrown projectiles so they
 // arc upward rather than leaving straight from the crosshair. The correction is
 // strongest when looking horizontally and tapers to zero when looking straight
-// up or down. Dragonfly formula.
-// https://github.com/df-mc/dragonfly
+// up or down.
 fn throwable_offset(pitch f32) f32 {
 	p2 := pitch * pitch
 	max_p2 := f32(89.9 * 89.9)

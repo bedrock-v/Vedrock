@@ -6,7 +6,7 @@ import rand
 import server.effect
 import server.item
 
-// LingeringCloudBehaviour is an Area Effect Cloud — the lingering cloud left
+// LingeringCloudBehaviour is an Area Effect Cloud  -  the lingering cloud left
 // behind when a lingering potion impacts. It hovers in place, is non-solid, and
 // applies reduced-duration potion effects to every actor inside its radius.
 // The radius shrinks linearly over time and on each entity application.
@@ -23,11 +23,11 @@ pub mut:
 	wait_time        int = 10    // 0.5 s before cloud activates
 	reapply_delay    int = 40    // 2 s cooldown per entity
 	radius_per_apply f32 = 0.5   // shrink on each entity application
-	radius_per_tick  f32 = 0.005 // linear decay 3.0 → 0 over 600 ticks
-	cooldowns        map[u64]i64 // runtime_id → next tick they can be reapplied
+	radius_per_tick  f32 = 0.005 // linear decay 3.0 -> 0 over 600 ticks
+	cooldowns        map[u64]i64 // runtime_id -> next tick they can be reapplied
 }
 
-// cloud_meta_radius is Bedrock metadata key 61 — AREA_EFFECT_CLOUD_RADIUS.
+// cloud_meta_radius is Bedrock metadata key 61  -  AREA_EFFECT_CLOUD_RADIUS.
 // Key 8 (meta_key_effect_color) is used for the particle colour instead of
 // radius, so mobspell_emitter particles linked via actor_unique_id inherit
 // the potion colour automatically.
@@ -121,9 +121,9 @@ pub fn (mut b LingeringCloudBehaviour) tick(mut e Entity, mut host Host) {
 		return
 	}
 
-	// Only scan for targets and apply effects every 10 ticks — matches
+	// Only scan for targets and apply effects every 10 ticks  -  matches
 	// vanilla Bedrock's area_effect_cloud application interval.
-	// Skip when radius has shrunk to zero — the cloud persists until its
+	// Skip when radius has shrunk to zero  -  the cloud persists until its
 	// duration expires (vanilla: radius ≤ 0 makes the cloud invisible and
 	// inert, it does not despawn the entity).
 	if e.age % 10 == 0 && b.radius > 0.01 {
@@ -170,7 +170,6 @@ pub fn (mut b LingeringCloudBehaviour) tick(mut e Entity, mut host Host) {
 		b.radius = 0
 	}
 
-	// Sync radius to client every tick (radius decays every tick).
 	host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, &protocol.SetActorDataPacket{
 		actor_runtime_id: e.runtime_id
 		metadata:         [

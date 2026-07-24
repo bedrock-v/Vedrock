@@ -560,14 +560,14 @@ fn test_splash_potion_duration_attenuation_by_distance() {
 	e.no_gravity = true
 	e.age = 2
 	e.hit_block = true // force block impact
-	m.tick() // hit_block → apply_splash
+	m.tick() // hit_block -> apply_splash
 	assert m.count() == 0
 
 	// Centre entity: full 3600 ticks.
 	centre_dur := host.effects_applied[10][0].duration_ticks()
 	assert centre_dur >= 3400 && centre_dur <= 3600
 
-	// Edge entity: at dist=2.0 / radius=4.0 → scale=0.5 → ~1800 ticks.
+	// Edge entity: at dist=2.0 / radius=4.0 -> scale=0.5 -> ~1800 ticks.
 	edge_dur := host.effects_applied[20][0].duration_ticks()
 	assert edge_dur >= 1700 && edge_dur <= 1900
 
@@ -601,7 +601,7 @@ fn test_splash_potion_undead_inverts_instant_health() {
 	host.undead_ids[u64(10)] = true // mark entity 10 as undead
 	mut m := new_manager(host)
 	mut e := m.spawn(&SplashPotionBehaviour{
-		meta: 21 // instant health I — should become instant damage for undead
+		meta: 21 // instant health I  -  should become instant damage for undead
 	}, types.Vector3{0, 10, 0})
 	e.no_gravity = true
 	e.age = 2
@@ -621,7 +621,7 @@ fn test_splash_potion_undead_inverts_instant_damage() {
 	host.undead_ids[u64(10)] = true
 	mut m := new_manager(host)
 	mut e := m.spawn(&SplashPotionBehaviour{
-		meta: 23 // instant damage I — should become instant health for undead
+		meta: 23 // instant damage I  -  should become instant health for undead
 	}, types.Vector3{0, 10, 0})
 	e.no_gravity = true
 	e.age = 2
@@ -649,7 +649,7 @@ fn test_splash_potion_out_of_range_not_affected() {
 	assert m.count() == 0
 	// Centre entity gets effects.
 	assert u64(10) in host.effects_applied
-	// Edge entity at exactly radius: scale = 1 - 4.0/4.0 = 0 → skipped.
+	// Edge entity at exactly radius: scale = 1 - 4.0/4.0 = 0 -> skipped.
 	assert u64(20) !in host.effects_applied
 }
 
@@ -668,7 +668,7 @@ fn test_splash_potion_no_effects_still_broadcasts_particles() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
 	mut e := m.spawn(&SplashPotionBehaviour{
-		meta: 99 // invalid meta — no effects
+		meta: 99 // invalid meta  -  no effects
 	}, types.Vector3{0, 10, 0})
 	e.no_gravity = true
 	e.age = 2

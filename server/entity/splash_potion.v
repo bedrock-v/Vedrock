@@ -10,8 +10,8 @@ import server.item
 // actor within splash_radius on impact (entity or block). The meta field
 // selects which potion type (use PotionType.effects() from server/item).
 // When lingering is true the projectile spawns an Area Effect Cloud instead of
-// applying effects directly — used for lingering potions.
-// https://minecraft.wiki/w/Splash_Potion — radius 4.0 blocks.
+// applying effects directly  -  used for lingering potions.
+// https://minecraft.wiki/w/Splash_Potion  -  radius 4.0 blocks.
 @[heap]
 pub struct SplashPotionBehaviour {
 pub:
@@ -145,7 +145,7 @@ fn (mut b SplashPotionBehaviour) apply_splash(mut e Entity, mut host Host) {
 
 			if splash_ef.instant() {
 				// Instant effects: no duration scaling, but check
-				// undead inversion — Healing damages undead and
+				// undead inversion  -  Healing damages undead and
 				// vice versa.
 				// https://minecraft.fandom.com/fr/wiki/Mort-vivant
 				if host.is_undead(rid) {
@@ -169,7 +169,7 @@ fn (mut b SplashPotionBehaviour) apply_splash(mut e Entity, mut host Host) {
 		}
 	}
 
-	// Splash particle event — the coloured cloud at the impact point.
+	// Splash particle event  -  the coloured cloud at the impact point.
 	// LevelEvent ID 2002 is the Bedrock potion splash particle.
 	host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, b.splash_radius * 2, &protocol.LevelEventPacket{
 		event_id:   level_event_potion_splash
@@ -207,7 +207,7 @@ fn invert_undead_instant(ef effect.Effect) effect.Effect {
 
 // blend_splash_colour averages the RGB colours of all effects (including
 // instant ones) for the splash particle. Separate from effect.blend_colour
-// which skips non-lasting types — those are needed for entity metadata
+// which skips non-lasting types  -  those are needed for entity metadata
 // particles but NOT for the impact splash or projectile trail, which should
 // match the potion colour.
 pub fn blend_splash_colour(effects []effect.Effect) int {
@@ -222,7 +222,7 @@ pub fn blend_splash_colour(effects []effect.Effect) int {
 		b_sum += int(t.rgb[2])
 	}
 	count := effects.len
-	// No alpha byte — LevelEvent 2002 expects 0x00RRGGBB, not 0xAARRGGBB.
+	// No alpha byte  -  LevelEvent 2002 expects 0x00RRGGBB, not 0xAARRGGBB.
 	return int(u32(r_sum / count) << 16 | u32(g_sum / count) << 8 | u32(b_sum / count))
 }
 

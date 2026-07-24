@@ -52,7 +52,7 @@ mut:
 	pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) int
 	// is_undead reports whether the actor at runtime_id is an undead mob
 	// (zombie, skeleton, wither, etc.). Used by splash potions to invert
-	// instant health/damage effects — Healing harms undead, Harming heals.
+	// instant health/damage effects  -  Healing harms undead, Harming heals.
 	// Players and non-undead entities return false.
 	is_undead(runtime_id u64) bool
 	// spawn_behaviour creates a new entity driven by b at pos, registers

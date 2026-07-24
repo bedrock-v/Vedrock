@@ -30,7 +30,7 @@ pub fn (t Type) colour() int {
 
 // blend_colour averages the RGB colours of all lasting effects and returns a single
 // packed ARGB int. Returns 0 when effects is empty or none of the effects have
-// visible potion particles — the client hides particles when the colour is 0.
+// visible potion particles  -  the client hides particles when the colour is 0.
 // https://minecraft.fandom.com/fr/wiki/Effet#Particules
 pub fn blend_colour(effects []Effect) int {
 	if effects.len == 0 {

@@ -19,9 +19,9 @@ const entity_half_width = f32(0.3)
 const entity_height = f32(1.8)
 
 // Entity is a non-player actor living in the world - a mob, item or projectile.
-// It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable
-// Behaviour that drives its per-tick logic. Players stay as NetworkSession; this
-// system covers everything else the client renders as an actor.
+// Shared state plus a pluggable Behaviour that drives its per-tick logic.
+// Players stay as NetworkSession; this system covers everything else the client
+// renders as an actor.
 @[heap]
 pub struct Entity {
 pub:

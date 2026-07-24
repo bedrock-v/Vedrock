@@ -3,9 +3,9 @@ module item
 import time
 import server.effect
 
-// TODO: 1.21 potion types (wind_charged, weaving, oozing, infested) — need
+// TODO: 1.21 potion types (wind_charged, weaving, oozing, infested)  -  need
 // corresponding effect Type definitions in server/effect/ first.
-// TODO: brewing stand — needs block entity, UI form, recipe matching, blaze
+// TODO: brewing stand  -  needs block entity, UI form, recipe matching, blaze
 // powder fuel, and 20-second brew timer. Out of scope for initial potion
 // drinking.
 
