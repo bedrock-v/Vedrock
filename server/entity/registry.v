@@ -75,4 +75,7 @@ pub fn register_defaults(mut r Registry) {
 			survive_block_collision: true
 		}
 	})
+	r.register('splash_potion', fn () Behaviour {
+		return &SplashPotionBehaviour{}
+	})
 }
