@@ -55,9 +55,9 @@ fn test_instant_effect_is_not_stored() {
 }
 
 fn test_type_colour_packs_argb() {
-	assert speed.colour() == 0xff33ebff
-	assert instant_health.colour() == 0xfff82423
-	assert darkness.colour() == 0xff292721
+	assert speed.colour() == 0x0033ebff
+	assert instant_health.colour() == 0x00f82423
+	assert darkness.colour() == 0x00292721
 }
 
 fn test_blend_colour_averages_rgb() {
@@ -66,7 +66,7 @@ fn test_blend_colour_averages_rgb() {
 	e1 := new(speed, 1, 1 * time.second)
 	e2 := new(slowness, 1, 1 * time.second)
 	c := blend_colour([e1, e2])
-	assert c == 0xff5fcdef
+	assert c == 0x005fcdef
 }
 
 fn test_blend_colour_empty_returns_zero() {
