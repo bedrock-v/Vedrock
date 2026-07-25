@@ -189,11 +189,12 @@ pub fn (s &NetworkSession) is_player() bool {
 	return true
 }
 
-fn (s &NetworkSession) player_data_dir() string {
-	if s.cfg.players_dir != '' {
-		return s.cfg.players_dir
-	}
-	return players_dir
+pub fn (s &NetworkSession) runtime_id() u64 {
+	return s.runtime_id
+}
+
+pub fn (s &NetworkSession) is_dead() bool {
+	return s.player.is_dead()
 }
 
 pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {

@@ -204,7 +204,8 @@ fn (mut s NetworkSession) save_player_data() {
 		}
 	}
 	current := s.player.movement()
-	playerdb.save_player(s.player_data_dir(), s.player_key(), playerdb.PlayerData{
+	mut provider := s.hub.player_data_provider
+	provider.save(s.player_key(), playerdb.PlayerData{
 		x:              current.position.x
 		y:              current.position.y
 		z:              current.position.z

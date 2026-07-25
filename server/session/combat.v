@@ -13,13 +13,14 @@ const sound_attack_strong = 'game.player.attack.strong'
 
 // PlayerAttackTask is handle_attack's cross session mutation on the attacker's
 // owning world runtime. Attacker and victim must both be members of that world;
-// otherwise the attack has no side effects.
+// otherwise the attack has no side effects. The victim may be a player or a
+// registered mob. Resolved through the unified actor lookup since a player's
+// melee attack has no reason to be restricted to player-vs-player.
 struct PlayerAttackTask {
 	attacker_runtime_id u64
 	attacker_epoch      i64
 	victim_runtime_id   u64
 	damage              f32
-	knockback_from      types.Vector3
 	knockback_force     f32 = knockback_horizontal
 	knockback_height    f32 = knockback_vertical
 	critical            bool
@@ -31,12 +32,24 @@ fn (t PlayerAttackTask) name() string {
 
 fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	mut attacker := tx.player_for_epoch(t.attacker_runtime_id, t.attacker_epoch) or { return }
-	victim_entry := tx.wr.players[t.victim_runtime_id] or { return }
-	mut victim := victim_entry.session
-	if victim.player.is_dead() || !victim.spawned
-		|| victim.player.game_mode() == protocol.game_type_creative
-		|| victim.player.game_mode() == protocol.game_type_spectator {
+	victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
+	if victim_actor.is_dead() {
 		return
+	}
+	// The reach check runs here, not before submission.
+	own := attacker.effective_position()
+	vp := victim_actor.current_position()
+	dx := own.x - vp.x
+	dy := own.y - vp.y
+	dz := own.z - vp.z
+	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
+		return
+	}
+	if victim_actor is NetworkSession {
+		if !victim_actor.spawned || victim_actor.player.game_mode() == protocol.game_type_creative
+			|| victim_actor.player.game_mode() == protocol.game_type_spectator {
+			return
+		}
 	}
 	mut ctx := event.new_context(event.AttackData{
 		player:            attacker
@@ -51,19 +64,20 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		return
 	}
 	tx.damage_held_item(mut attacker, 1)
-	victim.apply_knockback(t.knockback_from, ctx.val.knockback_force, ctx.val.knockback_height)
-	victim.apply_hurt(mut tx.wr, ctx.val.damage, attacker.player.identity.display_name)
+	damage_actor(mut tx.wr, t.victim_runtime_id, ctx.val.damage,
+		attacker.player.identity.display_name, t.attacker_runtime_id, own, ctx.val.knockback_force,
+		ctx.val.knockback_height)
 	if t.critical {
 		tx.wr.broadcast_world(&protocol.AnimatePacket{
 			action:           protocol.animate_action_critical_hit
-			actor_runtime_id: victim.runtime_id
+			actor_runtime_id: victim_actor.runtime_id()
 		})
 		tx.wr.broadcast_world(&protocol.LevelSoundEventPacket{
 			sound:           sound_attack_strong
-			position:        victim.current_position()
+			position:        victim_actor.current_position()
 			extra_data:      -1
 			entity_type:     'minecraft:player'
-			actor_unique_id: i64(victim.runtime_id)
+			actor_unique_id: i64(victim_actor.runtime_id())
 		})
 	}
 }
@@ -74,18 +88,6 @@ const max_attack_reach_sq = f32(8.0 * 8.0)
 
 fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	if s.player.is_dead() || target_runtime_id == s.runtime_id {
-		return
-	}
-	mut victim := s.hub.session_by_runtime(target_runtime_id) or { return }
-	// effective_position, not player.position(): see its own comment.
-	// An attack packet immediately following a movement update in the same
-	// batch must be checked against where the attacker just said they are.
-	own := s.effective_position()
-	vp := victim.current_position()
-	dx := own.x - vp.x
-	dy := own.y - vp.y
-	dz := own.z - vp.z
-	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
 		return
 	}
 	// Damage comes from the server-side inventory at the held slot, never the
@@ -106,7 +108,6 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 		attacker_epoch:      s.world_binding().epoch
 		victim_runtime_id:   target_runtime_id
 		damage:              damage
-		knockback_from:      own
 		critical:            critical
 	}) {
 		s.log.debug('Dropped attack task - actor queue full')
@@ -336,7 +337,7 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 // current_position is a thin forwarding accessor kept for call site
 // continuity, the actual lock lives on Player (see player.Player's
 // movement()/position() comment).
-fn (mut s NetworkSession) current_position() types.Vector3 {
+fn (s &NetworkSession) current_position() types.Vector3 {
 	return s.player.position()
 }
 

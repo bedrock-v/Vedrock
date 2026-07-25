@@ -3,6 +3,7 @@ module session
 import time
 import protocol
 import protocol.types
+import server.entity
 import server.event
 import server.internal.gamedata
 import server.internal.auth
@@ -377,4 +378,85 @@ fn test_damage_entity_never_reaches_another_worlds_player() {
 	host_a.damage_entity(session_b.runtime_id, 5.0, 'test', 0, pos)
 
 	assert session_b.player.health() == before_health
+}
+
+fn test_entity_hit_test_matches_players_and_mobs() {
+	mut hub := new_hub(gamedata.GameData{})
+	world_a := db.new_world('world-a', none, 'void', world.overworld)
+	hub.add_world(world_a)
+	mut wr := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	player_pos := types.Vector3{0.0, 10.0, 0.0}
+	mob_pos := types.Vector3{20.0, 10.0, 0.0}
+	mut transport := &FakeTransport{}
+	session := entity_isolation_test_session(mut hub, mut transport, mut wr, player_pos)
+	mob := wr.entities.spawn(entity.PassiveBehaviour{
+		network_id: 'minecraft:cow'
+	}, mob_pos)
+
+	mut host := WorldEntityHost{
+		wr: wr
+	}
+	hit_player := host.entity_hit_test(player_pos, 0) or { panic('expected a hit at player_pos') }
+	assert hit_player == session.runtime_id
+	hit_mob := host.entity_hit_test(mob_pos, 0) or { panic('expected a hit at mob_pos') }
+	assert hit_mob == mob.runtime_id
+}
+
+fn test_entity_position_resolves_both_player_and_mob() {
+	mut hub := new_hub(gamedata.GameData{})
+	world_a := db.new_world('world-a', none, 'void', world.overworld)
+	hub.add_world(world_a)
+	mut wr := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	player_pos := types.Vector3{1.0, 5.0, 2.0}
+	mob_pos := types.Vector3{9.0, 6.0, 3.0}
+	mut transport := &FakeTransport{}
+	session := entity_isolation_test_session(mut hub, mut transport, mut wr, player_pos)
+	mob := wr.entities.spawn(entity.PassiveBehaviour{
+		network_id: 'minecraft:pig'
+	}, mob_pos)
+
+	mut host := WorldEntityHost{
+		wr: wr
+	}
+	got_player_pos := host.entity_position(session.runtime_id) or {
+		panic('expected player position')
+	}
+	assert got_player_pos == player_pos
+	got_mob_pos := host.entity_position(mob.runtime_id) or { panic('expected mob position') }
+	assert got_mob_pos == mob_pos
+	if _ := host.entity_position(99999) {
+		assert false
+	}
+}
+
+fn test_nearest_player_ignores_mobs_in_same_world() {
+	mut hub := new_hub(gamedata.GameData{})
+	world_a := db.new_world('world-a', none, 'void', world.overworld)
+	hub.add_world(world_a)
+	mut wr := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	origin := types.Vector3{0.0, 10.0, 0.0}
+	player_pos := types.Vector3{50.0, 10.0, 0.0}
+	mut transport := &FakeTransport{}
+	session := entity_isolation_test_session(mut hub, mut transport, mut wr, player_pos)
+	wr.entities.spawn(entity.PassiveBehaviour{
+		network_id: 'minecraft:chicken'
+	}, types.Vector3{1.0, 10.0, 0.0})
+
+	mut host := WorldEntityHost{
+		wr: wr
+	}
+	rid := host.nearest_player(origin, 200.0) or { panic('expected to find the player') }
+	assert rid == session.runtime_id
 }

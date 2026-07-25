@@ -20,7 +20,7 @@ pub:
 // genuine, current OpenID token issued by Microsoft for this audience (see
 // parse_identity_token). Treat display_name and xuid as unverified unless
 // xbox_authenticated is true.
-pub fn parse_login_chain(auth_info_json string, require_xbox bool, mut verifier OidcVerifier) !Identity {
+pub fn parse_login_chain(auth_info_json string, require_xbox bool, mut verifier Verifier) !Identity {
 	root := json2.decode[json2.Any](auth_info_json)!.as_map()
 	chain := extract_chain(root)!
 	mut identity := Identity{}
@@ -45,7 +45,7 @@ pub fn parse_login_chain(auth_info_json string, require_xbox bool, mut verifier 
 // against Microsoft's current published keys and validated the issuer,
 // audience and expiry. A present xid claim proves nothing by itself, since
 // the client controls it.
-fn parse_identity_token(mut verifier OidcVerifier, token string) !Identity {
+fn parse_identity_token(mut verifier Verifier, token string) !Identity {
 	unverified := decode_jwt(token)!.payload
 	xuid := map_string(unverified, 'xid')
 	mut authenticated := false

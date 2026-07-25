@@ -2,8 +2,7 @@
 # Binaries for programs and plugins
 main
 # while testing example (main.v)
-vedrock003_dev
-vedrock003-dev
+vedrock
 *.exe
 *.exe~
 *.so

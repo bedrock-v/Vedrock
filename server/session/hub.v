@@ -21,6 +21,7 @@ import server.resource
 import server.permission
 import server.enchant
 import server.internal.auth
+import server.player.playerdb
 
 @[heap]
 pub struct Hub {
@@ -45,12 +46,8 @@ mut:
 	// world_registry owns loaded world runtimes and their lifecycle. Hub
 	// routes named lookups through it instead of storing raw worlds directly.
 	world_registry &WorldRegistry = unsafe { nil }
-	// oidc_verifier checks modern Xbox Live single token logins (see
-	// auth.parse_identity_token). Built once here so its discovered
-	// issuer and JWKS cache are shared across every login for the life of
-	// the process.
-	oidc_verifier &auth.OidcVerifier = auth.new_oidc_verifier()
 pub mut:
+	oidc_verifier      auth.Verifier
 	data               gamedata.GameData
 	items              item.Registry                = item.new_registry()
 	blocks             block.Registry               = block.new_registry()
@@ -84,6 +81,11 @@ pub mut:
 	// conf.Config.config_file, not a shared default) so runtime difficulty
 	// changes persist back to the correct per instance file.
 	conf_file string
+	// player_data_provider stores/loads player save data. Defaults to
+	// FileProvider(players_dir) unless HubOptions supplied one; server.new()
+	// overrides the default's directory with conf.Config.players_dir once
+	// that's known, the same way it overrides ops/whitelist/difficulty.
+	player_data_provider playerdb.Provider
 }
 
 // current_tick is the global tick counter, published directly from
@@ -121,9 +123,11 @@ pub fn (mut h Hub) set_load(v f64) {
 @[params]
 pub struct HubOptions {
 pub:
-	commands        ?cmd.Registry
-	entity_registry ?entity.Registry
-	world_factory   ?db.Factory
+	commands             ?cmd.Registry
+	entity_registry      ?entity.Registry
+	world_factory        ?db.Factory
+	player_data_provider ?playerdb.Provider
+	auth_verifier        ?auth.Verifier
 }
 
 pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
@@ -139,18 +143,32 @@ pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
 		r
 	}
 
+	mut player_data_provider := playerdb.Provider(playerdb.FileProvider{
+		dir: players_dir
+	})
+	if pdp := opts.player_data_provider {
+		player_data_provider = pdp
+	}
+
+	mut auth_verifier := auth.Verifier(auth.new_oidc_verifier())
+	if av := opts.auth_verifier {
+		auth_verifier = av
+	}
+
 	mut hub := &Hub{
-		sessions:        map[u64]&NetworkSession{}
-		pending_names:   map[string]bool{}
-		mutex:           sync.new_mutex()
-		data:            data
-		commands:        commands
-		events:          event.new_bus()
-		scheduler:       scheduler.new_scheduler()
-		entity_registry: registry
-		world_factory:   opts.world_factory
-		started_at:      time.now().unix()
-		world_registry:  new_world_registry()
+		sessions:             map[u64]&NetworkSession{}
+		pending_names:        map[string]bool{}
+		mutex:                sync.new_mutex()
+		data:                 data
+		commands:             commands
+		events:               event.new_bus()
+		scheduler:            scheduler.new_scheduler()
+		entity_registry:      registry
+		world_factory:        opts.world_factory
+		started_at:           time.now().unix()
+		world_registry:       new_world_registry()
+		player_data_provider: player_data_provider
+		oidc_verifier:        auth_verifier
 	}
 	hub.register_palette_fallbacks()
 	return hub

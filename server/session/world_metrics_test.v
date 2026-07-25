@@ -150,7 +150,7 @@ fn test_metrics_reports_player_and_entity_counts() {
 	}, types.Vector3{})
 
 	ground_truth_players := world_call[int](mut wr, fn (mut tx WorldTx) int {
-		return tx.wr.players.len
+		return int(tx.wr.entities.player_actor_count())
 	}) or { panic('read rejected - world unexpectedly stopped') }
 
 	m := wr.metrics()

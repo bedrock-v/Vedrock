@@ -29,7 +29,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 
 fn wr_has_player(mut wr WorldRuntime, rid u64) bool {
 	return world_call[bool](mut wr, fn [rid] (mut tx WorldTx) bool {
-		return rid in tx.wr.players
+		return tx.wr.entities.is_player_actor(rid)
 	}) or { false }
 }
 

@@ -24,13 +24,15 @@ fn (mut h WorldEntityHost) broadcast(p protocol.Packet) {
 
 fn (mut h WorldEntityHost) broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet) {
 	r2 := radius * radius
-	for mut entry in h.wr.players.values() {
-		pos := entry.session.current_position()
+	for mut a in h.wr.entities.player_actors() {
+		pos := a.current_position()
 		dx := pos.x - x
 		dy := pos.y - y
 		dz := pos.z - z
 		if dx * dx + dy * dy + dz * dz <= r2 {
-			entry.session.deliver(p)
+			if mut a is NetworkSession {
+				a.deliver(p)
+			}
 		}
 	}
 }
@@ -71,60 +73,66 @@ fn (mut h WorldEntityHost) neighbor_models(x int, y int, z int) map[int]world.Bl
 	return out
 }
 
+// entity_position is the unified lookup. Any registered actor, mob or
+// player, resolved through Manager's storage. current_position() is
+// one of entity.Actor's own three methods, so no narrowing is needed here
+// at all.
 fn (mut h WorldEntityHost) entity_position(runtime_id u64) ?types.Vector3 {
-	for mut entry in h.wr.players.values() {
-		if entry.session.runtime_id == runtime_id {
-			return entry.session.current_position()
-		}
-	}
-	e := h.wr.entities.by_runtime_id(runtime_id) or { return none }
-	return e.pos
+	a := h.wr.entities.actor_by_runtime_id(runtime_id) or { return none }
+	return a.current_position()
 }
 
 fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
-	if rid := h.wr.entities.hit_test(pos, exclude_runtime_id) {
-		return rid
-	}
-	for mut entry in h.wr.players.values() {
-		if entry.session.runtime_id == exclude_runtime_id {
+	for a in h.wr.entities.all_actors() {
+		if a.runtime_id() == exclude_runtime_id || a.is_dead() {
 			continue
 		}
-		tp := entry.session.current_position()
-		feet_y := tp.y - player_eye_height
-		if pos.x >= tp.x - player_half_width && pos.x <= tp.x + player_half_width
-			&& pos.z >= tp.z - player_half_width && pos.z <= tp.z + player_half_width
-			&& pos.y >= feet_y && pos.y <= feet_y + player_height {
-			return entry.session.runtime_id
+		p := a.current_position()
+		is_mob := a is entity.Entity
+		half_width := if is_mob { entity.entity_half_width } else { player_half_width }
+		box_height := if is_mob { entity.entity_height } else { player_height }
+		min_y := if is_mob { p.y } else { p.y - player_eye_height }
+		if pos.x >= p.x - half_width && pos.x <= p.x + half_width && pos.z >= p.z - half_width
+			&& pos.z <= p.z + half_width && pos.y >= min_y && pos.y <= min_y + box_height {
+			return a.runtime_id()
 		}
 	}
 	return none
 }
 
+fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
+	mut a := wr.entities.actor_by_runtime_id(runtime_id) or { return }
+	if mut a is NetworkSession {
+		a.apply_knockback(knockback_from, knockback_force, knockback_height)
+		a.apply_hurt(mut wr, amount, source_name)
+		return
+	}
+	mut host := WorldEntityHost{
+		wr: wr
+	}
+	wr.entities.damage(runtime_id, amount, true, mut host, source_runtime_id)
+}
+
 // damage_entity applies mob/projectile-originated damage to a player or
 // another entity on the owning world runtime.
 fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
-	for mut entry in h.wr.players.values() {
-		if entry.session.runtime_id == runtime_id {
-			entry.session.apply_knockback(knockback_from, knockback_horizontal, knockback_vertical)
-			entry.session.apply_hurt(mut h.wr, amount, source_name)
-			return
-		}
-	}
-	h.wr.entities.damage(runtime_id, amount, true, mut h, source_runtime_id)
+	damage_actor(mut h.wr, runtime_id, amount, source_name, source_runtime_id, knockback_from,
+		knockback_horizontal, knockback_vertical)
 }
 
+// nearest_player scans only registered player actors.
 fn (mut h WorldEntityHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 	mut best_rid := u64(0)
 	mut best_dist_sq := radius * radius
 	mut found := false
-	for mut entry in h.wr.players.values() {
-		tp := entry.session.current_position()
+	for a in h.wr.entities.player_actors() {
+		tp := a.current_position()
 		dx := tp.x - pos.x
 		dy := tp.y - pos.y
 		dz := tp.z - pos.z
 		dist_sq := dx * dx + dy * dy + dz * dz
 		if dist_sq <= best_dist_sq {
-			best_rid = entry.session.runtime_id
+			best_rid = a.runtime_id()
 			best_dist_sq = dist_sq
 			found = true
 		}

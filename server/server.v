@@ -16,6 +16,7 @@ import server.world
 import server.resource
 import server.permission
 import server.crash
+import server.player.playerdb
 import sync.stdatomic
 
 pub const ticks_per_second = 20
@@ -174,6 +175,13 @@ pub fn new(opts Options) !&Server {
 	hub.whitelist = permission.load_whitelist(cfg.whitelist_file) or {
 		log.warn('Failed to load whitelist: ${err}')
 		permission.Whitelist{}
+	}
+	// Only override the default provider's directory, a caller who already
+	// supplied their own player_data_provider knows what they're doing.
+	if opts.hub_options.player_data_provider == none {
+		hub.player_data_provider = playerdb.FileProvider{
+			dir: cfg.players_dir
+		}
 	}
 	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
 		hub.palette = palette

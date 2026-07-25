@@ -124,7 +124,11 @@ fn test_accepts_saved_pos_supported_by_world_overr() {
 	defer {
 		os.rmdir_all(dir) or {}
 	}
-	mut hub := new_hub(gamedata.GameData{})
+	mut hub := new_hub(gamedata.GameData{},
+		player_data_provider: playerdb.FileProvider{
+			dir: dir
+		}
+	)
 	target := db.new_world('void', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 10, 0, world.bedrock.network_id)
@@ -138,9 +142,8 @@ fn test_accepts_saved_pos_supported_by_world_overr() {
 		gamemode: protocol.game_type_survival
 	}) or { panic('save failed: ${err}') }
 	mut transport := &FakeTransport{}
-	mut s := start_game_test_session(mut hub, mut transport, target, world.VoidGenerator{}, conf.Config{
-		players_dir: dir
-	})
+	mut s :=
+		start_game_test_session(mut hub, mut transport, target, world.VoidGenerator{}, conf.Config{})
 
 	s.start_game()!
 

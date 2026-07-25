@@ -8,8 +8,8 @@ import server.block
 
 // obstructed_by_entity reports whether pos overlaps a player registered in
 // wr, including the acting player's own current or pending body position.
-// Actor only: reads wr.players directly, so must only be called from
-// within a WorldTx operation.
+// Actor only: reads the world's actor registry directly, so must only be
+// called from within a WorldTx operation.
 fn obstructed_by_entity(wr &WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) (bool, bool) {
 	block_min_x := f32(pos.x)
 	block_max_x := f32(pos.x) + 1
@@ -18,29 +18,29 @@ fn obstructed_by_entity(wr &WorldRuntime, pos types.BlockPosition, acting_runtim
 	block_min_z := f32(pos.z)
 	block_max_z := f32(pos.z) + 1
 	mut obstructed := false
-	for mut entry in wr.players.values() {
-		tp := if entry.session.runtime_id == acting_runtime_id {
-			entry.session.effective_position()
-		} else {
-			entry.session.current_position()
+	for a in wr.entities.player_actors() {
+		if a is NetworkSession {
+			tp := if a.runtime_id == acting_runtime_id {
+				a.effective_position()
+			} else {
+				a.current_position()
+			}
+			feet_y := tp.y - player_eye_height
+			min_x := tp.x - player_half_width
+			max_x := tp.x + player_half_width
+			min_y := feet_y
+			max_y := feet_y + player_height
+			min_z := tp.z - player_half_width
+			max_z := tp.z + player_half_width
+			overlaps := min_x < block_max_x && max_x > block_min_x && min_y < block_max_y
+				&& max_y > block_min_y && min_z < block_max_z && max_z > block_min_z
+			if overlaps {
+				obstructed = true
+				if a.runtime_id != acting_runtime_id {
+					return true, false
+				}
+			}
 		}
-		feet_y := tp.y - player_eye_height
-		min_x := tp.x - player_half_width
-		max_x := tp.x + player_half_width
-		min_y := feet_y
-		max_y := feet_y + player_height
-		min_z := tp.z - player_half_width
-		max_z := tp.z + player_half_width
-		overlaps := min_x < block_max_x && max_x > block_min_x && min_y < block_max_y
-			&& max_y > block_min_y && min_z < block_max_z && max_z > block_min_z
-		if !overlaps {
-			continue
-		}
-		obstructed = true
-		if entry.session.runtime_id == acting_runtime_id {
-			continue
-		}
-		return true, false
 	}
 	return obstructed, true
 }

@@ -3,6 +3,7 @@ module session
 import time
 import protocol
 import protocol.types
+import server.entity
 import server.event
 import server.internal.gamedata
 import server.player
@@ -58,25 +59,22 @@ fn test_is_critical_requires_falling_and_survival() {
 
 fn test_handle_attack_rejects_out_of_reach() {
 	mut hub := new_hub(gamedata.GameData{})
-	mut attacker := &NetworkSession{
-		player:     make_combat_test_player('Alex', 20, 0)
-		runtime_id: 1
-		hub:        hub
+	world_a := db.new_world('world-a', none, 'flat', world.overworld)
+	hub.add_world(world_a)
+	mut wr := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
+	defer {
+		hub.close_worlds()
 	}
-	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
-	mut victim := &NetworkSession{
-		player:     make_combat_test_player('Steve', 20, 0)
-		runtime_id: 2
-		hub:        hub
-		spawned:    true
-	}
-	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
-	hub.add(attacker)
-	hub.add(victim)
 
-	// Out of reach returns before a DamageJob is ever submitted, so this is
-	// deterministic without needing to poll the actor thread.
-	attacker.handle_attack(2)!
+	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, 0)
+	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, 0)
+	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
+	attacker.handle_attack(victim.runtime_id)!
+	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		return true
+	}) or { panic('sync barrier rejected') }
+
 	assert victim.player.health() == 20
 }
 
@@ -129,6 +127,58 @@ struct CancelAttackHandler {
 
 fn (mut h CancelAttackHandler) on_player_attack(mut ctx event.Context[event.AttackData]) {
 	ctx.cancel()
+}
+
+fn test_handle_attack_damages_a_mob() {
+	mut hub := new_hub(gamedata.GameData{})
+	world_a := db.new_world('world-a', none, 'flat', world.overworld)
+	hub.add_world(world_a)
+	mut wr := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, 0)
+	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	mob := wr.entities.spawn(entity.PassiveBehaviour{
+		network_id: 'minecraft:cow'
+	}, types.Vector3{1.0, 0.0, 0.0})
+
+	attacker.handle_attack(mob.runtime_id)!
+	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		return true
+	}) or { panic('sync barrier rejected') }
+
+	still_alive := wr.entities.by_runtime_id(mob.runtime_id) or {
+		panic('expected mob still registered')
+	}
+	assert still_alive.health < 20.0
+}
+
+fn test_handle_attack_rejects_a_mob_out_of_reach() {
+	mut hub := new_hub(gamedata.GameData{})
+	world_a := db.new_world('world-a', none, 'flat', world.overworld)
+	hub.add_world(world_a)
+	mut wr := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, 0)
+	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	mob := wr.entities.spawn(entity.PassiveBehaviour{
+		network_id: 'minecraft:cow'
+	}, types.Vector3{100.0, 0.0, 0.0})
+
+	attacker.handle_attack(mob.runtime_id)!
+	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		return true
+	}) or { panic('sync barrier rejected') }
+
+	still_alive := wr.entities.by_runtime_id(mob.runtime_id) or {
+		panic('expected mob still registered')
+	}
+	assert still_alive.health == 20.0
 }
 
 fn apply_hurt_test_world(mut hub Hub) &WorldRuntime {

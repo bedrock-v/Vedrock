@@ -104,7 +104,7 @@ fn (t PlayerMoveTask) name() string {
 fn (t PlayerMoveTask) run(mut tx WorldTx) {
 	mut s := tx.wr.hub.session_by_runtime(t.runtime_id) or { return }
 	for {
-		if s.world_binding().epoch != t.epoch || t.runtime_id !in tx.wr.players {
+		if s.world_binding().epoch != t.epoch || !tx.wr.entities.is_player_actor(t.runtime_id) {
 			s.movement_mutex.lock()
 			s.movement_scheduled = false
 			s.movement_mutex.unlock()

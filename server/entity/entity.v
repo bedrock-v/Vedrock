@@ -15,8 +15,8 @@ const drag = f32(0.02)
 // most mobs. Position is the box centre on x/z and the feet on y, matching the
 // AddActorPacket convention. Kept as a single size - per-type boxes can come
 // later.
-const entity_half_width = f32(0.3)
-const entity_height = f32(1.8)
+pub const entity_half_width = f32(0.3)
+pub const entity_height = f32(1.8)
 
 // Entity is a non-player actor living in the world - a mob, item or projectile.
 // It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable
@@ -47,9 +47,14 @@ pub mut:
 	effects       effect.Manager
 }
 
-// position returns the entity's current position.
-pub fn (e &Entity) position() types.Vector3 {
+// current_position returns the entity's current position.
+pub fn (e &Entity) current_position() types.Vector3 {
 	return e.pos
+}
+
+// runtime_id satisfies entity.Actor.
+pub fn (e &Entity) runtime_id() u64 {
+	return e.runtime_id
 }
 
 // is_dead reports whether the entity is scheduled for removal.

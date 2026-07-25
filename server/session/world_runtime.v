@@ -64,10 +64,6 @@ mut:
 	stop chan bool = chan bool{cap: 1}
 	done chan bool = chan bool{cap: 1}
 
-	// Players currently registered with this world, keyed by runtime ID.
-	// Access only from this world's runtime thread and modify through WorldTx.
-	players map[u64]WorldPlayerEntry
-
 	// Authoritative simulation tick, owned exclusively by the actor thread.
 	current_tick i64
 
@@ -160,19 +156,23 @@ fn update_block_packet(x int, y int, z int, id int) &protocol.UpdateBlockPacket 
 
 // broadcast_world sends p to every player registered with this world.
 // Call it only from this world's runtime thread, usually inside a WorldTx
-// or world_call, because the player registry is not protected by a lock.
+// or world_call, because the actor registry is not protected by a lock.
 fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
-	for mut entry in wr.players.values() {
-		entry.session.deliver(p)
+	for mut a in wr.entities.player_actors() {
+		if mut a is NetworkSession {
+			a.deliver(p)
+		}
 	}
 }
 
 // broadcast_world_except sends p to every player in this world except the
 // given runtime ID. Call it only from this world's runtime thread.
 fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
-	for mut entry in wr.players.values() {
-		if entry.session.runtime_id != except_runtime_id {
-			entry.session.deliver(p)
+	for mut a in wr.entities.player_actors() {
+		if mut a is NetworkSession {
+			if a.runtime_id != except_runtime_id {
+				a.deliver(p)
+			}
 		}
 	}
 }
@@ -451,7 +451,7 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 // Called only from register_player/deregister_player, both actor only.
 fn (mut wr WorldRuntime) publish_player_count() {
 	mut count := wr.published_player_count
-	count.store(i64(wr.players.len))
+	count.store(wr.entities.player_actor_count())
 }
 
 // advance_tick owns one centralized catch-up loop - subsystems never run
@@ -503,9 +503,11 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 // already visits every registered player once per simulated step and a
 // separate pass would repeat that work purely for metrics.
 fn (mut tx WorldTx) tick_effects() {
-	for mut entry in tx.wr.players.values() {
-		entry.session.tick_effects(mut tx.wr)
-		tx.wr.sample_outbound_depth(int(entry.session.outbound.len))
+	for mut a in tx.wr.entities.player_actors() {
+		if mut a is NetworkSession {
+			a.tick_effects(mut tx.wr)
+			tx.wr.sample_outbound_depth(int(a.outbound.len))
+		}
 	}
 }
 

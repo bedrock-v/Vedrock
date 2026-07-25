@@ -98,7 +98,11 @@ fn test_save_data_preserves_inventory_slot_numbers() {
 	defer {
 		os.rmdir_all(dir) or {}
 	}
-	mut hub := new_hub(gamedata.GameData{})
+	mut hub := new_hub(gamedata.GameData{},
+		player_data_provider: playerdb.FileProvider{
+			dir: dir
+		}
+	)
 	mut sess := &NetworkSession{
 		player: &player.Player{
 			identity: auth.Identity{
@@ -149,7 +153,11 @@ fn test_save_data_preserves_inventory_extra_data() {
 	defer {
 		os.rmdir_all(dir) or {}
 	}
-	mut hub := new_hub(gamedata.GameData{})
+	mut hub := new_hub(gamedata.GameData{},
+		player_data_provider: playerdb.FileProvider{
+			dir: dir
+		}
+	)
 	extra := [u8(0x0a), 0x01, 0x02, 0x03]
 	mut sess := &NetworkSession{
 		player: &player.Player{
@@ -194,24 +202,30 @@ fn test_save_data_preserves_inventory_extra_data() {
 	assert slot_stack.raw_extra_data == extra
 }
 
-fn test_player_data_uses_session_configured_players_dir() {
+fn test_player_data_uses_the_owning_hubs_provider() {
 	dir_a := os.join_path(os.vtmp_dir(), 'vedrock_players_a_${os.getpid()}')
 	dir_b := os.join_path(os.vtmp_dir(), 'vedrock_players_b_${os.getpid()}')
 	defer {
 		os.rmdir_all(dir_a) or {}
 		os.rmdir_all(dir_b) or {}
 	}
-	mut hub := new_hub(gamedata.GameData{})
+	mut hub_a := new_hub(gamedata.GameData{},
+		player_data_provider: playerdb.FileProvider{
+			dir: dir_a
+		}
+	)
+	mut hub_b := new_hub(gamedata.GameData{},
+		player_data_provider: playerdb.FileProvider{
+			dir: dir_b
+		}
+	)
 	mut sess_a := &NetworkSession{
 		player: &player.Player{
 			identity: auth.Identity{
 				display_name: 'Alex'
 			}
 		}
-		hub:    hub
-		cfg:    conf.Config{
-			players_dir: dir_a
-		}
+		hub:    hub_a
 		log:    logger.new(.info)
 	}
 	mut sess_b := &NetworkSession{
@@ -220,10 +234,7 @@ fn test_player_data_uses_session_configured_players_dir() {
 				display_name: 'Alex'
 			}
 		}
-		hub:    hub
-		cfg:    conf.Config{
-			players_dir: dir_b
-		}
+		hub:    hub_b
 		log:    logger.new(.info)
 	}
 	sess_a.player.reset_position(types.Vector3{1.0, 2.0, 3.0})

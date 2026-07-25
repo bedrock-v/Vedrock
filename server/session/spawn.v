@@ -6,7 +6,6 @@ import protocol.enums
 import protocol.types
 import nbt
 import server.event
-import server.player.playerdb
 import server.world
 import server.world.db
 
@@ -79,7 +78,7 @@ fn (mut s NetworkSession) start_game() ! {
 	mut spawn_pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
 	mut spawn_pitch := f32(0.0)
 	mut spawn_yaw := f32(0.0)
-	if data := playerdb.load_player(s.player_data_dir(), s.player_key()) {
+	if data := s.hub.player_data_provider.load(s.player_key()) {
 		saved_pos := types.Vector3{data.x, data.y, data.z}
 		if safe_player_position_in_world(s.world, s.generator, saved_pos) {
 			spawn_pos = saved_pos
@@ -640,9 +639,11 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 		add_player_pkt := s.add_player_packet()
 		deliver_packets := world_call[[]protocol.Packet](mut wr, fn [s, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
 			mut out := []protocol.Packet{}
-			for entry in tx.wr.players.values() {
-				out << entry.session.player_list_add_packet()
-				out << entry.session.add_player_packet()
+			for a in tx.wr.entities.player_actors() {
+				if a is NetworkSession {
+					out << a.player_list_add_packet()
+					out << a.add_player_packet()
+				}
 			}
 			tx.register_player(s)
 			tx.wr.broadcast_world(list_add_pkt)
