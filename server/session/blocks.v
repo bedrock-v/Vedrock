@@ -320,12 +320,61 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 	s.send_slot_update(s.held_slot, s.held_item)
 }
 
-// use_held_item_in_air runs a UseableItem's on use behaviour (e.g. goat_horn's sound).
+// use_held_item_in_air runs a UseableItem or ConsumableItem's behaviour when
+// the player right-clicks in air. For potions the drinking animation plays
+// client-side; the server applies effects as soon as the click arrives.
+// TODO: defer ConsumableItem processing until the client's use-duration
+// (32 ticks for potions) elapses, once the protocol carries use_duration.
 fn (mut s NetworkSession) use_held_item_in_air() {
 	if s.dead || !s.can_interact() {
 		return
 	}
 	stack, name := s.held_stack_and_name()
+
+	// Splash/lingering potions  -  throw as projectile.
+	if name == 'minecraft:splash_potion' || name == 'minecraft:lingering_potion' {
+		mut use_ctx := event.new_context(event.ItemUseData{
+			player:    s
+			item_name: name
+			meta:      stack.meta
+		})
+		s.hub.events.item_use(mut use_ctx)
+		if use_ctx.is_cancelled() {
+			return
+		}
+		s.throw_splash_potion(name, stack.meta)
+		return
+	}
+
+	// ConsumableItem  -  potions, drinkables.
+	if consume := s.hub.items.consume_result(name, stack.meta) {
+		mut use_ctx := event.new_context(event.ItemUseData{
+			player:    s
+			item_name: name
+			meta:      stack.meta
+		})
+		s.hub.events.item_use(mut use_ctx)
+		if use_ctx.is_cancelled() {
+			return
+		}
+		for e in consume.effects {
+			s.apply_add_effect(e)
+		}
+		if consume.sound != '' {
+			s.hub.broadcast(&protocol.LevelSoundEventPacket{
+				sound:           consume.sound
+				position:        s.current_position()
+				extra_data:      -1
+				entity_type:     'minecraft:player'
+				actor_unique_id: i64(s.runtime_id)
+			})
+		}
+		// Replace the held potion with the empty bottle (or nothing in creative).
+		s.replace_held_stack_with(consume.replacement_id, consume.replacement_count)
+		return
+	}
+
+	// UseableItem  -  goat horn etc.
 	if cooldown := s.hub.items.cooldown_ticks(name) {
 		if s.hub.current_tick < s.cooldown_until[name] {
 			return
@@ -704,6 +753,43 @@ fn (mut s NetworkSession) consume_held_item() {
 	} else {
 		s.inv_slots.delete(s.held_slot)
 	}
+	s.held_item = wrapped
+	s.send_slot_update(s.held_slot, wrapped)
+}
+
+// replace_held_stack_with swaps the held item stack for replacement_id (count
+// items). Does nothing in creative mode. An empty replacement_id leaves the
+// slot empty  -  used after drinking a potion to give back a glass bottle.
+fn (mut s NetworkSession) replace_held_stack_with(replacement_id string, count int) {
+	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_creative_spectator {
+		return
+	}
+	if replacement_id == '' || count <= 0 {
+		// No replacement  -  just remove the held stack.
+		s.consume_held_item()
+		return
+	}
+	// Remove the current held item.
+	_, net := s.inventory_stack_at(s.held_slot)
+	if net != 0 {
+		s.inv_stacks.delete(net)
+		s.inv_slots.delete(s.held_slot)
+	}
+	numeric_id := s.hub.data.item_id(replacement_id)
+	if numeric_id == 0 && replacement_id != 'minecraft:air' {
+		s.held_item = empty_stack()
+		s.send_slot_update(s.held_slot, s.held_item)
+		return
+	}
+	replacement := types.ItemStack{
+		id:               numeric_id
+		count:            count
+		block_runtime_id: 0
+		raw_extra_data:   []u8{}
+	}
+	new_net := s.track_stack(replacement)
+	s.inv_slots[s.held_slot] = new_net
+	wrapped := wrap_stack_id(replacement, new_net)
 	s.held_item = wrapped
 	s.send_slot_update(s.held_slot, wrapped)
 }

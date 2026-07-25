@@ -23,11 +23,15 @@ mut:
 	last_damage_amount     f32
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
-	players               map[u64]types.Vector3
-	despawn_notify_calls   int
-	last_despawn_id        string
-	pickup_take  int
-	pickup_calls int
+players              map[u64]types.Vector3
+	despawn_notify_calls int
+	last_despawn_id      string
+	pickup_take          int
+	pickup_calls         int
+	// Splash potion test support.
+	effects_applied   map[u64][]effect.Effect
+	entities_near_ids []u64
+	undead_ids        map[u64]bool
 }
 
 fn block_key(x int, y int, z int) string {
@@ -82,9 +86,28 @@ fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string
 	h.last_damage_amount = amount
 }
 
+fn (mut h FakeHost) add_effect_to(runtime_id u64, ef effect.Effect) {
+	if runtime_id !in h.effects_applied {
+		h.effects_applied[runtime_id] = []effect.Effect{}
+	}
+	h.effects_applied[runtime_id] << ef
+}
+
+fn (mut h FakeHost) entities_near(pos types.Vector3, radius f32) []u64 {
+	return h.entities_near_ids
+}
+
 fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
 	h.despawn_notify_calls++
 	h.last_despawn_id = identifier
+}
+
+fn (mut h FakeHost) spawn_behaviour(b Behaviour, pos types.Vector3) &Entity {
+	return &Entity{}
+}
+
+fn (mut h FakeHost) is_undead(runtime_id u64) bool {
+	return h.undead_ids[runtime_id] or { false }
 }
 
 fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
@@ -471,4 +494,187 @@ fn test_hostile_behaviour_gives_up_target_out_of_range() {
 	e.set_velocity(types.Vector3{})
 	m.tick()
 	assert e.velocity.x == 0 // gave up, back to wandering
+}
+
+// --- Splash potion tests ---
+
+fn test_splash_potion_spawns_and_has_correct_defaults() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	e := m.spawn(&SplashPotionBehaviour{
+		meta: 21 // instant health I
+	}, types.Vector3{0, 10, 0})
+	assert e.identifier == 'minecraft:splash_potion'
+	assert m.count() == 1
+}
+
+fn test_splash_potion_hits_entity_applies_effects() {
+	mut host := &FakeHost{}
+	host.hit_target = u64(42)
+	host.entities_near_ids = [u64(42)]
+	host.positions[42] = types.Vector3{0, 10, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 21 // instant health I
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	m.tick()
+	// Projectile should have hit entity 42, applied effects, and killed itself.
+	assert m.count() == 0
+	assert host.effects_applied[42].len > 0
+	// Healing potion applies instant_health.
+	assert host.effects_applied[42][0].effect_type().id == effect.instant_health.id
+}
+
+fn test_splash_potion_hits_block_applies_splash() {
+	mut host := &FakeHost{}
+	host.set_solid(1, 10, 0) // wall at x=1
+	host.entities_near_ids = [u64(99)]
+	host.positions[99] = types.Vector3{0.5, 10, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 21 // instant health I
+	}, types.Vector3{0.5, 10, 0})
+	e.floor_y = 10
+	e.no_gravity = true
+	e.age = 2
+	e.set_velocity(types.Vector3{0.5, 0, 0})
+	m.tick() // moves toward wall
+	m.tick() // hit_block detected by behaviour, triggers splash
+	assert m.count() == 0 // despawned after splash
+	assert host.near_broadcasts > 0 // splash broadcasts LevelEvent + LevelSoundEvent via broadcast_near
+}
+
+fn test_splash_potion_duration_attenuation_by_distance() {
+	mut host := &FakeHost{}
+	host.entities_near_ids = [u64(10), u64(20)]
+	// Entity 10: at impact centre (dist=0), gets full duration.
+	host.positions[10] = types.Vector3{0, 10, 0}
+	// Entity 20: at half radius (dist=2.0), gets ~50% duration.
+	host.positions[20] = types.Vector3{2.0, 10, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 5 // night vision 3:00 = 3600 ticks
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	e.hit_block = true // force block impact
+	m.tick() // hit_block -> apply_splash
+	assert m.count() == 0
+
+	// Centre entity: full 3600 ticks.
+	centre_dur := host.effects_applied[10][0].duration_ticks()
+	assert centre_dur >= 3400 && centre_dur <= 3600
+
+	// Edge entity: at dist=2.0 / radius=4.0 -> scale=0.5 -> ~1800 ticks.
+	edge_dur := host.effects_applied[20][0].duration_ticks()
+	assert edge_dur >= 1700 && edge_dur <= 1900
+
+	// Centre entity gets longer duration than edge entity.
+	assert centre_dur > edge_dur
+}
+
+fn test_splash_potion_instant_effects_not_distance_scaled() {
+	mut host := &FakeHost{}
+	host.entities_near_ids = [u64(10)]
+	host.positions[10] = types.Vector3{3.9, 10, 0} // near edge of 4.0 radius
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 21 // instant health I
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	e.hit_block = true
+	m.tick()
+	assert m.count() == 0
+	// Instant effect applied at full strength regardless of distance.
+	ef := host.effects_applied[10][0]
+	assert ef.instant()
+	assert ef.level() == 1
+}
+
+fn test_splash_potion_undead_inverts_instant_health() {
+	mut host := &FakeHost{}
+	host.entities_near_ids = [u64(10)]
+	host.positions[10] = types.Vector3{0, 10, 0}
+	host.undead_ids[u64(10)] = true // mark entity 10 as undead
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 21 // instant health I  -  should become instant damage for undead
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	e.hit_block = true
+	m.tick()
+	assert m.count() == 0
+	ef := host.effects_applied[10][0]
+	// Undead should get instant_damage instead of instant_health.
+	assert ef.effect_type().id == effect.instant_damage.id
+	assert ef.level() == 1
+}
+
+fn test_splash_potion_undead_inverts_instant_damage() {
+	mut host := &FakeHost{}
+	host.entities_near_ids = [u64(10)]
+	host.positions[10] = types.Vector3{0, 10, 0}
+	host.undead_ids[u64(10)] = true
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 23 // instant damage I  -  should become instant health for undead
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	e.hit_block = true
+	m.tick()
+	assert m.count() == 0
+	ef := host.effects_applied[10][0]
+	assert ef.effect_type().id == effect.instant_health.id
+}
+
+fn test_splash_potion_out_of_range_not_affected() {
+	mut host := &FakeHost{}
+	host.entities_near_ids = [u64(10), u64(20)]
+	// Entity 10: at impact centre. Entity 20: at radius edge (4.0).
+	host.positions[10] = types.Vector3{0, 10, 0}
+	host.positions[20] = types.Vector3{4.0, 10, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 5 // night vision
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	e.hit_block = true
+	m.tick()
+	assert m.count() == 0
+	// Centre entity gets effects.
+	assert u64(10) in host.effects_applied
+	// Edge entity at exactly radius: scale = 1 - 4.0/4.0 = 0 -> skipped.
+	assert u64(20) !in host.effects_applied
+}
+
+fn test_splash_potion_despawns_after_max_age() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{}, types.Vector3{0, 100, 0})
+	e.no_gravity = true
+	for _ in 0 .. 201 {
+		m.tick()
+	}
+	assert m.count() == 0
+}
+
+fn test_splash_potion_no_effects_still_broadcasts_particles() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&SplashPotionBehaviour{
+		meta: 99 // invalid meta  -  no effects
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2
+	e.hit_block = true
+	m.tick()
+	assert m.count() == 0
+	// Particle and sound still broadcast even with zero effects.
+	assert host.near_broadcasts >= 2 // LevelEvent + LevelSoundEvent
 }
