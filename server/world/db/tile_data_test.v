@@ -76,7 +76,7 @@ fn test_world_load_restores_tile_data() {
 	mut w := new_world('test', store2, 'flat', world.overworld)
 	w.load()
 	assert w.tile_text(3, 4, 5) or { '' } == 'Persisted'
-	store2.close()
+	w.close()
 
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}

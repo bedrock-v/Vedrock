@@ -98,15 +98,9 @@ pub fn (s &Snapshot) len() int {
 	return s.ids.len
 }
 
-// BlockEntry stores a captured block's position and ID. Public entries let
-// callers restore large snapshots in smaller batches.
-pub struct BlockEntry {
-pub:
-	x  int
-	y  int
-	z  int
-	id int
-}
+// BlockEntry is one captured block's absolute position and id. Exposed so a
+// caller can restore a snapshot across several bounded slices instead of
+// only through one unbounded restore() pass.
 pub struct BlockEntry {
 pub:
 	x  int
