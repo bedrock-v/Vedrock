@@ -1,7 +1,6 @@
 module session
 
 import protocol.types
-import server.world
 
 // EntityRefSnapshot captures the entity state needed by EntityRef reads.
 // It is collected on the owning world thread.
@@ -53,7 +52,7 @@ pub fn (e EntityRef) valid() bool {
 	}) or { false }
 }
 
-pub fn (e EntityRef) position() !world.Vec3 {
+pub fn (e EntityRef) position() !types.Vector3 {
 	mut w := e.world_
 	snap := world_call[EntityRefSnapshot](mut w.runtime, fn [e] (mut tx WorldTx) EntityRefSnapshot {
 		target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return EntityRefSnapshot{} }
@@ -65,14 +64,14 @@ pub fn (e EntityRef) position() !world.Vec3 {
 	if !snap.found {
 		return error('entity is no longer registered')
 	}
-	return world.Vec3{snap.pos.x, snap.pos.y, snap.pos.z}
+	return snap.pos
 }
 
-pub fn (e EntityRef) teleport(pos world.Vec3) ! {
+pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	mut w := e.world_
 	applied := world_call[bool](mut w.runtime, fn [e, pos] (mut tx WorldTx) bool {
 		mut target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
-		target.pos = types.Vector3{pos.x, pos.y, pos.z}
+		target.pos = pos
 		tx.wr.broadcast_world(target.move_packet())
 		return true
 	}) or { return error('world "${e.world_.name()}" is shutting down') }

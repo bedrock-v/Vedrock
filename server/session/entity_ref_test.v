@@ -138,7 +138,7 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 	entity_ref_test_session(mut hub, mut wr, mut transport, 'Watcher')
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
-	ref.teleport(world.Vec3{5, 70, 9})!
+	ref.teleport(types.Vector3{5, 70, 9})!
 
 	pos := ref.position() or { panic('expected position') }
 	assert pos.x == 5

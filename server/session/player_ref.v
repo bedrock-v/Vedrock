@@ -1,6 +1,6 @@
 module session
 
-import server.world
+import protocol.types
 
 // PlayerRef is a stale checked reference to a player. It remains valid only
 // for the world membership generation captured when it was created.
@@ -52,10 +52,10 @@ pub fn (p PlayerRef) world() World {
 	return p.world_
 }
 
-pub fn (p PlayerRef) position() !world.Vec3 {
+pub fn (p PlayerRef) position() !types.Vector3 {
 	mut s := p.resolve()!
 	x, y, z := s.position()
-	return world.Vec3{x, y, z}
+	return types.Vector3{x, y, z}
 }
 
 pub fn (p PlayerRef) send_message(message string) ! {
@@ -63,12 +63,12 @@ pub fn (p PlayerRef) send_message(message string) ! {
 	s.send_message(message)!
 }
 
-pub fn (p PlayerRef) teleport(pos world.Vec3) ! {
+pub fn (p PlayerRef) teleport(pos types.Vector3) ! {
 	mut s := p.resolve()!
 	s.teleport(pos.x, pos.y, pos.z)
 }
 
-pub fn (p PlayerRef) teleport_to(w World, pos world.Vec3) ! {
+pub fn (p PlayerRef) teleport_to(w World, pos types.Vector3) ! {
 	mut s := p.resolve()!
 	s.teleport_to_world(w.name(), pos.x, pos.y, pos.z)
 }
