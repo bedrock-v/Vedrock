@@ -16,8 +16,6 @@ import server.world
 import server.world.db
 import server.resource
 import server.permission
-import server.plugin
-import server.plugin.sample
 import server.crash
 import sync.stdatomic
 
@@ -62,7 +60,6 @@ mut:
 	listener &raknet.Listener = unsafe { nil }
 	hub      &session.Hub     = unsafe { nil }
 	guid     i64
-	plugins  &plugin.Manager            = unsafe { nil }
 	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
@@ -157,25 +154,16 @@ pub fn new(cfg conf.Config) &Server {
 	}
 	load_worlds(mut hub, cfg, log)
 	hub.packs = load_resource_packs(cfg, log)
-	mut plugins := plugin.new_manager(&hub.commands, hub.events, hub.scheduler, hub, log)
-	register_plugins(mut plugins)
-	plugins.enable_all()
 	return &Server{
 		log:        log
 		lang:       lang
 		cfg:        cfg
 		hub:        hub
-		plugins:    plugins
 		guid:       rand.i64()
 		created_at: boot_start
 	}
 }
 
-// register_plugins is the single place built-in plugins are wired in. Add a
-// plugins.register(...) line here for every plugin that ships with the server.
-fn register_plugins(mut plugins plugin.Manager) {
-	plugins.register(&sample.GreeterPlugin{})
-}
 
 pub fn (mut s Server) start() ! {
 	// s.log.info('Starting Vedrock for Minecraft Bedrock ${protocol.minecraft_version_network} (protocol ${protocol.current_protocol})')
@@ -358,9 +346,6 @@ pub fn (mut s Server) stop() {
 	}
 	s.log.info('Stopping server')
 	s.running.store(false)
-	if s.plugins != unsafe { nil } {
-		s.plugins.disable_all()
-	}
 	if s.hub != unsafe { nil } {
 		s.hub.disconnect_all('Server closed')
 		s.hub.close_worlds()

@@ -4,7 +4,7 @@ import sync
 
 // Scheduler runs Tasks against the server tick clock. It is inspired by
 // PocketMine's TaskScheduler but made thread-safe: Vedrock schedules from many
-// session threads and plugins, while heartbeat() runs on the single tick actor
+// session threads and scheduled tasks, while heartbeat() runs on the single tick actor
 // thread. A mutex guards the task table; tasks themselves run outside the lock
 // so a task may safely schedule more work.
 @[heap]

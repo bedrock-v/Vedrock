@@ -26,7 +26,7 @@ pub:
 	size_z   f32 = 16.0
 }
 
-// CustomBlockDefinition describes a data-driven block a plugin registers. It
+// CustomBlockDefinition describes a data-driven block registered at startup. It
 // is serialized to block property NBT and shipped in the StartGamePacket
 // blocks list so the client can build render state for it.
 pub struct CustomBlockDefinition {

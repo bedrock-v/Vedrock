@@ -892,7 +892,7 @@ fn (mut s NetworkSession) set_block_runtime(pos types.BlockPosition, runtime_id 
 
 // PlayerBlockWriteJob is an ordinary (player) block write as a WorldJob.
 // The same actor thread landing point SetBlockJob (blocks_api.v) already gives
-// the plugin/command path, so a player placing/breaking a block is
+// the command path, so a player placing/breaking a block is
 // serialized against scheduled ticks/liquid spread/arena restores touching
 // the same cell instead of writing directly on the connection thread.
 //

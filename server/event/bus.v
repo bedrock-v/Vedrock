@@ -9,8 +9,8 @@ mut:
 }
 
 // Bus fans a dispatched Context out to every registered handler in priority
-// order. It is the single event pipe the session code talks to; plugins never
-// touch it directly, they register through the plugin Api.
+// order. It is the single event pipe the session code talks to; callers never
+// touch it directly, they register through the event handler interface.
 @[heap]
 pub struct Bus {
 mut:

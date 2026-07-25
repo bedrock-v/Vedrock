@@ -8,7 +8,6 @@ repo-root `AGENTS.md`, which Codex reads automatically - this folder is for extr
 Custom slash prompts (the Codex equivalent of a Claude Code skill). Each `.md` file becomes a
 `/name` command.
 
-- `vedrock-plugin` - scaffold a new plugin, command, event listener, or entity type.
 - `vedrock-verify` - type-check, test, and boot-smoke the build.
 
 To use these globally instead of per-project, copy or symlink them into `~/.codex/prompts/`.

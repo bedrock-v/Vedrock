@@ -221,9 +221,8 @@ concurrent un-authenticated handshakes (a semaphore around `spawn s.handle`).
   per-packet size and packet count (`server/internal/network/batch.v:15-18,44-91`); `check_rate`
   enforces per-connection packet/byte ceilings (`session.v:59-74`). This layer is well done.
 - **Block placement** is reach- and bounds-checked and cooldown-throttled (`blocks.v:85-104`).
-- **Plugin surface** (`server/plugin/*`) is in-tree and compiled, not loaded from disk, so there is no
-  untrusted-plugin loading vector. `ServerView` is a deliberately narrow interface. Fine as long as
-  only trusted plugins are wired in `register_plugins`.
+- **Extensibility**: server extensions are compiled in-tree, not loaded from disk, so there is no
+  untrusted-code loading vector.
 
 ## Quick wins
 

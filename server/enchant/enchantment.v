@@ -1,11 +1,11 @@
 module enchant
 
-// Vanilla enchantment ids end below this; plugin enchantments allocate from
+// Vanilla enchantment ids end below this; custom enchantments allocate from
 // here up.
 pub const custom_enchantment_id_start = 256
 
 // Enchantment is the behaviour contract every enchantment implements. Vanilla
-// enchantments and plugin ones share the same interface, so combat and armor
+// enchantments and custom ones share the same interface, so combat and armor
 // code can query them uniformly.
 pub interface Enchantment {
 	// id returns the numeric enchantment id used in item NBT.

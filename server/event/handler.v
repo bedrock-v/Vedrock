@@ -1,7 +1,7 @@
 module event
 
 // Handler is the listener interface: one method per event, each
-// receiving a mutable Context. A plugin embeds NopHandler and overrides only the
+// receiving a mutable Context. A handler embeds NopHandler and overrides only the
 // events it cares about.
 pub interface Handler {
 mut:

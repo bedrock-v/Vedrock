@@ -5,7 +5,7 @@ import protocol.types
 import server.world
 import server.arena
 
-// SetBlockJob is the plugin/command block write as a WorldJob. Like every other
+// SetBlockJob is the command block write as a WorldJob. Like every other
 // cross-session mutation it runs on the actor thread, so it reuses the same
 // world+broadcast path break_block/place_block use without racing them.
 struct SetBlockJob {

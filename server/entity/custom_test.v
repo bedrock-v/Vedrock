@@ -14,7 +14,7 @@ fn test_register_allocates_ids_and_rejects_duplicates() {
 
 fn test_short_name_strips_namespace() {
 	def := CustomEntityDefinition{
-		id: 'myplugin:fire_golem'
+		id: 'custom:fire_golem'
 	}
 	assert def.short_name() == 'fire_golem'
 	bare := CustomEntityDefinition{

@@ -5,7 +5,7 @@ module entity
 pub type BehaviourFactory = fn () Behaviour
 
 // Registry maps short type names (e.g. 'pig') to Behaviour factories. It is the
-// lookup /summon and plugins use to spawn entities by name.
+// lookup /summon uses to spawn entities by name.
 pub struct Registry {
 mut:
 	factories map[string]BehaviourFactory

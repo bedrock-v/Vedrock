@@ -44,7 +44,7 @@ pub const command_world = 'vedrock.cmd.world'
 
 // Registry is a mutable set of known permissions. The shared `registry`
 // below is the one every Permissible checks against; register() may be
-// called on it at any time after startup (e.g. by a future plugin)
+// called on it at any time after startup
 @[heap]
 pub struct Registry {
 mut:

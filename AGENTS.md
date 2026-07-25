@@ -7,7 +7,7 @@ server written in V. This is the canonical instruction file; `CLAUDE.md` points 
 
 Vedrock is an early-stage Bedrock server. It accepts RakNet connections, speaks the Bedrock
 protocol, and runs a tick-based game loop. Core gameplay (blocks, combat, worlds, inventory,
-forms, permissions) plus an in-tree plugin system, event bus, scheduler, entity system, world
+forms, permissions) plus an event bus, scheduler, entity system, world
 management API, and a chunk upgrader.
 
 ## Build, test, run
@@ -58,9 +58,6 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
 
 ### Subsystems
 
-- `server/plugin/` - in-tree plugin system. A `Plugin` gets one `Api` on enable to register
-  commands, event listeners, and scheduled tasks. Built-ins wired in `server/server.v`
-  `register_plugins`. Example: `server/plugin/sample/greeter.v`.
 - `server/player/` - `View`, the narrow capability-only interface for "acts like a player"
   (identity, permission, messaging, movement, inventory, UI, etc.). Exists so lower layers can
   reference a player without importing `session`.
@@ -97,20 +94,13 @@ Entry: `main.v` -> `server.new(cfg)` -> `srv.start()`.
   `NetworkSession`/`Hub` satisfies structurally. Prefer reusing a shared one over deriving a new
   one per package: `player.View` is the canonical "acts like a player" contract (`cmd.Sender`
   embeds it rather than duplicating it) - a package needing player capabilities should import
-  `server.player` directly rather than redefining its own slice. `plugin.ServerView` and
-  `world/light`'s engine interface follow the same narrow-interface pattern for `Hub`-shaped
+  `server.player` directly rather than redefining its own slice. `world/light`'s engine interface follows the same narrow-interface pattern for `Hub`-shaped
   needs, where no shared type exists yet.
 - Every exported struct/method is `pub` and the struct name is capitalized (V requirement).
 
 ## Extending the server
 
-There is a scaffolding guide for the four most common additions (plugin, command, listener,
-entity type) with copy-pasteable templates:
-
-- Claude Code: skill at `.claude/skills/vedrock-plugin/SKILL.md` (invoke `/vedrock-plugin`).
-- Codex / other tools: prompt at `.codex/prompts/vedrock-plugin.md`.
-
-Register points: plugins in `server/server.v` `register_plugins`; entity types in
+Register points: entity types in
 `server/entity/registry.v` `register_defaults`; default commands in
 `server/cmd/default/register.v`.
 

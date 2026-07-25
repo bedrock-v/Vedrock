@@ -253,13 +253,13 @@ pub fn (mut h Hub) players_in_world(name string) int {
 }
 
 // register_generator adds or overrides a named world generator. Part of the
-// plugin.ServerView surface.
+// Part of the public server API surface.
 pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Dimension) blockworld.Generator) {
 	h.generators.register(name, factory)
 }
 
 // generator_type_names lists every registered generator name. Part of the
-// plugin.ServerView surface.
+// Part of the public server API surface.
 pub fn (mut h Hub) generator_type_names() []string {
 	return h.generators.names()
 }
@@ -413,7 +413,7 @@ pub fn (mut h Hub) count() int {
 }
 
 // broadcast_message sends a raw chat line to every connected player. Part of the
-// plugin.ServerView surface.
+// Part of the public server API surface.
 pub fn (mut h Hub) broadcast_message(text string) {
 	h.broadcast(&protocol.TextPacket{
 		@type:   int(enums.TextType.raw)
@@ -421,13 +421,13 @@ pub fn (mut h Hub) broadcast_message(text string) {
 	})
 }
 
-// online_count is the plugin.ServerView alias for count().
+// online_count is the public alias for count().
 pub fn (mut h Hub) online_count() int {
 	return h.count()
 }
 
 // spawn_entity spawns a registered entity type by name at the given position.
-// Returns false if the type is unknown. Part of the plugin.ServerView surface.
+// Returns false if the type is unknown.
 pub fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
 	behaviour := h.entity_registry.create(name) or { return false }
 	mut ctx := event.new_context(event.EntitySpawnData{
@@ -450,7 +450,7 @@ pub fn (mut h Hub) entity_type_names() []string {
 }
 
 // player_names lists the display names of every connected player. Part of the
-// plugin.ServerView surface.
+// Part of the public server API surface.
 pub fn (mut h Hub) player_names() []string {
 	h.mutex.lock()
 	defer { h.mutex.unlock() }
@@ -497,7 +497,7 @@ pub fn (mut h Hub) submit(job WorldJob) {
 }
 
 // try_submit queues a job without blocking, returning false if the actor queue
-// is full. Used for high-frequency, client- or plugin-driven jobs (attacks,
+// is full. Used for high-frequency, client-driven jobs (attacks,
 // respawns, block edits) so a flood of them can never back up connection
 // threads or stall the tick loop - the excess job is simply dropped.
 pub fn (mut h Hub) try_submit(job WorldJob) bool {

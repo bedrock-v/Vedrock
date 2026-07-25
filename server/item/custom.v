@@ -51,7 +51,7 @@ pub:
 	speed int
 }
 
-// CustomItemDefinition describes a data-driven item a plugin registers. The
+// CustomItemDefinition describes a data-driven item registered at startup. The
 // definition is turned into component NBT and shipped to the client inside the
 // ItemRegistryPacket, so no resource pack code is needed server-side beyond
 // the texture name.

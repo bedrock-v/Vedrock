@@ -12,7 +12,7 @@ pub fn (c VersionCommand) name() string {
 }
 
 pub fn (c VersionCommand) description() string {
-	return 'Gets the version of this server including any plugins in use'
+	return 'Gets the version of this server'
 }
 
 pub fn (c VersionCommand) aliases() []string {

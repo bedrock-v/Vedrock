@@ -6,7 +6,7 @@ import nbt
 // never collide with it.
 pub const custom_entity_runtime_id_start = 10000
 
-// CustomEntityDefinition describes an entity type a plugin registers. The
+// CustomEntityDefinition describes a registered entity type. The
 // definition ends up in the AvailableActorIdentifiersPacket idlist so the
 // client accepts AddActor packets with the custom identifier.
 pub struct CustomEntityDefinition {
@@ -18,7 +18,7 @@ pub mut:
 }
 
 // short_name derives the registry name from the namespaced id, e.g.
-// 'myplugin:fire_golem' -> 'fire_golem'.
+// 'custom:fire_golem' -> 'fire_golem'.
 pub fn (d &CustomEntityDefinition) short_name() string {
 	idx := d.id.index(':') or { return d.id }
 	return d.id[idx + 1..]

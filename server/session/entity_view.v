@@ -131,9 +131,9 @@ pub fn (mut h Hub) drop_item(stack types.ItemStack, x f32, y f32, z f32, vx f32,
 	h.entities.spawn_item(stack, types.Vector3{x, y, z}, types.Vector3{vx, vy, vz}, pickup_delay)
 }
 
-// nearest_player_name is the plugin.ServerView facing form of nearest_player.
+// nearest_player_name resolves the runtime id back to a display name.
 // It resolves the runtime id back to a display name rather than leaking the
-// internal runtime id concept into the plugin surface.
+// internal runtime id concept into the caller surface.
 pub fn (mut h Hub) nearest_player_name(x f32, y f32, z f32, radius f32) ?string {
 	rid, _, found := h.find_nearest_player(types.Vector3{x, y, z}, radius)
 	if !found {
@@ -146,7 +146,7 @@ pub fn (mut h Hub) nearest_player_name(x f32, y f32, z f32, radius f32) ?string 
 // find_nearest_player scans live sessions for the closest one to pos within
 // radius, returning its runtime id, position and whether anyone was found.
 // Shared by entity.Host's nearest_player (proactive mob targeting) and
-// plugin.ServerView's nearest_player_name.
+// Shared by entity.Host's nearest_player (proactive mob targeting).
 fn (mut h Hub) find_nearest_player(pos types.Vector3, radius f32) (u64, types.Vector3, bool) {
 	mut best_rid := u64(0)
 	mut best_pos := types.Vector3{}

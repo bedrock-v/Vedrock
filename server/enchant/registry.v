@@ -3,7 +3,7 @@ module enchant
 import nbt
 
 // Registry maps enchantment ids and names to their classes. It boots with the
-// vanilla set registered; plugins add theirs with ids from
+// vanilla set registered; custom enchantments allocate from
 // custom_enchantment_id_start up.
 pub struct Registry {
 mut:

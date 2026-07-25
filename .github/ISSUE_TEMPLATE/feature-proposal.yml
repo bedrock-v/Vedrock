@@ -32,6 +32,6 @@ body:
   - type: textarea
     attributes:
       label: Scope
-      description: How large is this? Does it touch the protocol, the plugin API, worlds, etc?
+      description: How large is this? Does it touch the protocol, worlds, etc?
     validations:
       required: false
