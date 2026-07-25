@@ -543,7 +543,7 @@ fn test_splash_potion_hits_block_applies_splash() {
 	m.tick() // moves toward wall
 	m.tick() // hit_block detected by behaviour, triggers splash
 	assert m.count() == 0 // despawned after splash
-	assert host.near > 0 // splash broadcasts LevelEvent + LevelSoundEvent via broadcast_near
+	assert host.near_broadcasts > 0 // splash broadcasts LevelEvent + LevelSoundEvent via broadcast_near
 }
 
 fn test_splash_potion_duration_attenuation_by_distance() {
@@ -676,5 +676,5 @@ fn test_splash_potion_no_effects_still_broadcasts_particles() {
 	m.tick()
 	assert m.count() == 0
 	// Particle and sound still broadcast even with zero effects.
-	assert host.near >= 2 // LevelEvent + LevelSoundEvent
+	assert host.near_broadcasts >= 2 // LevelEvent + LevelSoundEvent
 }
