@@ -71,6 +71,12 @@ pub fn (c &Chunk) biome_id(x int, z int) int {
 }
 
 pub fn (mut c Chunk) set_block(x int, y int, z int, b Block) {
+	// Check y before division because V truncates negative integer division
+	// toward zero. Values just below min_y could otherwise select section 0
+	// and later wrap a negative local index when converted to u32.
+	if y < c.min_y {
+		return
+	}
 	section_index := (y - c.min_y) / 16
 	if section_index < 0 || section_index >= c.subchunk_count {
 		return
@@ -94,6 +100,9 @@ pub fn (mut c Chunk) set_section(index int, ids []int) {
 }
 
 pub fn (c &Chunk) block_id(x int, y int, z int) int {
+	if y < c.min_y {
+		return air.network_id
+	}
 	section_index := (y - c.min_y) / 16
 	if section_index < 0 || section_index >= c.subchunk_count {
 		return air.network_id

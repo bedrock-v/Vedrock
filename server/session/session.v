@@ -67,6 +67,7 @@ mut:
 	give_next_slot     int
 	next_form_id       int
 	pending_forms      map[int]form.Form
+	forms_mutex        &sync.Mutex = sync.new_mutex()
 	last_place_ms      i64
 	view_radius        int
 	last_chunk_x       int

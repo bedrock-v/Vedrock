@@ -15,9 +15,11 @@ pub fn open_leveldb(path string) !&LevelDB {
 	}
 }
 
-pub fn (l &LevelDB) put(key []u8, value []u8) {
+// put returns write failures to the caller instead of discarding them,
+// allowing persistence code to distinguish rejected writes from success.
+pub fn (l &LevelDB) put(key []u8, value []u8) ! {
 	mut ldb := unsafe { l.db }
-	ldb.put(key, value, leveldb.WriteOptions{}) or {}
+	ldb.put(key, value, leveldb.WriteOptions{}) or { return error('leveldb put failed: ${err}') }
 }
 
 pub fn (l &LevelDB) get(key []u8) ?[]u8 {
@@ -25,9 +27,9 @@ pub fn (l &LevelDB) get(key []u8) ?[]u8 {
 	return ldb.get(key, leveldb.ReadOptions{})
 }
 
-pub fn (l &LevelDB) delete(key []u8) {
+pub fn (l &LevelDB) delete(key []u8) ! {
 	mut ldb := unsafe { l.db }
-	ldb.delete(key, leveldb.WriteOptions{}) or {}
+	ldb.delete(key, leveldb.WriteOptions{}) or { return error('leveldb delete failed: ${err}') }
 }
 
 pub fn (l &LevelDB) each(cb fn (key []u8, value []u8)) {
@@ -41,12 +43,12 @@ pub fn (l &LevelDB) each(cb fn (key []u8, value []u8)) {
 // flush forces pending writes down to disk without releasing the handle, so a
 // crash after a flush cannot lose the flushed data. close() already syncs, so
 // this is only needed for periodic mid-run durability.
-pub fn (l &LevelDB) flush() {
+pub fn (l &LevelDB) flush() ! {
 	mut ldb := unsafe { l.db }
-	ldb.compact() or {}
+	ldb.compact() or { return error('leveldb compact failed: ${err}') }
 }
 
-pub fn (l &LevelDB) close() {
+pub fn (l &LevelDB) close() ! {
 	mut ldb := unsafe { l.db }
-	ldb.close() or {}
+	ldb.close() or { return error('leveldb close failed: ${err}') }
 }

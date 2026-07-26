@@ -1,5 +1,6 @@
 module session
 
+import math
 import protocol
 import protocol.types
 import server.event
@@ -21,8 +22,11 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	if !s.spawned {
 		return
 	}
+	sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw := s.sanitize_movement(position,
+		pitch, yaw, head_yaw)
 	s.movement_mutex.lock()
-	s.pending_movement = MovementSnapshot{position, pitch, yaw, head_yaw}
+	s.pending_movement =
+		MovementSnapshot{sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw}
 	if s.movement_scheduled {
 		s.movement_mutex.unlock()
 		return
@@ -46,6 +50,41 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 		s.movement_scheduled = false
 		s.movement_mutex.unlock()
 	}
+}
+
+// sanitize_movement replaces non-finite position or rotation components
+// with the session's last valid values. This prevents NaN or infinity from
+// entering player state and bypassing checks such as attack reach.
+fn (mut s NetworkSession) sanitize_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) (types.Vector3, f32, f32, f32) {
+	current := s.player.movement()
+	mut pos := position
+	mut p := pitch
+	mut y := yaw
+	mut hy := head_yaw
+	if !is_finite32(pos.x) {
+		pos.x = current.position.x
+	}
+	if !is_finite32(pos.y) {
+		pos.y = current.position.y
+	}
+	if !is_finite32(pos.z) {
+		pos.z = current.position.z
+	}
+	if !is_finite32(p) {
+		p = current.pitch
+	}
+	if !is_finite32(y) {
+		y = current.yaw
+	}
+	if !is_finite32(hy) {
+		hy = current.head_yaw
+	}
+	return pos, p, y, hy
+}
+
+fn is_finite32(f f32) bool {
+	v := f64(f)
+	return !math.is_nan(v) && !math.is_inf(v, 0)
 }
 
 // effective_position returns the latest position reported by this session,

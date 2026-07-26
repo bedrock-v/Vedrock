@@ -11,10 +11,10 @@ pub interface Provider {
 	each_block(cb fn (x int, y int, z int, runtime_id int))
 	each_tile(cb fn (x int, y int, z int, text string))
 mut:
-	set_block(x int, y int, z int, runtime_id int)
-	set_tile_text(x int, y int, z int, text string)
-	flush()
-	close()
+	set_block(x int, y int, z int, runtime_id int) !
+	set_tile_text(x int, y int, z int, text string) !
+	flush() !
+	close() !
 }
 
 @[heap]
@@ -70,10 +70,10 @@ fn tile_key(x int, y int, z int) []u8 {
 	return b
 }
 
-pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) {
+pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) ! {
 	mut v := []u8{}
 	put_i32(mut v, runtime_id)
-	w.overrides.put(block_key(x, y, z), v)
+	w.overrides.put(block_key(x, y, z), v)!
 }
 
 pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
@@ -87,8 +87,8 @@ pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
 
 // set_tile_text persists a block-entity's tex at a position, sharing the overrides handle with a distinct key
 // prefix rather than opening a third LevelDB handle for no isolation benefit.
-pub fn (w &WorldStore) set_tile_text(x int, y int, z int, text string) {
-	w.overrides.put(tile_key(x, y, z), text.bytes())
+pub fn (w &WorldStore) set_tile_text(x int, y int, z int, text string) ! {
+	w.overrides.put(tile_key(x, y, z), text.bytes())!
 }
 
 pub fn (w &WorldStore) each_tile(cb fn (x int, y int, z int, text string)) {
@@ -100,13 +100,32 @@ pub fn (w &WorldStore) each_tile(cb fn (x int, y int, z int, text string)) {
 	})
 }
 
-// flush persists both backing databases without closing them.
-pub fn (w &WorldStore) flush() {
-	w.db.flush()
-	w.overrides.flush()
+// flush persists both backing databases without closing them. Both are
+// always attempted even if the first fails, so one handle's failure never
+// leaves the other silently unflushed; the first error encountered, if any,
+// is what's returned.
+pub fn (w &WorldStore) flush() ! {
+	mut first_err := ''
+	w.db.flush() or { first_err = err.msg() }
+	w.overrides.flush() or {
+		if first_err == '' {
+			first_err = err.msg()
+		}
+	}
+	if first_err != '' {
+		return error('worldstore flush failed: ${first_err}')
+	}
 }
 
-pub fn (w &WorldStore) close() {
-	w.db.close()
-	w.overrides.close()
+pub fn (w &WorldStore) close() ! {
+	mut first_err := ''
+	w.db.close() or { first_err = err.msg() }
+	w.overrides.close() or {
+		if first_err == '' {
+			first_err = err.msg()
+		}
+	}
+	if first_err != '' {
+		return error('worldstore close failed: ${first_err}')
+	}
 }

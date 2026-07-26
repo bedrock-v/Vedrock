@@ -35,7 +35,7 @@ fn (p &RecordingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)
 
 fn (p &RecordingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
-fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) {
+fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	mut claimed := false
 	select {
 		_ := <-p.claim {
@@ -53,17 +53,50 @@ fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) {
 	p.calls << 'set_block'
 }
 
-fn (mut p RecordingProvider) set_tile_text(x int, y int, z int, text string) {
+fn (mut p RecordingProvider) set_tile_text(x int, y int, z int, text string) ! {
 	p.calls << 'set_tile_text'
 }
 
-fn (mut p RecordingProvider) flush() {
+fn (mut p RecordingProvider) flush() ! {
 	p.calls << 'flush'
 }
 
-fn (mut p RecordingProvider) close() {
+fn (mut p RecordingProvider) close() ! {
 	p.calls << 'close'
 }
+
+// FailingProvider always rejects writes
+@[heap]
+struct FailingProvider {
+mut:
+	calls int
+}
+
+fn (p &FailingProvider) dimension() world.Dimension {
+	return world.overworld
+}
+
+fn (p &FailingProvider) load_chunk(cx int, cz int) ?world.Chunk {
+	return none
+}
+
+fn (p &FailingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
+
+fn (p &FailingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
+
+fn (mut p FailingProvider) set_block(x int, y int, z int, runtime_id int) ! {
+	p.calls++
+	return error('simulated disk full')
+}
+
+fn (mut p FailingProvider) set_tile_text(x int, y int, z int, text string) ! {
+	p.calls++
+	return error('simulated disk full')
+}
+
+fn (mut p FailingProvider) flush() ! {}
+
+fn (mut p FailingProvider) close() ! {}
 
 fn persist_wait_until(deadline_ms int, cond fn () bool) bool {
 	deadline := time.now().add(deadline_ms * time.millisecond)
@@ -82,7 +115,7 @@ fn test_set_block_does_not_wait_for_the_storage_worker() {
 	mut w := new_world('persist-test', provider, 'void', world.overworld)
 	defer {
 		provider.release <- true // let the blocked worker call finish so close() below can too
-		w.close()
+		w.close() or { panic(err) }
 	}
 
 	w.set_block(1, 64, 1, 42)
@@ -103,7 +136,7 @@ fn test_close_waits_for_pending_storage_writes() {
 
 	close_done := chan bool{cap: 1}
 	spawn fn [mut w, close_done] () {
-		w.close()
+		w.close() or { panic(err) }
 		close_done <- true
 	}()
 
@@ -134,7 +167,7 @@ fn test_flush_waits_for_the_storage_worker() {
 	mut provider := new_recording_provider()
 	mut w := new_world('persist-test-flush', provider, 'void', world.overworld)
 	defer {
-		w.close()
+		w.close() or { panic(err) }
 	}
 
 	w.set_block(1, 64, 1, 42)
@@ -142,7 +175,7 @@ fn test_flush_waits_for_the_storage_worker() {
 
 	flush_done := chan bool{cap: 1}
 	spawn fn [mut w, flush_done] () {
-		w.flush()
+		w.flush() or { panic(err) }
 		flush_done <- true
 	}()
 
@@ -165,12 +198,35 @@ fn test_flush_waits_for_the_storage_worker() {
 	assert provider.calls == ['set_block', 'flush']
 }
 
+fn test_persist_worker_records_write_failure_and_keeps_running() {
+	mut provider := &FailingProvider{}
+	mut w := new_world('persist-test-failing', provider, 'void', world.overworld)
+	defer {
+		w.close() or { panic(err) }
+	}
+
+	assert w.last_persist_error() == none
+
+	w.set_block(1, 64, 1, 42)
+	assert persist_wait_until(2000, fn [provider] () bool {
+		return provider.calls >= 1
+	})
+	w.flush() or { panic(err) }
+	assert (w.last_persist_error() or { '' }) == 'simulated disk full'
+	assert w.block_override(1, 64, 1) or { -1 } == 42
+
+	w.set_tile_text(2, 65, 2, 'still alive')
+	assert persist_wait_until(2000, fn [provider] () bool {
+		return provider.calls >= 2
+	})
+}
+
 // A storeless World never starts a worker and
 // must not block on set_block/close at all.
 fn test_store_less_world_never_blocks_on_persistence() {
 	mut w := new_world('persist-test-void', none, 'void', world.overworld)
 	w.set_block(1, 64, 1, 42)
 	assert w.block_override(1, 64, 1) or { -1 } == 42
-	w.close()
-	w.flush()
+	w.close() or { panic(err) }
+	w.flush() or { panic(err) }
 }

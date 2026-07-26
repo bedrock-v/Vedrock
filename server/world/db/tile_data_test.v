@@ -18,9 +18,9 @@ fn test_world_store_tile_text_roundtrip() {
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_block(1, 64, -3, 42)
-	store.set_tile_text(1, 64, -3, 'Hello')
-	store.set_tile_text(5, 5, 5, 'World')
+	store.set_block(1, 64, -3, 42) or { panic(err) }
+	store.set_tile_text(1, 64, -3, 'Hello') or { panic(err) }
+	store.set_tile_text(5, 5, 5, 'World') or { panic(err) }
 	mut c := &TileCollector{}
 	store.each_tile(fn [mut c] (x int, y int, z int, text string) {
 		c.texts['${x},${y},${z}'] = text
@@ -37,7 +37,7 @@ fn test_world_store_tile_text_roundtrip() {
 	assert rc.ids.len == 1
 	assert rc.ids['1,64,-3'] == 42
 
-	store.close()
+	store.close() or { panic(err) }
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 }
@@ -69,14 +69,14 @@ fn test_world_load_restores_tile_data() {
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_tile_text(3, 4, 5, 'Persisted')
-	store.close()
+	store.set_tile_text(3, 4, 5, 'Persisted') or { panic(err) }
+	store.close() or { panic(err) }
 
 	mut store2 := open_world(dir, world.overworld) or { panic(err) }
 	mut w := new_world('test', store2, 'flat', world.overworld)
 	w.load()
 	assert w.tile_text(3, 4, 5) or { '' } == 'Persisted'
-	w.close()
+	w.close() or { panic(err) }
 
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}

@@ -13,8 +13,8 @@ fn test_world_store_roundtrip() {
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_block(1, 64, -3, 42)
-	store.set_block(-10, 0, 7, 99)
+	store.set_block(1, 64, -3, 42) or { panic(err) }
+	store.set_block(-10, 0, 7, 99) or { panic(err) }
 	mut c := &BlockCollector{}
 	store.each_block(fn [mut c] (x int, y int, z int, runtime_id int) {
 		c.blocks['${x},${y},${z}'] = runtime_id
@@ -22,7 +22,7 @@ fn test_world_store_roundtrip() {
 	assert c.blocks.len == 2
 	assert c.blocks['1,64,-3'] == 42
 	assert c.blocks['-10,0,7'] == 99
-	store.close()
+	store.close() or { panic(err) }
 	mut store2 := open_world(dir, world.overworld) or { panic(err) }
 	mut c2 := &BlockCollector{}
 	store2.each_block(fn [mut c2] (x int, y int, z int, runtime_id int) {
@@ -30,7 +30,7 @@ fn test_world_store_roundtrip() {
 	})
 	assert c2.blocks.len == 2
 	assert c2.blocks['1,64,-3'] == 42
-	store2.close()
+	store2.close() or { panic(err) }
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 }

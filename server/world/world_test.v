@@ -127,6 +127,25 @@ fn test_serialize_subchunk_out_of_range_returns_none() {
 	}
 }
 
+fn test_block_id_below_min_y_returns_air_instead_of_panicking() {
+	c := new_chunk()
+	for y := dimension_min_y - 1; y >= dimension_min_y - 16; y-- {
+		assert c.block_id(0, y, 0) == air.network_id
+	}
+	assert c.block_id(0, dimension_min_y - 1000, 0) == air.network_id
+}
+
+fn test_set_block_below_min_y_is_a_noop_instead_of_panicking() {
+	mut c := new_chunk()
+	for y := dimension_min_y - 1; y >= dimension_min_y - 16; y-- {
+		c.set_block(0, y, 0, stone)
+	}
+	assert c.section_count() == 0
+	// A subsequent write inside the valid range still works normally.
+	c.set_block(0, dimension_min_y, 0, stone)
+	assert c.block_id(0, dimension_min_y, 0) == stone.network_id
+}
+
 fn test_chunk_height_map_tracks_highest_non_air_block() {
 	chunk := generate_flat()
 	heights := chunk.height_map()

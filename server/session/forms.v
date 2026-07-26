@@ -10,9 +10,11 @@ const form_image_resync_interval_ms = 500
 // send_form queues the form for the target player, since it may be opened
 // from a command running on another session's thread.
 pub fn (mut s NetworkSession) send_form(f form.Form) ! {
+	s.forms_mutex.lock()
 	s.next_form_id++
 	id := s.next_form_id
 	s.pending_forms[id] = f
+	s.forms_mutex.unlock()
 	s.deliver(&protocol.ModalFormRequestPacket{
 		form_id:   id
 		form_data: f.request_body()
@@ -38,7 +40,12 @@ fn (mut s NetworkSession) resync_attributes_after_form_image() {
 }
 
 fn (mut s NetworkSession) handle_modal_form_response(p protocol.ModalFormResponsePacket) ! {
-	f := s.pending_forms[p.form_id] or { return }
+	s.forms_mutex.lock()
+	f := s.pending_forms[p.form_id] or {
+		s.forms_mutex.unlock()
+		return
+	}
 	s.pending_forms.delete(p.form_id)
+	s.forms_mutex.unlock()
 	f.submit(p.form_data)!
 }

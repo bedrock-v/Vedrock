@@ -373,6 +373,9 @@ fn normalize_gamemode(name string) (string, int) {
 	return label, 1
 }
 
+// stop disconnects every session and waits for each one to finish leaving
+// including player data saves, before shutting down worlds or the listener.
+// It returns only after all players have fully disconnected.
 pub fn (mut s Server) stop() {
 	if !s.running.load() {
 		return
@@ -381,6 +384,7 @@ pub fn (mut s Server) stop() {
 	s.running.store(false)
 	if !isnil(s.hub) {
 		s.hub.disconnect_all('Server closed')
+		s.hub.wait_for_sessions_to_leave()
 		s.hub.close_worlds()
 	}
 	if !isnil(s.listener) {

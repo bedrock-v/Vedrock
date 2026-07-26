@@ -18,19 +18,19 @@ fn (p &FakeProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (mut p FakeProvider) set_block(x int, y int, z int, runtime_id int) {
+fn (mut p FakeProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	p.blocks['${x},${y},${z}'] = runtime_id
 }
 
 fn (p &FakeProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
 
-fn (mut p FakeProvider) set_tile_text(x int, y int, z int, text string) {}
+fn (mut p FakeProvider) set_tile_text(x int, y int, z int, text string) ! {}
 
 fn (p &FakeProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
-fn (mut p FakeProvider) flush() {}
+fn (mut p FakeProvider) flush() ! {}
 
-fn (mut p FakeProvider) close() {}
+fn (mut p FakeProvider) close() ! {}
 
 // FakeFactory hands out FakeProvider instead of touching disk at all.
 struct FakeFactory {

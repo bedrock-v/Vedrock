@@ -23,17 +23,17 @@ fn (p &CountingProvider) each_block(cb fn (x int, y int, z int, runtime_id int))
 
 fn (p &CountingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
-fn (mut p CountingProvider) set_block(x int, y int, z int, runtime_id int) {
+fn (mut p CountingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	p.mutex.lock()
 	p.applied++
 	p.mutex.unlock()
 }
 
-fn (mut p CountingProvider) set_tile_text(x int, y int, z int, text string) {}
+fn (mut p CountingProvider) set_tile_text(x int, y int, z int, text string) ! {}
 
-fn (mut p CountingProvider) flush() {}
+fn (mut p CountingProvider) flush() ! {}
 
-fn (mut p CountingProvider) close() {}
+fn (mut p CountingProvider) close() ! {}
 
 fn (p &CountingProvider) applied_count() int {
 	mut m := p.mutex
@@ -71,7 +71,7 @@ fn test_set_block_never_blocks_under_write_load() {
 		return provider.applied_count() == write_count
 	})
 
-	w.close()
+	w.close() or { panic(err) }
 	assert provider.applied_count() == write_count
 	assert w.block_override(write_count - 1, 64, 0) or { -1 } == write_count
 }
@@ -80,7 +80,7 @@ fn test_flush_barrier_holds_under_sustained_concurrent_writes() {
 	mut provider := &CountingProvider{}
 	mut w := new_world('persist-soak-flush', provider, 'void', world.overworld)
 	defer {
-		w.close()
+		w.close() or { panic(err) }
 	}
 
 	write_count := 5000
@@ -94,7 +94,7 @@ fn test_flush_barrier_holds_under_sustained_concurrent_writes() {
 
 	mut flush_checks := 0
 	for flush_checks < 20 {
-		w.flush()
+		w.flush() or { panic(err) }
 		applied_at_flush := provider.applied_count()
 		// Whatever the worker had applied at the moment this flush returned
 		// must still be applied afterward. Flush never reports completion
@@ -105,6 +105,6 @@ fn test_flush_barrier_holds_under_sustained_concurrent_writes() {
 	}
 
 	_ := <-writer_done
-	w.flush()
+	w.flush() or { panic(err) }
 	assert provider.applied_count() == write_count
 }

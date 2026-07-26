@@ -48,6 +48,7 @@ mut:
 	mutex        &sync.Mutex = sync.new_mutex()
 	current_tick i64
 	scheduled    []ScheduledEntry
+	last_persist_error ?string
 	// Persistence worker state, only meaningful when store_backed is true.
 	// A storeless World (tests, void worlds) never starts this thread and
 	// must never send on these channels.
@@ -207,7 +208,7 @@ fn (mut w World) run_persist_worker() {
 	for {
 		select {
 			record := <-w.persist_queue {
-				apply_persist_record(mut store, record)
+				apply_persist_record(mut w, mut store, record)
 			}
 			_ := <-w.persist_stop {
 				// The channel is never closed, so this final non blocking
@@ -216,7 +217,7 @@ fn (mut w World) run_persist_worker() {
 				for {
 					select {
 						record := <-w.persist_queue {
-							apply_persist_record(mut store, record)
+							apply_persist_record(mut w, mut store, record)
 						}
 						else {
 							break
@@ -231,19 +232,37 @@ fn (mut w World) run_persist_worker() {
 }
 
 // apply_persist_record performs the one disk write, or barrier signal, a
-// single record represents.
-fn apply_persist_record(mut store Provider, record PersistRecord) {
+// single record represents. A write failure is recorded on World rather than
+// discarded.
+fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 	match record {
 		BlockPersist {
-			store.set_block(record.x, record.y, record.z, record.id)
+			store.set_block(record.x, record.y, record.z, record.id) or {
+				w.mutex.lock()
+				w.last_persist_error = err.msg()
+				w.mutex.unlock()
+			}
 		}
 		TilePersist {
-			store.set_tile_text(record.x, record.y, record.z, record.text)
+			store.set_tile_text(record.x, record.y, record.z, record.text) or {
+				w.mutex.lock()
+				w.last_persist_error = err.msg()
+				w.mutex.unlock()
+			}
 		}
 		PersistBarrier {
 			record.done <- true
 		}
 	}
+}
+
+pub fn (w &World) last_persist_error() ?string {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return w.last_persist_error
 }
 
 pub fn (w &World) tile_text(x int, y int, z int) ?string {
@@ -292,20 +311,20 @@ pub fn (w &World) make_generator(fallback world.Generator) world.Generator {
 // actually be applied first. So this reflects everything mutated up to
 // the moment it was called.. Safe to call while the world is live. It doesn't
 // touch the in memory override cache.
-pub fn (mut w World) flush() {
+pub fn (mut w World) flush() ! {
 	if mut store := w.store {
 		w.await_persist_barrier()
-		store.flush()
+		store.flush()!
 	}
 }
 
 // close waits for the storage worker to apply every write already handed
 // to it, then stops it before closing the store.
-pub fn (mut w World) close() {
+pub fn (mut w World) close() ! {
 	if mut store := w.store {
 		w.persist_stop <- true
 		_ := <-w.persist_done
-		store.close()
+		store.close()!
 	}
 }
 

@@ -46,6 +46,10 @@ mut:
 	// world_registry owns loaded world runtimes and their lifecycle. Hub
 	// routes named lookups through it instead of storing raw worlds directly.
 	world_registry &WorldRegistry = unsafe { nil }
+	// session_wg tracks sessions from registration until leave completes.
+	// wait_for_sessions_to_leave blocks until every session has finished
+	// leaving including saving player data and removing itself.
+	session_wg &sync.WaitGroup = sync.new_waitgroup()
 pub mut:
 	oidc_verifier      auth.Verifier
 	data               gamedata.GameData
@@ -276,7 +280,7 @@ pub fn (mut h Hub) close_worlds() {
 	for mut wr in r.each_runtime() {
 		r.remove(wr.world.name)
 		wr.shutdown()
-		wr.world.close()
+		wr.world.close() or {}
 	}
 }
 
@@ -451,7 +455,7 @@ pub fn (mut h Hub) unload_world(name string) ! {
 	}
 	r.remove(name)
 	wr.shutdown()
-	wr.world.close()
+	wr.world.close() or { return error('failed to close world "${name}": ${err}') }
 }
 
 // delete_world unloads the named world and removes its on-disk folder. Refuses
@@ -498,6 +502,7 @@ pub fn (mut h Hub) add(target &NetworkSession) {
 	h.pending_names.delete(normal_player_name(target.player.identity.display_name))
 	h.mutex.unlock()
 	h.online_count.add(1)
+	h.session_wg.add(1)
 }
 
 pub fn (mut h Hub) remove(runtime_id u64) {
@@ -505,6 +510,11 @@ pub fn (mut h Hub) remove(runtime_id u64) {
 	h.sessions.delete(runtime_id)
 	h.mutex.unlock()
 	h.online_count.sub(1)
+	h.session_wg.done()
+}
+
+pub fn (mut h Hub) wait_for_sessions_to_leave() {
+	h.session_wg.wait()
 }
 
 pub fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
