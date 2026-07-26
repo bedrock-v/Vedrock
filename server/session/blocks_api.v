@@ -48,7 +48,7 @@ fn (h &Hub) block_id_for(name string) ?int {
 // set_block sets a block by namespaced id in the default world and broadcasts
 // the change. Returns false if name isn't a known block. The name is resolved
 // synchronously; the write itself is routed through the actor thread.
-pub fn (mut h Hub) set_block(name string, x int, y int, z int) bool {
+fn (mut h Hub) set_block(name string, x int, y int, z int) bool {
 	id := h.block_id_for(name) or { return false }
 	h.write_block(id, x, y, z)
 	return true
@@ -57,7 +57,7 @@ pub fn (mut h Hub) set_block(name string, x int, y int, z int) bool {
 // get_block returns the block network id at a position in the default world,
 // preferring a saved override and otherwise falling back to the generator so
 // untouched terrain reads correctly.
-pub fn (mut h Hub) get_block(x int, y int, z int) int {
+fn (mut h Hub) get_block(x int, y int, z int) int {
 	mut wld := h.default_world() or { return world.air.network_id }
 	if id := wld.block_override(x, y, z) {
 		return id
@@ -66,7 +66,7 @@ pub fn (mut h Hub) get_block(x int, y int, z int) int {
 	return gen.block_at(x, y, z)
 }
 
-pub fn (mut h Hub) collision_boxes(x int, y int, z int) []world.AABB {
+fn (mut h Hub) collision_boxes(x int, y int, z int) []world.AABB {
 	id := h.get_block(x, y, z)
 	if id == world.air.network_id {
 		return []world.AABB{}
@@ -89,7 +89,7 @@ fn (mut h Hub) neighbor_models(x int, y int, z int) map[int]world.BlockModel {
 
 // set_block_id writes a raw block network id, used by arena restore. It routes
 // through the same actor-thread write path as set_block.
-pub fn (mut h Hub) set_block_id(id int, x int, y int, z int) {
+fn (mut h Hub) set_block_id(id int, x int, y int, z int) {
 	h.write_block(id, x, y, z)
 }
 
@@ -112,7 +112,7 @@ fn (t PlaceWaterTask) run(mut tx WorldTx) {
 
 // place_water sets a water source in the default world and lets that world's
 // runtime own the liquid update.
-pub fn (mut h Hub) place_water(x int, y int, z int) {
+fn (mut h Hub) place_water(x int, y int, z int) {
 	mut wr := h.default_world_runtime() or { return }
 	wr.submit(PlaceWaterTask{
 		x: x
@@ -139,7 +139,7 @@ fn (t BlockChangedTask) run(mut tx WorldTx) {
 // on_block_changed notifies the default world's liquid manager. Dropping under
 // queue pressure is acceptable; the next liquid tick will re-check queued water
 // state.
-pub fn (mut h Hub) on_block_changed(x int, y int, z int) {
+fn (mut h Hub) on_block_changed(x int, y int, z int) {
 	mut wr := h.default_world_runtime() or { return }
 	wr.try_submit(BlockChangedTask{
 		x: x
@@ -153,7 +153,7 @@ pub fn (mut h Hub) on_block_changed(x int, y int, z int) {
 // synchronous read against Hub.get_block, not a WorldTask, so it never
 // competes with the world's own task queue - only restoring needs the
 // budgeted treatment below.
-pub fn (mut h Hub) capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) ?&arena.Snapshot {
+fn (mut h Hub) capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) ?&arena.Snapshot {
 	return arena.capture(mut h, arena.new_box(x1, y1, z1, x2, y2, z2)) or { return none }
 }
 
@@ -192,7 +192,7 @@ fn (t ArenaRestoreTask) run(mut tx WorldTx) {
 	}
 }
 
-pub fn (mut h Hub) restore_area(snapshot &arena.Snapshot) {
+fn (mut h Hub) restore_area(snapshot &arena.Snapshot) {
 	mut wr := h.default_world_runtime() or { return }
 	wr.submit(ArenaRestoreTask{
 		snapshot: snapshot

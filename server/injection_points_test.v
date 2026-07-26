@@ -6,7 +6,6 @@ import x.json2
 import server.conf
 import server.resource
 import server.world
-import server.world.db
 import server.session
 import server.internal.auth
 import server.player.playerdb
@@ -54,22 +53,18 @@ fn (g CustomSpawnGenerator) biome_at(x int, z int) int {
 	return 0
 }
 
-// This test proves a framework user can register a custom generator on the
-// already returned Server. register_generator/GeneratorRegistry.register were already pub before this
-// pass, so no new Options field was needed to make this a real injection
-// point: no player can connect before server.new() returns control, so
-// there's always a safe window to call this before it matters.
 fn test_late_registered_generator_is_used_by_worlds() {
 	mut srv := new(settings: isolated_config('gen', 19150)) or {
 		panic('server failed to start: ${err}')
 	}
-	srv.hub.register_generator('custom-spawn', fn (dim world.Dimension) world.Generator {
+	srv.register_generator('custom-spawn', fn (dim world.Dimension) world.Generator {
 		return CustomSpawnGenerator{}
 	})
 
-	w := db.new_world('test', none, 'custom-spawn', world.overworld)
-	gen := srv.hub.build_generator(w)
-	assert gen.spawn_y() == 12345
+	w := srv.load_world(name: 'test', generator_name: 'custom-spawn') or {
+		panic('expected world to load: ${err}')
+	}
+	assert w.spawn_y() == 12345
 }
 
 // test_resource_pack_added_after_new_is_findable proves the same for

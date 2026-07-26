@@ -23,6 +23,9 @@ mut:
 // player_join/quit/chat/command and friends are fired directly from
 // whatever session/connection thread is handling that packet, not funneled through a
 // single actor.
+//
+// Dispatch methods invoke handlers synchronously on the calling thread.
+// See Handler for each event's dispatch context and cancellation behavior.
 @[heap]
 pub struct Bus {
 mut:

@@ -46,7 +46,7 @@ fn (s &NetworkSession) build_abilities() protocol.AbilitiesData {
 
 // refresh_abilities may run from the session thread or the owning world
 // thread, so it sends through the outbound queue.
-pub fn (mut s NetworkSession) refresh_abilities() {
+fn (mut s NetworkSession) refresh_abilities() {
 	s.deliver(&protocol.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	})

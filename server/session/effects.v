@@ -42,7 +42,7 @@ fn (t PlayerRemoveEffectTask) run(mut tx WorldTx) {
 	s.apply_remove_effect(mut tx.wr, t.typ)
 }
 
-pub fn (mut s NetworkSession) add_effect(e effect.Effect) {
+fn (mut s NetworkSession) add_effect(e effect.Effect) {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
@@ -54,7 +54,7 @@ pub fn (mut s NetworkSession) add_effect(e effect.Effect) {
 	})
 }
 
-pub fn (mut s NetworkSession) remove_effect(typ effect.Type) {
+fn (mut s NetworkSession) remove_effect(typ effect.Type) {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return

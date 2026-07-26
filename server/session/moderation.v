@@ -6,7 +6,7 @@ import protocol.types
 
 // op / deop
 
-pub fn (mut h Hub) set_operator(mut target NetworkSession, value bool) {
+fn (mut h Hub) set_operator(mut target NetworkSession, value bool) {
 	target.player.perm.set_op(value)
 	h.config_mutex.lock()
 	if value {
@@ -29,7 +29,7 @@ pub fn (mut h Hub) set_operator(mut target NetworkSession, value bool) {
 }
 
 // is_op is the locked read path used by login and runtime permission checks.
-pub fn (mut h Hub) is_op(name string) bool {
+fn (mut h Hub) is_op(name string) bool {
 	h.config_mutex.lock()
 	defer {
 		h.config_mutex.unlock()
@@ -37,7 +37,7 @@ pub fn (mut h Hub) is_op(name string) bool {
 	return h.ops.is_op(name)
 }
 
-pub fn (mut s NetworkSession) set_operator(value bool) {
+fn (mut s NetworkSession) set_operator(value bool) {
 	s.hub.set_operator(mut s, value)
 }
 
@@ -113,7 +113,7 @@ fn (t PlayerKillTask) run(mut tx WorldTx) {
 	target.apply_death(mut tx.wr, '%death.attack.generic', [target.player.identity.display_name])
 }
 
-pub fn (mut s NetworkSession) kill() {
+fn (mut s NetworkSession) kill() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
@@ -126,13 +126,13 @@ pub fn (mut s NetworkSession) kill() {
 
 // teleport
 
-pub fn (mut s NetworkSession) position() (f32, f32, f32) {
+fn (mut s NetworkSession) position() (f32, f32, f32) {
 	p := s.current_position()
 	return p.x, p.y, p.z
 }
 
 // place_water targets the default world through Hub's block API.
-pub fn (mut s NetworkSession) place_water(x int, y int, z int) {
+fn (mut s NetworkSession) place_water(x int, y int, z int) {
 	s.hub.place_water(x, y, z)
 }
 
@@ -182,7 +182,7 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 	}) or {}
 }
 
-pub fn (s &NetworkSession) world_name() string {
+fn (s &NetworkSession) world_name() string {
 	mut m := s.world_mutex
 	m.lock()
 	defer {
@@ -297,14 +297,14 @@ fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	}
 }
 
-pub fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
+fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, '')
 }
 
 // teleport_to_world moves the player into another loaded world at the given
 // position. No-op if the world is not loaded (change_world's own lookup
 // fails and request_teleport returns without side effects).
-pub fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
+fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, name)
 }
 
@@ -342,7 +342,7 @@ fn (mut s NetworkSession) apply_clear_inventory() {
 	})
 }
 
-pub fn (mut s NetworkSession) clear_inventory() {
+fn (mut s NetworkSession) clear_inventory() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
@@ -398,7 +398,7 @@ fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, 
 	s.send_slot_update(slot, wrap_stack_id(stack, net_id))
 }
 
-pub fn (mut s NetworkSession) give_item(id string, count int) bool {
+fn (mut s NetworkSession) give_item(id string, count int) bool {
 	numeric_id := s.hub.data.item_id(id)
 	if numeric_id == 0 && id != 'minecraft:air' {
 		return false

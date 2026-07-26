@@ -5,7 +5,7 @@ import protocol.types
 // nearest_player_name is the plugin.ServerView facing form of nearest_player.
 // It resolves the runtime id back to a display name rather than leaking the
 // internal runtime id concept into the plugin surface.
-pub fn (mut h Hub) nearest_player_name(x f32, y f32, z f32, radius f32) ?string {
+fn (mut h Hub) nearest_player_name(x f32, y f32, z f32, radius f32) ?string {
 	rid, _, found := h.find_nearest_player(types.Vector3{x, y, z}, radius)
 	if !found {
 		return none

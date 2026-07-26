@@ -91,7 +91,7 @@ fn is_finite32(f f32) bool {
 // including pending movement that the owning world runtime has not applied
 // yet. Use it only for validation that must reflect the acting client's latest
 // update.
-pub fn (s &NetworkSession) effective_position() types.Vector3 {
+fn (s &NetworkSession) effective_position() types.Vector3 {
 	mut mtx := s.movement_mutex
 	mtx.lock()
 	defer {

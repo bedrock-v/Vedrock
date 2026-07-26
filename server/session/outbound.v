@@ -45,7 +45,7 @@ enum EnqueueResult {
 //
 // Returns false if the session is already closing. Repeated calls, including
 // calls for test sessions that never entered bootstrap, are harmless.
-pub fn (mut s NetworkSession) activate_outbound() bool {
+fn (mut s NetworkSession) activate_outbound() bool {
 	s.close_mutex.lock()
 	if s.close_started {
 		s.close_mutex.unlock()
@@ -119,7 +119,7 @@ fn (mut s NetworkSession) try_enqueue(msg OutboundMessage, is_disconnect bool) !
 // the session is aborted instead of blocking or silently dropping it. A
 // packet arriving after the session already started closing is dropped
 // quietly, with no second abort.
-pub fn (mut s NetworkSession) deliver(p protocol.Packet) {
+fn (mut s NetworkSession) deliver(p protocol.Packet) {
 	result := s.try_enqueue(OutboundPacket{
 		packet: p
 	}, false) or { panic('deliver() called before activate_outbound(): ${err}') }
@@ -130,7 +130,7 @@ pub fn (mut s NetworkSession) deliver(p protocol.Packet) {
 
 // send_packet queues p for the session's outbound writer. It fails before
 // activation, aborts on a full queue and ignores sends after closing begins.
-pub fn (mut s NetworkSession) send_packet(p protocol.Packet) ! {
+fn (mut s NetworkSession) send_packet(p protocol.Packet) ! {
 	result := s.try_enqueue(OutboundPacket{
 		packet: p
 	}, false)!
@@ -149,7 +149,7 @@ pub fn (mut s NetworkSession) send_packet(p protocol.Packet) ! {
 // send_batch queues packets as one batch so concurrent sends can't split
 // them apart. The slice is cloned because callers such as chunk streaming
 // may reuse its backing storage before the writer sends it.
-pub fn (mut s NetworkSession) send_batch(packets []protocol.Packet) ! {
+fn (mut s NetworkSession) send_batch(packets []protocol.Packet) ! {
 	result := s.try_enqueue(OutboundBatch{
 		packets: packets.clone()
 	}, false)!

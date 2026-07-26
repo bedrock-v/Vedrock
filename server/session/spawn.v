@@ -680,7 +680,7 @@ fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsI
 // that changes what s.player.perm can do after spawn must call this, or
 // the list stays stale until reconnect. Queued because permission changes
 // may come from the owning world thread.
-pub fn (mut s NetworkSession) refresh_available_commands() {
+fn (mut s NetworkSession) refresh_available_commands() {
 	available := s.hub.commands.available_commands(s)
 	s.deliver(available)
 }

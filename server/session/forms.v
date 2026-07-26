@@ -9,7 +9,7 @@ const form_image_resync_interval_ms = 500
 
 // send_form queues the form for the target player, since it may be opened
 // from a command running on another session's thread.
-pub fn (mut s NetworkSession) send_form(f form.Form) ! {
+fn (mut s NetworkSession) send_form(f form.Form) ! {
 	s.forms_mutex.lock()
 	s.next_form_id++
 	id := s.next_form_id

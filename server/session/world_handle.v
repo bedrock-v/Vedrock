@@ -48,6 +48,14 @@ pub fn (w World) block_at(x int, y int, z int) world.Block {
 	return world.block_from_id(gen.block_at(x, y, z))
 }
 
+// spawn_y returns the configured generator's spawn height for this world.
+// The generator can be resolved from thread safe world and registry state,
+// so no world actor call is required.
+pub fn (w World) spawn_y() int {
+	gen := w.runtime.world.make_generator(w.runtime.hub.build_generator(w.runtime.world))
+	return gen.spawn_y()
+}
+
 // set_block applies an authoritative block change through the owning world
 // thread.
 pub fn (mut w World) set_block(x int, y int, z int, b world.Block) ! {

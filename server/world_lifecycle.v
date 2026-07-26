@@ -10,8 +10,8 @@ import server.world
 // created on disk. Reopening an existing world just reuses whatever
 // generator/dimension it was saved with.
 //
-// To use a custom generator, register
-// it with Hub.register_generator first, then reference it by name here.
+// To use a custom generator, register it with Server.register_generator
+// first, then reference it by name here.
 @[params]
 pub struct WorldConfig {
 pub:
@@ -63,4 +63,8 @@ pub fn (mut s Server) worlds() []session.World {
 // contains players; callers must move or disconnect them first.
 pub fn (mut s Server) unload_world(name string) ! {
 	s.hub.unload_world(name)!
+}
+
+pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+	s.hub.register_generator(name, factory)
 }

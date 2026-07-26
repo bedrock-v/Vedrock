@@ -30,7 +30,7 @@ fn player_ref_for(s &NetworkSession) PlayerRef {
 
 // player_ref looks up the player currently connected under name and
 // returns a PlayerRef for their current world membership generation.
-pub fn (mut h Hub) player_ref(name string) ?PlayerRef {
+fn (mut h Hub) player_ref(name string) ?PlayerRef {
 	s := h.session_by_name(name) or { return none }
 	return player_ref_for(s)
 }

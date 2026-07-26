@@ -1,8 +1,15 @@
 module event
 
-// Handler is the listener interface: one method per event, each
-// receiving a mutable Context. A plugin embeds NopHandler and overrides only the
-// events it cares about.
+// Handler receives server events through mutable Context values. Embed
+// NopHandler and override only the events you need.
+//
+// Handlers run synchronously on the thread that dispatches them, so they
+// must stay short and non-blocking. World events may run on the owning
+// world thread; blocking there stalls all other work for that world.
+//
+// Cancellation only has an effect when the dispatch site checks it before
+// applying the action. Some events are observational and fire after the
+// outcome has already occurred.
 pub interface Handler {
 mut:
 	on_player_join(mut ctx Context[JoinData])

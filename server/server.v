@@ -38,48 +38,15 @@ pub:
 	hub_options session.HubOptions
 }
 
-// load_worlds always loads the configured default world, plus every other
-// world found under worlds/ when load-all-worlds is enabled.
-fn load_worlds(mut hub session.Hub, cfg conf.Config, log &logger.Logger) {
-	hub.set_world_config(cfg.worlds_dir, cfg.generator)
-	mut factory := hub.world_factory or {
-		log.warn('No world factory configured - no worlds can be loaded')
-		return
-	}
-
-	mut names := [cfg.default_world]
-	if cfg.load_all_worlds {
-		for name in factory.discover() {
-			if name !in names {
-				names << name
-			}
-		}
-	}
-	for name in names {
-		if w := factory.open(name, cfg.generator, world.overworld) {
-			hub.add_world(w)
-			log.info('Loaded world "${name}" (${w.block_count()} overrides)')
-		} else {
-			log.warn('Failed to load world "${name}": ${err}')
-		}
-	}
-	if _ := hub.world(cfg.default_world) {
-		hub.set_default_world(cfg.default_world)
-	}
-	if hub.world_count() == 0 {
-		log.warn('No worlds loaded - players will spawn in an empty void')
-	}
-}
-
-// Server is the running instance a framework user gets back from new().
-// hub is pub mut so a user's own program can reach srv.hub.commands/
-// srv.hub.events/etc directly - there is no curated Api surface standing
-// between a user's main.v and the real subsystems anymore. Extension
-// mechanisms like server/plugin are optional convenience layers a user can
-// still build on top of this, not something Server wires in itself.
+// Server is the running instance returned by new(). Its hub remains
+// private.
+//
+// Optional extension layers such as plugins may build on this public API;
+// Server doesn't wire them in directly.
 @[heap]
 pub struct Server {
 mut:
+	hub      &session.Hub     = unsafe { nil }
 	listener &raknet.Listener = unsafe { nil }
 	guid     i64
 	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
@@ -88,7 +55,6 @@ mut:
 	active_conns &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	created_at   time.Time
 pub mut:
-	hub  &session.Hub = unsafe { nil }
 	log  &logger.Logger
 	lang &language.Lang
 	cfg  conf.Config
@@ -189,7 +155,8 @@ pub fn new(opts Options) !&Server {
 	} else {
 		log.warn('Failed to load block palette: ${err}')
 	}
-	load_worlds(mut hub, cfg, log)
+	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
+		cfg.generator, log)
 	hub.packs = load_resource_packs(cfg, log)
 	return &Server{
 		log:        log

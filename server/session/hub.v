@@ -23,6 +23,13 @@ import server.enchant
 import server.internal.auth
 import server.player.playerdb
 
+// Hub contains the server's actor-model internals rather than its public
+// API. It remains a public type only so Server can hold a reference to it
+// across package boundaries; the field itself and most Hub methods stay
+// private.
+//
+// Users should access these capabilities through Server, World,
+// PlayerRef, EntityRef and WorldTransaction instead.
 @[heap]
 pub struct Hub {
 mut:
@@ -95,7 +102,7 @@ pub mut:
 // current_tick is the global tick counter, published directly from
 // server.v's tick loop (set_current_tick). See current_tick_bits' own
 // comment for why this is an atomic rather than a plain field.
-pub fn (mut h Hub) current_tick() i64 {
+fn (mut h Hub) current_tick() i64 {
 	return h.current_tick_bits.load()
 }
 
@@ -212,7 +219,7 @@ pub fn (h &Hub) uptime_seconds() i64 {
 // add_world wraps a loaded world in a WorldRuntime (starting its actor) and
 // registers it under its name. The first world added becomes the default
 // unless one is already set.
-pub fn (mut h Hub) add_world(loaded_world &db.World) {
+fn (mut h Hub) add_world(loaded_world &db.World) {
 	wr := new_world_runtime(h, loaded_world)
 	h.world_registry.add(wr)
 	h.mutex.lock()
@@ -222,7 +229,7 @@ pub fn (mut h Hub) add_world(loaded_world &db.World) {
 	h.mutex.unlock()
 }
 
-pub fn (mut h Hub) set_default_world(name string) {
+fn (mut h Hub) set_default_world(name string) {
 	h.mutex.lock()
 	h.default_world_name = name
 	h.mutex.unlock()
@@ -244,14 +251,14 @@ pub fn (mut h Hub) request_tick_all(n i64) {
 	}
 }
 
-pub fn (mut h Hub) world(name string) ?&db.World {
+fn (mut h Hub) world(name string) ?&db.World {
 	wr := h.world_runtime(name) or { return none }
 	return wr.world
 }
 
 // default_world returns the world new players spawn into, or none when no
 // world could be loaded.
-pub fn (mut h Hub) default_world() ?&db.World {
+fn (mut h Hub) default_world() ?&db.World {
 	h.mutex.lock()
 	name := h.default_world_name
 	h.mutex.unlock()
@@ -266,7 +273,7 @@ fn (mut h Hub) default_world_runtime() ?&WorldRuntime {
 	return h.world_runtime(name)
 }
 
-pub fn (mut h Hub) world_count() int {
+fn (mut h Hub) world_count() int {
 	mut r := h.world_registry
 	return r.len()
 }
@@ -286,7 +293,7 @@ pub fn (mut h Hub) close_worlds() {
 
 // set_world_config records where worlds live on disk and the default generator
 // used for worlds created at runtime. Called once at boot from load_worlds.
-pub fn (mut h Hub) set_world_config(worlds_dir string, generator string) {
+fn (mut h Hub) set_world_config(worlds_dir string, generator string) {
 	h.mutex.lock()
 	h.worlds_dir = worlds_dir
 	h.world_generator = generator
@@ -317,7 +324,7 @@ pub:
 
 // world_info gathers a snapshot for the named world, or none when it isn't
 // loaded.
-pub fn (mut h Hub) world_info(name string) ?WorldInfo {
+fn (mut h Hub) world_info(name string) ?WorldInfo {
 	loaded_world := h.world(name) or { return none }
 	h.mutex.lock()
 	is_default := name == h.default_world_name
@@ -334,13 +341,13 @@ pub fn (mut h Hub) world_info(name string) ?WorldInfo {
 
 // world_metrics gathers a runtime health snapshot for the named world or
 // none when it isn't loaded. See WorldRuntime.metrics for what it covers.
-pub fn (h &Hub) world_metrics(name string) ?WorldMetrics {
+fn (h &Hub) world_metrics(name string) ?WorldMetrics {
 	mut wr := h.world_runtime(name) or { return none }
 	return wr.metrics()
 }
 
 // players_in_world counts the connected players whose active world matches name.
-pub fn (mut h Hub) players_in_world(name string) int {
+fn (mut h Hub) players_in_world(name string) int {
 	h.mutex.lock()
 	defer { h.mutex.unlock() }
 	mut count := 0
@@ -352,20 +359,6 @@ pub fn (mut h Hub) players_in_world(name string) int {
 	return count
 }
 
-// sessions_in_world returns every connected session whose active world
-// matches name. Used for world scoped broadcasting.
-pub fn (mut h Hub) sessions_in_world(name string) []&NetworkSession {
-	h.mutex.lock()
-	defer { h.mutex.unlock() }
-	mut list := []&NetworkSession{}
-	for _, target in h.sessions {
-		if target.world_name() == name {
-			list << target
-		}
-	}
-	return list
-}
-
 // register_generator adds or overrides a named world generator. Part of the
 // plugin.ServerView surface.
 pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Dimension) blockworld.Generator) {
@@ -374,13 +367,13 @@ pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Di
 
 // generator_type_names lists every registered generator name. Part of the
 // plugin.ServerView surface.
-pub fn (mut h Hub) generator_type_names() []string {
+fn (mut h Hub) generator_type_names() []string {
 	return h.generators.names()
 }
 
 // build_generator resolves a world's own generator by name and dimension
 // through the registry.
-pub fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
+fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
 	return h.generators.create(w.generator_name, w.dimension) or {
 		h.generators.create(w.dimension.default_generator, w.dimension) or {
 			blockworld.new_generator(w.generator_name)
@@ -461,7 +454,7 @@ pub fn (mut h Hub) unload_world(name string) ! {
 // delete_world unloads the named world and removes its on-disk folder. Refuses
 // the default world and any world that still has players in it. The LevelDB
 // handle is always closed before the files are touched.
-pub fn (mut h Hub) delete_world(name string) ! {
+fn (mut h Hub) delete_world(name string) ! {
 	h.mutex.lock()
 	if name == h.default_world_name {
 		h.mutex.unlock()
@@ -488,7 +481,7 @@ pub fn (mut h Hub) delete_world(name string) ! {
 	factory.delete(name) or { return error('failed to delete world "${name}": ${err}') }
 }
 
-pub fn (mut h Hub) allocate_runtime_id() u64 {
+fn (mut h Hub) allocate_runtime_id() u64 {
 	h.mutex.lock()
 	id := h.next_runtime_id
 	h.next_runtime_id++
@@ -496,7 +489,7 @@ pub fn (mut h Hub) allocate_runtime_id() u64 {
 	return id
 }
 
-pub fn (mut h Hub) add(target &NetworkSession) {
+fn (mut h Hub) add(target &NetworkSession) {
 	h.mutex.lock()
 	h.sessions[target.runtime_id] = target
 	h.pending_names.delete(normal_player_name(target.player.identity.display_name))
@@ -505,7 +498,7 @@ pub fn (mut h Hub) add(target &NetworkSession) {
 	h.session_wg.add(1)
 }
 
-pub fn (mut h Hub) remove(runtime_id u64) {
+fn (mut h Hub) remove(runtime_id u64) {
 	h.mutex.lock()
 	h.sessions.delete(runtime_id)
 	h.mutex.unlock()
@@ -517,7 +510,7 @@ pub fn (mut h Hub) wait_for_sessions_to_leave() {
 	h.session_wg.wait()
 }
 
-pub fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
+fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
 	h.mutex.lock()
 	target := h.sessions[runtime_id] or {
 		h.mutex.unlock()
@@ -527,7 +520,7 @@ pub fn (mut h Hub) session_by_runtime(runtime_id u64) ?&NetworkSession {
 	return target
 }
 
-pub fn (mut h Hub) session_by_name(name string) ?&NetworkSession {
+fn (mut h Hub) session_by_name(name string) ?&NetworkSession {
 	h.mutex.lock()
 	defer { h.mutex.unlock() }
 	// I'm not sure about trim_space().to_lower(), so let's use casual to_lower
@@ -585,7 +578,7 @@ pub fn (mut h Hub) count() int {
 
 // broadcast_message sends a raw chat line to every connected player. Part of the
 // plugin.ServerView surface.
-pub fn (mut h Hub) broadcast_message(text string) {
+fn (mut h Hub) broadcast_message(text string) {
 	h.broadcast(&protocol.TextPacket{
 		@type:   int(enums.TextType.raw)
 		message: text
@@ -593,7 +586,7 @@ pub fn (mut h Hub) broadcast_message(text string) {
 }
 
 // online_count is the plugin.ServerView alias for count().
-pub fn (mut h Hub) online_count() int {
+fn (mut h Hub) online_count() int {
 	return h.count()
 }
 
@@ -601,7 +594,7 @@ pub fn (mut h Hub) online_count() int {
 // false if the type is unknown, the default world is unavailable, the runtime
 // is stopping or the spawn event is cancelled. Entity registration and event
 // dispatch run inside one task on that world's runtime.
-pub fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
+fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
 	behaviour := h.entity_registry.create(name) or { return false }
 	mut wr := h.default_world_runtime() or { return false }
 	task := SpawnEntityTask{
@@ -617,13 +610,13 @@ pub fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
 }
 
 // entity_type_names lists every summonable entity type.
-pub fn (mut h Hub) entity_type_names() []string {
+fn (mut h Hub) entity_type_names() []string {
 	return h.entity_registry.names()
 }
 
 // player_names lists the display names of every connected player. Part of the
 // plugin.ServerView surface.
-pub fn (mut h Hub) player_names() []string {
+fn (mut h Hub) player_names() []string {
 	h.mutex.lock()
 	defer { h.mutex.unlock() }
 	mut names := []string{cap: h.sessions.len}
@@ -649,7 +642,7 @@ pub fn (mut h Hub) broadcast(p protocol.Packet) {
 	}
 }
 
-pub fn (mut h Hub) broadcast_except(runtime_id u64, p protocol.Packet) {
+fn (mut h Hub) broadcast_except(runtime_id u64, p protocol.Packet) {
 	for mut target in h.snapshot() {
 		if target.runtime_id != runtime_id {
 			target.deliver(p)

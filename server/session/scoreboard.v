@@ -49,13 +49,13 @@ fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 
 // show_scoreboard replaces the player's sidebar with the supplied title
 // and lines. Packets are queued so remote command calls do not block here.
-pub fn (mut s NetworkSession) show_scoreboard(title string, lines []string) {
+fn (mut s NetworkSession) show_scoreboard(title string, lines []string) {
 	for p in build_sidebar_packets(title, lines) {
 		s.deliver(p)
 	}
 }
 
-pub fn (mut s NetworkSession) clear_scoreboard() {
+fn (mut s NetworkSession) clear_scoreboard() {
 	s.deliver(&protocol.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	})

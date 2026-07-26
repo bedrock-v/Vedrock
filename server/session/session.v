@@ -37,6 +37,10 @@ struct BreakProgress {
 	started_tick i64
 }
 
+// NetworkSession contains per connection transport and threading state. It remains a public type only where required
+// across package boundaries; most of its methods stay private.
+//
+// External callers should interact with players through PlayerRef.
 @[heap]
 pub struct NetworkSession {
 mut:
@@ -114,11 +118,11 @@ pub mut:
 // set_handler attaches a per session event.Handler. Only wired into a subset
 // of dispatch sites so far (chat.v's ChatData) as the demonstrated pattern. Not every event type
 // checks it yet.
-pub fn (mut s NetworkSession) set_handler(h event.Handler) {
+fn (mut s NetworkSession) set_handler(h event.Handler) {
 	s.handler = h
 }
 
-pub fn (s &NetworkSession) has_permission(name string) bool {
+fn (s &NetworkSession) has_permission(name string) bool {
 	return s.player.has_permission(name)
 }
 
@@ -182,23 +186,23 @@ fn (mut s NetworkSession) current_world_runtime() &WorldRuntime {
 	return s.world_binding().world_runtime
 }
 
-pub fn (s &NetworkSession) name() string {
+fn (s &NetworkSession) name() string {
 	return s.player.name()
 }
 
-pub fn (s &NetworkSession) is_player() bool {
+fn (s &NetworkSession) is_player() bool {
 	return true
 }
 
-pub fn (s &NetworkSession) runtime_id() u64 {
+fn (s &NetworkSession) runtime_id() u64 {
 	return s.runtime_id
 }
 
-pub fn (s &NetworkSession) is_dead() bool {
+fn (s &NetworkSession) is_dead() bool {
 	return s.player.is_dead()
 }
 
-pub fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
+fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
 	target := s.hub.session_by_name(name) or { return none }
 	return target
 }
@@ -380,7 +384,7 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 // disconnect queues a final DisconnectPacket after all pending packets and
 // prevents anything else from being queued behind it. Repeated calls are
 // harmless; a full queue falls back to an immediate abort.
-pub fn (mut s NetworkSession) disconnect(message string) {
+fn (mut s NetworkSession) disconnect(message string) {
 	s.mark_closed()
 	result := s.try_enqueue(OutboundDisconnect{
 		message: message

@@ -11,21 +11,21 @@ import server.world.db
 // directly on the Hub which already guards that map. Teleport runs through
 // change_world which transfers membership between the two owning world actors.
 
-pub fn (mut s NetworkSession) world_names() []string {
+fn (mut s NetworkSession) world_names() []string {
 	return s.hub.list_worlds()
 }
 
-pub fn (mut s NetworkSession) world_info(name string) ?cmd.WorldSummary {
+fn (mut s NetworkSession) world_info(name string) ?cmd.WorldSummary {
 	info := s.hub.world_info(name)?
 	return to_world_summary(info)
 }
 
-pub fn (mut s NetworkSession) world_metrics(name string) ?cmd.WorldMetricsSummary {
+fn (mut s NetworkSession) world_metrics(name string) ?cmd.WorldMetricsSummary {
 	m := s.hub.world_metrics(name)?
 	return to_world_metrics_summary(m)
 }
 
-pub fn (mut s NetworkSession) world_create(name string, dimension string, generator string) ! {
+fn (mut s NetworkSession) world_create(name string, dimension string, generator string) ! {
 	dim := world.dimension_by_name(dimension) or {
 		return error('unknown dimension "${dimension}"')
 	}
@@ -37,7 +37,7 @@ pub fn (mut s NetworkSession) world_create(name string, dimension string, genera
 	s.hub.events.world_load(mut load_ctx)
 }
 
-pub fn (mut s NetworkSession) world_load(name string) ! {
+fn (mut s NetworkSession) world_load(name string) ! {
 	s.hub.load_world(name)!
 	mut ctx := event.new_context(event.WorldLoadData{
 		name:   name
@@ -46,7 +46,7 @@ pub fn (mut s NetworkSession) world_load(name string) ! {
 	s.hub.events.world_load(mut ctx)
 }
 
-pub fn (mut s NetworkSession) world_delete(name string) ! {
+fn (mut s NetworkSession) world_delete(name string) ! {
 	mut ctx := event.new_context(event.WorldUnloadData{
 		name:   name
 		player: s
@@ -58,28 +58,28 @@ pub fn (mut s NetworkSession) world_delete(name string) ! {
 	s.hub.delete_world(name)!
 }
 
-pub fn (mut s NetworkSession) world_teleport(name string) ! {
+fn (mut s NetworkSession) world_teleport(name string) ! {
 	target := s.hub.world(name) or { return error('world "${name}" is not loaded') }
 	gen := target.make_generator(s.hub.build_generator(target))
 	pos := world_spawn_position(target, gen)
 	s.teleport_to_world(name, pos.x, pos.y, pos.z)
 }
 
-pub fn (mut c ConsoleSender) world_names() []string {
+fn (mut c ConsoleSender) world_names() []string {
 	return c.hub.list_worlds()
 }
 
-pub fn (mut c ConsoleSender) world_info(name string) ?cmd.WorldSummary {
+fn (mut c ConsoleSender) world_info(name string) ?cmd.WorldSummary {
 	info := c.hub.world_info(name)?
 	return to_world_summary(info)
 }
 
-pub fn (mut c ConsoleSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
+fn (mut c ConsoleSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
 	m := c.hub.world_metrics(name)?
 	return to_world_metrics_summary(m)
 }
 
-pub fn (mut c ConsoleSender) world_create(name string, dimension string, generator string) ! {
+fn (mut c ConsoleSender) world_create(name string, dimension string, generator string) ! {
 	dim := world.dimension_by_name(dimension) or {
 		return error('unknown dimension "${dimension}"')
 	}
@@ -91,7 +91,7 @@ pub fn (mut c ConsoleSender) world_create(name string, dimension string, generat
 	c.hub.events.world_load(mut load_ctx)
 }
 
-pub fn (mut c ConsoleSender) world_load(name string) ! {
+fn (mut c ConsoleSender) world_load(name string) ! {
 	c.hub.load_world(name)!
 	mut ctx := event.new_context(event.WorldLoadData{
 		name:   name
@@ -100,7 +100,7 @@ pub fn (mut c ConsoleSender) world_load(name string) ! {
 	c.hub.events.world_load(mut ctx)
 }
 
-pub fn (mut c ConsoleSender) world_delete(name string) ! {
+fn (mut c ConsoleSender) world_delete(name string) ! {
 	mut ctx := event.new_context(event.WorldUnloadData{
 		name:   name
 		player: c
@@ -112,7 +112,7 @@ pub fn (mut c ConsoleSender) world_delete(name string) ! {
 	c.hub.delete_world(name)!
 }
 
-pub fn (mut c ConsoleSender) world_teleport(name string) ! {
+fn (mut c ConsoleSender) world_teleport(name string) ! {
 	return error('the console cannot teleport into a world')
 }
 
