@@ -655,3 +655,11 @@ pub fn (mut h Hub) disconnect_all(message string) {
 		target.disconnect(message)
 	}
 }
+
+pub fn (mut h Hub) register_event(handler event.Handler, priority event.Priority) {
+	h.events.register(handler, priority)
+}
+
+pub fn (mut h Hub) unregister_event(handler event.Handler) {
+	h.events.unregister(handler)
+}
