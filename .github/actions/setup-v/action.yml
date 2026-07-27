@@ -43,9 +43,12 @@ runs:
 
         mkdir -p "$deps" "$vmod"
 
-        git clone --depth 1 https://github.com/bedrock-v/raknet "$deps/raknet"
-        git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
-        git clone --depth 1 https://github.com/bedrock-v/protocol "$deps/protocol"
+        git clone https://github.com/bedrock-v/raknet "$deps/raknet"
+        git -C "$deps/raknet" checkout 490054c
+        git clone https://github.com/bedrock-v/nbt "$deps/nbt"
+        git -C "$deps/nbt" checkout 48ba491
+        git clone https://github.com/bedrock-v/protocol "$deps/protocol"
+        git -C "$deps/protocol" checkout 5140ba6
 
         cp -a "$deps/raknet" "$vmod/raknet"
         cp -a "$deps/raknet/message" "$vmod/message"
