@@ -11,6 +11,11 @@ import protocol.types
 // Behaviour mutates the Entity directly (velocity, kill, etc.).
 pub interface Behaviour {
 	identifier() string
+	dimensions() Dimensions
+	// despawns_naturally reports whether distance based despawning may remove
+	// this entity. It should be false for entities that manage their own
+	// lifetime.
+	despawns_naturally() bool
 mut:
 	tick(mut e Entity, mut host Host)
 }
@@ -60,12 +65,21 @@ fn set_wander_velocity(mut e Entity, speed f32) {
 pub struct PassiveBehaviour {
 pub mut:
 	network_id string
+	dimensions Dimensions
 mut:
 	wander_cooldown i64 = wander_interval_ticks
 }
 
 pub fn (b &PassiveBehaviour) identifier() string {
 	return b.network_id
+}
+
+pub fn (b &PassiveBehaviour) dimensions() Dimensions {
+	return b.dimensions
+}
+
+pub fn (b &PassiveBehaviour) despawns_naturally() bool {
+	return true
 }
 
 pub fn (mut b PassiveBehaviour) tick(mut e Entity, mut host Host) {
@@ -90,6 +104,7 @@ pub struct HostileBehaviour {
 pub mut:
 	network_id       string
 	detection_radius f32 = 16.0
+	dimensions       Dimensions
 mut:
 	wander_cooldown   i64 = wander_interval_ticks
 	scan_cooldown     i64
@@ -99,6 +114,14 @@ mut:
 
 pub fn (b &HostileBehaviour) identifier() string {
 	return b.network_id
+}
+
+pub fn (b &HostileBehaviour) dimensions() Dimensions {
+	return b.dimensions
+}
+
+pub fn (b &HostileBehaviour) despawns_naturally() bool {
+	return true
 }
 
 pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
@@ -167,12 +190,24 @@ pub mut:
 	gravity_accel           f32 = gravity
 	drag_factor             f32 = drag
 	survive_block_collision bool
+	dimensions              Dimensions
 mut:
 	stuck bool
 }
 
 pub fn (b &ProjectileBehaviour) identifier() string {
 	return b.network_id
+}
+
+pub fn (b &ProjectileBehaviour) dimensions() Dimensions {
+	return b.dimensions
+}
+
+// despawns_naturally is false because projectiles already expire through
+// their own age and collision rules. Distance based despawning could remove
+// them before that lifecycle completes.
+pub fn (b &ProjectileBehaviour) despawns_naturally() bool {
+	return false
 }
 
 pub fn (mut b ProjectileBehaviour) tick(mut e Entity, mut host Host) {

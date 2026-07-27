@@ -74,26 +74,27 @@ fn (mut h WorldEntityHost) neighbor_models(x int, y int, z int) map[int]world.Bl
 }
 
 // entity_position is the unified lookup. Any registered actor, mob or
-// player, resolved through Manager's storage. current_position() is
-// one of entity.Actor's own three methods, so no narrowing is needed here
-// at all.
+// player, resolved through Manager's storage. current_position() is one of
+// entity.Actor's own methods, so no narrowing is needed here at all.
 fn (mut h WorldEntityHost) entity_position(runtime_id u64) ?types.Vector3 {
 	a := h.wr.entities.actor_by_runtime_id(runtime_id) or { return none }
 	return a.current_position()
 }
 
+// entity_hit_test checks every registered actor using its own feet position
+// and dimensions. Players and non-player entities share the same path
+// through the Actor interface.
 fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
 	for a in h.wr.entities.all_actors() {
 		if a.runtime_id() == exclude_runtime_id || a.is_dead() {
 			continue
 		}
-		p := a.current_position()
-		is_mob := a is entity.Entity
-		half_width := if is_mob { entity.entity_half_width } else { player_half_width }
-		box_height := if is_mob { entity.entity_height } else { player_height }
-		min_y := if is_mob { p.y } else { p.y - player_eye_height }
-		if pos.x >= p.x - half_width && pos.x <= p.x + half_width && pos.z >= p.z - half_width
-			&& pos.z <= p.z + half_width && pos.y >= min_y && pos.y <= min_y + box_height {
+		feet := a.feet_position()
+		d := a.dimensions()
+		half_width := d.width / 2
+		if pos.x >= feet.x - half_width && pos.x <= feet.x + half_width
+			&& pos.z >= feet.z - half_width && pos.z <= feet.z + half_width && pos.y >= feet.y
+			&& pos.y <= feet.y + d.height {
 			return a.runtime_id()
 		}
 	}

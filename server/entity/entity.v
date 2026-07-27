@@ -11,12 +11,7 @@ import server.effect
 const gravity = f32(0.08)
 const drag = f32(0.02)
 
-// entity_half_width and entity_height approximate the collision box shared by
-// most mobs. Position is the box centre on x/z and the feet on y, matching the
-// AddActorPacket convention. Kept as a single size - per-type boxes can come
-// later.
-pub const entity_half_width = f32(0.3)
-pub const entity_height = f32(1.8)
+const mob_max_health = f32(20.0)
 
 // Entity is a non-player actor living in the world - a mob, item or projectile.
 // It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable
@@ -27,7 +22,8 @@ pub struct Entity {
 pub:
 	unique_id  i64
 	runtime_id u64
-	identifier string // network type id, e.g. 'minecraft:pig'
+	identifier string     // network type id, e.g. "minecraft:pig"
+	dimensions Dimensions // physical footprint, fixed at spawn from the Behaviour that created this entity
 pub mut:
 	pos           types.Vector3
 	velocity      types.Vector3
@@ -43,13 +39,26 @@ pub mut:
 	health        f32 = 20.0
 	dead          bool
 	age           i64
-	behaviour     Behaviour
-	effects       effect.Manager
+	// ticks_inactive counts ticks since this entity was last hurt.
+	ticks_inactive i64
+	behaviour      Behaviour
+	effects        effect.Manager
 }
 
 // current_position returns the entity's current position.
 pub fn (e &Entity) current_position() types.Vector3 {
 	return e.pos
+}
+
+// feet_position satisfies entity.Actor. An Entity's pos is already its feet
+// , so this is the same value as current_position().
+pub fn (e &Entity) feet_position() types.Vector3 {
+	return e.pos
+}
+
+// dimensions satisfies entity.Actor.
+pub fn (e &Entity) dimensions() Dimensions {
+	return e.dimensions
 }
 
 // runtime_id satisfies entity.Actor.
@@ -77,6 +86,7 @@ pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime
 	if e.dead || amount <= 0 {
 		return
 	}
+	e.ticks_inactive = 0
 	if !fatal && e.health - amount < 1 {
 		e.health = 1
 	} else {
@@ -90,6 +100,7 @@ pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime
 		event_id:         protocol.actor_event_hurt
 		event_data:       0
 	})
+	host.broadcast(e.health_update_packet())
 	if e.health <= 0 {
 		e.kill()
 		if mut e.behaviour is DeathBehaviour {
@@ -102,14 +113,15 @@ pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime
 	}
 }
 
-pub fn (mut e Entity) heal(amount f32) {
+pub fn (mut e Entity) heal(mut host Host, amount f32) {
 	if e.dead || amount <= 0 {
 		return
 	}
 	e.health += amount
-	if e.health > 20 {
-		e.health = 20
+	if e.health > mob_max_health {
+		e.health = mob_max_health
 	}
+	host.broadcast(e.health_update_packet())
 }
 
 // teleport moves the entity to pos and resets its ground clamp there.
@@ -126,7 +138,11 @@ pub fn (mut e Entity) teleport(pos types.Vector3) {
 // independently and a move that would enter a solid block is cancelled and its
 // velocity zeroed. Landing on a block below sets on_ground and snaps the feet to
 // the block top. floor_y stays as a hard fallback floor for entities spawned
-// over ungenerated terrain.
+// over ungenerated terrain. It applies regardless of dimensions.has_collision,
+// since it's a safety net against falling out of the world.
+//
+// An entity with dimensions.has_collision == false skips block collision
+// entirely on every axis and simply falls/moves through blocks.
 fn (mut e Entity) apply_physics(mut host Host) {
 	if !e.no_gravity {
 		e.velocity.y -= e.gravity_accel
@@ -138,14 +154,14 @@ fn (mut e Entity) apply_physics(mut host Host) {
 	e.hit_block = false
 
 	e.pos.x += e.velocity.x
-	if e.collides(mut host) {
+	if e.dimensions.has_collision && e.collides(mut host) {
 		e.pos.x -= e.velocity.x
 		e.velocity.x = 0.0
 		e.hit_block = true
 	}
 
 	e.pos.z += e.velocity.z
-	if e.collides(mut host) {
+	if e.dimensions.has_collision && e.collides(mut host) {
 		e.pos.z -= e.velocity.z
 		e.velocity.z = 0.0
 		e.hit_block = true
@@ -153,7 +169,7 @@ fn (mut e Entity) apply_physics(mut host Host) {
 
 	e.on_ground = false
 	e.pos.y += e.velocity.y
-	if e.collides(mut host) {
+	if e.dimensions.has_collision && e.collides(mut host) {
 		if e.velocity.y <= 0.0 {
 			// landed - snap feet to the top of the block underneath
 			e.pos.y = math_floor(e.pos.y) + 1.0
@@ -175,18 +191,20 @@ fn (mut e Entity) apply_physics(mut host Host) {
 
 // collides reports whether the entity's AABB overlaps any block collision box.
 fn (e &Entity) collides(mut host Host) bool {
-	min_x := int(math_floor(e.pos.x - entity_half_width))
-	max_x := int(math_floor(e.pos.x + entity_half_width))
-	min_z := int(math_floor(e.pos.z - entity_half_width))
-	max_z := int(math_floor(e.pos.z + entity_half_width))
+	half_width := e.dimensions.width / 2
+	height := e.dimensions.height
+	min_x := int(math_floor(e.pos.x - half_width))
+	max_x := int(math_floor(e.pos.x + half_width))
+	min_z := int(math_floor(e.pos.z - half_width))
+	max_z := int(math_floor(e.pos.z + half_width))
 	min_y := int(math_floor(e.pos.y))
-	max_y := int(math_floor(e.pos.y + entity_height))
-	entity_min_x := e.pos.x - entity_half_width
-	entity_min_z := e.pos.z - entity_half_width
-	entity_max_x := e.pos.x + entity_half_width
-	entity_max_z := e.pos.z + entity_half_width
-	entity_box := world.box(entity_min_x, e.pos.y, entity_min_z, entity_max_x, e.pos.y +
-		entity_height, entity_max_z)
+	max_y := int(math_floor(e.pos.y + height))
+	entity_min_x := e.pos.x - half_width
+	entity_min_z := e.pos.z - half_width
+	entity_max_x := e.pos.x + half_width
+	entity_max_z := e.pos.z + half_width
+	entity_box := world.box(entity_min_x, e.pos.y, entity_min_z, entity_max_x, e.pos.y + height,
+		entity_max_z)
 	for bx := min_x; bx <= max_x; bx++ {
 		for bz := min_z; bz <= max_z; bz++ {
 			for by := min_y; by <= max_y; by++ {
@@ -221,11 +239,82 @@ pub fn (e &Entity) spawn_packet() &protocol.AddActorPacket {
 		yaw:               e.yaw
 		head_yaw:          e.head_yaw
 		body_yaw:          e.yaw
-		attributes:        []types.ActorAttribute{}
-		metadata:          []types.MetadataEntry{}
+		attributes:        e.attribute_entries()
+		metadata:          e.metadata_entries()
 		synced_properties: types.PropertySyncData{}
 		links:             []types.EntityLink{}
 	}
+}
+
+// attribute_entries builds the health attribute the client needs at spawn
+// time.
+fn (e &Entity) attribute_entries() []types.ActorAttribute {
+	return [
+		types.ActorAttribute{
+			id:      'minecraft:health'
+			min:     0.0
+			current: e.health
+			max:     mob_max_health
+		},
+	]
+}
+
+// health_update_packet reports the current health attribute to observers.
+// Used whenever health changes after spawn (hurt/heal) so a client watching
+// this entity's health bar actually sees the new value.
+fn (e &Entity) health_update_packet() &protocol.UpdateAttributesPacket {
+	return &protocol.UpdateAttributesPacket{
+		actor_runtime_id: e.runtime_id
+		entries:          [
+			types.UpdateAttribute{
+				id:          'minecraft:health'
+				min:         0.0
+				max:         mob_max_health
+				current:     e.health
+				default_min: 0.0
+				default_max: mob_max_health
+				default:     mob_max_health
+				modifiers:   []types.AttributeModifier{}
+			},
+		]
+		tick:             0
+	}
+}
+
+// entity_flag_bit computes the metadata flag bitmask contribution for the
+// flag at index.
+fn entity_flag_bit(index int) i64 {
+	return i64(u64(1) << u64(index))
+}
+
+fn (e &Entity) metadata_entries() []types.MetadataEntry {
+	mut flags := i64(0)
+	if e.dimensions.has_collision {
+		flags |= entity_flag_bit(protocol.entity_flag_has_collision)
+	}
+	if !e.no_gravity {
+		flags |= entity_flag_bit(protocol.entity_flag_affected_by_gravity)
+	}
+	return [
+		types.MetadataEntry{
+			key:   protocol.meta_key_flags
+			value: types.MetaLong{
+				value: flags
+			}
+		},
+		types.MetadataEntry{
+			key:   protocol.meta_key_width
+			value: types.MetaFloat{
+				value: e.dimensions.width
+			}
+		},
+		types.MetadataEntry{
+			key:   protocol.meta_key_height
+			value: types.MetaFloat{
+				value: e.dimensions.height
+			}
+		},
+	]
 }
 
 // move_packet builds the movement update broadcast each tick the entity moves.

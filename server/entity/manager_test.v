@@ -107,6 +107,31 @@ fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 	return best_rid
 }
 
+struct FakeActor {
+	rid u64
+	pos types.Vector3
+}
+
+fn (a &FakeActor) runtime_id() u64 {
+	return a.rid
+}
+
+fn (a &FakeActor) current_position() types.Vector3 {
+	return a.pos
+}
+
+fn (a &FakeActor) feet_position() types.Vector3 {
+	return a.pos
+}
+
+fn (a &FakeActor) dimensions() Dimensions {
+	return Dimensions{}
+}
+
+fn (a &FakeActor) is_dead() bool {
+	return false
+}
+
 fn test_spawn_registers_and_broadcasts() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
@@ -176,6 +201,25 @@ fn test_entity_does_not_pass_through_wall() {
 	assert e.pos.x < 1.0 // blocked before entering the wall block at x=1
 }
 
+fn test_entity_without_collision_passes_through_wall() {
+	mut host := &FakeHost{}
+	host.set_solid(1, 5, 0) // wall east of the entity, would normally block it
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{
+		network_id: 'minecraft:pig'
+		dimensions: Dimensions{
+			has_collision: false
+		}
+	}, types.Vector3{0.5, 5, 0.5})
+	e.floor_y = 5
+	e.no_gravity = true
+	for _ in 0 .. 10 {
+		e.set_velocity(types.Vector3{0.5, 0, 0})
+		m.tick()
+	}
+	assert e.pos.x > 1.0 // has_collision: false skips block collision entirely
+}
+
 fn test_entity_ignores_non_air_blocks_without_collision_boxes() {
 	mut host := &FakeHost{}
 	host.set_empty_non_air(1, 5, 0)
@@ -198,15 +242,47 @@ fn test_spawn_uses_near_broadcast() {
 	assert host.near == 1 // AddActor routed through broadcast_near
 }
 
-fn test_projectile_despawns_after_max_age() {
+fn test_mob_never_despawns_when_nobody_is_registered_in_the_world() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e :=
-		m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:snowball', max_age: 5 }, types.Vector3{0, 10, 0})
-	e.no_gravity = true // isolate the age check from the ground check
-	for _ in 0 .. 6 {
+	mut e := m.spawn(&PassiveBehaviour{
+		network_id:     'minecraft:pig'
+		despawn_policy: natural_mob_despawn_policy
+	}, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	for _ in 0 .. 20 {
 		m.tick()
 	}
+	assert m.count() == 1 // nobody online at all, the distance policy must not apply
+}
+
+fn test_mob_never_despawns_near_registered_player() {
+	mut host := &FakeHost{}
+	host.players[999] = types.Vector3{1, 5, 0} // well within despawn_never_radius
+	mut m := new_manager(host)
+	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{1, 5, 0} }, 999, 0)
+	mut e := m.spawn(&PassiveBehaviour{
+		network_id:     'minecraft:pig'
+		despawn_policy: natural_mob_despawn_policy
+	}, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	for _ in 0 .. 20 {
+		m.tick()
+	}
+	assert m.count() == 1
+}
+
+fn test_mob_despawns_when_far_from_only_registered_player() {
+	mut host := &FakeHost{}
+	host.players[999] = types.Vector3{5000, 5, 0}
+	mut m := new_manager(host)
+	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{5000, 5, 0} }, 999, 0)
+	mut e := m.spawn(&PassiveBehaviour{
+		network_id:     'minecraft:pig'
+		despawn_policy: natural_mob_despawn_policy
+	}, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	m.tick()
 	assert m.count() == 0
 }
 
@@ -244,6 +320,64 @@ fn test_hurt_behaviour_not_dispatched_to_passive_mobs() {
 	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
 	e.hurt(mut host, 5, true, 99)
 	assert e.health == 15 // damage still applies, just no HurtBehaviour reaction
+}
+
+fn test_hurt_broadcasts_hurt_event_and_health_attribute_update() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	host.broadcasts = 0 // spawn's own AddActor goes through broadcast_near
+	e.hurt(mut host, 5, true, 99)
+	assert host.broadcasts == 2 // ActorEventPacket (hurt) + UpdateAttributesPacket (health)
+}
+
+fn test_heal_broadcasts_health_attribute_update() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	e.health = 10
+	host.broadcasts = 0
+	e.heal(mut host, 5)
+	assert e.health == 15
+	assert host.broadcasts == 1
+}
+
+fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{
+		network_id: 'minecraft:cow'
+		dimensions: Dimensions{
+			width:  0.9
+			height: 1.4
+		}
+	}, types.Vector3{0, 5, 0})
+	e.health = 7
+
+	packet := e.spawn_packet()
+	assert packet.attributes.len == 1
+	assert packet.attributes[0].id == 'minecraft:health'
+	assert packet.attributes[0].current == 7
+	assert packet.attributes[0].max == 20.0
+
+	mut saw_width := false
+	mut saw_height := false
+	for entry in packet.metadata {
+		if entry.key == protocol.meta_key_width {
+			if entry.value is types.MetaFloat {
+				assert entry.value.value == f32(0.9)
+				saw_width = true
+			}
+		}
+		if entry.key == protocol.meta_key_height {
+			if entry.value is types.MetaFloat {
+				assert entry.value.value == f32(1.4)
+				saw_height = true
+			}
+		}
+	}
+	assert saw_width
+	assert saw_height
 }
 
 fn test_projectile_hits_entity_via_entity_hit_test() {

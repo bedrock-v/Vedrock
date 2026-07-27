@@ -1,6 +1,7 @@
 module entity
 
 import sync
+import rand
 import protocol
 import protocol.types
 import server.world
@@ -71,6 +72,7 @@ pub fn (mut m Manager) spawn(behaviour Behaviour, pos types.Vector3) &Entity {
 		unique_id:  i64(rid)
 		runtime_id: rid
 		identifier: behaviour.identifier()
+		dimensions: behaviour.dimensions()
 		pos:        pos
 		floor_y:    pos.y
 		behaviour:  behaviour
@@ -113,20 +115,6 @@ pub fn (mut m Manager) by_runtime_id(runtime_id u64) ?&Entity {
 	entry := m.actors[runtime_id] or { return none }
 	if entry.actor is Entity {
 		return entry.actor
-	}
-	return none
-}
-
-pub fn (mut m Manager) hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
-	for e in m.snapshot() {
-		if e.runtime_id == exclude_runtime_id || e.dead {
-			continue
-		}
-		if pos.x >= e.pos.x - entity_half_width && pos.x <= e.pos.x + entity_half_width
-			&& pos.z >= e.pos.z - entity_half_width && pos.z <= e.pos.z + entity_half_width
-			&& pos.y >= e.pos.y && pos.y <= e.pos.y + entity_height {
-			return e.runtime_id
-		}
 	}
 	return none
 }
@@ -265,6 +253,36 @@ pub fn (mut m Manager) all_actors() []Actor {
 	return list
 }
 
+// should_despawn_naturally reports whether the entity should be removed
+// this tick according to its Behaviour's despawn policy. Policies with
+// distance despawning disabled never qualify.
+//
+// The policy is also disabled while the world has no registered players.
+// Without this guard, every opted-in entity in an empty but still ticking
+// world would be treated as beyond the maximum distance and despawn.
+fn (mut m Manager) should_despawn_naturally(e &Entity) bool {
+	policy := e.behaviour.despawn_policy()
+	if !policy.distance {
+		return false
+	}
+	if m.player_actor_count() == 0 {
+		return false
+	}
+	if _ := m.host.nearest_player(e.pos, policy.min_distance) {
+		return false
+	}
+	if _ := m.host.nearest_player(e.pos, policy.max_distance) {
+		if !policy.random_chance {
+			return false
+		}
+		if policy.inactivity && e.ticks_inactive < policy.inactivity_ticks {
+			return false
+		}
+		return rand.f32() < f32(1.0) / f32(policy.random_chance_one_in)
+	}
+	return true
+}
+
 // tick advances every entity one server tick: run its Behaviour, apply physics,
 // remove the dead, and broadcast movement for the ones that moved.
 pub fn (mut m Manager) tick() {
@@ -276,6 +294,12 @@ pub fn (mut m Manager) tick() {
 			continue
 		}
 		e.age++
+		e.ticks_inactive++
+		if m.should_despawn_naturally(e) {
+			e.kill()
+			m.despawn(e.runtime_id)
+			continue
+		}
 		before := e.pos
 		e.tick_effects(mut m.host)
 		if e.dead {

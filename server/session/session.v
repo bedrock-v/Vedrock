@@ -9,6 +9,7 @@ import server.world
 import server.world.db
 import server.player
 import server.cmd
+import server.entity
 import server.event
 import server.form
 import sync
@@ -200,6 +201,23 @@ fn (s &NetworkSession) runtime_id() u64 {
 
 fn (s &NetworkSession) is_dead() bool {
 	return s.player.is_dead()
+}
+
+// dimensions satisfies entity.Actor. Returns the player's dimensions.
+fn (s &NetworkSession) dimensions() entity.Dimensions {
+	return entity.Dimensions{
+		width:      player_half_width * 2
+		height:     player_height
+		eye_height: player_eye_height
+	}
+}
+
+// feet_position returns the player's feet position. Player positions are
+// stored at eye level, so this subtracts eye_height; entity positions
+// already represent their feet.
+fn (s &NetworkSession) feet_position() types.Vector3 {
+	p := s.current_position()
+	return types.Vector3{p.x, p.y - player_eye_height, p.z}
 }
 
 fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {

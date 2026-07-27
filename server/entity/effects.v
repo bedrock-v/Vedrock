@@ -67,7 +67,7 @@ fn (e &Entity) mob_effect_packet(ef effect.Effect, event_id int) &protocol.MobEf
 fn (mut e Entity) apply_effect_tick(mut host Host, ef effect.Effect) {
 	match ef.effect_type().id {
 		effect.instant_health.id {
-			e.heal(f32(2 << ef.level()) * f32(ef.potency()))
+			e.heal(mut host, f32(2 << ef.level()) * f32(ef.potency()))
 		}
 		effect.instant_damage.id {
 			e.hurt(mut host, f32(3 << ef.level()) * f32(ef.potency()), true, 0)
@@ -75,7 +75,7 @@ fn (mut e Entity) apply_effect_tick(mut host Host, ef effect.Effect) {
 		effect.regeneration.id {
 			interval := effect_tick_interval(50, ef.level(), true)
 			if ef.tick() % interval == 0 {
-				e.heal(1)
+				e.heal(mut host, 1)
 			}
 		}
 		effect.poison.id {
