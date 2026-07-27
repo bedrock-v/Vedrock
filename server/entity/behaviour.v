@@ -12,10 +12,10 @@ import protocol.types
 pub interface Behaviour {
 	identifier() string
 	dimensions() Dimensions
-	// despawns_naturally reports whether distance based despawning may remove
-	// this entity. It should be false for entities that manage their own
-	// lifetime.
-	despawns_naturally() bool
+	// despawn_policy defines which distance based despawn rules apply to this
+	// entity. The zero value disables them all and is valid for persistent
+	// entities or those that manage their own lifetime.
+	despawn_policy() DespawnPolicy
 mut:
 	tick(mut e Entity, mut host Host)
 }
@@ -64,8 +64,9 @@ fn set_wander_velocity(mut e Entity, speed f32) {
 @[heap]
 pub struct PassiveBehaviour {
 pub mut:
-	network_id string
-	dimensions Dimensions
+	network_id     string
+	dimensions     Dimensions
+	despawn_policy DespawnPolicy
 mut:
 	wander_cooldown i64 = wander_interval_ticks
 }
@@ -78,8 +79,8 @@ pub fn (b &PassiveBehaviour) dimensions() Dimensions {
 	return b.dimensions
 }
 
-pub fn (b &PassiveBehaviour) despawns_naturally() bool {
-	return true
+pub fn (b &PassiveBehaviour) despawn_policy() DespawnPolicy {
+	return b.despawn_policy
 }
 
 pub fn (mut b PassiveBehaviour) tick(mut e Entity, mut host Host) {
@@ -105,6 +106,7 @@ pub mut:
 	network_id       string
 	detection_radius f32 = 16.0
 	dimensions       Dimensions
+	despawn_policy   DespawnPolicy
 mut:
 	wander_cooldown   i64 = wander_interval_ticks
 	scan_cooldown     i64
@@ -120,8 +122,8 @@ pub fn (b &HostileBehaviour) dimensions() Dimensions {
 	return b.dimensions
 }
 
-pub fn (b &HostileBehaviour) despawns_naturally() bool {
-	return true
+pub fn (b &HostileBehaviour) despawn_policy() DespawnPolicy {
+	return b.despawn_policy
 }
 
 pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
@@ -191,8 +193,13 @@ pub mut:
 	drag_factor             f32 = drag
 	survive_block_collision bool
 	dimensions              Dimensions
+	flying_despawn_policy DespawnPolicy = DespawnPolicy{
+		distance:      true
+		random_chance: true
+	}
 mut:
-	stuck bool
+	stuck     bool
+	stuck_age i64
 }
 
 pub fn (b &ProjectileBehaviour) identifier() string {
@@ -203,26 +210,32 @@ pub fn (b &ProjectileBehaviour) dimensions() Dimensions {
 	return b.dimensions
 }
 
-// despawns_naturally is false because projectiles already expire through
-// their own age and collision rules. Distance based despawning could remove
-// them before that lifecycle completes.
-pub fn (b &ProjectileBehaviour) despawns_naturally() bool {
-	return false
+// despawn_policy changes with projectile state. While flying, the
+// configured distance policy applies because no other lifetime rule can
+// remove a projectile that never lands. Since this engine doesn't cull
+// entities when chunks unload, distance despawning fills that role.
+//
+// Once stuck, distance despawning is disabled and stuck_age/max_age becomes
+// the sole authority for removal. This is intentionally not configurable
+// per instance, preventing distance rules from interfering with the stuck
+// projectile lifetime.
+pub fn (b &ProjectileBehaviour) despawn_policy() DespawnPolicy {
+	if b.stuck {
+		return DespawnPolicy{}
+	}
+	return b.flying_despawn_policy
 }
 
 pub fn (mut b ProjectileBehaviour) tick(mut e Entity, mut host Host) {
 	if b.stuck {
-		if e.age >= b.max_age {
+		b.stuck_age++
+		if b.stuck_age >= b.max_age {
 			e.kill()
 		}
 		return
 	}
 	e.gravity_accel = b.gravity_accel
 	e.drag_factor = b.drag_factor
-	if e.age >= b.max_age {
-		e.kill()
-		return
-	}
 	if e.age <= 1 {
 		return
 	}
