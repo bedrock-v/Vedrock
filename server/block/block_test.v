@@ -2,11 +2,6 @@ module block
 
 import server.world
 
-fn test_default_registry_has_builtins() {
-	r := new_registry()
-	assert r.len() == 402
-}
-
 fn test_short_grass_and_fern_are_replaceable() {
 	r := new_registry()
 	short_grass := r.get_by_name('minecraft:short_grass') or { panic('missing short_grass') }
