@@ -1,9 +1,11 @@
 module session
 
 import math
-import protocol
-import protocol.types
+import protocol.version.v662.enums as enums_662
+import protocol.version.v662.packets as packets_662
+import types
 import server.event
+import server.internal.network
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
@@ -172,15 +174,18 @@ fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapsh
 		tx.wr.events.player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
-			s.deliver(&protocol.MovePlayerPacket{
-				actor_runtime_id: s.runtime_id
-				position:         current.position
-				pitch:            current.pitch
-				yaw:              current.yaw
-				head_yaw:         current.head_yaw
-				mode:             1
-				on_ground:        false
-			})
+			mut move_packet := &packets_662.MovePlayerPacket{
+				player_runtime_id: network.actor_runtime_id(s.runtime_id)
+				y_head_rotation:   current.head_yaw
+				position_mode:     enums_662.PlayerPositionRespawn{}
+				on_ground:         false
+			}
+			move_packet.position[0] = current.position.x
+			move_packet.position[1] = current.position.y
+			move_packet.position[2] = current.position.z
+			move_packet.rotation[0] = current.pitch
+			move_packet.rotation[1] = current.yaw
+			s.deliver(move_packet)
 			return
 		}
 	}

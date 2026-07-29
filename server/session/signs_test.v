@@ -2,8 +2,9 @@ module session
 
 import time
 import nbt
-import protocol
-import protocol.types
+import protocol.version.v944.packets as packets_944
+import types
+import server.internal.network
 import server.internal.gamedata
 import server.player
 import server.internal.auth
@@ -88,8 +89,8 @@ fn test_sign_editor_opens_only_for_signs() {
 	tx.maybe_open_sign_editor(mut s, types.BlockPosition{0, 0, 0}, sign_id)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is protocol.OpenSignPacket {
-		assert sent.front
+	if sent is packets_944.OpenSignPacket {
+		assert sent.is_front
 	} else {
 		assert false
 	}
@@ -129,16 +130,16 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, sign_id)
 
-	s.handle_block_actor_data(protocol.BlockActorDataPacket{
-		block_position: pos
-		nbt:            build_sign_nbt(pos.x, pos.y, pos.z, 'Welcome!')
+	s.handle_block_actor_data(packets_944.BlockActorDataPacket{
+		block_position:  network.block_pos_v944(pos)
+		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Welcome!')
 	})!
 
 	assert target.tile_text(pos.x, pos.y, pos.z) or { '' } == 'Welcome!'
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is protocol.BlockActorDataPacket {
-		compound := sent.nbt.tag as nbt.Compound
+	if sent is packets_944.BlockActorDataPacket {
+		compound := sent.actor_data_tags.tag as nbt.Compound
 		text := extract_sign_text(compound) or { panic('expected text') }
 		assert text == 'Welcome!'
 	} else {
@@ -170,9 +171,9 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, dirt_id)
 
-	s.handle_block_actor_data(protocol.BlockActorDataPacket{
-		block_position: pos
-		nbt:            build_sign_nbt(pos.x, pos.y, pos.z, 'Should not be saved')
+	s.handle_block_actor_data(packets_944.BlockActorDataPacket{
+		block_position:  network.block_pos_v944(pos)
+		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Should not be saved')
 	})!
 
 	if _ := target.tile_text(pos.x, pos.y, pos.z) {
@@ -213,8 +214,8 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 	assert target.tile_text(pos.x, pos.y, pos.z) or { 'missing' } == ''
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is protocol.BlockActorDataPacket {
-		assert sent.block_position == pos
+	if sent is packets_944.BlockActorDataPacket {
+		assert sent.block_position == network.block_pos_v944(pos)
 	} else {
 		assert false
 	}

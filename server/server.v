@@ -5,7 +5,7 @@ import rand
 import time
 import server.cmd
 import raknet
-import protocol
+import protocol.version.v662.packets as packets_662
 import server.internal.logger
 import server.internal.language
 import server.conf
@@ -170,8 +170,8 @@ pub fn new(opts Options) !&Server {
 
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.starting', {
-		'Version':  protocol.minecraft_version_network
-		'Protocol': protocol.current_protocol.str()
+		'Version':  network.selected_minecraft_version
+		'Protocol': network.selected_protocol.str()
 	}))
 	mut listener := raknet.listen(s.cfg.bind_address())!
 	listener.set_pong_data(s.pong_data(0).bytes())!
@@ -238,7 +238,7 @@ fn (mut s Server) tick_loop() {
 		tick++
 		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
-			s.hub.broadcast(&protocol.SetTimePacket{
+			s.hub.broadcast(&packets_662.SetTimePacket{
 				time: world_time
 			})
 			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes()) or {
@@ -324,7 +324,7 @@ fn (mut s Server) handle(mut conn raknet.Conn) {
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
 	return
-		['MCPE', s.cfg.motd, protocol.current_protocol.str(), protocol.minecraft_version_network, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
+		['MCPE', s.cfg.motd, network.selected_protocol.str(), network.selected_minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
 		';'
 }
 

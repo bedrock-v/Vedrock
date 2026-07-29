@@ -1,7 +1,7 @@
 module conf
 
 import os
-import protocol
+import server.internal.network
 
 pub struct Config {
 pub mut:
@@ -171,21 +171,21 @@ pub fn (c &Config) bind_address() string {
 // constant. Unknown values fall back to normal.
 pub fn difficulty_from_string(s string) int {
 	return match s.to_lower() {
-		'peaceful', 'p', '0' { protocol.difficulty_peaceful }
-		'easy', 'e', '1' { protocol.difficulty_easy }
-		'normal', 'n', '2' { protocol.difficulty_normal }
-		'hard', 'h', '3' { protocol.difficulty_hard }
-		else { protocol.difficulty_normal }
+		'peaceful', 'p', '0' { network.difficulty_peaceful }
+		'easy', 'e', '1' { network.difficulty_easy }
+		'normal', 'n', '2' { network.difficulty_normal }
+		'hard', 'h', '3' { network.difficulty_hard }
+		else { network.difficulty_normal }
 	}
 }
 
 // difficulty_name returns the canonical name for a protocol difficulty constant.
 pub fn difficulty_name(value int) string {
 	return match value {
-		protocol.difficulty_peaceful { 'peaceful' }
-		protocol.difficulty_easy { 'easy' }
-		protocol.difficulty_normal { 'normal' }
-		protocol.difficulty_hard { 'hard' }
+		network.difficulty_peaceful { 'peaceful' }
+		network.difficulty_easy { 'easy' }
+		network.difficulty_normal { 'normal' }
+		network.difficulty_hard { 'hard' }
 		else { 'normal' }
 	}
 }

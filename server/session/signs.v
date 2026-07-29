@@ -1,12 +1,13 @@
 module session
 
 import nbt
-import protocol
-import protocol.types
+import protocol.version.v944.packets as packets_944
+import types
+import server.internal.network
 import server.block
 
-fn (mut s NetworkSession) handle_block_actor_data(p protocol.BlockActorDataPacket) ! {
-	pos := p.block_position
+fn (mut s NetworkSession) handle_block_actor_data(p packets_944.BlockActorDataPacket) ! {
+	pos := network.block_pos_from_v944(p.block_position)
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -18,10 +19,10 @@ fn (mut s NetworkSession) handle_block_actor_data(p protocol.BlockActorDataPacke
 	if b !is block.SignBlock {
 		return
 	}
-	if p.nbt.tag !is nbt.Compound {
+	if p.actor_data_tags.tag !is nbt.Compound {
 		return
 	}
-	compound := p.nbt.tag as nbt.Compound
+	compound := p.actor_data_tags.tag as nbt.Compound
 	text := extract_sign_text(compound) or { return }
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
@@ -58,9 +59,9 @@ fn (t SetSignTextTask) run(mut tx WorldTx) {
 		t.done <- true
 	}
 	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	tx.wr.broadcast_world(&protocol.BlockActorDataPacket{
-		block_position: types.BlockPosition{t.x, t.y, t.z}
-		nbt:            build_sign_nbt(t.x, t.y, t.z, t.text)
+	tx.wr.broadcast_world(&packets_944.BlockActorDataPacket{
+		block_position:  network.block_pos_v944(types.BlockPosition{t.x, t.y, t.z})
+		actor_data_tags: build_sign_nbt(t.x, t.y, t.z, t.text)
 	})
 }
 

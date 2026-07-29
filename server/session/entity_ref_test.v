@@ -1,8 +1,8 @@
 module session
 
 import time
-import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import types
 import server.entity
 import server.internal.auth
 import server.internal.gamedata
@@ -149,7 +149,7 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 	assert found_move
 	mut saw_move := false
 	for p in transport.sent {
-		if p is protocol.MoveActorAbsolutePacket {
+		if p is packets_662.MoveActorAbsolutePacket {
 			saw_move = true
 		}
 	}

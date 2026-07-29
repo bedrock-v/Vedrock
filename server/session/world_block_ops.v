@@ -1,7 +1,9 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v898.packets as packets_898
+import types
+import server.internal.network
 import server.world
 
 // block_at returns this transaction's authoritative block ID, preferring a
@@ -54,20 +56,23 @@ fn (mut tx WorldTx) recompute_neighbor_blocks(pos types.BlockPosition) {
 // broadcast_swing sends the acting session's arm swing animation to every
 // other session in this transaction's world.
 fn (mut tx WorldTx) broadcast_swing(s &NetworkSession) {
-	tx.wr.broadcast_world_except(s.runtime_id, &protocol.AnimatePacket{
-		action:           protocol.animate_action_swing_arm
-		actor_runtime_id: s.runtime_id
+	tx.wr.broadcast_world_except(s.runtime_id, &packets_898.AnimatePacket{
+		action:            packets_898.AnimatePacketAction.swing
+		target_runtime_id: network.actor_runtime_id(s.runtime_id)
 	})
 }
 
 // broadcast_destroy_particles sends the block break particle effect to every
 // session in this transaction's world.
 fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id int) {
-	tx.wr.broadcast_world(&protocol.LevelEventPacket{
-		event_id:   protocol.level_event_particles_destroy_block
-		position:   types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
-		event_data: runtime_id
-	})
+	mut packet := &packets_662.LevelEventPacket{
+		event_id: network.level_event_particles_destroy_block
+		data:     runtime_id
+	}
+	packet.position[0] = f32(x) + 0.5
+	packet.position[1] = f32(y) + 0.5
+	packet.position[2] = f32(z) + 0.5
+	tx.wr.broadcast_world(packet)
 }
 
 // notify_block_changed re-evaluates liquid flow and connected block state

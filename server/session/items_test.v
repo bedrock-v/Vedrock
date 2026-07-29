@@ -2,92 +2,107 @@ module session
 
 import os
 import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.types as types_662
+import protocol.version.v729.packets as packets_729
+import protocol.version.v944.packets as packets_944
+import protocol.version.v944.types as types_944
+import protocol.version.v1001.packets as packets_1001
+import types
 import protocol.serializer
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
+import server.internal.network
 import server.player
 import server.player.playerdb
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
-	mut pool := protocol.new_packet_pool()
+	mut pool := network.new_selected_packet_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
 }
 
 fn test_inventory_content_roundtrip() {
-	decoded := decode_packet(&protocol.InventoryContentPacket{
-		window_id:      inventory_window_id
-		items:          [wrap_stack(types.ItemStack{ id: 1, count: 64 })]
-		container_name: types.FullContainerName{
-			container_id: 0
+	decoded := decode_packet(&packets_1001.InventoryContentPacket{
+		inventory_id:        u32(inventory_window_id)
+		slots:               [
+			network.item_descriptor_v975(types.ItemStack{ id: 1, count: 64 }),
+		]
+		container_name_data: types_944.FullContainerName{
+			container: .inventory_container
 		}
-		storage:        empty_stack()
+		storage_item:        network.item_descriptor_v975(types.ItemStack{})
 	})!
 	assert decoded.name() == 'InventoryContentPacket'
-	if decoded is protocol.InventoryContentPacket {
-		assert decoded.window_id == inventory_window_id
-		assert decoded.items[0].item_stack.id == 1
+	if decoded is packets_1001.InventoryContentPacket {
+		assert decoded.inventory_id == u32(inventory_window_id)
+		assert decoded.slots[0].id == 1
 	} else {
 		assert false
 	}
 }
 
 fn test_container_open_roundtrip() {
-	decoded := decode_packet(&protocol.ContainerOpenPacket{
-		window_id:       0
-		window_type:     protocol.container_type_inventory
-		block_position:  types.BlockPosition{0, 64, 0}
-		actor_unique_id: -1
+	decoded := decode_packet(&packets_944.ContainerOpenPacket{
+		container_id:    .inventory
+		container_type:  .inventory
+		position:        types_944.NetworkBlockPosition{
+			x: 0
+			y: 64
+			z: 0
+		}
+		target_actor_id: network.actor_unique_id(-1)
 	})!
 	assert decoded.name() == 'ContainerOpenPacket'
-	if decoded is protocol.ContainerOpenPacket {
-		assert decoded.window_id == 0
-		assert decoded.actor_unique_id == -1
+	if decoded is packets_944.ContainerOpenPacket {
+		assert decoded.container_id == .inventory
+		assert decoded.target_actor_id.value == -1
 	} else {
 		assert false
 	}
 }
 
 fn test_set_actor_data_flags_roundtrip() {
-	flags := entity_flag_bit(protocol.entity_flag_affected_by_gravity) | entity_flag_bit(protocol.entity_flag_has_collision)
-	decoded := decode_packet(&protocol.SetActorDataPacket{
-		actor_runtime_id: 1
-		metadata:         [
-			types.MetadataEntry{
-				key:   protocol.meta_key_flags
-				value: types.MetaLong{
+	flags := entity_flag_bit(network.entity_flag_affected_by_gravity) | entity_flag_bit(network.entity_flag_has_collision)
+	decoded := decode_packet(&packets_662.SetActorDataPacket{
+		target_runtime_id: network.actor_runtime_id(1)
+		actor_data:        [
+			types_662.DataItem{
+				data_item_id:   network.meta_key_flags
+				data_item_type: types_662.DataItemType(types_662.DataItemInt64{
 					value: flags
-				}
+				})
 			},
 		]
+		synced_properties: types_662.PropertySyncData{}
+		tick:              0
 	})!
 	assert decoded.name() == 'SetActorDataPacket'
-	if decoded is protocol.SetActorDataPacket {
-		assert decoded.metadata.len == 1
-		assert decoded.metadata[0].key == protocol.meta_key_flags
+	if decoded is packets_662.SetActorDataPacket {
+		assert decoded.actor_data.len == 1
+		assert decoded.actor_data[0].data_item_id == network.meta_key_flags
 	} else {
 		assert false
 	}
 }
 
 fn test_update_attributes_roundtrip() {
-	decoded := decode_packet(&protocol.UpdateAttributesPacket{
-		actor_runtime_id: 4
-		entries:          [
+	decoded := decode_packet(&packets_729.UpdateAttributesPacket{
+		target_runtime_id:       network.actor_runtime_id(4)
+		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
 			player_attribute('minecraft:movement', 0.0, 1.0, 0.1),
 		]
-		tick:             0
+		ticks_since_sim_started: 0
 	})!
 	assert decoded.name() == 'UpdateAttributesPacket'
-	if decoded is protocol.UpdateAttributesPacket {
-		assert decoded.entries.len == 2
-		assert decoded.entries[0].id == 'minecraft:health'
-		assert decoded.entries[0].current == 20.0
+	if decoded is packets_729.UpdateAttributesPacket {
+		assert decoded.attribute_list.len == 2
+		assert decoded.attribute_list[0].attribute_name == 'minecraft:health'
+		assert decoded.attribute_list[0].current_value == 20.0
 	} else {
 		assert false
 	}

@@ -1,12 +1,15 @@
 module session
 
 import math
-import protocol
+import protocol.version.v898.packets as packets_898
+import protocol.version.v975.packets as packets_975
+import protocol.version.v975.enums as enums_975
 import server.effect
 import server.event
+import server.internal.network
 
-const mob_effect_add = 1
-const mob_effect_remove = 3
+const mob_effect_add = packets_898.MobEffectEvent.add
+const mob_effect_remove = packets_898.MobEffectEvent.remove
 
 // PlayerAddEffectTask/PlayerRemoveEffectTask are add_effect()/remove_effect()
 // run through the owning world's actor. epoch is checked via
@@ -136,30 +139,30 @@ fn (mut s NetworkSession) send_effect_removal(mut wr WorldRuntime, typ effect.Ty
 	if !s.spawned {
 		return
 	}
-	wr.broadcast_world(&protocol.MobEffectPacket{
-		actor_runtime_id: s.runtime_id
-		event_id:         mob_effect_remove
-		effect_id:        typ.id
+	wr.broadcast_world(&packets_898.MobEffectPacket{
+		target_runtime_id: network.actor_runtime_id(s.runtime_id)
+		event_id:          mob_effect_remove
+		effect_id:         typ.id
 	})
 }
 
-fn (mut s NetworkSession) send_mob_effect(mut wr WorldRuntime, e effect.Effect, event_id int) {
+fn (mut s NetworkSession) send_mob_effect(mut wr WorldRuntime, e effect.Effect, event_id packets_898.MobEffectEvent) {
 	if !s.spawned {
 		return
 	}
 	wr.broadcast_world(s.mob_effect_packet(e, event_id))
 }
 
-fn (s &NetworkSession) mob_effect_packet(e effect.Effect, event_id int) &protocol.MobEffectPacket {
-	return &protocol.MobEffectPacket{
-		actor_runtime_id: s.runtime_id
-		event_id:         event_id
-		effect_id:        e.effect_type().id
-		amplifier:        e.level() - 1
-		particles:        !e.particles_hidden()
-		duration:         e.duration_ticks()
-		tick:             u64(e.tick())
-		ambient:          e.ambient()
+fn (s &NetworkSession) mob_effect_packet(e effect.Effect, event_id packets_898.MobEffectEvent) &packets_898.MobEffectPacket {
+	return &packets_898.MobEffectPacket{
+		target_runtime_id:     network.actor_runtime_id(s.runtime_id)
+		event_id:              event_id
+		effect_id:             e.effect_type().id
+		effect_amplifier:      e.level() - 1
+		show_particles:        !e.particles_hidden()
+		effect_duration_ticks: e.duration_ticks()
+		tick:                  u64(e.tick())
+		ambient:               e.ambient()
 	}
 }
 
@@ -233,8 +236,8 @@ fn (mut s NetworkSession) heal(amount f32) {
 // apply_death so all deaths share one path. Effect damage has no attacker, so
 // it does not dispatch player_hurt.
 fn (mut s NetworkSession) apply_damage_from_effect(mut wr WorldRuntime, amount f32, fatal bool) {
-	if s.player.is_dead() || amount <= 0 || s.player.game_mode() == protocol.game_type_creative
-		|| s.player.game_mode() == protocol.game_type_spectator {
+	if s.player.is_dead() || amount <= 0 || s.player.game_mode() == network.game_type_creative
+		|| s.player.game_mode() == network.game_type_spectator {
 		return
 	}
 	if !fatal && s.player.health() - amount < 1 {
@@ -247,10 +250,10 @@ fn (mut s NetworkSession) apply_damage_from_effect(mut wr WorldRuntime, amount f
 	}
 	s.send_health()
 	if s.spawned {
-		wr.broadcast_world(&protocol.ActorEventPacket{
-			actor_runtime_id: s.runtime_id
-			event_id:         protocol.actor_event_hurt
-			event_data:       0
+		wr.broadcast_world(&packets_975.ActorEventPacket{
+			target_runtime_id: network.actor_runtime_id(s.runtime_id)
+			event_id:          enums_975.ActorEvent.hurt
+			data:              0
 		})
 	}
 	if s.player.health() <= 0 {

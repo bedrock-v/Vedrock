@@ -1,8 +1,12 @@
 module session
 
 import time
-import protocol
-import protocol.types
+import server.internal.network
+import protocol.version.v662.enums as enums_662
+import protocol.version.v944.packets as packets_944
+import protocol.version.v1001.packets as packets_1001
+import protocol.version.v1001.types as types_1001
+import types
 import server.event
 import server.internal.gamedata
 import server.player
@@ -58,7 +62,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(protocol.game_type_survival)
+	pl.set_game_mode(network.game_type_survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
@@ -88,27 +92,30 @@ fn give_held_stack(mut s NetworkSession, item_id int, count int) {
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 }
 
-fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) protocol.InventoryTransactionPacket {
-	return protocol.InventoryTransactionPacket{
-		transaction_type: protocol.inventory_transaction_type_use_item
-		use_item:         protocol.UseItemTransactionData{
-			action_type:       protocol.item_use_action_click_block
-			trigger_type:      1
-			block_position:    clicked_pos
-			block_face:        1
-			hotbar_slot:       0
-			held_item:         types.ItemStackWrapper{
-				item_stack: types.ItemStack{
-					id:               held_id
-					count:            64
-					block_runtime_id: 0
-				}
-			}
-			position:          click_pos
-			clicked_position:  types.Vector3{0.5, 1.0, 0.5}
-			block_runtime_id:  u32(0)
-			client_prediction: 1
-		}
+fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_1001.PlayerAuthInputPacket {
+	mut tx := types_1001.PackedItemUseLegacyInventoryTransaction{
+		action_type:      enums_662.ItemUseInventoryTransactionType.place
+		trigger_type:     .player_input
+		position:         network.block_pos_v944(clicked_pos)
+		face:             1
+		slot:             0
+		item:             network.item_descriptor_v662(types.ItemStack{
+			id:               held_id
+			count:            64
+			block_runtime_id: 0
+		})
+		target_block_id:  0
+		predicted_result: .success
+	}
+	tx.from_position[0] = click_pos.x
+	tx.from_position[1] = click_pos.y
+	tx.from_position[2] = click_pos.z
+	tx.click_position[0] = 0.5
+	tx.click_position[1] = 1.0
+	tx.click_position[2] = 0.5
+	return packets_1001.PlayerAuthInputPacket{
+		input_data:           packets_1001.input_flag_perform_item_interaction
+		item_use_transaction: tx
 	}
 }
 
@@ -125,7 +132,7 @@ fn test_place_block_writes_and_consumes_item_once() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
@@ -157,7 +164,7 @@ fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 
 	assert target.block_override(0, 1, 1) == none
@@ -186,12 +193,12 @@ fn test_place_block_observer_in_another_world_receives_no_packet() {
 	mut observer_transport := &FakeTransport{}
 	mut observer := place_test_session(mut hub, mut observer_transport, mut other_wr)
 
-	placer.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	placer.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	for p in observer_transport.sent {
-		assert p !is protocol.UpdateBlockPacket
+		assert p !is packets_944.UpdateBlockPacket
 	}
 }
 
@@ -216,7 +223,7 @@ fn test_place_block_ignores_player_in_another_world_for_obstruction() {
 	mut blocker := place_test_session(mut hub, mut blocker_transport, mut other_wr)
 	blocker.player.reset_position(types.Vector3{0.5, 1.0 + player_eye_height, 1.5})
 
-	placer.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	placer.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
@@ -261,7 +268,7 @@ fn test_place_block_event_isolated_to_owning_world() {
 	mut s := place_test_session(mut hub, mut transport, mut wr_a)
 	give_held_stack(mut s, 500, 1)
 
-	s.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 
 	assert handler_a.hits == 1
@@ -281,18 +288,18 @@ fn test_sign_tile_broadcasts_before_block_update() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		501))!
 	assert wait_for_sent_len(transport, 2, 5000)
 
 	mut tile_index := -1
 	mut block_index := -1
 	for i, p in transport.sent {
-		if tile_index == -1 && p is protocol.BlockActorDataPacket {
+		if tile_index == -1 && p is packets_944.BlockActorDataPacket {
 			tile_index = i
 		}
-		if block_index == -1 && p is protocol.UpdateBlockPacket {
-			if p.block_position == types.BlockPosition{0, 1, 1} {
+		if block_index == -1 && p is packets_944.UpdateBlockPacket {
+			if p.block_position == network.block_pos_v944(types.BlockPosition{0, 1, 1}) {
 				block_index = i
 			}
 		}
@@ -318,16 +325,16 @@ fn test_handled_interaction_does_not_consume_or_place_held_item() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 	assert wait_for_sent_len(transport, 1, 5000)
 
 	mut opened_editor := false
 	for p in transport.sent {
-		if p is protocol.OpenSignPacket {
+		if p is packets_944.OpenSignPacket {
 			opened_editor = true
 		}
-		assert p !is protocol.UpdateBlockPacket
+		assert p !is packets_944.UpdateBlockPacket
 	}
 	assert opened_editor
 	assert target.block_override(0, 1, 1) == none

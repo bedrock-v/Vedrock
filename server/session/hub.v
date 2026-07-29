@@ -1,11 +1,14 @@
 module session
 
+import os
 import sync
 import sync.stdatomic
 import math
 import time
 import protocol
-import protocol.enums
+import protocol.version.v924.packets as packets_924
+import protocol.version.v924.enums as enums_924
+import server.internal.network
 import server.event
 import server.scheduler
 import server.entity
@@ -87,7 +90,7 @@ pub mut:
 	ops           permission.OpList
 	player_grants permission.PlayerGrants
 	whitelist     permission.Whitelist
-	difficulty    int = protocol.difficulty_easy
+	difficulty    int = network.difficulty_easy
 	// conf_file is the path to this instance's own settings file (set from
 	// conf.Config.config_file, not a shared default) so runtime difficulty
 	// changes persist back to the correct per instance file.
@@ -220,13 +223,39 @@ pub fn (h &Hub) uptime_seconds() i64 {
 // registers it under its name. The first world added becomes the default
 // unless one is already set.
 fn (mut h Hub) add_world(loaded_world &db.World) {
-	wr := new_world_runtime(h, loaded_world)
+	mut wr := new_world_runtime(h, loaded_world)
+	h.restore_world_entities(mut wr)
 	h.world_registry.add(wr)
 	h.mutex.lock()
 	if h.default_world_name == '' {
 		h.default_world_name = loaded_world.name
 	}
 	h.mutex.unlock()
+}
+
+fn (mut h Hub) restore_world_entities(mut wr WorldRuntime) {
+	if !wr.world.is_persistent() {
+		return
+	}
+	dir := os.join_path(h.worlds_dir, wr.world.name)
+	saved := entity.load_entities(dir)
+	if saved.len == 0 {
+		return
+	}
+	registry := &h.entity_registry
+	world_call[bool](mut wr, fn [saved, registry] (mut tx WorldTx) bool {
+		tx.wr.entities.restore_from_save(registry, saved)
+		return true
+	}) or {}
+}
+
+fn (mut h Hub) save_world_entities(mut wr WorldRuntime) {
+	if !wr.world.is_persistent() {
+		return
+	}
+	saved := wr.entities.save_snapshot()
+	dir := os.join_path(h.worlds_dir, wr.world.name)
+	entity.save_entities(dir, saved) or {}
 }
 
 fn (mut h Hub) set_default_world(name string) {
@@ -287,6 +316,7 @@ pub fn (mut h Hub) close_worlds() {
 	for mut wr in r.each_runtime() {
 		r.remove(wr.world.name)
 		wr.shutdown()
+		h.save_world_entities(mut wr)
 		wr.world.close() or {}
 	}
 }
@@ -448,6 +478,7 @@ pub fn (mut h Hub) unload_world(name string) ! {
 	}
 	r.remove(name)
 	wr.shutdown()
+	h.save_world_entities(mut wr)
 	wr.world.close() or { return error('failed to close world "${name}": ${err}') }
 }
 
@@ -576,12 +607,12 @@ pub fn (mut h Hub) count() int {
 	return int(h.online_count.load())
 }
 
-// broadcast_message sends a raw chat line to every connected player. Part of the
-// plugin.ServerView surface.
+// broadcast_message sends a raw chat line to every connected player.
 fn (mut h Hub) broadcast_message(text string) {
-	h.broadcast(&protocol.TextPacket{
-		@type:   int(enums.TextType.raw)
-		message: text
+	h.broadcast(&packets_924.TextPacket{
+		message_type: enums_924.TextRaw{
+			message: text
+		}
 	})
 }
 

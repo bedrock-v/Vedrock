@@ -119,3 +119,36 @@ fn test_absolute_boxes_translate_local_model() {
 	assert boxes[0].max_y == 21.0
 	assert boxes[0].max_z == -2.0
 }
+
+fn test_offset_by_shifts_every_axis() {
+	b := box(0, 0, 0, 1, 1, 1).offset_by(2, -1, 0.5)
+	assert b.min_x == 2.0
+	assert b.max_x == 3.0
+	assert b.min_y == -1.0
+	assert b.max_y == 0.0
+	assert b.min_z == 0.5
+	assert b.max_z == 1.5
+}
+
+fn test_offset_x_clamps_to_the_gap_when_overlapping_on_y_and_z() {
+	moving := box(0, 0, 0, 1, 1, 1)
+	obstacle := box(2, 0, 0, 3, 1, 1)
+	assert moving.offset_x(obstacle, 5.0) == 1.0
+	assert moving.offset_x(obstacle, 0.5) == 0.5
+	assert moving.offset_x(obstacle, -5.0) == -5.0
+}
+
+fn test_offset_x_ignores_obstacle_not_overlapping_on_y_or_z() {
+	moving := box(0, 0, 0, 1, 1, 1)
+	above := box(2, 5, 0, 3, 6, 1)
+	assert moving.offset_x(above, 5.0) == 5.0
+}
+
+fn test_offset_y_and_offset_z_mirror_offset_x() {
+	moving := box(0, 0, 0, 1, 1, 1)
+	floor := box(0, -2, 0, 1, -1, 1)
+	assert moving.offset_y(floor, -5.0) == -1.0
+
+	wall := box(0, 0, 2, 1, 1, 3)
+	assert moving.offset_z(wall, 5.0) == 1.0
+}

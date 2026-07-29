@@ -1,7 +1,16 @@
 module session
 
 import protocol
-import protocol.types
+import protocol.version.v662.enums as enums_662
+import protocol.version.v662.types as types_662
+import protocol.version.v776.packets as packets_776
+import protocol.version.v818.types as types_818
+import protocol.version.v818.packets as packets_818
+import protocol.version.v898.packets as packets_898
+import protocol.version.v944.types as types_944
+import protocol.version.v1001.types as types_1001
+import protocol.version.v1001.packets as packets_1001
+import types
 import protocol.serializer
 import nbt
 import os
@@ -10,71 +19,118 @@ import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
+import server.internal.network
 import server.player
 import server.player.playerdb
 import server.world
 import server.world.db
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {
-	mut pool := protocol.new_packet_pool()
+	mut pool := network.new_selected_packet_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
 }
 
 fn test_resource_packs_info_roundtrip() {
-	decoded := roundtrip(&protocol.ResourcePacksInfoPacket{
-		must_accept: false
-		entries:     []protocol.ResourcePackInfoEntry{}
+	decoded := roundtrip(&packets_818.ResourcePacksInfoPacket{
+		resource_pack_required:        false
+		has_addon_packs:               false
+		has_scripts:                   false
+		force_disable_vibrant_visuals: false
+		world_template_uuid:           network.uuid_from_bytes([]u8{len: 16})
+		world_template_version:        ''
+		resource_packs:                []packets_818.ResourcePackEntry{}
 	})!
 	assert decoded.name() == 'ResourcePacksInfoPacket'
 }
 
 fn test_resource_pack_stack_roundtrip() {
-	decoded := roundtrip(&protocol.ResourcePackStackPacket{
-		must_accept:         false
-		resource_pack_stack: []protocol.ResourcePackStackEntry{}
-		base_game_version:   protocol.minecraft_version_network
-		experiments:         types.Experiments{}
+	decoded := roundtrip(&packets_898.ResourcePackStackPacket{
+		texture_pack_required: false
+		addon_list:            []packets_898.PackEntry{}
+		base_game_version:     types_662.BaseGameVersion{
+			value: network.selected_minecraft_version
+		}
+		experiments:           types_662.Experiments{}
+		include_editor_packs:  false
 	})!
 	assert decoded.name() == 'ResourcePackStackPacket'
 }
 
 fn test_start_game_roundtrip() {
-	decoded := roundtrip(&protocol.StartGamePacket{
-		entity_unique_id:               1
-		entity_runtime_id:              1
-		player_game_mode:               1
-		player_position:                types.Vector3{0.0, 64.0, 0.0}
-		generator:                      1
-		difficulty:                     1
-		world_spawn:                    types.BlockPosition{0, 64, 0}
-		commands_enabled:               true
-		multi_player_game:              true
-		base_game_version:              protocol.minecraft_version_network
-		game_version:                   protocol.minecraft_version_network
-		level_id:                       'Vedrock'
-		world_name:                     'Vedrock Server'
-		multi_player_correlation_id:    '00000000-0000-0000-0000-000000000000'
-		server_authoritative_inventory: true
-		property_data:                  nbt.RootTag{
+	mut start := &packets_1001.StartGamePacket{
+		target_actor_id:               network.actor_unique_id(1)
+		target_runtime_id:             network.actor_runtime_id(1)
+		actor_game_type:               enums_662.GameType.survival
+		settings:                      types_1001.LevelSettings{
+			seed:                                         0
+			spawn_settings:                               types_662.SpawnSettings{
+				spawn_type:              enums_662.SpawnBiomeType.default
+				user_defined_biome_name: ''
+				dimension:               0
+			}
+			generator_type:                               enums_662.GeneratorType.overworld
+			game_type:                                    enums_662.GameType.survival
+			game_difficulty:                              enums_662.Difficulty.normal
+			default_spawn_block_position:                 types_944.NetworkBlockPosition{
+				x: 0
+				y: 64
+				z: 0
+			}
+			achievements_disabled:                        true
+			editor_world_type:                            enums_662.EditorWorldType.non_editor
+			day_cycle_stop_time:                          -1
+			education_edition_offer:                      enums_662.EducationEditionOffer.@none
+			multiplayer_enabled:                          true
+			lan_broadcasting_enabled:                     true
+			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.public
+			platform_broadcast_setting:                   enums_662.GamePublishSetting.public
+			commands_enabled:                             true
+			rule_data:                                    types_1001.GameRuleLegacyData{}
+			experiments:                                  types_662.Experiments{}
+			player_permissions:                           enums_662.PlayerPermissionLevel.member
+			server_chunk_tick_range:                      4
+			base_game_version:                            types_662.BaseGameVersion{
+				value: network.selected_minecraft_version
+			}
+			edu_shared_uri_resource:                      types_662.EduSharedUriResource{}
+			override_force_experimental_gameplay:         false
+			chat_restriction_level:                       enums_662.ChatRestrictionLevel.@none
+			allow_anonymous_block_drops_in_editor_worlds: false
+		}
+		level_id:                      'Vedrock'
+		level_name:                    'Vedrock Server'
+		movement_settings:             types_818.SyncedPlayerMovementSettings{
+			server_authoritative_block_breaking: true
+		}
+		multiplayer_correlation_id:    '00000000-0000-0000-0000-000000000000'
+		enable_item_stack_net_manager: true
+		server_version:                network.selected_minecraft_version
+		player_property_data:          nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
 		}
-		blocks:                         []protocol.BlockEntry{}
-	})!
+		world_template_id:             network.uuid_from_bytes([]u8{len: 16})
+		block_network_ids_are_hashes:  true
+		network_permissions:           types_662.NetworkPermissions{}
+	}
+	start.position[0] = 0.0
+	start.position[1] = 64.0
+	start.position[2] = 0.0
+	decoded := roundtrip(start)!
 	assert decoded.name() == 'StartGamePacket'
-	if decoded is protocol.StartGamePacket {
-		assert decoded.world_name == 'Vedrock Server'
-		assert decoded.game_version == protocol.minecraft_version_network
+	if decoded is packets_1001.StartGamePacket {
+		assert decoded.level_name == 'Vedrock Server'
+		assert decoded.server_version == network.selected_minecraft_version
 	} else {
 		assert false
 	}
 }
 
-fn first_start_game_packet(transport &FakeTransport) ?protocol.StartGamePacket {
+fn first_start_game_packet(transport &FakeTransport) ?packets_1001.StartGamePacket {
 	for p in transport.sent {
-		if p is protocol.StartGamePacket {
+		if p is packets_1001.StartGamePacket {
 			return p
 		}
 	}
@@ -116,7 +172,7 @@ fn test_always_advertises_block_hash_runtime_ids() {
 		assert false, 'missing StartGamePacket'
 		return
 	}
-	assert pkt.use_block_network_id_hashes
+	assert pkt.block_network_ids_are_hashes
 }
 
 fn test_accepts_saved_pos_supported_by_world_overr() {
@@ -139,7 +195,7 @@ fn test_accepts_saved_pos_supported_by_world_overr() {
 		x:        0.5
 		y:        f32(11) + player_eye_height
 		z:        0.5
-		gamemode: protocol.game_type_survival
+		gamemode: network.game_type_survival
 	}) or { panic('save failed: ${err}') }
 	mut transport := &FakeTransport{}
 	mut s :=
@@ -184,10 +240,9 @@ fn test_subchunk_height_map_reports_relative_height() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16)
-	assert map_type == protocol.subchunk_heightmap_data
-	assert data.len == 256
-	assert data[0] == 3
-	assert data[255] == 3
+	assert map_type == packets_818.HeightMapDataType.has_data
+	assert data[0][0] == 3
+	assert data[15][15] == 3
 }
 
 fn test_subchunk_height_map_reports_all_too_low() {
@@ -195,8 +250,8 @@ fn test_subchunk_height_map_reports_all_too_low() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16 + 1)
-	assert map_type == protocol.subchunk_heightmap_all_too_low
-	assert data.len == 0
+	assert map_type == packets_818.HeightMapDataType.all_too_low
+	assert data[0][0] == 0
 }
 
 struct CountingGenerator {
@@ -282,24 +337,23 @@ fn test_prune_sent_chunks_keeps_only_current_radius() {
 fn test_level_chunk_packet_uses_subchunk_request_mode() {
 	chunk := world.FlatGenerator{}.generate(0, 0)
 	packet := level_chunk_packet(world.overworld, 0, 0, chunk)
-	assert packet.request_type == protocol.level_chunk_request_truncated
 	assert packet.sub_chunk_count == u32(chunk.section_count())
-	payload := packet.extra_payload.bytes()
-	assert payload.len == world.overworld.subchunk_count * 2 + 1
-	assert payload[0] != 9
-	assert payload[payload.len - 1] == 0
+	assert !packet.cache_enabled
+	assert packet.serialized_chunk_data.len > 0
+	assert packet.serialized_chunk_data[0] == 9
+	assert packet.serialized_chunk_data[packet.serialized_chunk_data.len - 1] == 0
 }
 
 fn test_registry_packets_roundtrip() {
-	assert roundtrip(&protocol.ItemRegistryPacket{
-		entries: []types.ItemTypeEntry{}
-	})!.name() == 'ItemRegistryPacket'
-	assert roundtrip(&protocol.CreativeContentPacket{
-		groups: []types.CreativeGroupEntry{}
-		items:  []types.CreativeItemEntry{}
+	assert roundtrip(&packets_776.ItemComponentPacket{
+		items: []packets_776.ItemsEntry{}
+	})!.name() == 'ItemComponentPacket'
+	assert roundtrip(&packets_776.CreativeContentPacket{
+		groups:   []packets_776.CreativeItemGroup{}
+		contents: []packets_776.CreativeItemData{}
 	})!.name() == 'CreativeContentPacket'
-	assert roundtrip(&protocol.BiomeDefinitionListPacket{
-		biome_definitions: []protocol.BiomeDefinition{}
-		string_list:       []string{}
+	assert roundtrip(&packets_1001.BiomeDefinitionListPacket{
+		biomes:  []packets_1001.BiomeEntry{}
+		strings: []string{}
 	})!.name() == 'BiomeDefinitionListPacket'
 }

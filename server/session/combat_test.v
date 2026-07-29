@@ -1,8 +1,9 @@
 module session
 
 import time
-import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import types
+import server.internal.network
 import server.entity
 import server.event
 import server.internal.gamedata
@@ -41,7 +42,7 @@ fn make_combat_test_player(name string, health f32, mode int) &player.Player {
 
 fn test_is_critical_requires_falling_and_survival() {
 	mut pl := player.new_player()
-	pl.set_game_mode(protocol.game_type_survival)
+	pl.set_game_mode(network.game_type_survival)
 	mut s := &NetworkSession{
 		player: pl
 	}
@@ -53,7 +54,7 @@ fn test_is_critical_requires_falling_and_survival() {
 	assert !s.is_critical()
 
 	s.player.apply_movement(types.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0)
-	s.player.set_game_mode(protocol.game_type_creative)
+	s.player.set_game_mode(network.game_type_creative)
 	assert !s.is_critical()
 }
 
@@ -195,7 +196,7 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 	}
 	mut transport := &FakeTransport{}
 	mut victim := &NetworkSession{
-		player:     make_combat_test_player('Steve', 5, protocol.game_type_survival)
+		player:     make_combat_test_player('Steve', 5, network.game_type_survival)
 		runtime_id: 2
 		hub:        hub
 		transport:  transport
@@ -214,7 +215,7 @@ fn test_apply_hurt_creative_is_immune() {
 		hub.close_worlds()
 	}
 	mut victim := &NetworkSession{
-		player:     make_combat_test_player('Steve', 20, protocol.game_type_creative)
+		player:     make_combat_test_player('Steve', 20, network.game_type_creative)
 		runtime_id: 2
 		hub:        hub
 	}
@@ -233,7 +234,7 @@ fn test_apply_hurt_cancelled_event_prevents_damage() {
 	}
 	wr.events.register(&CancelHurtHandler{}, .normal)
 	mut victim := &NetworkSession{
-		player:     make_combat_test_player('Steve', 20, protocol.game_type_survival)
+		player:     make_combat_test_player('Steve', 20, network.game_type_survival)
 		runtime_id: 2
 		hub:        hub
 	}
@@ -370,10 +371,10 @@ fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is protocol.SetActorMotionPacket {
-		assert sent.motion.x == 0.0
-		assert sent.motion.z == 0.0
-		assert sent.motion.y == knockback_vertical
+	if sent is packets_662.SetActorMotionPacket {
+		assert sent.motion[0] == 0.0
+		assert sent.motion[2] == 0.0
+		assert sent.motion[1] == knockback_vertical
 	} else {
 		assert false
 	}
@@ -389,9 +390,9 @@ fn test_apply_knockback_pushes_away_from_attacker() {
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is protocol.SetActorMotionPacket {
-		assert sent.motion.x == knockback_horizontal
-		assert sent.motion.z == 0.0
+	if sent is packets_662.SetActorMotionPacket {
+		assert sent.motion[0] == knockback_horizontal
+		assert sent.motion[2] == 0.0
 	} else {
 		assert false
 	}

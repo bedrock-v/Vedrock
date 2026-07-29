@@ -1,10 +1,11 @@
 module entity
 
-import protocol
+import protocol.version.v898.packets as packets_898
+import server.internal.network
 import server.effect
 
-const mob_effect_add = 1
-const mob_effect_remove = 3
+const mob_effect_add = packets_898.MobEffectEvent.add
+const mob_effect_remove = packets_898.MobEffectEvent.remove
 
 // add_effect stores ef on e and syncs it to viewers.
 pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
@@ -21,10 +22,10 @@ pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
 // remove_effect strips typ from e, if present, and tells viewers.
 pub fn (mut e Entity) remove_effect(mut host Host, typ effect.Type) {
 	e.effects.remove(typ) or { return }
-	host.broadcast(&protocol.MobEffectPacket{
-		actor_runtime_id: e.runtime_id
-		event_id:         mob_effect_remove
-		effect_id:        typ.id
+	host.broadcast(&packets_898.MobEffectPacket{
+		target_runtime_id: network.actor_runtime_id(e.runtime_id)
+		event_id:          mob_effect_remove
+		effect_id:         typ.id
 	})
 }
 
@@ -41,24 +42,24 @@ fn (mut e Entity) tick_effects(mut host Host) {
 		e.apply_effect_tick(mut host, ef)
 	}
 	for ef in result.expired {
-		host.broadcast(&protocol.MobEffectPacket{
-			actor_runtime_id: e.runtime_id
-			event_id:         mob_effect_remove
-			effect_id:        ef.effect_type().id
+		host.broadcast(&packets_898.MobEffectPacket{
+			target_runtime_id: network.actor_runtime_id(e.runtime_id)
+			event_id:          mob_effect_remove
+			effect_id:         ef.effect_type().id
 		})
 	}
 }
 
-fn (e &Entity) mob_effect_packet(ef effect.Effect, event_id int) &protocol.MobEffectPacket {
-	return &protocol.MobEffectPacket{
-		actor_runtime_id: e.runtime_id
-		event_id:         event_id
-		effect_id:        ef.effect_type().id
-		amplifier:        ef.level() - 1
-		particles:        !ef.particles_hidden()
-		duration:         ef.duration_ticks()
-		tick:             u64(ef.tick())
-		ambient:          ef.ambient()
+fn (e &Entity) mob_effect_packet(ef effect.Effect, event_id packets_898.MobEffectEvent) &packets_898.MobEffectPacket {
+	return &packets_898.MobEffectPacket{
+		target_runtime_id:     network.actor_runtime_id(e.runtime_id)
+		event_id:              event_id
+		effect_id:             ef.effect_type().id
+		effect_amplifier:      ef.level() - 1
+		show_particles:        !ef.particles_hidden()
+		effect_duration_ticks: ef.duration_ticks()
+		tick:                  u64(ef.tick())
+		ambient:               ef.ambient()
 	}
 }
 

@@ -1,7 +1,8 @@
 module session
 
 import time
-import protocol
+import protocol.version.v662.packets as packets_662
+import protocol.version.v776.packets as packets_776
 import server.internal.gamedata
 import server.internal.auth
 import server.internal.logger
@@ -59,8 +60,8 @@ fn membership_test_session_with_transport(mut hub Hub, wr &WorldRuntime, name st
 fn add_player_packet_count(transport &FakeTransport, runtime_id u64) int {
 	mut count := 0
 	for p in transport.sent {
-		if p is protocol.AddPlayerPacket {
-			if p.actor_runtime_id == runtime_id {
+		if p is packets_776.AddPlayerPacket {
+			if p.target_runtime_id.value == runtime_id {
 				count++
 			}
 		}
@@ -80,7 +81,7 @@ fn test_initial_join_registers_player_in_world() {
 	mut s := membership_test_session(mut hub, wr)
 	assert !wr_has_player(mut wr, s.runtime_id)
 
-	s.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	s.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 
 	assert wr_has_player(mut wr, s.runtime_id)
 }
@@ -98,7 +99,7 @@ fn test_initial_join_releases_pending_name_reservation() {
 	assert hub.reserve_player_name('Alex')
 	assert hub.admission_count() == 1
 
-	s.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	s.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 
 	assert wr_has_player(mut wr, s.runtime_id)
 	assert hub.admission_count() == 1
@@ -138,7 +139,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	mut joining_transport := &FakeTransport{}
 	mut joining := membership_test_session_with_transport(mut hub, wr_b, 'Joining', mut
 		joining_transport)
-	joining.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	joining.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 	// handle_player_initialized's join broadcasts and per observer
 	// "existing players" packets now land asynchronously through each
 	// session's own outbound writer, not synchronously inside the call.
@@ -166,7 +167,7 @@ fn test_world_switch_transfers_player_membership() {
 	}
 
 	mut s := membership_test_session(mut hub, wr_a)
-	s.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	s.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 	assert wr_has_player(mut wr_a, s.runtime_id)
 	assert !wr_has_player(mut wr_b, s.runtime_id)
 
@@ -193,7 +194,7 @@ fn test_world_switch_away_and_back_restores_membership() {
 	}
 
 	mut s := membership_test_session(mut hub, wr_a)
-	s.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	s.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 	epoch_first_a := s.world_binding().epoch
 
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
@@ -215,7 +216,7 @@ fn test_disconnect_deregisters_player() {
 	}
 
 	mut s := membership_test_session(mut hub, wr)
-	s.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	s.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 	assert wr_has_player(mut wr, s.runtime_id)
 
 	s.leave()
@@ -233,7 +234,7 @@ fn test_failed_destination_registration_disconnects_session() {
 	mut wr_b := hub.world_runtime('world-b') or { panic('expected world-b runtime') }
 
 	mut s := membership_test_session(mut hub, wr_a)
-	s.handle_player_initialized(protocol.SetLocalPlayerAsInitializedPacket{})!
+	s.handle_player_initialized(packets_662.SetLocalPlayerAsInitializedPacket{})!
 
 	// Shut down B's actor directly, so world_runtime('world-b') still
 	// resolves it but any submission to it is now rejected.

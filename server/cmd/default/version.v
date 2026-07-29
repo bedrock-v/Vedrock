@@ -2,6 +2,7 @@ module default
 
 import protocol
 import server.internal.buildinfo
+import server.internal.network
 import server.permission
 import server.cmd
 
@@ -32,7 +33,7 @@ pub fn (c VersionCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		'Software':  buildinfo.name
 		'Version':   buildinfo.version
 		'Hash':      buildinfo.git_hash
-		'MCVersion': protocol.minecraft_version_network
-		'Protocol':  protocol.current_protocol.str()
+		'MCVersion': network.selected_minecraft_version
+		'Protocol':  network.selected_protocol.str()
 	}))!
 }

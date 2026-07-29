@@ -1,7 +1,8 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v944.packets as packets_944
+import types
+import server.internal.network
 import server.event
 import server.world
 import server.block
@@ -10,7 +11,7 @@ import server.block
 // wr, including the acting player's own current or pending body position.
 // Actor only: reads the world's actor registry directly, so must only be
 // called from within a WorldTx operation.
-fn obstructed_by_entity(wr &WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) (bool, bool) {
+fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) (bool, bool) {
 	block_min_x := f32(pos.x)
 	block_max_x := f32(pos.x) + 1
 	block_min_y := f32(pos.y)
@@ -136,9 +137,9 @@ fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-	tx.wr.broadcast_world(&protocol.BlockActorDataPacket{
-		block_position: pos
-		nbt:            build_sign_nbt(pos.x, pos.y, pos.z, '')
+	tx.wr.broadcast_world(&packets_944.BlockActorDataPacket{
+		block_position:  network.block_pos_v944(pos)
+		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, '')
 	})
 }
 
@@ -147,9 +148,9 @@ fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.Block
 	if b !is block.SignBlock {
 		return
 	}
-	s.deliver(&protocol.OpenSignPacket{
-		block_position: pos
-		front:          true
+	s.deliver(&packets_944.OpenSignPacket{
+		pos:      network.block_pos_v944(pos)
+		is_front: true
 	})
 }
 
@@ -235,16 +236,11 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 	}
 	tx.set_block(pos.x, pos.y, pos.z, new_id)
 	if result.sound != '' {
-		tx.wr.broadcast_world(&protocol.LevelSoundEventPacket{
-			sound:           result.sound
-			position:        s.current_position()
-			extra_data:      -1
-			entity_type:     'minecraft:player'
-			actor_unique_id: i64(s.runtime_id)
-		})
+		tx.wr.broadcast_world(network.level_sound_event(result.sound, s.current_position(), -1,
+			'minecraft:player', s.runtime_id))
 	}
 	tx.broadcast_swing(s)
-	if s.player.game_mode() != protocol.game_type_creative {
+	if s.player.game_mode() != network.game_type_creative {
 		tx.consume_held_item(mut s)
 	}
 	tx.notify_block_changed(pos)
@@ -256,7 +252,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 // cancellable block_place event, then commits.
 fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
 	occupied := tx.block_at(pos.x, pos.y, pos.z) != world.air.network_id
-	obstructed, self_only := obstructed_by_entity(tx.wr, pos, s.runtime_id)
+	obstructed, self_only := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
 	if occupied || obstructed {
 		if occupied || !self_only {
 			s.resend_block(pos)
@@ -313,8 +309,8 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 // before either half is written.
 fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
 	above := face_offset(pos, 1)
-	obstructed_lower, lower_self := obstructed_by_entity(tx.wr, pos, s.runtime_id)
-	obstructed_upper, upper_self := obstructed_by_entity(tx.wr, above, s.runtime_id)
+	obstructed_lower, lower_self := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
+	obstructed_upper, upper_self := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
 	if obstructed_lower || obstructed_upper {
 		if !lower_self {
 			s.resend_block(pos)

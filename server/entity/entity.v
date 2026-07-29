@@ -1,7 +1,15 @@
 module entity
 
 import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v712.packets as packets_712
+import protocol.version.v729.packets as packets_729
+import protocol.version.v975.packets as packets_975
+import protocol.version.v662.types as types_662
+import protocol.version.v712.types as types_712
+import protocol.version.v975.enums as enums_975
+import types
+import server.internal.network
 import server.world
 import server.effect
 
@@ -12,6 +20,8 @@ const gravity = f32(0.08)
 const drag = f32(0.02)
 
 const mob_max_health = f32(20.0)
+
+const fall_damage_safe_distance = f32(3.0)
 
 // Entity is a non-player actor living in the world - a mob, item or projectile.
 // It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable
@@ -25,13 +35,16 @@ pub:
 	identifier string     // network type id, e.g. "minecraft:pig"
 	dimensions Dimensions // physical footprint, fixed at spawn from the Behaviour that created this entity
 pub mut:
-	pos           types.Vector3
-	velocity      types.Vector3
-	pitch         f32
-	yaw           f32
-	head_yaw      f32
-	floor_y       f32
-	on_ground     bool
+	pos       types.Vector3
+	velocity  types.Vector3
+	pitch     f32
+	yaw       f32
+	head_yaw  f32
+	floor_y   f32
+	on_ground bool
+	// fall_distance accumulates actual downward movement while airborne and
+	// resets on landing - see apply_landing/fall_damage_amount below.
+	fall_distance f32
 	no_gravity    bool
 	gravity_accel f32 = gravity
 	drag_factor   f32 = drag
@@ -95,16 +108,16 @@ pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime
 	if e.health < 0 {
 		e.health = 0
 	}
-	host.broadcast(&protocol.ActorEventPacket{
-		actor_runtime_id: e.runtime_id
-		event_id:         protocol.actor_event_hurt
-		event_data:       0
+	host.broadcast(&packets_975.ActorEventPacket{
+		target_runtime_id: network.actor_runtime_id(e.runtime_id)
+		event_id:          enums_975.ActorEvent.hurt
+		data:              0
 	})
 	host.broadcast(e.health_update_packet())
 	if e.health <= 0 {
 		e.kill()
 		if mut e.behaviour is DeathBehaviour {
-			e.behaviour.on_death(mut e)
+			e.behaviour.on_death(mut e, mut host)
 		}
 		return
 	}
@@ -130,19 +143,20 @@ pub fn (mut e Entity) teleport(pos types.Vector3) {
 	e.floor_y = pos.y
 }
 
-// apply_physics integrates velocity into position, applying gravity and drag,
-// then resolves collision against the solid blocks around the entity's box using
-// the Host's block query. Called by the Manager after the Behaviour ticks.
+// apply_physics integrates velocity into position, applying gravity and
+// drag, then resolves collision against the solid blocks around the
+// entity's box using the Host's block query. Called by the Manager after
+// the Behaviour ticks.
 //
-// Collision is axis-separated AABB vs the block grid: each axis moves
-// independently and a move that would enter a solid block is cancelled and its
-// velocity zeroed. Landing on a block below sets on_ground and snaps the feet to
-// the block top. floor_y stays as a hard fallback floor for entities spawned
-// over ungenerated terrain. It applies regardless of dimensions.has_collision,
-// since it's a safety net against falling out of the world.
+// Collision resolution clamps movement against nearby block boxes. It
+// gathers the swept region once, then resolves movement along Y, X and Z
+// by shrinking each offset to the largest non-penetrating value.
+//
+// floor_y remains a final safety floor for ungenerated terrain, independent
+// of block collision and dimensions.has_collision.
 //
 // An entity with dimensions.has_collision == false skips block collision
-// entirely on every axis and simply falls/moves through blocks.
+// entirely and simply falls/moves through blocks.
 fn (mut e Entity) apply_physics(mut host Host) {
 	if !e.no_gravity {
 		e.velocity.y -= e.gravity_accel
@@ -153,33 +167,72 @@ fn (mut e Entity) apply_physics(mut host Host) {
 
 	e.hit_block = false
 
-	e.pos.x += e.velocity.x
-	if e.dimensions.has_collision && e.collides(mut host) {
-		e.pos.x -= e.velocity.x
+	if !e.dimensions.has_collision {
+		e.pos.x += e.velocity.x
+		e.pos.z += e.velocity.z
+		e.on_ground = false
+		y_before := e.pos.y
+		e.pos.y += e.velocity.y
+		if e.pos.y <= e.floor_y {
+			e.pos.y = e.floor_y
+			e.velocity.y = 0.0
+			e.on_ground = true
+		}
+		if y_before > e.pos.y {
+			e.fall_distance += y_before - e.pos.y
+		}
+		if e.on_ground {
+			e.apply_landing(mut host)
+		}
+		return
+	}
+
+	want_dx := e.velocity.x
+	want_dy := e.velocity.y
+	want_dz := e.velocity.z
+
+	boxes := e.nearby_block_boxes(mut host, want_dx, want_dy, want_dz)
+	mut resolved_dx, mut resolved_dy, mut resolved_dz := e.resolve_move(boxes, want_dx, want_dy,
+		want_dz)
+
+	can_step := e.dimensions.step_height > 0 && (e.on_ground || want_dy <= 0)
+	mut stepped := false
+	if can_step && (resolved_dx != want_dx || resolved_dz != want_dz) {
+		step_dx, step_dy, step_dz := e.try_step_up(boxes, want_dx, want_dz)
+		if (step_dx * step_dx + step_dz * step_dz) > (resolved_dx * resolved_dx +
+			resolved_dz * resolved_dz) {
+			resolved_dx = step_dx
+			resolved_dy = step_dy
+			resolved_dz = step_dz
+			stepped = true
+		}
+	}
+
+	y_before := e.pos.y
+	e.pos.x += resolved_dx
+	e.pos.y += resolved_dy
+	e.pos.z += resolved_dz
+
+	if resolved_dx != want_dx {
 		e.velocity.x = 0.0
 		e.hit_block = true
 	}
-
-	e.pos.z += e.velocity.z
-	if e.dimensions.has_collision && e.collides(mut host) {
-		e.pos.z -= e.velocity.z
+	if resolved_dz != want_dz {
 		e.velocity.z = 0.0
 		e.hit_block = true
 	}
 
 	e.on_ground = false
-	e.pos.y += e.velocity.y
-	if e.dimensions.has_collision && e.collides(mut host) {
-		if e.velocity.y <= 0.0 {
-			// landed - snap feet to the top of the block underneath
-			e.pos.y = math_floor(e.pos.y) + 1.0
-			e.on_ground = true
-		} else {
-			// hit a ceiling - undo the upward move
-			e.pos.y -= e.velocity.y
-		}
+	if stepped {
+		e.velocity.y = 0.0
+		e.on_ground = true
+		e.hit_block = true
+	} else if resolved_dy != want_dy {
 		e.velocity.y = 0.0
 		e.hit_block = true
+		if want_dy < 0 {
+			e.on_ground = true
+		}
 	}
 
 	if e.pos.y <= e.floor_y {
@@ -187,36 +240,134 @@ fn (mut e Entity) apply_physics(mut host Host) {
 		e.velocity.y = 0.0
 		e.on_ground = true
 	}
+
+	if y_before > e.pos.y {
+		e.fall_distance += y_before - e.pos.y
+	}
+	if e.on_ground {
+		e.apply_landing(mut host)
+	}
 }
 
-// collides reports whether the entity's AABB overlaps any block collision box.
-fn (e &Entity) collides(mut host Host) bool {
+// nearby_block_boxes returns the block collision boxes intersecting the
+// entity's swept movement region. The result is gathered once and reused
+// while resolving movement along each axis.
+fn (e &Entity) nearby_block_boxes(mut host Host, dx f32, dy f32, dz f32) []world.AABB {
 	half_width := e.dimensions.width / 2
 	height := e.dimensions.height
-	min_x := int(math_floor(e.pos.x - half_width))
-	max_x := int(math_floor(e.pos.x + half_width))
-	min_z := int(math_floor(e.pos.z - half_width))
-	max_z := int(math_floor(e.pos.z + half_width))
-	min_y := int(math_floor(e.pos.y))
-	max_y := int(math_floor(e.pos.y + height))
-	entity_min_x := e.pos.x - half_width
-	entity_min_z := e.pos.z - half_width
-	entity_max_x := e.pos.x + half_width
-	entity_max_z := e.pos.z + half_width
-	entity_box := world.box(entity_min_x, e.pos.y, entity_min_z, entity_max_x, e.pos.y + height,
-		entity_max_z)
-	for bx := min_x; bx <= max_x; bx++ {
-		for bz := min_z; bz <= max_z; bz++ {
-			for by := min_y; by <= max_y; by++ {
+
+	min_dx := if dx < 0 { dx } else { f32(0) }
+	max_dx := if dx > 0 { dx } else { f32(0) }
+	min_dy := if dy < 0 { dy } else { f32(0) }
+	max_dy := if dy > 0 { dy } else { f32(0) }
+	min_dz := if dz < 0 { dz } else { f32(0) }
+	max_dz := if dz > 0 { dz } else { f32(0) }
+
+	bx0 := int(math_floor(e.pos.x - half_width + min_dx))
+	bx1 := int(math_floor(e.pos.x + half_width + max_dx))
+	by0 := int(math_floor(e.pos.y + min_dy))
+	by1 := int(math_floor(e.pos.y + height + max_dy))
+	bz0 := int(math_floor(e.pos.z - half_width + min_dz))
+	bz1 := int(math_floor(e.pos.z + half_width + max_dz))
+
+	mut out := []world.AABB{}
+	for bx := bx0; bx <= bx1; bx++ {
+		for by := by0; by <= by1; by++ {
+			for bz := bz0; bz <= bz1; bz++ {
 				for block_box in host.collision_boxes(bx, by, bz) {
-					if entity_box.overlaps(block_box) {
-						return true
-					}
+					out << block_box
 				}
 			}
 		}
 	}
-	return false
+	return out
+}
+
+// entity_box returns the entity's current collision box.
+fn (e &Entity) entity_box() world.AABB {
+	half_width := e.dimensions.width / 2
+	height := e.dimensions.height
+	return world.box(e.pos.x - half_width, e.pos.y, e.pos.z - half_width, e.pos.x + half_width,
+
+		e.pos.y + height, e.pos.z + half_width)
+}
+
+// resolve_move clamps the requested movement against nearby collision boxes.
+// It resolves Y, then X, then Z, translating the box after each axis so the
+// next axis is checked from the position already reached.
+fn (e &Entity) resolve_move(boxes []world.AABB, dx f32, dy f32, dz f32) (f32, f32, f32) {
+	mut box := e.entity_box()
+
+	mut resolved_dy := dy
+	for b in boxes {
+		resolved_dy = box.offset_y(b, resolved_dy)
+	}
+	box = box.offset_by(0, resolved_dy, 0)
+
+	mut resolved_dx := dx
+	for b in boxes {
+		resolved_dx = box.offset_x(b, resolved_dx)
+	}
+	box = box.offset_by(resolved_dx, 0, 0)
+
+	mut resolved_dz := dz
+	for b in boxes {
+		resolved_dz = box.offset_z(b, resolved_dz)
+	}
+
+	return resolved_dx, resolved_dy, resolved_dz
+}
+
+fn (e &Entity) try_step_up(boxes []world.AABB, want_dx f32, want_dz f32) (f32, f32, f32) {
+	mut box := e.entity_box()
+
+	mut step_dy := e.dimensions.step_height
+	for b in boxes {
+		step_dy = box.offset_y(b, step_dy)
+	}
+	box = box.offset_by(0, step_dy, 0)
+
+	mut step_dx := want_dx
+	for b in boxes {
+		step_dx = box.offset_x(b, step_dx)
+	}
+	box = box.offset_by(step_dx, 0, 0)
+
+	mut step_dz := want_dz
+	for b in boxes {
+		step_dz = box.offset_z(b, step_dz)
+	}
+	box = box.offset_by(0, 0, step_dz)
+
+	mut settle := -step_dy
+	for b in boxes {
+		settle = box.offset_y(b, settle)
+	}
+	step_dy += settle
+
+	return step_dx, step_dy, step_dz
+}
+
+fn (mut e Entity) apply_landing(mut host Host) {
+	if e.fall_distance > 0 {
+		dmg := fall_damage_amount(e.fall_distance)
+		if dmg > 0 && e.behaviour.takes_fall_damage() {
+			e.hurt(mut host, dmg, true, 0)
+		}
+	}
+	e.fall_distance = 0
+}
+
+fn fall_damage_amount(fall_distance f32) f32 {
+	over := fall_distance - fall_damage_safe_distance
+	if over <= 0 {
+		return 0
+	}
+	whole := f32(int(over))
+	if over > whole {
+		return whole + 1
+	}
+	return whole
 }
 
 // math_floor is an integer floor that also handles negative coordinates, where a
@@ -226,35 +377,57 @@ fn math_floor(v f32) f32 {
 	return if v < i { i - 1.0 } else { i }
 }
 
-// spawn_packet builds the AddActorPacket that makes this entity appear for a
+// spawn_packet builds the packet that makes this entity appear for a
 // viewer. Public so the session layer can send it to players joining late.
-pub fn (e &Entity) spawn_packet() &protocol.AddActorPacket {
-	return &protocol.AddActorPacket{
-		actor_unique_id:   e.unique_id
-		actor_runtime_id:  e.runtime_id
-		type:              e.identifier
-		position:          e.pos
-		motion:            e.velocity
-		pitch:             e.pitch
-		yaw:               e.yaw
-		head_yaw:          e.head_yaw
-		body_yaw:          e.yaw
-		attributes:        e.attribute_entries()
-		metadata:          e.metadata_entries()
-		synced_properties: types.PropertySyncData{}
-		links:             []types.EntityLink{}
+pub fn (e &Entity) spawn_packet() protocol.Packet {
+	if e.behaviour is ItemBehaviour {
+		item_stack := e.behaviour.stack
+		mut packet := &packets_662.AddItemActorPacket{
+			target_actor_id:   network.actor_unique_id(e.unique_id)
+			target_runtime_id: network.actor_runtime_id(e.runtime_id)
+			item:              network.item_descriptor_v662(item_stack)
+			entity_data:       e.metadata_entries()
+			from_fishing:      false
+		}
+		packet.position[0] = e.pos.x
+		packet.position[1] = e.pos.y
+		packet.position[2] = e.pos.z
+		packet.velocity[0] = e.velocity.x
+		packet.velocity[1] = e.velocity.y
+		packet.velocity[2] = e.velocity.z
+		return packet
 	}
+	mut packet := &packets_712.AddActorPacket{
+		target_actor_id:   network.actor_unique_id(e.unique_id)
+		target_runtime_id: network.actor_runtime_id(e.runtime_id)
+		actor_type:        e.identifier
+		y_head_rotation:   e.head_yaw
+		y_body_rotation:   e.yaw
+		attributes:        e.attribute_entries()
+		actor_data:        e.metadata_entries()
+		synced_properties: types_662.PropertySyncData{}
+		actor_links:       []types_712.ActorLink{}
+	}
+	packet.position[0] = e.pos.x
+	packet.position[1] = e.pos.y
+	packet.position[2] = e.pos.z
+	packet.velocity[0] = e.velocity.x
+	packet.velocity[1] = e.velocity.y
+	packet.velocity[2] = e.velocity.z
+	packet.rotation[0] = e.pitch
+	packet.rotation[1] = e.yaw
+	return packet
 }
 
 // attribute_entries builds the health attribute the client needs at spawn
 // time.
-fn (e &Entity) attribute_entries() []types.ActorAttribute {
+fn (e &Entity) attribute_entries() []packets_712.AttributeEntry {
 	return [
-		types.ActorAttribute{
-			id:      'minecraft:health'
-			min:     0.0
-			current: e.health
-			max:     mob_max_health
+		packets_712.AttributeEntry{
+			attribute_name: 'minecraft:health'
+			min_value:      0.0
+			current_value:  e.health
+			max_value:      mob_max_health
 		},
 	]
 }
@@ -262,22 +435,22 @@ fn (e &Entity) attribute_entries() []types.ActorAttribute {
 // health_update_packet reports the current health attribute to observers.
 // Used whenever health changes after spawn (hurt/heal) so a client watching
 // this entity's health bar actually sees the new value.
-fn (e &Entity) health_update_packet() &protocol.UpdateAttributesPacket {
-	return &protocol.UpdateAttributesPacket{
-		actor_runtime_id: e.runtime_id
-		entries:          [
-			types.UpdateAttribute{
-				id:          'minecraft:health'
-				min:         0.0
-				max:         mob_max_health
-				current:     e.health
-				default_min: 0.0
-				default_max: mob_max_health
-				default:     mob_max_health
-				modifiers:   []types.AttributeModifier{}
+fn (e &Entity) health_update_packet() &packets_729.UpdateAttributesPacket {
+	return &packets_729.UpdateAttributesPacket{
+		target_runtime_id:       network.actor_runtime_id(e.runtime_id)
+		attribute_list:          [
+			packets_729.AttributeData{
+				min_value:           0.0
+				max_value:           mob_max_health
+				current_value:       e.health
+				default_min:         0.0
+				default_max:         mob_max_health
+				default_value:       mob_max_health
+				attribute_name:      'minecraft:health'
+				attribute_modifiers: []packets_729.AttributeModifier{}
 			},
 		]
-		tick:             0
+		ticks_since_sim_started: 0
 	}
 }
 
@@ -287,56 +460,66 @@ fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
 }
 
-fn (e &Entity) metadata_entries() []types.MetadataEntry {
+fn (e &Entity) metadata_entries() []types_662.DataItem {
 	mut flags := i64(0)
 	if e.dimensions.has_collision {
-		flags |= entity_flag_bit(protocol.entity_flag_has_collision)
+		flags |= entity_flag_bit(network.entity_flag_has_collision)
 	}
 	if !e.no_gravity {
-		flags |= entity_flag_bit(protocol.entity_flag_affected_by_gravity)
+		flags |= entity_flag_bit(network.entity_flag_affected_by_gravity)
 	}
 	return [
-		types.MetadataEntry{
-			key:   protocol.meta_key_flags
-			value: types.MetaLong{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_flags
+			data_item_type: types_662.DataItemType(types_662.DataItemInt64{
 				value: flags
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_width
-			value: types.MetaFloat{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_scale
+			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
+				value: f32(1.0)
+			})
+		},
+		types_662.DataItem{
+			data_item_id:   network.meta_key_width
+			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
 				value: e.dimensions.width
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_height
-			value: types.MetaFloat{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_height
+			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
 				value: e.dimensions.height
-			}
+			})
 		},
 	]
 }
 
 // move_packet builds the movement update broadcast each tick the entity moves.
-pub fn (e &Entity) move_packet() &protocol.MoveActorAbsolutePacket {
+pub fn (e &Entity) move_packet() &packets_662.MoveActorAbsolutePacket {
 	mut flags := 0
 	if e.on_ground {
-		flags = protocol.move_actor_flag_on_ground
+		flags = network.move_actor_flag_on_ground
 	}
-	return &protocol.MoveActorAbsolutePacket{
-		actor_runtime_id: e.runtime_id
-		flags:            flags
-		position:         e.pos
-		pitch:            e.pitch
-		yaw:              e.yaw
-		head_yaw:         e.head_yaw
+	return &packets_662.MoveActorAbsolutePacket{
+		move_data: types_662.MoveActorAbsoluteData{
+			actor_runtime_id: network.actor_runtime_id(e.runtime_id)
+			header:           i8(flags)
+			position_x:       e.pos.x
+			position_y:       e.pos.y
+			position_z:       e.pos.z
+			rotation_x:       network.rotation_byte(e.pitch)
+			rotation_y:       network.rotation_byte(e.yaw)
+			rotation_y_head:  network.rotation_byte(e.head_yaw)
+		}
 	}
 }
 
 // despawn_packet builds the RemoveActorPacket that removes this entity from a
 // viewer.
-pub fn (e &Entity) despawn_packet() &protocol.RemoveActorPacket {
-	return &protocol.RemoveActorPacket{
-		actor_unique_id: e.unique_id
+pub fn (e &Entity) despawn_packet() &packets_662.RemoveActorPacket {
+	return &packets_662.RemoveActorPacket{
+		target_actor_id: network.actor_unique_id(e.unique_id)
 	}
 }

@@ -2,7 +2,7 @@ module entity
 
 import math
 import rand
-import protocol.types
+import types
 
 // Behaviour drives an Entity's per-tick logic, mirroring dragonfly's Behaviour
 // interface. identifier() returns the network type id used when the entity is
@@ -16,6 +16,7 @@ pub interface Behaviour {
 	// entity. The zero value disables them all and is valid for persistent
 	// entities or those that manage their own lifetime.
 	despawn_policy() DespawnPolicy
+	takes_fall_damage() bool
 mut:
 	tick(mut e Entity, mut host Host)
 }
@@ -31,10 +32,50 @@ mut:
 // DeathBehaviour is an opt-in capability notified once, right before an
 // Entity that died from Entity.hurt is despawned , as opposed to
 // Behaviour.tick calling kill() directly for other reasons (a projectile
-// expiring, a wandering mob walking into the void).
+// expiring, a wandering mob walking into the void). host is passed through
+// so a mob can drop loot without the entity package needing to know
+// numeric item ids itself (see Host.spawn_dropped_item).
 pub interface DeathBehaviour {
 mut:
-	on_death(mut e Entity)
+	on_death(mut e Entity, mut host Host)
+}
+
+// MobLootEntry is one line of a mob's death drop table.
+struct MobLootEntry {
+	item_name string
+	min_count int
+	max_count int
+}
+
+fn mob_loot_drops(network_id string) []MobLootEntry {
+	if network_id == 'minecraft:pig' {
+		return [MobLootEntry{'minecraft:porkchop', 1, 3}]
+	}
+	if network_id == 'minecraft:cow' {
+		mut drops := []MobLootEntry{}
+		drops << MobLootEntry{'minecraft:beef', 1, 3}
+		drops << MobLootEntry{'minecraft:leather', 0, 2}
+		return drops
+	}
+	if network_id == 'minecraft:chicken' {
+		mut drops := []MobLootEntry{}
+		drops << MobLootEntry{'minecraft:chicken', 1, 1}
+		drops << MobLootEntry{'minecraft:feather', 0, 2}
+		return drops
+	}
+	if network_id == 'minecraft:zombie' {
+		return [MobLootEntry{'minecraft:rotten_flesh', 0, 2}]
+	}
+	return []MobLootEntry{}
+}
+
+fn apply_mob_loot_drops(network_id string, e &Entity, mut host Host) {
+	for entry in mob_loot_drops(network_id) {
+		count := rand_int_range(entry.min_count, entry.max_count)
+		if count > 0 {
+			host.spawn_dropped_item(entry.item_name, count, e.pos)
+		}
+	}
 }
 
 const wander_interval_ticks = i64(100)
@@ -47,6 +88,13 @@ const detection_scan_interval_ticks = i64(10)
 // must drift before a HostileBehaviour drops it, wider than the detect range
 // so a target sitting right at the boundary doesn't flip flop every scan.
 const give_up_range_multiplier = f32(1.5)
+// path_recompute_interval_ticks bounds how often a chasing HostileBehaviour
+// re-runs find_path, instead of every tick - a moving target makes any path
+// stale quickly anyway, so recomputing more often than this buys little.
+const path_recompute_interval_ticks = i64(20)
+// path_waypoint_reached_distance is how close (blocks, horizontal) counts as
+// having arrived at the current waypoint, advancing to the next.
+const path_waypoint_reached_distance = f32(0.3)
 
 // set_wander_velocity picks a new random horizontal direction and walk speed.
 fn set_wander_velocity(mut e Entity, speed f32) {
@@ -83,6 +131,16 @@ pub fn (b &PassiveBehaviour) despawn_policy() DespawnPolicy {
 	return b.despawn_policy
 }
 
+pub fn (b &PassiveBehaviour) takes_fall_damage() bool {
+	return true
+}
+
+// on_death drops this mob's loot table (see mob_loot_drops) at its death
+// position.
+pub fn (mut b PassiveBehaviour) on_death(mut e Entity, mut host Host) {
+	apply_mob_loot_drops(b.network_id, e, mut host)
+}
+
 pub fn (mut b PassiveBehaviour) tick(mut e Entity, mut host Host) {
 	if !e.on_ground {
 		return
@@ -112,6 +170,9 @@ mut:
 	scan_cooldown     i64
 	target_runtime_id u64
 	has_target        bool
+	path                    []types.Vector3
+	path_index              int
+	path_recompute_cooldown i64
 }
 
 pub fn (b &HostileBehaviour) identifier() string {
@@ -126,6 +187,10 @@ pub fn (b &HostileBehaviour) despawn_policy() DespawnPolicy {
 	return b.despawn_policy
 }
 
+pub fn (b &HostileBehaviour) takes_fall_damage() bool {
+	return true
+}
+
 pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 	if b.has_target {
 		if target_pos := host.entity_position(b.target_runtime_id) {
@@ -134,26 +199,22 @@ pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 			dist := math.sqrtf(dx * dx + dz * dz)
 			if dist > b.detection_radius * give_up_range_multiplier {
 				b.has_target = false
+				b.path = []
 			} else {
-				if dist > 0.2 {
-					e.velocity.x = (dx / dist) * hostile_speed
-					e.velocity.z = (dz / dist) * hostile_speed
-					e.yaw = f32(math.atan2(f64(dz), f64(dx)) * (180.0 / math.pi))
-					e.head_yaw = e.yaw
-				}
+				b.move_toward_target(mut e, mut host, target_pos)
 				return
 			}
 		} else {
 			// target no longer exists (died, despawned); go back to wandering.
 			b.has_target = false
+			b.path = []
 		}
 	}
 	b.scan_cooldown--
 	if b.scan_cooldown <= 0 {
 		b.scan_cooldown = detection_scan_interval_ticks
 		if target_runtime_id := host.nearest_player(e.pos, b.detection_radius) {
-			b.has_target = true
-			b.target_runtime_id = target_runtime_id
+			b.acquire_target(target_runtime_id)
 			return
 		}
 	}
@@ -168,6 +229,48 @@ pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 	set_wander_velocity(mut e, wander_speed)
 }
 
+fn (mut b HostileBehaviour) acquire_target(target_runtime_id u64) {
+	b.has_target = true
+	b.target_runtime_id = target_runtime_id
+	b.path = []
+	b.path_index = 0
+	b.path_recompute_cooldown = 0
+}
+
+fn (mut b HostileBehaviour) move_toward_target(mut e Entity, mut host Host, target_pos types.Vector3) {
+	b.path_recompute_cooldown--
+	if b.path.len == 0 || b.path_index >= b.path.len || b.path_recompute_cooldown <= 0 {
+		b.path_recompute_cooldown = path_recompute_interval_ticks
+		b.path_index = 0
+		if path := find_path(mut host, e.pos, target_pos, e.dimensions) {
+			b.path = path
+		} else {
+			b.path = []
+		}
+	}
+
+	mut waypoint := target_pos
+	if b.path_index < b.path.len {
+		waypoint = b.path[b.path_index]
+		wdx := waypoint.x - e.pos.x
+		wdz := waypoint.z - e.pos.z
+		if math.sqrtf(wdx * wdx + wdz * wdz) < path_waypoint_reached_distance {
+			b.path_index++
+			waypoint = if b.path_index < b.path.len { b.path[b.path_index] } else { target_pos }
+		}
+	}
+
+	dx := waypoint.x - e.pos.x
+	dz := waypoint.z - e.pos.z
+	dist := math.sqrtf(dx * dx + dz * dz)
+	if dist > 0.2 {
+		e.velocity.x = (dx / dist) * hostile_speed
+		e.velocity.z = (dz / dist) * hostile_speed
+		e.yaw = f32(math.atan2(f64(dz), f64(dx)) * (180.0 / math.pi))
+		e.head_yaw = e.yaw
+	}
+}
+
 // on_hurt makes the mob start chasing whoever/whatever just hit it. Plain
 // PassiveBehaviour mobs don't implement HurtBehaviour, so being attacked
 // never gives them a target.
@@ -175,8 +278,13 @@ pub fn (mut b HostileBehaviour) on_hurt(mut e Entity, amount f32, source_runtime
 	if source_runtime_id == 0 {
 		return
 	}
-	b.has_target = true
-	b.target_runtime_id = source_runtime_id
+	b.acquire_target(source_runtime_id)
+}
+
+// on_death drops this mob's loot table (see mob_loot_drops) at its death
+// position.
+pub fn (mut b HostileBehaviour) on_death(mut e Entity, mut host Host) {
+	apply_mob_loot_drops(b.network_id, e, mut host)
 }
 
 // ProjectileBehaviour flies with its initial velocity, deals damage to the
@@ -193,7 +301,7 @@ pub mut:
 	drag_factor             f32 = drag
 	survive_block_collision bool
 	dimensions              Dimensions
-	flying_despawn_policy DespawnPolicy = DespawnPolicy{
+	flying_despawn_policy   DespawnPolicy = DespawnPolicy{
 		distance:      true
 		random_chance: true
 	}
@@ -224,6 +332,10 @@ pub fn (b &ProjectileBehaviour) despawn_policy() DespawnPolicy {
 		return DespawnPolicy{}
 	}
 	return b.flying_despawn_policy
+}
+
+pub fn (b &ProjectileBehaviour) takes_fall_damage() bool {
+	return false
 }
 
 pub fn (mut b ProjectileBehaviour) tick(mut e Entity, mut host Host) {

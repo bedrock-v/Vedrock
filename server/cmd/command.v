@@ -1,6 +1,6 @@
 module cmd
 
-import protocol
+import protocol.version.v898.packets as packets_898
 import server.internal.language
 
 pub struct Context {
@@ -136,18 +136,18 @@ pub fn (r &Registry) names() []string {
 // here. The packet gets queued and encoded later by a writer thread, so a
 // value would leave the caller pointing at a stack variable that's gone
 // by the time the writer runs.
-pub fn (r &Registry) available_commands(sender Sender) &protocol.AvailableCommandsPacket {
-	mut pkt := &protocol.AvailableCommandsPacket{}
+pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCommandsPacket {
+	mut pkt := &packets_898.AvailableCommandsPacket{}
 	mut enum_value_index := map[string]u32{}
 	for name, cmd in r.commands {
 		if !visible(cmd, sender) {
 			continue
 		}
-		mut parameters := []protocol.CommandParameter{}
+		mut parameters := []packets_898.ParameterDataEntry{}
 		for a in cmd.arguments() {
 			values := a.enum_values()
 			type_info := if values.len > 0 {
-				enum_index := pkt.enums.len
+				enum_index := pkt.enum_data.len
 				mut value_indices := []u32{}
 				for v in values {
 					idx := enum_value_index[v] or {
@@ -158,31 +158,32 @@ pub fn (r &Registry) available_commands(sender Sender) &protocol.AvailableComman
 					}
 					value_indices << idx
 				}
-				pkt.enums << protocol.CommandEnumData{
-					name:          '${name}_${a.name()}'
-					value_indices: value_indices
+				pkt.enum_data << packets_898.EnumDataEntry{
+					name:   '${name}_${a.name()}'
+					values: value_indices
 				}
 				arg_flag_enum | arg_flag_valid | u32(enum_index)
 			} else {
 				arg_flag_valid | a.network_type_info()
 			}
-			parameters << protocol.CommandParameter{
-				name:      a.name()
-				type_info: type_info
-				optional:  a.optional()
-				flags:     0
+			parameters << packets_898.ParameterDataEntry{
+				name:         a.name()
+				parse_symbol: type_info
+				is_optional:  a.optional()
+				options:      0
 			}
 		}
-		pkt.commands << protocol.CommandData{
-			name:             name
-			description:      cmd.description()
-			flags:            0
-			permission:       'any'
-			alias_enum_index: -1
-			overloads:        [
-				protocol.CommandOverload{
-					chaining:   false
-					parameters: parameters
+		pkt.commands << packets_898.CommandsEntry{
+			name:                        name
+			description:                 cmd.description()
+			flags:                       0
+			permission_level:            packets_898.CommandPermissionLevelString.any
+			alias_enum:                  -1
+			chained_sub_command_indices: []i32{}
+			overloads:                   [
+				packets_898.OverloadsEntry{
+					is_chaining:    false
+					parameter_data: parameters
 				},
 			]
 		}

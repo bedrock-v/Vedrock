@@ -1,8 +1,8 @@
 module session
 
 import time
-import protocol
-import protocol.types
+import protocol.version.v944.types as types_944
+import types
 import server.effect
 import server.event
 import server.internal.gamedata
@@ -158,23 +158,19 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	net_id := sess.player.track_stack(potion)
 	sess.player.set_slot(0, net_id)
 
-	changes := sess.apply_consume(mut wr, protocol.StackRequestAction{
-		action_type: protocol.stack_request_action_consume
-		count:       1
-		source:      protocol.StackRequestSlotInfo{
-			container:        types.FullContainerName{
-				container_id: container_hotbar
-			}
-			slot:             0
-			stack_network_id: net_id
+	changes := sess.apply_consume(mut wr, types_944.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
+			container: .hotbar_container
 		}
-	})
+		slot:           0
+		raw_id:         net_id
+	}, 1)
 	replacement, replacement_net := sess.inventory_stack_at(0)
 
 	assert sess.player.health() == 14
 	assert replacement.id == 101
 	assert replacement.count == 1
-	assert changes[0].info.stack_network_id == replacement_net
+	assert changes[0].info.item_stack_net_id == replacement_net
 }
 
 struct CancelEffectAddHandler {

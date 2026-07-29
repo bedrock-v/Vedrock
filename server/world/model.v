@@ -535,6 +535,99 @@ pub fn (b AABB) overlaps(other AABB) bool {
 		&& b.max_y > other.min_y && b.min_z < other.max_z && b.max_z > other.min_z
 }
 
+// offset_by shifts b along each axis by a floating point delta.
+pub fn (b AABB) offset_by(dx f32, dy f32, dz f32) AABB {
+	return AABB{
+		min_x: b.min_x + dx
+		min_y: b.min_y + dy
+		min_z: b.min_z + dz
+		max_x: b.max_x + dx
+		max_y: b.max_y + dy
+		max_z: b.max_z + dz
+	}
+}
+
+// offset_x clamps the requested X movement so b stops before entering
+// other. The box is ignored unless they already overlap on Y and Z.
+//
+// Resolve a full move by applying the axis offsets in sequence and
+// translating the box after each one.
+pub fn (b AABB) offset_x(other AABB, delta f32) f32 {
+	if b.min_y >= other.max_y || b.max_y <= other.min_y {
+		return delta
+	}
+	if b.min_z >= other.max_z || b.max_z <= other.min_z {
+		return delta
+	}
+	mut d := delta
+	if d > 0 && b.max_x <= other.min_x {
+		diff := other.min_x - b.max_x
+		if diff < d {
+			d = diff
+		}
+	} else if d < 0 && b.min_x >= other.max_x {
+		diff := other.max_x - b.min_x
+		if diff > d {
+			d = diff
+		}
+	}
+	return d
+}
+
+// offset_y clamps the requested Y movement so b stops before entering
+// other. The box is ignored unless they already overlap on X and Z.
+//
+// Resolve a full move by applying the axis offsets in sequence and
+// translating the box after each one.
+pub fn (b AABB) offset_y(other AABB, delta f32) f32 {
+	if b.min_x >= other.max_x || b.max_x <= other.min_x {
+		return delta
+	}
+	if b.min_z >= other.max_z || b.max_z <= other.min_z {
+		return delta
+	}
+	mut d := delta
+	if d > 0 && b.max_y <= other.min_y {
+		diff := other.min_y - b.max_y
+		if diff < d {
+			d = diff
+		}
+	} else if d < 0 && b.min_y >= other.max_y {
+		diff := other.max_y - b.min_y
+		if diff > d {
+			d = diff
+		}
+	}
+	return d
+}
+
+// offset_z clamps the requested Z movement so b stops before entering
+// other. The box is ignored unless they already overlap on X and Y.
+//
+// Resolve a full move by applying the axis offsets in sequence and
+// translating the box after each one.
+pub fn (b AABB) offset_z(other AABB, delta f32) f32 {
+	if b.min_x >= other.max_x || b.max_x <= other.min_x {
+		return delta
+	}
+	if b.min_y >= other.max_y || b.max_y <= other.min_y {
+		return delta
+	}
+	mut d := delta
+	if d > 0 && b.max_z <= other.min_z {
+		diff := other.min_z - b.max_z
+		if diff < d {
+			d = diff
+		}
+	} else if d < 0 && b.min_z >= other.max_z {
+		diff := other.max_z - b.min_z
+		if diff > d {
+			d = diff
+		}
+	}
+	return d
+}
+
 pub fn absolute_boxes(model BlockModel, x int, y int, z int) []AABB {
 	mut out := []AABB{}
 	for b in model.boxes() {

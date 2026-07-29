@@ -42,12 +42,12 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store        ?Provider
-	overrides    map[string]int
-	tile_data    map[string]TileData
-	mutex        &sync.Mutex = sync.new_mutex()
-	current_tick i64
-	scheduled    []ScheduledEntry
+	store              ?Provider
+	overrides          map[string]int
+	tile_data          map[string]TileData
+	mutex              &sync.Mutex = sync.new_mutex()
+	current_tick       i64
+	scheduled          []ScheduledEntry
 	last_persist_error ?string
 	// Persistence worker state, only meaningful when store_backed is true.
 	// A storeless World (tests, void worlds) never starts this thread and
@@ -101,6 +101,13 @@ pub fn new_world(name string, store ?Provider, generator_name string, dim world.
 		spawn w.run_persist_worker()
 	}
 	return w
+}
+
+// is_persistent reports whether the world is backed by on disk storage.
+// Ephemeral in memory worlds have nothing to load or save, so external
+// persistence tied to the world should only run when this returns true.
+pub fn (w &World) is_persistent() bool {
+	return w.store_backed
 }
 
 // load pulls every persisted block override and tile data entry into the

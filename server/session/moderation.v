@@ -1,8 +1,15 @@
 module session
 
-import protocol
-import protocol.enums
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.enums as enums_662
+import protocol.version.v662.types as types_662
+import protocol.version.v944.types as types_944
+import protocol.version.v975.types as types_975
+import protocol.version.v712.packets as packets_712
+import protocol.version.v944.packets as packets_944
+import protocol.version.v1001.packets as packets_1001
+import types
+import server.internal.network
 
 // op / deop
 
@@ -164,21 +171,25 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 		s.chunk_stream_mutex.unlock()
 	}
 	own := s.player.position()
-	s.send_packet(&protocol.ChunkRadiusUpdatedPacket{
-		radius: radius
+	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
+		chunk_radius: radius
 	}) or {}
-	s.send_packet(&protocol.NetworkChunkPublisherUpdatePacket{
-		block_position: types.BlockPosition{int(own.x), int(own.y), int(own.z)}
-		radius:         radius * 16
-		saved_chunks:   []types.ChunkPosition{}
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
+			x: i32(own.x)
+			y: i32(own.y)
+			z: i32(own.z)
+		}
+		new_view_radius:     u32(radius * 16)
+		server_built_chunks: []types_662.ChunkPos{}
 	}) or {}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
 		return
 	}
 	s.remember_chunk_window(radius)
-	s.send_packet(&protocol.PlayStatusPacket{
-		status: 3
+	s.send_packet(&packets_662.PlayStatusPacket{
+		status: enums_662.PlayStatus.player_spawn
 	}) or {}
 }
 
@@ -251,21 +262,24 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	s.clear_chunk_cache()
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
-		s.deliver(&protocol.ChangeDimensionPacket{
-			dimension: target.dimension.id
-			position:  types.Vector3{x, y, z}
-			respawn:   false
+		mut change_packet := &packets_712.ChangeDimensionPacket{
+			dimension_id: target.dimension.id
+			respawn:      false
+		}
+		change_packet.position[0] = x
+		change_packet.position[1] = y
+		change_packet.position[2] = z
+		s.deliver(change_packet)
+		s.deliver(&packets_712.StopSoundPacket{
+			sound_name:      ''
+			stop_all_sounds: true
 		})
-		s.deliver(&protocol.StopSoundPacket{
-			sound_name: ''
-			stop_all:   true
+		s.deliver(&packets_662.PlayStatusPacket{
+			status: enums_662.PlayStatus.player_spawn
 		})
-		s.deliver(&protocol.PlayStatusPacket{
-			status: int(enums.PlayStatus.player_spawn)
-		})
-		s.deliver(&protocol.PlayerActionPacket{
-			action:           int(enums.PlayerAction.dimension_change_ack)
-			actor_runtime_id: s.runtime_id
+		s.deliver(&packets_944.PlayerActionPacket{
+			player_runtime_id: network.actor_runtime_id(s.runtime_id)
+			action:            enums_662.PlayerActionType.change_dimension_ack
 		})
 	}
 	return true
@@ -277,15 +291,18 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	s.player.reset_position(types.Vector3{x, y, z})
 	current := s.player.movement()
-	s.deliver(&protocol.MovePlayerPacket{
-		actor_runtime_id: s.runtime_id
-		position:         current.position
-		pitch:            current.pitch
-		yaw:              current.yaw
-		head_yaw:         current.head_yaw
-		mode:             protocol.move_player_mode_teleport
-		on_ground:        false
-	})
+	mut move_packet := &packets_662.MovePlayerPacket{
+		player_runtime_id: network.actor_runtime_id(s.runtime_id)
+		y_head_rotation:   current.head_yaw
+		position_mode:     enums_662.PlayerPositionTeleport{}
+		on_ground:         false
+	}
+	move_packet.position[0] = current.position.x
+	move_packet.position[1] = current.position.y
+	move_packet.position[2] = current.position.z
+	move_packet.rotation[0] = current.pitch
+	move_packet.rotation[1] = current.yaw
+	s.deliver(move_packet)
 	mut wr := s.current_world_runtime()
 	if !isnil(wr) {
 		rid := s.runtime_id
@@ -328,17 +345,17 @@ fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
 
 fn (mut s NetworkSession) apply_clear_inventory() {
 	s.player.clear_inventory()
-	mut items := []types.ItemStackWrapper{}
+	mut items := []types_975.NetworkItemStackDescriptorV2{}
 	for _ in 0 .. inventory_slot_count {
-		items << empty_stack()
+		items << network.item_descriptor_v975(types.ItemStack{})
 	}
-	s.deliver(&protocol.InventoryContentPacket{
-		window_id:      inventory_window_id
-		items:          items
-		container_name: types.FullContainerName{
-			container_id: 0
+	s.deliver(&packets_1001.InventoryContentPacket{
+		inventory_id:        u32(inventory_window_id)
+		slots:               items
+		container_name_data: types_944.FullContainerName{
+			container: .inventory_container
 		}
-		storage:        empty_stack()
+		storage_item:        network.item_descriptor_v975(types.ItemStack{})
 	})
 }
 

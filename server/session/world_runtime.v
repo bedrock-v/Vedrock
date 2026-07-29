@@ -5,7 +5,9 @@ import sync.stdatomic
 import time
 import rand
 import protocol
-import protocol.types
+import protocol.version.v944.packets as packets_944
+import types
+import server.internal.network
 import server.block
 import server.entity
 import server.event
@@ -145,12 +147,12 @@ fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
 
 // update_block_packet builds the packet both WorldTx.broadcast_block and
 // WorldLiquidHost.set_block_id send, avoiding duplicating the field list.
-fn update_block_packet(x int, y int, z int, id int) &protocol.UpdateBlockPacket {
-	return &protocol.UpdateBlockPacket{
-		block_position:   types.BlockPosition{x, y, z}
-		block_runtime_id: id
+fn update_block_packet(x int, y int, z int, id int) &packets_944.UpdateBlockPacket {
+	return &packets_944.UpdateBlockPacket{
+		block_position:   network.block_pos_v944(types.BlockPosition{x, y, z})
+		block_runtime_id: u32(id)
 		flags:            block_update_flags
-		data_layer_id:    0
+		layer:            0
 	}
 }
 

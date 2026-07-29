@@ -1,14 +1,19 @@
 module session
 
-import math
 import time
-import protocol
-import protocol.types
-import protocol.enums
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.types as types_662
+import protocol.version.v898.packets as packets_898
+import protocol.version.v944.packets as packets_944
+import protocol.version.v975.packets as packets_975
+import protocol.version.v1001.packets as packets_1001
+import protocol.version.v1001.types as types_1001
+import types
 import server.event
 import server.world
 import server.block
 import server.item
+import server.internal.network
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -16,28 +21,6 @@ const place_cooldown_ms = i64(100)
 
 const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
-
-// break_grace_ticks absorbs latency jitter around the expected break time
-// boundary so a legitimate client isn't rejected for arriving a tick or two
-// early.
-const break_grace_ticks = i64(2)
-
-// required_break_ticks approximates vanilla's break time formula
-// (hardness * 30 / mining_speed). This is deliberately not vanilla exact.
-fn required_break_ticks(hardness f32, mining_speed f32) i64 {
-	if hardness <= 0 {
-		return 0
-	}
-	return i64(math.ceil(hardness * 30.0 / mining_speed))
-}
-
-fn (s &NetworkSession) held_mining_speed() f32 {
-	_, name := s.held_stack_and_name()
-	if it := s.hub.items.get(name) {
-		return it.mining_speed()
-	}
-	return 1.0
-}
 
 // dimension returns the player's current world's dimension.
 fn (s &NetworkSession) dimension() world.Dimension {
@@ -59,9 +42,9 @@ fn (s &NetworkSession) block_at(x int, y int, z int) int {
 }
 
 fn (s &NetworkSession) can_interact() bool {
-	return s.player.game_mode() != protocol.game_type_spectator
-		&& s.player.game_mode() != protocol.game_type_survival_spectator
-		&& s.player.game_mode() != protocol.game_type_creative_spectator
+	return s.player.game_mode() != network.game_type_spectator
+		&& s.player.game_mode() != network.game_type_survival_spectator
+		&& s.player.game_mode() != network.game_type_creative_spectator
 }
 
 fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
@@ -76,84 +59,106 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 	}
 }
 
-fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTransactionPacket) ! {
-	if p.transaction_type == protocol.inventory_transaction_type_use_item_on_entity {
-		ue := p.use_item_on_entity
-		if ue.action_type == protocol.item_use_on_entity_action_attack {
-			s.handle_attack(ue.target_entity_runtime_id)!
-		} else if ue.action_type == protocol.item_use_on_entity_action_interact {
-			s.handle_entity_interact(ue.target_entity_runtime_id)
+fn (mut s NetworkSession) handle_inventory_transaction(p packets_1001.InventoryTransactionPacket) ! {
+	if tx_type := p.transaction_type {
+		match tx_type {
+			.normal_transaction, .inventory_mismatch {
+				return
+			}
+			.item_use_transaction, .item_use_on_entity_transaction, .item_release_transaction {
+				s.log.debug('Dropped ${tx_type} InventoryTransactionPacket; protocol ${network.selected_protocol} carries item-use actions in PlayerAuthInputPacket')
+				return
+			}
 		}
-		return
 	}
-	if p.transaction_type != protocol.inventory_transaction_type_use_item {
-		return
+	if _ := p.transaction {
+		s.log.debug('Dropped InventoryTransactionPacket without a complex transaction type')
 	}
-	ut := p.use_item
-	match ut.action_type {
-		protocol.item_use_action_click_block {
-			if s.player.is_dead() || !s.can_interact() {
-				return
-			}
-			mut ictx := event.new_context(event.InteractData{
-				player: s
-				x:      ut.block_position.x
-				y:      ut.block_position.y
-				z:      ut.block_position.z
-				face:   int(ut.block_face)
-			})
-			s.hub.events.player_interact(mut ictx)
-			if ictx.is_cancelled() {
-				s.resend_block(ut.block_position)
-				return
-			}
-			// Neighbor cell in the clicked face direction. Used as the default
-			// placement target and resent with the clicked block on rejection.
-			neighbor := face_offset(ut.block_position, int(ut.block_face))
-			clicked_id := s.block_at(ut.block_position.x, ut.block_position.y, ut.block_position.z)
-			if clicked_id == world.air.network_id || !s.within_place_reach(ut.block_position) {
-				s.resend_block(ut.block_position)
-				s.resend_block(neighbor)
-				return
-			}
-			runtime_id := s.placement_runtime_id(ut.held_item.item_stack)
-			binding := s.world_binding()
-			if isnil(binding.world_runtime) {
-				return
-			}
-			mut wr := binding.world_runtime
-			now := time.now().unix_milli()
-			task := PlayerPlaceBlockTask{
-				session_runtime_id: s.runtime_id
-				epoch:              binding.epoch
-				click_pos:          ut.block_position
-				click_face:         int(ut.block_face)
-				clicked_y:          ut.clicked_position.y
-				runtime_id:         runtime_id
-				yaw:                s.player.movement().yaw
-				now_ms:             now
-				last_place_ms:      s.last_place_ms
-				is_creative:        s.player.game_mode() == protocol.game_type_creative
-			}
-			if wr.submit(task) {
-				placed := <-task.result
-				if placed {
-					s.last_place_ms = now
-				}
-			}
+}
+
+fn (mut s NetworkSession) handle_player_auth_input(p packets_1001.PlayerAuthInputPacket) ! {
+	s.update_movement(network.vec3_from_array(p.player_position), p.player_rotation[0],
+		p.player_rotation[1], p.player_head_rotation)
+	if tx := p.item_use_transaction {
+		s.handle_item_use_transaction(tx)!
+	}
+	if actions := p.player_block_actions {
+		for action in actions {
+			s.handle_player_block_action(action)!
 		}
-		protocol.item_use_action_destroy_block {
-			s.break_block(ut.block_position)!
+	}
+}
+
+fn (mut s NetworkSession) handle_item_use_transaction(tx types_1001.PackedItemUseLegacyInventoryTransaction) ! {
+	pos := network.block_pos_from_v944(tx.position)
+	match tx.action_type {
+		.place {
+			s.handle_place_click(pos, int(tx.face), network.item_stack_from_descriptor(tx.item),
+				tx.click_position[1])
 		}
-		protocol.item_use_action_click_air {
+		.destroy {
+			s.break_block(pos)!
+		}
+		.use {
 			s.use_held_item_in_air()
 		}
-		else {}
+	}
+}
+
+fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, packet_stack types.ItemStack, clicked_y f32) {
+	if s.player.is_dead() || !s.can_interact() {
+		return
+	}
+	mut ictx := event.new_context(event.InteractData{
+		player: s
+		x:      block_position.x
+		y:      block_position.y
+		z:      block_position.z
+		face:   block_face
+	})
+	s.hub.events.player_interact(mut ictx)
+	if ictx.is_cancelled() {
+		s.resend_block(block_position)
+		return
+	}
+	// Neighbor cell in the clicked face direction. Used as the default
+	// placement target and resent with the clicked block on rejection.
+	neighbor := face_offset(block_position, block_face)
+	clicked_id := s.block_at(block_position.x, block_position.y, block_position.z)
+	if clicked_id == world.air.network_id || !s.within_place_reach(block_position) {
+		s.resend_block(block_position)
+		s.resend_block(neighbor)
+		return
+	}
+	runtime_id := s.placement_runtime_id(packet_stack)
+	binding := s.world_binding()
+	if isnil(binding.world_runtime) {
+		return
+	}
+	mut wr := binding.world_runtime
+	now := time.now().unix_milli()
+	task := PlayerPlaceBlockTask{
+		session_runtime_id: s.runtime_id
+		epoch:              binding.epoch
+		click_pos:          block_position
+		click_face:         block_face
+		clicked_y:          clicked_y
+		runtime_id:         runtime_id
+		yaw:                s.player.movement().yaw
+		now_ms:             now
+		last_place_ms:      s.last_place_ms
+		is_creative:        s.player.game_mode() == network.game_type_creative
+	}
+	if wr.submit(task) {
+		placed := <-task.result
+		if placed {
+			s.last_place_ms = now
+		}
 	}
 }
 
 fn (s &NetworkSession) placement_runtime_id(packet_stack types.ItemStack) int {
-	stack := if s.player.game_mode() == protocol.game_type_creative {
+	stack := if s.player.game_mode() == network.game_type_creative {
 		packet_stack
 	} else {
 		held, _ := s.inventory_stack_at(s.player.held_slot())
@@ -183,8 +188,8 @@ fn (s &NetworkSession) held_stack_and_name() (types.ItemStack, string) {
 // currently held item, removing it if it breaks. Creative mode tools never
 // take durability damage.
 fn (mut s NetworkSession) damage_held_item(amount int) {
-	if s.player.game_mode() == protocol.game_type_creative
-		|| s.player.game_mode() == protocol.game_type_creative_spectator {
+	if s.player.game_mode() == network.game_type_creative
+		|| s.player.game_mode() == network.game_type_creative_spectator {
 		return
 	}
 	stack, net := s.inventory_stack_at(s.player.held_slot())
@@ -237,25 +242,35 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	if result.sound == '' {
 		return
 	}
-	s.hub.broadcast(&protocol.LevelSoundEventPacket{
-		sound:           result.sound
-		position:        s.current_position()
-		extra_data:      -1
-		entity_type:     'minecraft:player'
-		actor_unique_id: i64(s.runtime_id)
-	})
+	s.hub.broadcast(network.level_sound_event(result.sound, s.current_position(), -1,
+		'minecraft:player', s.runtime_id))
 }
 
-fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! {
+fn (mut s NetworkSession) handle_player_action(p packets_944.PlayerActionPacket) ! {
 	match p.action {
-		int(enums.PlayerAction.creative_player_destroy_block),
-		int(enums.PlayerAction.predict_destroy_block) {
-			s.break_block(p.block_position)!
+		.creative_destroy_block, .predict_destroy_block {
+			s.break_block(network.block_pos_from_v944(p.block_position))!
 		}
-		int(enums.PlayerAction.start_break) {
-			s.handle_start_break(p.block_position, p.face)
+		.start_destroy_block {
+			s.handle_start_break(network.block_pos_from_v944(p.block_position), int(p.face))
 		}
-		int(enums.PlayerAction.respawn) {
+		.respawn {
+			s.request_respawn()
+		}
+		else {}
+	}
+}
+
+fn (mut s NetworkSession) handle_player_block_action(action types_662.PlayerBlockActionData) ! {
+	pos := network.block_pos_from_v662(action.position)
+	match action.action_type {
+		.creative_destroy_block, .predict_destroy_block {
+			s.break_block(pos)!
+		}
+		.start_destroy_block {
+			s.handle_start_break(pos, int(action.facing))
+		}
+		.respawn {
 			s.request_respawn()
 		}
 		else {}
@@ -299,17 +314,17 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 // swing broadcast goes through WorldTx.broadcast_swing instead, scoped to
 // the world.
 fn (mut s NetworkSession) broadcast_swing() {
-	s.hub.broadcast_except(s.runtime_id, &protocol.AnimatePacket{
-		action:           protocol.animate_action_swing_arm
-		actor_runtime_id: s.runtime_id
+	s.hub.broadcast_except(s.runtime_id, &packets_898.AnimatePacket{
+		action:            packets_898.AnimatePacketAction.swing
+		target_runtime_id: network.actor_runtime_id(s.runtime_id)
 	})
 }
 
 // place_reach_sq returns the squared placement reach for the player's
 // current gamemode.
 fn (s &NetworkSession) place_reach_sq() f32 {
-	if s.player.game_mode() == protocol.game_type_creative
-		|| s.player.game_mode() == protocol.game_type_creative_spectator {
+	if s.player.game_mode() == network.game_type_creative
+		|| s.player.game_mode() == network.game_type_creative_spectator {
 		return creative_place_reach_sq
 	}
 	return survival_place_reach_sq
@@ -333,11 +348,11 @@ fn (s &NetworkSession) within_place_reach(pos types.BlockPosition) bool {
 // It uses deliver because placement and break tasks may call it from the
 // world thread.
 fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
-	s.deliver(&protocol.UpdateBlockPacket{
-		block_position:   pos
-		block_runtime_id: s.block_at(pos.x, pos.y, pos.z)
+	s.deliver(&packets_944.UpdateBlockPacket{
+		block_position:   network.block_pos_v944(pos)
+		block_runtime_id: u32(s.block_at(pos.x, pos.y, pos.z))
 		flags:            block_update_flags
-		data_layer_id:    0
+		layer:            0
 	})
 }
 
@@ -387,24 +402,22 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.resend_block(pos)
 		return
 	}
-	if s.player.game_mode() != protocol.game_type_creative && !s.hub.blocks.breakable(old_id) {
-		s.send_maybe_queued(&protocol.UpdateBlockPacket{
-			block_position:   pos
-			block_runtime_id: old_id
+	if s.player.game_mode() != network.game_type_creative && !s.hub.blocks.breakable(old_id) {
+		s.send_maybe_queued(&packets_944.UpdateBlockPacket{
+			block_position:   network.block_pos_v944(pos)
+			block_runtime_id: u32(old_id)
 			flags:            block_update_flags
-			data_layer_id:    0
+			layer:            0
 		})!
 		return
 	}
-	if s.player.game_mode() != protocol.game_type_creative {
-		required := required_break_ticks(s.hub.blocks.hardness(old_id), s.held_mining_speed())
+	if s.player.game_mode() != network.game_type_creative {
 		matches := if bp := s.breaking {
 			bp.x == pos.x && bp.y == pos.y && bp.z == pos.z && bp.block_id == old_id
 		} else {
 			false
 		}
-		elapsed := if bp := s.breaking { s.hub.current_tick() - bp.started_tick } else { 0 }
-		if !matches || elapsed < required - break_grace_ticks {
+		if !matches {
 			s.resend_block(pos)
 			return
 		}
@@ -473,6 +486,14 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 
 	tx.set_block(t.x, t.y, t.z, air_id)
 	tx.damage_held_item(mut s, 1)
+
+	if s.player.game_mode() != network.game_type_creative {
+		drop_name, drop_count := block_drop_for(mut tx.wr, t.old_id)
+		if drop_name != '' {
+			center := types.Vector3{f32(t.x) + 0.5, f32(t.y) + 0.5, f32(t.z) + 0.5}
+			spawn_dropped_item_stack(mut tx.wr, drop_name, drop_count, center)
+		}
+	}
 
 	if pair := tx.door_pair_pos(pos, t.old_id) {
 		pair_id := tx.block_at(pair.x, pair.y, pair.z)
@@ -571,12 +592,13 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 
 // Block picking is session local: it reads the current world and updates the
 // inventory through Player's state lock.
-fn (mut s NetworkSession) handle_block_pick_request(p protocol.BlockPickRequestPacket) ! {
+fn (mut s NetworkSession) handle_block_pick_request(p packets_662.BlockPickRequestPacket) ! {
 	s.apply_block_pick_request(p)
 }
 
-fn (mut s NetworkSession) apply_block_pick_request(p protocol.BlockPickRequestPacket) {
-	runtime_id := s.block_at(p.block_position.x, p.block_position.y, p.block_position.z)
+fn (mut s NetworkSession) apply_block_pick_request(p packets_662.BlockPickRequestPacket) {
+	pos := network.block_pos_from_v662(p.position)
+	runtime_id := s.block_at(pos.x, pos.y, pos.z)
 	if runtime_id == world.air.network_id {
 		return
 	}
@@ -594,7 +616,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p protocol.BlockPickRequestPa
 		}
 		return
 	}
-	if s.player.game_mode() != protocol.game_type_creative {
+	if s.player.game_mode() != network.game_type_creative {
 		return
 	}
 
@@ -662,16 +684,16 @@ fn (mut s NetworkSession) swap_slot_into_hand(slot int) {
 
 fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWrapper) {
 	s.player.set_held(slot, wrapped)
-	s.send_maybe_queued(&protocol.PlayerHotbarPacket{
-		selected_hotbar_slot: slot
-		window_id:            inventory_window_id
-		select_hotbar_slot:   true
+	s.send_maybe_queued(&packets_662.PlayerHotbarPacket{
+		selected_slot:      u32(slot)
+		container_id:       .inventory
+		should_select_slot: true
 	}) or {}
-	s.hub.broadcast_except(s.runtime_id, &protocol.MobEquipmentPacket{
-		actor_runtime_id: s.runtime_id
-		item:             wrapped
-		inventory_slot:   slot
-		hotbar_slot:      slot
-		window_id:        inventory_window_id
+	s.hub.broadcast_except(s.runtime_id, &packets_975.MobEquipmentPacket{
+		target_runtime_id: network.actor_runtime_id(s.runtime_id)
+		item:              network.item_descriptor_v975(wrapped.item_stack)
+		slot:              i8(slot)
+		selected_slot:     i8(slot)
+		container_id:      .inventory
 	})
 }

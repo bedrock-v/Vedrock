@@ -2,9 +2,13 @@ module network
 
 import protocol
 import protocol.serializer
+import protocol.version
+import protocol.version.v662.enums as enums_662
+import protocol.version.v662.packets as packets_662
+import protocol.version.v1001.packets as packets_1001
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
-	mut pool := protocol.new_packet_pool()
+	mut pool := new_selected_packet_pool()
 	batch := decode_batch(raw, compression_enabled)!
 	mut packets := []protocol.Packet{}
 	for b in batch {
@@ -14,29 +18,55 @@ fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	return packets
 }
 
+fn test_network_pool_is_locked_to_protocol_1001() {
+	assert selected_protocol == 1001
+	assert selected_proto_version() == version.ProtoVersion.v1001
+	assert selected_minecraft_version == selected_proto_version().minecraft_version()
+	mut pool := new_selected_packet_pool()
+	assert pool.get_packet_by_id(193) or { return }.name() == 'RequestNetworkSettingsPacket'
+}
+
 fn test_request_network_settings_through_batch() {
-	req := &protocol.RequestNetworkSettingsPacket{
-		protocol_version: protocol.current_protocol
+	req := &packets_662.RequestNetworkSettingsPacket{
+		client_network_version: selected_protocol
 	}
 	raw := encode_batch([protocol.encode_packet_to_bytes(req)], false, 0)!
 	packets := decode_through_pool(raw, false)!
 	assert packets.len == 1
 	p := packets[0]
 	assert p.name() == 'RequestNetworkSettingsPacket'
-	if p is protocol.RequestNetworkSettingsPacket {
-		assert p.protocol_version == protocol.current_protocol
+}
+
+fn test_selected_pool_decodes_1001_auth_input() {
+	mut auth := &packets_1001.PlayerAuthInputPacket{}
+	auth.player_rotation[0] = 12.5
+	auth.player_rotation[1] = 34.25
+	auth.player_position[0] = 1.0
+	auth.player_position[1] = 2.0
+	auth.player_position[2] = 3.0
+
+	mut pool := new_selected_packet_pool()
+	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(auth))
+	p := pool.decode(mut r)!
+	assert p.name() == 'PlayerAuthInputPacket'
+	if p is packets_1001.PlayerAuthInputPacket {
+		assert p.player_rotation[0] == f32(12.5)
+		assert p.player_rotation[1] == f32(34.25)
+		assert p.player_position[0] == f32(1.0)
+		assert p.player_position[1] == f32(2.0)
+		assert p.player_position[2] == f32(3.0)
 	} else {
-		assert false
+		assert false, 'decoded packet is not PlayerAuthInputPacket'
 	}
 }
 
 fn test_multiple_packets_compressed_batch() {
-	req := &protocol.RequestNetworkSettingsPacket{
-		protocol_version: protocol.current_protocol
+	req := &packets_662.RequestNetworkSettingsPacket{
+		client_network_version: selected_protocol
 	}
-	settings := &protocol.NetworkSettingsPacket{
+	settings := &packets_662.NetworkSettingsPacket{
 		compression_threshold: 256
-		compression_algorithm: 0
+		compression_algorithm: enums_662.PacketCompressionAlgorithm.z_lib
 	}
 	payloads := [
 		protocol.encode_packet_to_bytes(req),

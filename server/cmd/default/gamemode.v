@@ -1,8 +1,8 @@
 module default
 
-import protocol
 import server.permission
 import server.cmd
+import server.internal.network
 
 pub struct GamemodeCommand {}
 
@@ -74,19 +74,19 @@ pub fn (c GamemodeCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 
 fn parse_gamemode(arg string) ?int {
 	return match arg.to_lower() {
-		'survival', 's', '0' { protocol.game_type_survival }
-		'creative', 'c', '1' { protocol.game_type_creative }
-		'adventure', 'a', '2' { protocol.game_type_adventure }
-		'spectator' { protocol.game_type_spectator }
+		'survival', 's', '0' { network.game_type_survival }
+		'creative', 'c', '1' { network.game_type_creative }
+		'adventure', 'a', '2' { network.game_type_adventure }
+		'spectator' { network.game_type_spectator }
 		else { none }
 	}
 }
 
 fn gamemode_translation_key(mode int) string {
 	return match mode {
-		protocol.game_type_survival { 'gameMode.survival' }
-		protocol.game_type_adventure { 'gameMode.adventure' }
-		protocol.game_type_spectator { 'gameMode.spectator' }
+		network.game_type_survival { 'gameMode.survival' }
+		network.game_type_adventure { 'gameMode.adventure' }
+		network.game_type_spectator { 'gameMode.spectator' }
 		else { 'gameMode.creative' }
 	}
 }

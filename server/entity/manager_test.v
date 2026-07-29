@@ -1,8 +1,13 @@
 module entity
 
+import os
 import time
 import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.types as types_662
+import protocol.version.v712.packets as packets_712
+import types
+import server.internal.network
 import server.world
 import server.effect
 
@@ -26,6 +31,22 @@ mut:
 	players              map[u64]types.Vector3
 	despawn_notify_calls int
 	last_despawn_id      string
+	// dropped_items records every spawn_dropped_item call this host receives.
+	dropped_items []DroppedItemCall
+	// collect_response is how many units collect_item pretends to add.
+	collect_response        int
+	collect_calls           int
+	last_collect_runtime_id u64
+	last_collect_stack      types.ItemStack
+	take_notify_calls       int
+	last_take_item_rid      u64
+	last_take_taker_rid     u64
+}
+
+struct DroppedItemCall {
+	item_name string
+	count     int
+	pos       types.Vector3
 }
 
 fn block_key(x int, y int, z int) string {
@@ -42,6 +63,12 @@ fn (mut h FakeHost) set_empty_non_air(x int, y int, z int) {
 	key := block_key(x, y, z)
 	h.blocks[key] = 42
 	h.boxes[key] = []world.AABB{}
+}
+
+fn (mut h FakeHost) set_slab(x int, y int, z int) {
+	key := block_key(x, y, z)
+	h.blocks[key] = 1
+	h.boxes[key] = world.absolute_boxes(world.slab_model(false, false), x, y, z)
 }
 
 fn (mut h FakeHost) broadcast(p protocol.Packet) {
@@ -83,6 +110,27 @@ fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string
 fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
 	h.despawn_notify_calls++
 	h.last_despawn_id = identifier
+}
+
+fn (mut h FakeHost) spawn_dropped_item(item_name string, count int, pos types.Vector3) {
+	h.dropped_items << DroppedItemCall{
+		item_name: item_name
+		count:     count
+		pos:       pos
+	}
+}
+
+fn (mut h FakeHost) collect_item(runtime_id u64, stack types.ItemStack) int {
+	h.collect_calls++
+	h.last_collect_runtime_id = runtime_id
+	h.last_collect_stack = stack
+	return h.collect_response
+}
+
+fn (mut h FakeHost) notify_item_taken(item_runtime_id u64, taker_runtime_id u64) {
+	h.take_notify_calls++
+	h.last_take_item_rid = item_runtime_id
+	h.last_take_taker_rid = taker_runtime_id
 }
 
 fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
@@ -235,6 +283,37 @@ fn test_entity_ignores_non_air_blocks_without_collision_boxes() {
 	assert e.pos.x > 1.0
 }
 
+fn test_no_fall_damage_within_safe_distance() {
+	mut host := &FakeHost{}
+	host.set_solid(0, 8, 0) // block top at y=9, just below the spawn point
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 10, 0.5})
+	e.floor_y = -1000
+	for _ in 0 .. 30 {
+		m.tick()
+		if e.on_ground {
+			break
+		}
+	}
+	assert e.on_ground
+	assert e.health == 20.0
+}
+
+fn test_projectile_takes_no_fall_damage() {
+	mut host := &FakeHost{}
+	host.set_solid(0, 0, 0) // block top at y=1
+	mut m := new_manager(host)
+	mut e :=
+		m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:arrow', max_age: 1000 }, types.Vector3{0.5, 10, 0.5})
+	for _ in 0 .. 60 {
+		m.tick()
+		if e.on_ground || m.count() == 0 {
+			break
+		}
+	}
+	assert e.health == 20.0
+}
+
 fn test_spawn_uses_near_broadcast() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
@@ -355,29 +434,33 @@ fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
 	e.health = 7
 
 	packet := e.spawn_packet()
-	assert packet.attributes.len == 1
-	assert packet.attributes[0].id == 'minecraft:health'
-	assert packet.attributes[0].current == 7
-	assert packet.attributes[0].max == 20.0
+	if packet is packets_712.AddActorPacket {
+		assert packet.attributes.len == 1
+		assert packet.attributes[0].attribute_name == 'minecraft:health'
+		assert packet.attributes[0].current_value == 7
+		assert packet.attributes[0].max_value == 20.0
 
-	mut saw_width := false
-	mut saw_height := false
-	for entry in packet.metadata {
-		if entry.key == protocol.meta_key_width {
-			if entry.value is types.MetaFloat {
-				assert entry.value.value == f32(0.9)
-				saw_width = true
+		mut saw_width := false
+		mut saw_height := false
+		for entry in packet.actor_data {
+			if entry.data_item_id == network.meta_key_width {
+				if entry.data_item_type is types_662.DataItemFloat {
+					assert entry.data_item_type.value == f32(0.9)
+					saw_width = true
+				}
+			}
+			if entry.data_item_id == network.meta_key_height {
+				if entry.data_item_type is types_662.DataItemFloat {
+					assert entry.data_item_type.value == f32(1.4)
+					saw_height = true
+				}
 			}
 		}
-		if entry.key == protocol.meta_key_height {
-			if entry.value is types.MetaFloat {
-				assert entry.value.value == f32(1.4)
-				saw_height = true
-			}
-		}
+		assert saw_width
+		assert saw_height
+	} else {
+		assert false, 'expected AddActorPacket for a non-item entity'
 	}
-	assert saw_width
-	assert saw_height
 }
 
 fn test_projectile_hits_entity_via_entity_hit_test() {
@@ -522,4 +605,392 @@ fn test_hostile_behaviour_gives_up_target_out_of_range() {
 	e.set_velocity(types.Vector3{})
 	m.tick()
 	assert e.velocity.x == 0 // gave up, back to wandering
+}
+
+fn (mut h FakeHost) set_floor(x0 int, x1 int, z0 int, z1 int, y int) {
+	for x := x0; x <= x1; x++ {
+		for z := z0; z <= z1; z++ {
+			h.set_solid(x, y, z)
+		}
+	}
+}
+
+fn test_find_path_routes_around_wall_gap() {
+	mut host := &FakeHost{}
+	host.set_floor(-1, 6, -1, 2, 4)
+	host.set_solid(3, 5, -1)
+	host.set_solid(3, 5, 0)
+	path := find_path(mut host, types.Vector3{0.5, 5, 0.5}, types.Vector3{5.5, 5, 0.5}, Dimensions{}) or {
+		panic('expected a path around the gap')
+	}
+	assert path.len > 0
+	mut passed_through_gap := false
+	for wp in path {
+		if int(wp.x) == 3 && int(wp.z) == 1 {
+			passed_through_gap = true
+		}
+	}
+	assert passed_through_gap
+	last := path[path.len - 1]
+	assert last.x == f32(5.5)
+	assert last.z == f32(0.5)
+}
+
+fn test_find_path_does_not_cut_diagonal_corners() {
+	mut host := &FakeHost{}
+	host.set_floor(-2, 3, -2, 3, 4)
+	host.set_solid(1, 5, 0)
+	host.set_solid(0, 5, 1)
+	path := find_path(mut host, types.Vector3{0.5, 5, 0.5}, types.Vector3{1.5, 5, 1.5}, Dimensions{}) or {
+		panic('expected a path around the corner')
+	}
+	assert path.len > 0
+	first := path[0]
+	assert !(int(first.x) == 1 && int(first.z) == 1)
+}
+
+fn test_find_path_returns_none_when_completely_enclosed() {
+	mut host := &FakeHost{}
+	host.set_solid(0, 4, 0) // floor under the start only
+	host.set_solid(1, 5, 0)
+	host.set_solid(-1, 5, 0)
+	host.set_solid(0, 5, 1)
+	host.set_solid(0, 5, -1)
+	if _ := find_path(mut host, types.Vector3{0.5, 5, 0.5}, types.Vector3{50.5, 5, 0.5}, Dimensions{}) {
+		assert false
+	}
+}
+
+fn test_hostile_mob_navigates_around_wall_to_reach_target() {
+	mut host := &FakeHost{}
+	host.set_floor(-1, 6, -1, 2, 4)
+	host.set_solid(3, 5, -1)
+	host.set_solid(3, 5, 0)
+	host.positions[42] = types.Vector3{5.5, 5, 0.5}
+	host.players[42] = types.Vector3{5.5, 5, 0.5}
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{
+		network_id:       'minecraft:zombie'
+		detection_radius: 20.0
+	}, types.Vector3{0.5, 5, 0.5})
+	e.floor_y = -1000 // no fallback floor: must actually stand on the real blocks
+	mut max_z := e.pos.z
+	for _ in 0 .. 400 {
+		m.tick()
+		if e.pos.z > max_z {
+			max_z = e.pos.z
+		}
+	}
+	assert e.pos.x > 4.5 // reached the far side of the wall
+	assert max_z > 0.8 // detoured through the z=1 gap to get there, not stuck at the wall
+}
+
+fn test_save_and_load_entities_round_trip() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_entitydb_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	data := [
+		SaveData{
+			type_name:  'zombie'
+			x:          1.5
+			y:          64.0
+			z:          -3.25
+			velocity_x: 0.1
+			health:     14.0
+		},
+	]
+	save_entities(dir, data) or {
+		assert false, 'save failed: ${err}'
+		return
+	}
+	loaded := load_entities(dir)
+	assert loaded.len == 1
+	assert loaded[0].type_name == 'zombie'
+	assert loaded[0].x == 1.5
+	assert loaded[0].health == 14.0
+}
+
+fn test_load_entities_missing_file_returns_empty() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_entitydb_missing_${os.getpid()}')
+	loaded := load_entities(dir)
+	assert loaded.len == 0
+}
+
+fn test_save_snapshot_excludes_projectiles() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:arrow' }, types.Vector3{1, 5, 0})
+	saved := m.save_snapshot()
+	assert saved.len == 1
+	assert saved[0].type_name == 'pig'
+}
+
+fn test_restore_from_save_reconstructs_entities() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut reg := new_registry()
+	register_defaults(mut reg)
+	saved := [
+		SaveData{
+			type_name:  'zombie'
+			x:          2.0
+			y:          5.0
+			z:          3.0
+			velocity_x: 0.2
+			pitch:      10.0
+			yaw:        20.0
+			head_yaw:   20.0
+			health:     7.0
+		},
+	]
+	m.restore_from_save(&reg, saved)
+	assert m.count() == 1
+	restored := m.snapshot()[0]
+	assert restored.identifier == 'minecraft:zombie'
+	assert restored.pos.x == 2.0
+	assert restored.pos.y == 5.0
+	assert restored.pos.z == 3.0
+	assert restored.velocity.x == f32(0.2)
+	assert restored.health == 7.0
+	assert restored.pitch == f32(10.0)
+}
+
+fn test_restore_from_save_skips_unrecognized_type() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut reg := new_registry()
+	register_defaults(mut reg)
+	saved := [
+		SaveData{
+			type_name: 'not_a_real_type'
+			x:         0
+			y:         5
+			z:         0
+		},
+	]
+	m.restore_from_save(&reg, saved)
+	assert m.count() == 0
+}
+
+fn spawn_item(mut m Manager, id int, count int, max_stack_size int, pos types.Vector3) &Entity {
+	stack := types.ItemStack{
+		id:    id
+		count: count
+	}
+	return m.spawn(new_item_behaviour(stack, max_stack_size, item_pickup_delay_ticks), pos)
+}
+
+fn test_item_identifier_and_dimensions() {
+	b := new_item_behaviour(types.ItemStack{ id: 1, count: 1 }, 64, item_pickup_delay_ticks)
+	assert b.identifier() == 'minecraft:item'
+	assert b.dimensions().width == f32(0.25)
+	assert b.dimensions().height == f32(0.25)
+	assert b.dimensions().has_collision == true
+	assert b.takes_fall_damage() == false
+	assert b.despawn_policy().distance == false
+}
+
+fn test_item_spawn_packet_is_add_item_actor_not_add_actor() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	e := spawn_item(mut m, 5, 3, 64, types.Vector3{0, 5, 0})
+	pkt := e.spawn_packet()
+	if pkt is packets_662.AddItemActorPacket {
+		assert pkt.item.id == 5
+		assert pkt.item.stack_size == 3
+	} else {
+		assert false, 'expected AddItemActorPacket, got a different packet type'
+	}
+}
+
+fn test_item_despawns_after_existence_duration() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := spawn_item(mut m, 5, 1, 64, types.Vector3{0, 5, 0})
+	e.age = item_existence_duration_ticks
+	m.tick()
+	assert m.count() == 0
+}
+
+fn test_item_does_not_attempt_pickup_before_delay_elapses() {
+	mut host := &FakeHost{}
+	host.players[1] = types.Vector3{0, 5, 0}
+	host.collect_response = 1
+	mut m := new_manager(host)
+	mut e := spawn_item(mut m, 5, 1, 64, types.Vector3{0, 5, 0})
+	// tick() increments age before ItemBehaviour.tick() checks it
+	e.age = item_pickup_delay_ticks - 2
+	m.tick()
+	assert host.collect_calls == 0
+	assert m.count() == 1
+}
+
+fn test_item_fully_collected_despawns_and_notifies_pickup() {
+	mut host := &FakeHost{}
+	host.players[7] = types.Vector3{0, 5, 0}
+	host.collect_response = 4
+	mut m := new_manager(host)
+	mut e := spawn_item(mut m, 5, 4, 64, types.Vector3{0, 5, 0})
+	e.age = item_pickup_delay_ticks
+	m.tick()
+	assert host.collect_calls == 1
+	assert host.last_collect_runtime_id == 7
+	assert host.last_collect_stack.id == 5
+	assert host.take_notify_calls == 1
+	assert host.last_take_taker_rid == 7
+	assert m.count() == 0
+}
+
+fn test_item_partially_collected_shrinks_stack_and_survives() {
+	mut host := &FakeHost{}
+	host.players[7] = types.Vector3{0, 5, 0}
+	host.collect_response = 3 // less than the stack's 10
+	mut m := new_manager(host)
+	mut e := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	e.age = item_pickup_delay_ticks
+	m.tick()
+	assert m.count() == 1
+	if e.behaviour is ItemBehaviour {
+		assert e.behaviour.stack.count == 7
+	} else {
+		assert false, 'expected ItemBehaviour'
+	}
+}
+
+fn test_item_collect_response_zero_leaves_item_untouched() {
+	mut host := &FakeHost{}
+	host.players[7] = types.Vector3{0, 5, 0}
+	host.collect_response = 0 // inventory full, nothing taken
+	mut m := new_manager(host)
+	mut e := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	e.age = item_pickup_delay_ticks
+	m.tick()
+	assert m.count() == 1
+	assert host.take_notify_calls == 0
+}
+
+fn test_items_merge_when_compatible_and_within_radius() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 5, 20, 64, types.Vector3{0.5, 5, 0})
+	a.age = item_pickup_delay_ticks
+	b.age = item_pickup_delay_ticks
+	m.merge_items()
+
+	assert m.count() == 2
+	if a.behaviour is ItemBehaviour {
+		assert a.behaviour.stack.count == 30
+	} else {
+		assert false, 'expected ItemBehaviour'
+	}
+	assert b.dead
+}
+
+fn test_items_do_not_merge_with_different_item_ids() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 6, 10, 64, types.Vector3{0.5, 5, 0})
+	a.age = item_pickup_delay_ticks
+	b.age = item_pickup_delay_ticks
+	m.merge_items()
+	assert m.count() == 2
+	assert !a.dead && !b.dead
+}
+
+fn test_items_do_not_merge_outside_merge_radius() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 5, 10, 64, types.Vector3{20, 5, 0})
+	a.age = item_pickup_delay_ticks
+	b.age = item_pickup_delay_ticks
+	m.merge_items()
+	assert m.count() == 2
+	assert !a.dead && !b.dead
+}
+
+fn test_items_do_not_merge_before_pickup_delay_elapses() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 5, 10, 64, types.Vector3{0.5, 5, 0})
+	// both left at age 0 - still within pickup_delay_ticks
+	m.merge_items()
+	assert m.count() == 2
+	assert !a.dead && !b.dead
+}
+
+fn test_item_merge_only_fills_available_room() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut a := spawn_item(mut m, 5, 60, 64, types.Vector3{0, 5, 0}) // room for 4 more
+	mut b := spawn_item(mut m, 5, 10, 64, types.Vector3{0.5, 5, 0})
+	a.age = item_pickup_delay_ticks
+	b.age = item_pickup_delay_ticks
+	m.merge_items()
+	assert m.count() == 2 // b keeps its 6 leftover, not fully consumed
+	if a.behaviour is ItemBehaviour {
+		assert a.behaviour.stack.count == 64
+	} else {
+		assert false, 'expected ItemBehaviour'
+	}
+	if b.behaviour is ItemBehaviour {
+		assert b.behaviour.stack.count == 6
+	} else {
+		assert false, 'expected ItemBehaviour'
+	}
+	assert !b.dead
+}
+
+fn test_save_snapshot_excludes_items() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	m.spawn(&PassiveBehaviour{
+		network_id: 'minecraft:pig'
+	}, types.Vector3{0, 5, 0})
+	spawn_item(mut m, 5, 1, 64, types.Vector3{1, 5, 0})
+	saved := m.save_snapshot()
+	assert saved.len == 1
+	assert saved[0].type_name == 'pig'
+}
+
+fn test_passive_mob_on_death_drops_registered_loot() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{
+		network_id: 'minecraft:pig'
+	}, types.Vector3{0, 5, 0})
+	e.hurt(mut host, 20, true, 0)
+	assert e.dead
+	assert host.dropped_items.len == 1
+	assert host.dropped_items[0].item_name == 'minecraft:porkchop'
+	assert host.dropped_items[0].count >= 1 && host.dropped_items[0].count <= 3
+}
+
+fn test_hostile_mob_on_death_drops_registered_loot() {
+	mut host := &FakeHost{}
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{
+		network_id: 'minecraft:zombie'
+	}, types.Vector3{0, 5, 0})
+	e.hurt(mut host, 20, true, 0)
+	assert e.dead
+	for d in host.dropped_items {
+		assert d.item_name == 'minecraft:rotten_flesh'
+	}
+}
+
+fn test_rand_int_range_returns_fixed_value_when_min_equals_max() {
+	assert rand_int_range(2, 2) == 2
+}
+
+fn test_rand_int_range_stays_within_bounds() {
+	for _ in 0 .. 50 {
+		v := rand_int_range(1, 3)
+		assert v >= 1 && v <= 3
+	}
 }

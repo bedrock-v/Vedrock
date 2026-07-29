@@ -1,7 +1,9 @@
 module session
 
 import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.enums as enums_662
+import protocol.version.v662.types as types_662
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the
@@ -20,29 +22,33 @@ const sidebar_slot = 'sidebar'
 fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 	mut packets := []protocol.Packet{cap: lines.len + 2}
 	// Drop any previous board first so re-showing replaces cleanly.
-	packets << &protocol.RemoveObjectivePacket{
+	packets << &packets_662.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	}
-	packets << &protocol.SetDisplayObjectivePacket{
-		display_slot:   sidebar_slot
-		objective_name: sidebar_objective
-		display_name:   title
-		criteria_name:  'dummy'
-		sort_order:     0
+	packets << &packets_662.SetDisplayObjectivePacket{
+		display_slot_name:      sidebar_slot
+		objective_name:         sidebar_objective
+		objective_display_name: title
+		criteria_name:          'dummy'
+		sort_order:             enums_662.ObjectiveSortOrder.ascending
 	}
-	mut entries := []types.ScorePacketEntry{cap: lines.len}
+	mut entries := []packets_662.ScorePacketInfoChangeEntry{cap: lines.len}
 	for i, line in lines {
-		entries << types.ScorePacketEntry{
-			scoreboard_id:  i64(i + 1)
-			objective_name: sidebar_objective
-			score:          i
-			type:           types.score_entry_type_fake_player
-			custom_name:    line
+		entries << packets_662.ScorePacketInfoChangeEntry{
+			id:                       types_662.ScoreboardId{
+				id: i64(i + 1)
+			}
+			objective_name:           sidebar_objective
+			score_value:              i
+			identity_definition_type: types_662.IdentityFakePlayer{
+				fake_player_name: line
+			}
 		}
 	}
-	packets << &protocol.SetScorePacket{
-		type:    protocol.set_score_type_change
-		entries: entries
+	packets << &packets_662.SetScorePacket{
+		action: packets_662.SetScoreChange{
+			entries: entries
+		}
 	}
 	return packets
 }
@@ -56,7 +62,7 @@ fn (mut s NetworkSession) show_scoreboard(title string, lines []string) {
 }
 
 fn (mut s NetworkSession) clear_scoreboard() {
-	s.deliver(&protocol.RemoveObjectivePacket{
+	s.deliver(&packets_662.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	})
 }

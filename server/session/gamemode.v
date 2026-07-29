@@ -1,14 +1,16 @@
 module session
 
-import protocol
+import protocol.version.v662.packets as packets_662
+import protocol.version.v776.packets as packets_776
 import server.event
+import server.internal.network
 
 fn gamemode_id(name string) int {
 	return match name.to_lower() {
-		'survival' { protocol.game_type_survival }
-		'adventure' { protocol.game_type_adventure }
-		'spectator' { protocol.game_type_spectator }
-		else { protocol.game_type_creative }
+		'survival' { network.game_type_survival }
+		'adventure' { network.game_type_adventure }
+		'spectator' { network.game_type_spectator }
+		else { network.game_type_creative }
 	}
 }
 
@@ -55,10 +57,10 @@ fn (mut s NetworkSession) apply_gamemode(mut events event.Bus, mode int) {
 		return
 	}
 	s.player.set_game_mode(ctx.val.mode)
-	s.deliver(&protocol.SetPlayerGameTypePacket{
-		gamemode: s.player.game_mode()
+	s.deliver(&packets_662.SetPlayerGameTypePacket{
+		player_game_type: network.game_type(s.player.game_mode())
 	})
-	s.deliver(&protocol.UpdateAbilitiesPacket{
-		data: s.build_abilities()
+	s.deliver(&packets_776.UpdateAbilitiesPacket{
+		data: s.build_abilities_776()
 	})
 }

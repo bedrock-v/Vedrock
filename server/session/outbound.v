@@ -1,6 +1,8 @@
 module session
 
 import protocol
+import protocol.version.v1001.enums as enums_1001
+import protocol.version.v1001.packets as packets_1001
 
 // Maximum number of packets a session may have waiting to be sent.
 // A full queue aborts the session instead of blocking the caller or
@@ -245,10 +247,12 @@ fn (mut s NetworkSession) reject_bootstrap(message string) {
 		s.disconnect(message)
 		return
 	}
-	s.transport.send(&protocol.DisconnectPacket{
-		reason:           0
-		message:          message
-		filtered_message: ''
+	s.transport.send(&packets_1001.DisconnectPacket{
+		reason:  enums_1001.ConnectionFailReason.disconnect_packet
+		message: packets_1001.DisconnectMessage{
+			kick_message:     message
+			filtered_message: ''
+		}
 	}) or {}
 	s.abort_outbound()
 }
@@ -282,10 +286,12 @@ fn (mut s NetworkSession) run_outbound_writer() {
 						}
 					}
 					OutboundDisconnect {
-						s.transport.send(&protocol.DisconnectPacket{
-							reason:           0
-							message:          msg.message
-							filtered_message: ''
+						s.transport.send(&packets_1001.DisconnectPacket{
+							reason:  enums_1001.ConnectionFailReason.disconnect_packet
+							message: packets_1001.DisconnectMessage{
+								kick_message:     msg.message
+								filtered_message: ''
+							}
 						}) or {}
 						s.abort_outbound()
 						return

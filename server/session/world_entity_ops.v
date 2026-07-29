@@ -1,7 +1,7 @@
 module session
 
 import protocol
-import protocol.types
+import types
 import server.entity
 import server.event
 import server.world

@@ -1,71 +1,81 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.types as types_662
+import server.internal.network
 
 fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
 }
 
-fn visible_name_metadata(name string) []types.MetadataEntry {
-	flags := entity_flag_bit(protocol.entity_flag_breathing) | entity_flag_bit(protocol.entity_flag_can_climb) | entity_flag_bit(protocol.entity_flag_has_collision) | entity_flag_bit(protocol.entity_flag_affected_by_gravity) | entity_flag_bit(protocol.entity_flag_show_name) | entity_flag_bit(protocol.entity_flag_always_show_name)
+fn visible_name_metadata(name string) []types_662.DataItem {
+	flags := entity_flag_bit(network.entity_flag_breathing) | entity_flag_bit(network.entity_flag_can_climb) | entity_flag_bit(network.entity_flag_has_collision) | entity_flag_bit(network.entity_flag_affected_by_gravity) | entity_flag_bit(network.entity_flag_show_name) | entity_flag_bit(network.entity_flag_always_show_name)
 	return [
-		types.MetadataEntry{
-			key:   protocol.meta_key_flags
-			value: types.MetaLong{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_flags
+			data_item_type: types_662.DataItemType(types_662.DataItemInt64{
 				value: flags
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_color_index
-			value: types.MetaByte{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_color_index
+			data_item_type: types_662.DataItemType(types_662.DataItemByte{
 				value: 0
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_name
-			value: types.MetaString{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_name
+			data_item_type: types_662.DataItemType(types_662.DataItemString{
 				value: name
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_effect_color
-			value: types.MetaInt{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_effect_color
+			data_item_type: types_662.DataItemType(types_662.DataItemInt{
 				value: 0
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_effect_ambience
-			value: types.MetaByte{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_effect_ambience
+			data_item_type: types_662.DataItemType(types_662.DataItemByte{
 				value: 0
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_width
-			value: types.MetaFloat{
+		types_662.DataItem{
+			// See entity.metadata_entries()'s own comment - every actor
+			// needs an explicit scale or a real client has
+			// nothing to size the model by. Players had the same gap.
+			data_item_id:   network.meta_key_scale
+			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
+				value: f32(1.0)
+			})
+		},
+		types_662.DataItem{
+			data_item_id:   network.meta_key_width
+			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
 				value: 0.6
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_height
-			value: types.MetaFloat{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_height
+			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
 				value: 1.8
-			}
+			})
 		},
-		types.MetadataEntry{
-			key:   protocol.meta_key_always_show_name_tag
-			value: types.MetaByte{
+		types_662.DataItem{
+			data_item_id:   network.meta_key_always_show_name_tag
+			data_item_type: types_662.DataItemType(types_662.DataItemByte{
 				value: 1
-			}
+			})
 		},
 	]
 }
 
-fn (s &NetworkSession) set_actor_data() &protocol.SetActorDataPacket {
-	return &protocol.SetActorDataPacket{
-		actor_runtime_id:  s.runtime_id
-		metadata:          visible_name_metadata(s.player.identity.display_name)
-		synced_properties: types.PropertySyncData{}
+fn (s &NetworkSession) set_actor_data() &packets_662.SetActorDataPacket {
+	return &packets_662.SetActorDataPacket{
+		target_runtime_id: network.actor_runtime_id(s.runtime_id)
+		actor_data:        visible_name_metadata(s.player.identity.display_name)
+		synced_properties: types_662.PropertySyncData{}
 		tick:              0
 	}
 }

@@ -1,9 +1,14 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v776.packets as packets_776
+import protocol.version.v776.enums as enums_776
+import protocol.version.v944.types as types_944
+import protocol.version.v975.types as types_975
+import protocol.version.v1001.packets as packets_1001
+import types
 import nbt
 import server.player.playerdb
+import server.internal.network
 
 const inventory_window_id = 0
 const inventory_slot_count = 36
@@ -55,93 +60,93 @@ fn (s &NetworkSession) clamp_stack_count(id int, count int) int {
 	return count
 }
 
-fn (s &NetworkSession) item_registry() &protocol.ItemRegistryPacket {
-	mut entries := []types.ItemTypeEntry{}
+fn (s &NetworkSession) item_registry() &packets_776.ItemComponentPacket {
+	mut entries := []packets_776.ItemsEntry{}
 	for entry in s.hub.data.item_entries {
-		entries << types.ItemTypeEntry{
-			string_id:       entry.name
-			numeric_id:      entry.runtime_id
-			component_based: entry.component_based
-			version:         entry.version
-			component_nbt:   empty_component_nbt()
+		entries << packets_776.ItemsEntry{
+			component_item_name: entry.name
+			runtime_id:          i16(entry.runtime_id)
+			is_component_based:  entry.component_based
+			version:             unsafe { enums_776.ItemVersion(entry.version) }
+			component_data:      empty_component_nbt()
 		}
 	}
 	for def in s.hub.custom_items.all() {
-		entries << types.ItemTypeEntry{
-			string_id:       def.id
-			numeric_id:      def.runtime_id
-			component_based: true
-			version:         1
-			component_nbt:   def.components()
+		entries << packets_776.ItemsEntry{
+			component_item_name: def.id
+			runtime_id:          i16(def.runtime_id)
+			is_component_based:  true
+			version:             enums_776.ItemVersion.data_driven
+			component_data:      def.components()
 		}
 	}
-	return &protocol.ItemRegistryPacket{
-		entries: entries
+	return &packets_776.ItemComponentPacket{
+		items: entries
 	}
 }
 
-fn (s &NetworkSession) custom_block_entries() []protocol.BlockEntry {
+fn (s &NetworkSession) custom_block_entries() []packets_1001.BlockProperty {
 	defs := s.hub.custom_blocks.all()
-	mut out := []protocol.BlockEntry{cap: defs.len}
+	mut out := []packets_1001.BlockProperty{cap: defs.len}
 	for def in defs {
 		entry := def.network_entry()
-		out << protocol.BlockEntry{
-			name:       entry.name
-			properties: entry.properties
+		out << packets_1001.BlockProperty{
+			block_name:       entry.name
+			block_definition: entry.properties
 		}
 	}
 	return out
 }
 
-fn (s &NetworkSession) creative_content() &protocol.CreativeContentPacket {
-	mut groups := []types.CreativeGroupEntry{}
+fn (s &NetworkSession) creative_content() &packets_776.CreativeContentPacket {
+	mut groups := []packets_776.CreativeItemGroup{}
 	for group in s.hub.data.creative_groups {
-		groups << types.CreativeGroupEntry{
-			category_id:   group.category
-			category_name: group.name
-			icon:          types.ItemStack{
+		groups << packets_776.CreativeItemGroup{
+			category: unsafe { packets_776.CreativeItemCategory(group.category) }
+			name:     group.name
+			icon:     network.item_instance_v662(types.ItemStack{
 				id:               group.icon_numeric_id
 				count:            1
 				block_runtime_id: group.icon_block_runtime_id
 				raw_extra_data:   []u8{}
-			}
+			})
 		}
 	}
-	mut items := []types.CreativeItemEntry{}
+	mut items := []packets_776.CreativeItemData{}
 	for index, item in s.hub.data.creative_items {
-		items << types.CreativeItemEntry{
-			entry_id: index + 1
-			item:     types.ItemStack{
+		items << packets_776.CreativeItemData{
+			creative_net_id: u32(index + 1)
+			item_instance:   network.item_instance_v662(types.ItemStack{
 				id:               item.numeric_id
 				meta:             item.meta
 				count:            1
 				block_runtime_id: item.block_runtime_id
 				raw_extra_data:   []u8{}
-			}
-			group_id: item.group_index
+			})
+			group_id:        u32(item.group_index)
 		}
 	}
 	mut next_entry := s.hub.data.creative_items.len + 1
 	for def in s.hub.custom_items.all() {
-		items << types.CreativeItemEntry{
-			entry_id: next_entry
-			item:     types.ItemStack{
+		items << packets_776.CreativeItemData{
+			creative_net_id: u32(next_entry)
+			item_instance:   network.item_instance_v662(types.ItemStack{
 				id:             def.runtime_id
 				count:          1
 				raw_extra_data: []u8{}
-			}
-			group_id: def.creative_group_index
+			})
+			group_id:        u32(def.creative_group_index)
 		}
 		next_entry++
 	}
-	return &protocol.CreativeContentPacket{
-		groups: groups
-		items:  items
+	return &packets_776.CreativeContentPacket{
+		groups:   groups
+		contents: items
 	}
 }
 
-fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
-	mut items := []types.ItemStackWrapper{}
+fn (mut s NetworkSession) restore_inventory() &packets_1001.InventoryContentPacket {
+	mut items := []types_975.NetworkItemStackDescriptorV2{}
 	mut loaded_by_slot := map[int]playerdb.InvItem{}
 	for i in 0 .. s.player.loaded_items_len() {
 		saved := s.player.loaded_item(i)
@@ -154,7 +159,7 @@ fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 		if saved := loaded_by_slot[i] {
 			count := s.clamp_stack_count(saved.id, saved.count)
 			if count <= 0 {
-				items << empty_stack()
+				items << network.item_descriptor_v975(types.ItemStack{})
 				continue
 			}
 			stack := types.ItemStack{
@@ -166,18 +171,18 @@ fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 			}
 			net_id := s.player.track_stack(stack)
 			s.player.set_slot(i, net_id)
-			items << wrap_stack_id(stack, net_id)
+			items << network.item_descriptor_v975(stack)
 		} else {
-			items << empty_stack()
+			items << network.item_descriptor_v975(types.ItemStack{})
 		}
 	}
-	return &protocol.InventoryContentPacket{
-		window_id:      inventory_window_id
-		items:          items
-		container_name: types.FullContainerName{
-			container_id: 0
+	return &packets_1001.InventoryContentPacket{
+		inventory_id:        u32(inventory_window_id)
+		slots:               items
+		container_name_data: types_944.FullContainerName{
+			container: .inventory_container
 		}
-		storage:        empty_stack()
+		storage_item:        network.item_descriptor_v975(types.ItemStack{})
 	}
 }
 

@@ -4,7 +4,7 @@ import server.internal.auth
 import server.permission
 import server.effect
 import server.player.playerdb
-import protocol.types
+import types
 import sync
 
 // Player holds the gamestate fields that belong to a player as an entity,

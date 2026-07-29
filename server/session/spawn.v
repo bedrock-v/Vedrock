@@ -2,10 +2,20 @@ module session
 
 import math
 import protocol
-import protocol.enums
-import protocol.types
+import protocol.version.v662.enums as enums_662
+import protocol.version.v662.packets as packets_662
+import protocol.version.v662.types as types_662
+import protocol.version.v776.packets as packets_776
+import protocol.version.v818.types as types_818
+import protocol.version.v818.packets as packets_818
+import protocol.version.v944.types as types_944
+import protocol.version.v944.packets as packets_944
+import protocol.version.v1001.types as types_1001
+import protocol.version.v1001.packets as packets_1001
+import types
 import nbt
 import server.event
+import server.internal.network
 import server.world
 import server.world.db
 
@@ -69,11 +79,11 @@ fn (mut s NetworkSession) start_game() ! {
 	spawn_y := s.generator.spawn_y()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	generator_type := if dimension_id == world.nether.id {
-		protocol.world_generator_nether
+		enums_662.GeneratorType.nether
 	} else if dimension_id == world.the_end.id {
-		protocol.world_generator_end
+		enums_662.GeneratorType.the_end
 	} else {
-		protocol.world_generator_overworld
+		enums_662.GeneratorType.overworld
 	}
 	mut spawn_pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
 	mut spawn_pitch := f32(0.0)
@@ -93,57 +103,128 @@ fn (mut s NetworkSession) start_game() ! {
 	}
 	s.player.reset_position(spawn_pos)
 	s.player.set_orientation(spawn_pitch, spawn_yaw, spawn_yaw)
-	s.transport.send(&protocol.StartGamePacket{
-		entity_unique_id:               i64(s.runtime_id)
-		entity_runtime_id:              s.runtime_id
-		player_game_mode:               s.player.game_mode()
-		player_position:                spawn_pos
-		pitch:                          0.0
-		yaw:                            0.0
-		world_seed:                     0
-		spawn_biome_type:               0
-		dimension:                      dimension_id
-		generator:                      generator_type
-		world_game_mode:                s.player.game_mode()
-		difficulty:                     s.hub.difficulty_value()
-		world_spawn:                    types.BlockPosition{0, spawn_y, 0}
-		commands_enabled:               true
-		multi_player_game:              true
-		server_chunk_tick_radius:       s.cfg.view_distance
-		player_permissions:             if s.player.perm.op() {
-			protocol.permission_level_operator
-		} else {
-			protocol.permission_level_member
+	player_permission := if s.player.perm.op() {
+		enums_662.PlayerPermissionLevel.operator
+	} else {
+		enums_662.PlayerPermissionLevel.member
+	}
+	mut start_packet := &packets_1001.StartGamePacket{
+		target_actor_id:                       network.actor_unique_id(i64(s.runtime_id))
+		target_runtime_id:                     network.actor_runtime_id(s.runtime_id)
+		actor_game_type:                       network.game_type(s.player.game_mode())
+		settings:                              types_1001.LevelSettings{
+			seed:                                         0
+			spawn_settings:                               types_662.SpawnSettings{
+				spawn_type:              enums_662.SpawnBiomeType.default
+				user_defined_biome_name: ''
+				dimension:               i32(dimension_id)
+			}
+			generator_type:                               generator_type
+			game_type:                                    network.game_type(s.player.game_mode())
+			is_hardcore_enabled:                          false
+			game_difficulty:                              unsafe { enums_662.Difficulty(s.hub.difficulty_value()) }
+			default_spawn_block_position:                 types_944.NetworkBlockPosition{
+				x: 0
+				y: i32(spawn_y)
+				z: 0
+			}
+			achievements_disabled:                        true
+			editor_world_type:                            enums_662.EditorWorldType.non_editor
+			is_created_in_editor:                         false
+			is_exported_from_editor:                      false
+			day_cycle_stop_time:                          -1
+			education_edition_offer:                      enums_662.EducationEditionOffer.@none
+			education_features_enabled:                   false
+			education_product_id:                         ''
+			rain_level:                                   0
+			lightning_level:                              0
+			has_confirmed_platform_locked_content:        false
+			multiplayer_enabled:                          true
+			lan_broadcasting_enabled:                     true
+			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.public
+			platform_broadcast_setting:                   enums_662.GamePublishSetting.public
+			commands_enabled:                             true
+			texture_packs_required:                       false
+			rule_data:                                    types_1001.GameRuleLegacyData{}
+			experiments:                                  types_662.Experiments{}
+			bonus_chest_enabled:                          false
+			starting_map_enabled:                         false
+			player_permissions:                           player_permission
+			server_chunk_tick_range:                      s.cfg.view_distance
+			locked_behaviour_pack:                        false
+			locked_resource_pack:                         false
+			from_locked_template:                         false
+			use_msa_gamer_tags:                           false
+			from_template:                                false
+			has_locked_template_settings:                 false
+			only_spawn_v1_villagers:                      false
+			persona_disabled:                             false
+			custom_skins_disabled:                        false
+			emote_chat_muted:                             false
+			base_game_version:                            types_662.BaseGameVersion{
+				value: network.selected_minecraft_version
+			}
+			limited_world_width:                          0
+			limited_world_depth:                          0
+			nether_type:                                  dimension_id == world.nether.id
+			edu_shared_uri_resource:                      types_662.EduSharedUriResource{}
+			override_force_experimental_gameplay:         false
+			chat_restriction_level:                       enums_662.ChatRestrictionLevel.@none
+			disable_player_interactions:                  false
+			server_editor_connection_policy:              0
+			allow_anonymous_block_drops_in_editor_worlds: false
 		}
-		base_game_version:              protocol.minecraft_version_network
-		game_version:                   protocol.minecraft_version_network
-		level_id:                       'Vedrock'
-		world_name:                     s.cfg.motd
-		multi_player_correlation_id:    '00000000-0000-0000-0000-000000000000'
-		server_authoritative_inventory: true
-		use_block_network_id_hashes:    true
-		property_data:                  nbt.RootTag{
+		level_id:                              'Vedrock'
+		level_name:                            s.cfg.motd
+		template_content_identity:             ''
+		is_trial:                              false
+		movement_settings:                     types_818.SyncedPlayerMovementSettings{
+			server_authoritative_block_breaking: true
+		}
+		current_level_time:                    0
+		enchantment_seed:                      0
+		block_properties:                      s.custom_block_entries()
+		multiplayer_correlation_id:            '00000000-0000-0000-0000-000000000000'
+		enable_item_stack_net_manager:         true
+		server_version:                        network.selected_minecraft_version
+		player_property_data:                  nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
 		}
-		blocks:                         s.custom_block_entries()
-	})!
+		server_block_type_registry_checksum:   0
+		world_template_id:                     network.uuid_from_bytes([]u8{len: 16})
+		server_enabled_client_side_generation: false
+		block_network_ids_are_hashes:          true
+		network_permissions:                   types_662.NetworkPermissions{}
+		is_logging_chat:                       false
+		server_join_information:               none
+		server_id:                             ''
+		world_id:                              ''
+		scenario_id:                           ''
+		owner_id:                              ''
+	}
+	start_packet.position[0] = spawn_pos.x
+	start_packet.position[1] = spawn_pos.y
+	start_packet.position[2] = spawn_pos.z
+	start_packet.rotation[0] = spawn_pitch
+	start_packet.rotation[1] = spawn_yaw
+	s.transport.send(start_packet)!
 	if s.hub.custom_entities.len() > 0 {
-		s.transport.send(&protocol.AvailableActorIdentifiersPacket{
-			identifiers: s.hub.custom_entities.identifiers_nbt()
+		s.transport.send(&packets_662.AvailableActorIdentifiersPacket{
+			actor_info_list: s.hub.custom_entities.identifiers_nbt()
 		})!
 	}
 	s.transport.send(s.item_registry())!
 	s.transport.send(s.creative_content())!
-	s.transport.send(&protocol.BiomeDefinitionListPacket{
-		biome_definitions: []protocol.BiomeDefinition{}
-		string_list:       []string{}
+	s.transport.send(&packets_1001.BiomeDefinitionListPacket{
+		biomes:  []packets_1001.BiomeEntry{}
+		strings: []string{}
 	})!
-	s.transport.send(&protocol.SetDifficultyPacket{
-		difficulty: s.hub.difficulty_value()
+	s.transport.send(&packets_662.SetDifficultyPacket{
+		difficulty: u32(s.hub.difficulty_value())
 	})!
-	s.transport.send(&protocol.UpdateAbilitiesPacket{
-		data: s.build_abilities()
+	s.transport.send(&packets_776.UpdateAbilitiesPacket{
+		data: s.build_abilities_776()
 	})!
 	s.transport.send(adventure_settings())!
 	s.transport.send(s.update_attributes())!
@@ -153,12 +234,12 @@ fn (mut s NetworkSession) start_game() ! {
 	if s.pending_radius > 0 {
 		radius := s.pending_radius
 		s.pending_radius = 0
-		s.handle_request_chunk_radius(protocol.RequestChunkRadiusPacket{ radius: radius })!
+		s.handle_request_chunk_radius(packets_662.RequestChunkRadiusPacket{ chunk_radius: radius })!
 	}
 }
 
-fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRadiusPacket) ! {
-	mut radius := p.radius
+fn (mut s NetworkSession) handle_request_chunk_radius(p packets_662.RequestChunkRadiusPacket) ! {
+	mut radius := p.chunk_radius
 	if radius > s.cfg.view_distance {
 		radius = s.cfg.view_distance
 	}
@@ -170,18 +251,22 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p protocol.RequestChunkRad
 		s.chunk_stream_mutex.unlock()
 	}
 	own := s.player.position()
-	s.transport.send(&protocol.ChunkRadiusUpdatedPacket{
-		radius: radius
+	s.transport.send(&packets_662.ChunkRadiusUpdatedPacket{
+		chunk_radius: radius
 	})!
-	s.transport.send(&protocol.NetworkChunkPublisherUpdatePacket{
-		block_position: types.BlockPosition{int(own.x), int(own.y), int(own.z)}
-		radius:         radius * 16
-		saved_chunks:   []types.ChunkPosition{}
+	s.transport.send(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
+			x: i32(own.x)
+			y: i32(own.y)
+			z: i32(own.z)
+		}
+		new_view_radius:     u32(radius * 16)
+		server_built_chunks: []types_662.ChunkPos{}
 	})!
 	s.send_spawn_chunks(radius)!
 	s.remember_chunk_window(radius)
-	s.transport.send(&protocol.PlayStatusPacket{
-		status: int(enums.PlayStatus.player_spawn)
+	s.transport.send(&packets_662.PlayStatusPacket{
+		status: enums_662.PlayStatus.player_spawn
 	})!
 	s.log.debug('Sent ${(radius * 2 + 1) * (radius * 2 + 1)} chunks to ${s.player.identity.display_name}')
 }
@@ -190,18 +275,18 @@ fn should_stream_chunk_radius_async(state State, spawned bool) bool {
 	return state == .play && spawned
 }
 
-fn (mut s NetworkSession) handle_play_chunk_radius_async(p protocol.RequestChunkRadiusPacket) {
+fn (mut s NetworkSession) handle_play_chunk_radius_async(p packets_662.RequestChunkRadiusPacket) {
 	spawn s.handle_play_chunk_radius_background(p)
 }
 
-fn (mut s NetworkSession) handle_play_chunk_radius_background(p protocol.RequestChunkRadiusPacket) {
+fn (mut s NetworkSession) handle_play_chunk_radius_background(p packets_662.RequestChunkRadiusPacket) {
 	s.handle_play_chunk_radius(p) or {
 		s.log.warn('Failed to stream requested chunks to ${s.player.identity.display_name}: ${err}')
 	}
 }
 
-fn (mut s NetworkSession) handle_play_chunk_radius(p protocol.RequestChunkRadiusPacket) ! {
-	mut radius := p.radius
+fn (mut s NetworkSession) handle_play_chunk_radius(p packets_662.RequestChunkRadiusPacket) ! {
+	mut radius := p.chunk_radius
 	if radius > s.cfg.view_distance {
 		radius = s.cfg.view_distance
 	}
@@ -218,13 +303,17 @@ fn (mut s NetworkSession) handle_play_chunk_radius(p protocol.RequestChunkRadius
 	old_radius := s.view_radius
 	old_cx := s.last_chunk_x
 	old_cz := s.last_chunk_z
-	s.send_packet(&protocol.ChunkRadiusUpdatedPacket{
-		radius: radius
+	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
+		chunk_radius: radius
 	})!
-	s.send_packet(&protocol.NetworkChunkPublisherUpdatePacket{
-		block_position: types.BlockPosition{int(own.x), int(own.y), int(own.z)}
-		radius:         radius * 16
-		saved_chunks:   []types.ChunkPosition{}
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
+			x: i32(own.x)
+			y: i32(own.y)
+			z: i32(own.z)
+		}
+		new_view_radius:     u32(radius * 16)
+		server_built_chunks: []types_662.ChunkPos{}
 	})!
 	if old_radius <= 0 {
 		s.send_needed_chunks(cx, cz, radius)!
@@ -262,10 +351,14 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	}
 	s.chunk_stream_mutex.unlock()
 
-	s.send_packet(&protocol.NetworkChunkPublisherUpdatePacket{
-		block_position: types.BlockPosition{int(own.x), int(own.y), int(own.z)}
-		radius:         radius * 16
-		saved_chunks:   []types.ChunkPosition{}
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
+			x: i32(own.x)
+			y: i32(own.y)
+			z: i32(own.z)
+		}
+		new_view_radius:     u32(radius * 16)
+		server_built_chunks: []types_662.ChunkPos{}
 	}) or { return }
 	if targets.len == 0 {
 		return
@@ -430,14 +523,16 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	}
 }
 
-fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &protocol.LevelChunkPacket {
-	return &protocol.LevelChunkPacket{
-		chunk_position:  types.ChunkPosition{x, z}
-		dimension_id:    dim.id
-		request_type:    protocol.level_chunk_request_truncated
-		sub_chunk_count: u32(chunk.section_count())
-		cache_enabled:   false
-		extra_payload:   chunk_biome_payload(dim, chunk).bytestr()
+fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &packets_662.LevelChunkPacket {
+	return &packets_662.LevelChunkPacket{
+		chunk_position:        types_662.ChunkPos{
+			x: i32(x)
+			z: i32(z)
+		}
+		dimension_id:          dim.id
+		sub_chunk_count:       u32(chunk.section_count())
+		cache_enabled:         false
+		serialized_chunk_data: chunk.serialize()
 	}
 }
 
@@ -499,77 +594,81 @@ fn tile_data_packets(wld &db.World, cx int, cz int) []protocol.Packet {
 		return packets
 	}
 	for entry in wld.tile_entries_in_chunk(cx, cz) {
-		packets << &protocol.BlockActorDataPacket{
-			block_position: types.BlockPosition{entry.x, entry.y, entry.z}
-			nbt:            build_sign_nbt(entry.x, entry.y, entry.z, entry.text)
+		packets << &packets_944.BlockActorDataPacket{
+			block_position:  network.block_pos_v944(types.BlockPosition{entry.x, entry.y, entry.z})
+			actor_data_tags: build_sign_nbt(entry.x, entry.y, entry.z, entry.text)
 		}
 	}
 	return packets
 }
 
-const subchunk_result_success = u8(1)
-const subchunk_result_invalid_dimension = u8(3)
-const subchunk_result_index_out_of_bounds = u8(5)
+fn subchunk_center(pos [3]i32) types_662.SubChunkPos {
+	return types_662.SubChunkPos{
+		x: pos[0]
+		y: pos[1]
+		z: pos[2]
+	}
+}
 
-fn subchunk_height_map(height_map []int, abs_index int) (u8, []i8) {
+fn subchunk_height_map(height_map []int, abs_index int) (packets_818.HeightMapDataType, [16][16]i8) {
 	section_min_y := abs_index * 16
 	section_max_y := section_min_y + 15
-	mut out := []i8{len: 256}
+	mut out := [16][16]i8{}
 	mut all_too_high := true
 	mut all_too_low := true
 	for i, y in height_map {
+		x := i / 16
+		z := i % 16
 		if y > section_max_y {
-			out[i] = 16
+			out[x][z] = 16
 			all_too_low = false
 		} else if y < section_min_y {
-			out[i] = -1
+			out[x][z] = -1
 			all_too_high = false
 		} else {
-			out[i] = i8(y - section_min_y)
+			out[x][z] = i8(y - section_min_y)
 			all_too_high = false
 			all_too_low = false
 		}
 	}
 	if all_too_high {
-		return protocol.subchunk_heightmap_all_too_high, []i8{}
+		return packets_818.HeightMapDataType.all_too_high, [16][16]i8{}
 	}
 	if all_too_low {
-		return protocol.subchunk_heightmap_all_too_low, []i8{}
+		return packets_818.HeightMapDataType.all_too_low, [16][16]i8{}
 	}
-	return protocol.subchunk_heightmap_data, out
+	return packets_818.HeightMapDataType.has_data, out
 }
 
 // handle_sub_chunk_request may run before outbound activation because
 // SubChunkRequestPacket is accepted in play state without requiring spawn.
-fn (mut s NetworkSession) handle_sub_chunk_request(p protocol.SubChunkRequestPacket) ! {
+fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkRequestPacket) ! {
 	wld, gen := s.world_and_generator()
 	dim := if isnil(wld) { world.overworld } else { wld.dimension }
-	if p.dimension != dim.id {
-		mut entries := []protocol.SubChunkEntry{cap: p.entries.len}
-		for off in p.entries {
-			entries << protocol.SubChunkEntry{
-				offset:         off
-				request_result: subchunk_result_invalid_dimension
+	if p.dimension_type != dim.id {
+		mut entries := []packets_818.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+		for off in p.sub_chunk_pos_offsets {
+			entries << packets_818.SubChunkDataEntry{
+				sub_chunk_pos_offset:     off
+				sub_chunk_request_result: .wrong_dimension
 			}
 		}
-		s.send_maybe_queued(&protocol.SubChunkPacket{
-			dimension:     p.dimension
-			base_x:        p.base_x
-			base_y:        p.base_y
-			base_z:        p.base_z
-			cache_enabled: false
-			entries:       entries
+		s.send_maybe_queued(&packets_818.SubChunkPacket{
+			cache_enabled:  false
+			dimension_type: p.dimension_type
+			center_pos:     subchunk_center(p.center_pos)
+			sub_chunk_data: entries
 		})!
 		return
 	}
 
-	mut entries := []protocol.SubChunkEntry{cap: p.entries.len}
+	mut entries := []packets_818.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 	mut height_cache := map[u64][]int{}
 	mut tile_sent_columns := map[u64]bool{}
-	for off in p.entries {
-		target_cx := int(p.base_x) + int(off.x_offset)
-		target_cz := int(p.base_z) + int(off.z_offset)
-		abs_index := int(p.base_y) + int(off.y_offset)
+	for off in p.sub_chunk_pos_offsets {
+		target_cx := int(p.center_pos[0]) + int(off.offset_x)
+		target_cz := int(p.center_pos[2]) + int(off.offset_z)
+		abs_index := int(p.center_pos[1]) + int(off.offset_y)
 		mut chunk := s.generated_chunk(gen, target_cx, target_cz)
 		apply_overrides(mut chunk, wld, target_cx, target_cz)
 		cache_key := chunk_cache_key(target_cx, target_cz)
@@ -586,33 +685,31 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p protocol.SubChunkRequestPac
 		}
 		height_map_type, height_map_data := subchunk_height_map(height_map, abs_index)
 		terrain := chunk.serialize_subchunk(abs_index) or {
-			entries << protocol.SubChunkEntry{
-				offset:         off
-				request_result: subchunk_result_index_out_of_bounds
+			entries << packets_818.SubChunkDataEntry{
+				sub_chunk_pos_offset:     off
+				sub_chunk_request_result: .index_out_of_bounds
 			}
 			continue
 		}
-		entries << protocol.SubChunkEntry{
-			offset:                 off
-			request_result:         subchunk_result_success
-			terrain_data:           terrain.bytestr()
-			height_map_type:        height_map_type
-			height_map:             height_map_data
-			render_height_map_type: height_map_type
-			render_height_map:      height_map_data
+		entries << packets_818.SubChunkDataEntry{
+			sub_chunk_pos_offset:        off
+			sub_chunk_request_result:    .success
+			serialized_sub_chunk:        terrain
+			height_map_data_type:        height_map_type
+			height_map_data:             height_map_data
+			render_height_map_data_type: height_map_type
+			render_height_map_data:      height_map_data
 		}
 	}
-	s.send_maybe_queued(&protocol.SubChunkPacket{
-		dimension:     p.dimension
-		base_x:        p.base_x
-		base_y:        p.base_y
-		base_z:        p.base_z
-		cache_enabled: false
-		entries:       entries
+	s.send_maybe_queued(&packets_818.SubChunkPacket{
+		cache_enabled:  false
+		dimension_type: p.dimension_type
+		center_pos:     subchunk_center(p.center_pos)
+		sub_chunk_data: entries
 	})!
 }
 
-fn (mut s NetworkSession) handle_player_initialized(p protocol.SetLocalPlayerAsInitializedPacket) ! {
+fn (mut s NetworkSession) handle_player_initialized(_ packets_662.SetLocalPlayerAsInitializedPacket) ! {
 	if s.spawned {
 		return
 	}

@@ -1,14 +1,28 @@
 module session
 
 import time
-import protocol
-import protocol.types
+import server.internal.network
+import protocol.version.v662.enums as enums_662
+import protocol.version.v944.packets as packets_944
+import protocol.version.v944.types as types_944
+import protocol.version.v975.packets as packets_975
+import types
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+
+fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) packets_975.MobEquipmentPacket {
+	return packets_975.MobEquipmentPacket{
+		target_runtime_id: network.actor_runtime_id(runtime_id)
+		item:              network.item_descriptor_v975(stack.item_stack)
+		slot:              i8(slot)
+		selected_slot:     i8(slot)
+		container_id:      enums_662.ContainerID.inventory
+	}
+}
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -68,13 +82,9 @@ fn test_handle_mob_equipment_selects_hotbar_slot() {
 			count: 1
 		}
 	}
-	s.handle_mob_equipment(protocol.MobEquipmentPacket{
-		actor_runtime_id: s.runtime_id
-		item:             stack
-		inventory_slot:   4
-		hotbar_slot:      4
-		window_id:        0
-	}) or { panic('handle_mob_equipment failed: ${err}') }
+	s.handle_mob_equipment(mob_equipment_packet(s.runtime_id, stack, 4)) or {
+		panic('handle_mob_equipment failed: ${err}')
+	}
 	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -108,13 +118,9 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 			count: 1
 		}
 	}
-	actor.handle_mob_equipment(protocol.MobEquipmentPacket{
-		actor_runtime_id: actor.runtime_id
-		item:             stack
-		inventory_slot:   4
-		hotbar_slot:      4
-		window_id:        0
-	}) or { panic('handle_mob_equipment failed: ${err}') }
+	actor.handle_mob_equipment(mob_equipment_packet(actor.runtime_id, stack, 4)) or {
+		panic('handle_mob_equipment failed: ${err}')
+	}
 	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -125,13 +131,13 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_it := false
 	for p in transport_a.sent {
-		if p is protocol.MobEquipmentPacket {
+		if p is packets_975.MobEquipmentPacket {
 			a_saw_it = true
 		}
 	}
 	mut b_saw_it := false
 	for p in transport_b.sent {
-		if p is protocol.MobEquipmentPacket {
+		if p is packets_975.MobEquipmentPacket {
 			b_saw_it = true
 		}
 	}
@@ -192,42 +198,40 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 	}
 
 	mut s := mob_equipment_test_session(mut hub, mut wr, 'Alex', &FakeTransport{})
-	s.player.set_game_mode(protocol.game_type_survival)
+	s.player.set_game_mode(network.game_type_survival)
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := [
-		protocol.ItemStackRequestEntry{
-			request_id: 1
-			actions:    [
-				protocol.StackRequestAction{
-					action_type:              protocol.stack_request_action_craft_creative
-					creative_item_network_id: 1
-					number_of_crafts:         1
-				},
-				protocol.StackRequestAction{
-					action_type: protocol.stack_request_action_place
-					count:       1
-					source:      protocol.StackRequestSlotInfo{
-						container:        types.FullContainerName{
-							container_id: container_inventory
+		packets_944.RequestsEntry{
+			client_request_id: 1
+			actions:           [
+				types_944.ItemStackRequestActionType(types_944.ItemStackActionCraftCreative{
+					creative_item_network_id:   1
+					number_of_requested_crafts: 1
+				}),
+				types_944.ItemStackActionPlace{
+					amount:      1
+					source:      types_944.ItemStackRequestSlotInfo{
+						container_name: types_944.FullContainerName{
+							container: .inventory_container
 						}
-						slot:             0
-						stack_network_id: 0
+						slot:           0
+						raw_id:         0
 					}
-					destination: protocol.StackRequestSlotInfo{
-						container:        types.FullContainerName{
-							container_id: container_hotbar
+					destination: types_944.ItemStackRequestSlotInfo{
+						container_name: types_944.FullContainerName{
+							container: .hotbar_container
 						}
-						slot:             0
-						stack_network_id: 0
+						slot:           0
+						raw_id:         0
 					}
 				},
 			]
 		},
 	]
-	world_call[[]protocol.ItemStackResponseEntry](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []protocol.ItemStackResponseEntry {
+	world_call[[]types_944.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_944.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
-	}) or { []protocol.ItemStackResponseEntry{} }
+	}) or { []types_944.ItemStackResponseInfo{} }
 
 	_, net := s.inventory_stack_at(0)
 	assert net == 0
@@ -258,24 +262,19 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 	s.player.set_slot(0, source_net)
 	s.player.set_slot(1, dest_net)
 
-	changes := s.apply_move(protocol.StackRequestAction{
-		action_type: protocol.stack_request_action_place
-		count:       2
-		source:      protocol.StackRequestSlotInfo{
-			container:        types.FullContainerName{
-				container_id: container_hotbar
-			}
-			slot:             0
-			stack_network_id: source_net
+	changes := s.apply_move(types_944.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
+			container: .hotbar_container
 		}
-		destination: protocol.StackRequestSlotInfo{
-			container:        types.FullContainerName{
-				container_id: container_hotbar
-			}
-			slot:             1
-			stack_network_id: dest_net
+		slot:           0
+		raw_id:         source_net
+	}, types_944.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
+			container: .hotbar_container
 		}
-	})
+		slot:           1
+		raw_id:         dest_net
+	}, 2)
 
 	assert changes.len == 0
 	got_source, got_source_net := s.inventory_stack_at(0)

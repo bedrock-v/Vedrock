@@ -1,68 +1,66 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v924.packets as packets_924
+import protocol.version.v924.enums as enums_924
+import types
 import server.item
 
 // Book edits are session local inventory work: item lookup uses shared
 // readonly data, and mutation goes through Player's state lock.
-fn (mut s NetworkSession) handle_book_edit(p protocol.BookEditPacket) ! {
+fn (mut s NetworkSession) handle_book_edit(p packets_924.BookEditPacket) ! {
 	s.apply_book_edit(p)
 }
 
-fn (mut s NetworkSession) apply_book_edit(p protocol.BookEditPacket) {
-	stack, net := s.inventory_stack_at(p.inventory_slot)
+fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
+	stack, net := s.inventory_stack_at(p.book_slot)
 	if net == 0 {
 		return
 	}
 	if s.hub.data.item_name(stack.id) != 'minecraft:writable_book' {
 		return
 	}
-	if p.type == protocol.book_edit_type_sign_book {
-		s.sign_book(p.inventory_slot, stack, net, p.title, p.author)
-		return
-	}
 
 	mut pages := item.book_pages_from_nbt(stack.raw_extra_data)
-	match p.type {
-		protocol.book_edit_type_replace_page {
-			if p.page_number < 0 || p.page_number >= item.max_book_pages {
+	match p.action {
+		enums_924.BookEditFinalize {
+			s.sign_book(p.book_slot, stack, net, p.action.title, p.action.author)
+			return
+		}
+		enums_924.BookEditReplacePage {
+			if p.action.page_index < 0 || p.action.page_index >= item.max_book_pages {
 				return
 			}
-			for pages.len <= p.page_number {
+			for pages.len <= p.action.page_index {
 				pages << ''
 			}
-			pages[p.page_number] = truncate_page(p.text)
+			pages[p.action.page_index] = truncate_page(p.action.text)
 		}
-		protocol.book_edit_type_add_page {
-			if p.page_number < 0 || p.page_number > pages.len
-				|| p.page_number >= item.max_book_pages {
+		enums_924.BookEditAddPage {
+			if p.action.page_index < 0 || p.action.page_index > pages.len
+				|| p.action.page_index >= item.max_book_pages {
 				return
 			}
-			pages.insert(p.page_number, truncate_page(p.text))
+			pages.insert(int(p.action.page_index), truncate_page(p.action.text))
 		}
-		protocol.book_edit_type_delete_page {
-			if p.page_number < 0 || p.page_number >= pages.len {
+		enums_924.BookEditDeletePage {
+			if p.action.page_index < 0 || p.action.page_index >= pages.len {
 				return
 			}
-			pages.delete(p.page_number)
+			pages.delete(p.action.page_index)
 		}
-		protocol.book_edit_type_swap_pages {
-			if p.page_number < 0 || p.page_number >= pages.len || p.secondary_page_number < 0
-				|| p.secondary_page_number >= pages.len {
+		enums_924.BookEditSwapPages {
+			if p.action.page_index_a < 0 || p.action.page_index_a >= pages.len
+				|| p.action.page_index_b < 0 || p.action.page_index_b >= pages.len {
 				return
 			}
-			pages[p.page_number], pages[p.secondary_page_number] = pages[p.secondary_page_number], pages[p.page_number]
-		}
-		else {
-			return
+			pages[p.action.page_index_a], pages[p.action.page_index_b] = pages[p.action.page_index_b], pages[p.action.page_index_a]
 		}
 	}
 
 	mut updated := stack
 	updated.raw_extra_data = item.writable_book_nbt(pages)
 	s.player.put_stack(net, updated)
-	s.send_slot_update(p.inventory_slot, types.ItemStackWrapper{
+	s.send_slot_update(p.book_slot, types.ItemStackWrapper{
 		stack_id:   net
 		item_stack: updated
 	})

@@ -1,8 +1,8 @@
 module session
 
 import time
-import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import types
 import server.event
 import server.internal.gamedata
 import server.internal.logger
@@ -185,13 +185,13 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_move := false
 	for p in a_transport.sent {
-		if p is protocol.MoveActorAbsolutePacket {
+		if p is packets_662.MoveActorAbsolutePacket {
 			a_saw_move = true
 		}
 	}
 	assert a_saw_move
 
 	for p in b_transport.sent {
-		assert p !is protocol.MoveActorAbsolutePacket
+		assert p !is packets_662.MoveActorAbsolutePacket
 	}
 }

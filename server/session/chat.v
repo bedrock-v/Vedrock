@@ -1,15 +1,16 @@
 module session
 
-import protocol
-import protocol.enums
+import protocol.version.v898.packets as packets_898
+import protocol.version.v924.packets as packets_924
+import protocol.version.v924.enums as enums_924
 import server.cmd
 import server.event
 
-fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
-	if p.@type != int(enums.TextType.chat) {
+fn (mut s NetworkSession) handle_text(p packets_924.TextPacket) ! {
+	if p.message_type !is enums_924.TextChat {
 		return
 	}
-	message := p.message.trim_space()
+	message := p.message_type.message.trim_space()
 	if message == '' {
 		return
 	}
@@ -30,14 +31,15 @@ fn (mut s NetworkSession) handle_text(p protocol.TextPacket) ! {
 	}
 	final := ctx.val.message
 	s.log.info('<${s.player.identity.display_name}> ${final}')
-	s.hub.broadcast(&protocol.TextPacket{
-		@type:       int(enums.TextType.chat)
-		source_name: s.player.identity.display_name
-		message:     final
+	s.hub.broadcast(&packets_924.TextPacket{
+		message_type: enums_924.TextChat{
+			player_name: s.player.identity.display_name
+			message:     final
+		}
 	})
 }
 
-fn (mut s NetworkSession) handle_command_request(p protocol.CommandRequestPacket) ! {
+fn (mut s NetworkSession) handle_command_request(p packets_898.CommandRequestPacket) ! {
 	s.run_command(p.command)!
 }
 
@@ -69,17 +71,19 @@ fn (mut s NetworkSession) run_command(line string) ! {
 // may message another player's session, so the packet goes through deliver;
 // socket failures are handled by the outbound writer.
 fn (mut s NetworkSession) send_message(message string) ! {
-	s.deliver(&protocol.TextPacket{
-		@type:   int(enums.TextType.raw)
-		message: message
+	s.deliver(&packets_924.TextPacket{
+		message_type: enums_924.TextRaw{
+			message: message
+		}
 	})
 }
 
 fn (mut s NetworkSession) send_translation(message string, parameters []string) ! {
-	s.deliver(&protocol.TextPacket{
-		@type:             int(enums.TextType.translation)
-		needs_translation: true
-		message:           message
-		parameters:        parameters
+	s.deliver(&packets_924.TextPacket{
+		localize:     true
+		message_type: enums_924.TextTranslate{
+			message:        message
+			parameter_list: parameters
+		}
 	})
 }

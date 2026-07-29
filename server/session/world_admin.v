@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import types
 import server.cmd
 import server.event
 import server.world
@@ -112,7 +112,7 @@ fn (mut c ConsoleSender) world_delete(name string) ! {
 	c.hub.delete_world(name)!
 }
 
-fn (mut c ConsoleSender) world_teleport(name string) ! {
+fn (mut c ConsoleSender) world_teleport(_ string) ! {
 	return error('the console cannot teleport into a world')
 }
 

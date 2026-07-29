@@ -2,6 +2,9 @@ module session
 
 import time
 import protocol
+import protocol.version.v924.enums as enums_924
+import protocol.version.v924.packets as packets_924
+import protocol.version.v1001.packets as packets_1001
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth
@@ -9,6 +12,25 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+
+fn text_packet(message string) &packets_924.TextPacket {
+	return &packets_924.TextPacket{
+		message_type: enums_924.TextRaw{
+			message: message
+		}
+	}
+}
+
+fn text_packet_message(p packets_924.TextPacket) string {
+	match p.message_type {
+		enums_924.TextRaw {
+			return p.message_type.message
+		}
+		else {
+			return ''
+		}
+	}
+}
 
 @[heap]
 struct BlockingFakeTransport {
@@ -119,32 +141,28 @@ fn test_outbound_preserves_order_before_disconnect() {
 	mut transport := &BlockingFakeTransport{}
 	mut s := outbound_test_session(mut transport)
 
-	s.deliver(&protocol.TextPacket{
-		message: 'A'
-	})
-	s.deliver(&protocol.TextPacket{
-		message: 'B'
-	})
+	s.deliver(text_packet('A'))
+	s.deliver(text_packet('B'))
 	s.disconnect('bye')
 
 	assert blocking_sent_text(transport, 3, 2000)
 	assert transport.sent.len == 3
 	if a := transport.sent[0] {
-		if a is protocol.TextPacket {
-			assert a.message == 'A'
+		if a is packets_924.TextPacket {
+			assert text_packet_message(a) == 'A'
 		} else {
 			assert false
 		}
 	}
 	if b := transport.sent[1] {
-		if b is protocol.TextPacket {
-			assert b.message == 'B'
+		if b is packets_924.TextPacket {
+			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[2] {
-		assert c is protocol.DisconnectPacket
+		assert c is packets_1001.DisconnectPacket
 	}
 	_ := <-s.outbound_done
 	assert s.state == .closed
@@ -155,21 +173,15 @@ fn test_outbound_overflow_aborts_session() {
 	mut s := outbound_test_session(mut transport)
 
 	transport.block_next_send()
-	s.deliver(&protocol.TextPacket{
-		message: 'first'
-	})
+	s.deliver(text_packet('first'))
 	transport.wait_started()
 
 	for i in 0 .. outbound_queue_capacity {
-		s.deliver(&protocol.TextPacket{
-			message: 'fill${i}'
-		})
+		s.deliver(text_packet('fill${i}'))
 	}
 	assert s.state != .closed
 
-	s.deliver(&protocol.TextPacket{
-		message: 'overflow'
-	})
+	s.deliver(text_packet('overflow'))
 	assert s.state == .closed
 
 	transport.release_send()
@@ -181,9 +193,7 @@ fn test_abort_outbound_releases_blocked_writer_once() {
 	mut s := outbound_test_session(mut transport)
 
 	transport.block_next_send()
-	s.deliver(&protocol.TextPacket{
-		message: 'will not complete'
-	})
+	s.deliver(text_packet('will not complete'))
 	transport.wait_started()
 
 	s.abort_outbound()
@@ -221,9 +231,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	done := chan bool{cap: 1}
 	spawn fn [mut wr, done] () {
 		world_call[bool](mut wr, fn (mut tx WorldTx) bool {
-			tx.wr.broadcast_world(&protocol.TextPacket{
-				message: 'hello'
-			})
+			tx.wr.broadcast_world(text_packet('hello'))
 			return true
 		}) or {}
 		done <- true
@@ -275,16 +283,10 @@ fn test_outbound_enqueue_fails_before_activation_then_succeeds_after() {
 	mut transport := &FakeTransport{}
 	mut s := bootstrap_test_session(mut transport)
 
-	if _ := s.send_packet(&protocol.TextPacket{
-		message: 'too early'
-	})
-	{
+	if _ := s.send_packet(text_packet('too early')) {
 		assert false
 	}
-	if _ := s.send_batch([protocol.Packet(&protocol.TextPacket{
-		message: 'too early'
-	})])
-	{
+	if _ := s.send_batch([protocol.Packet(text_packet('too early'))]) {
 		assert false
 	}
 	assert transport.sent.len == 0
@@ -292,15 +294,9 @@ fn test_outbound_enqueue_fails_before_activation_then_succeeds_after() {
 
 	s.activate_outbound()
 
-	s.send_packet(&protocol.TextPacket{
-		message: 'A'
-	}) or { assert false }
-	s.send_batch([protocol.Packet(&protocol.TextPacket{
-		message: 'B'
-	})]) or { assert false }
-	s.deliver(&protocol.TextPacket{
-		message: 'C'
-	})
+	s.send_packet(text_packet('A')) or { assert false }
+	s.send_batch([protocol.Packet(text_packet('B'))]) or { assert false }
+	s.deliver(text_packet('C'))
 	assert wait_for_sent_len(transport, 3, 2000)
 }
 
@@ -329,22 +325,14 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 	done := chan bool{cap: 2}
 	spawn fn [mut s, done] () {
 		s.send_batch([
-			protocol.Packet(&protocol.TextPacket{
-				message: 'A'
-			}),
-			protocol.Packet(&protocol.TextPacket{
-				message: 'B'
-			}),
-			protocol.Packet(&protocol.TextPacket{
-				message: 'C'
-			}),
+			protocol.Packet(text_packet('A')),
+			protocol.Packet(text_packet('B')),
+			protocol.Packet(text_packet('C')),
 		]) or {}
 		done <- true
 	}()
 	spawn fn [mut s, done] () {
-		s.deliver(&protocol.TextPacket{
-			message: 'X'
-		})
+		s.deliver(text_packet('X'))
 		done <- true
 	}()
 	_ := <-done
@@ -355,8 +343,8 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 
 	mut abc_start := -1
 	for i, p in transport.sent {
-		if p is protocol.TextPacket {
-			if p.message == 'A' {
+		if p is packets_924.TextPacket {
+			if text_packet_message(p) == 'A' {
 				abc_start = i
 			}
 		}
@@ -364,15 +352,15 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 	assert abc_start >= 0
 	assert abc_start + 2 < transport.sent.len
 	if b := transport.sent[abc_start + 1] {
-		if b is protocol.TextPacket {
-			assert b.message == 'B'
+		if b is packets_924.TextPacket {
+			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[abc_start + 2] {
-		if c is protocol.TextPacket {
-			assert c.message == 'C'
+		if c is packets_924.TextPacket {
+			assert text_packet_message(c) == 'C'
 		} else {
 			assert false
 		}
@@ -386,9 +374,7 @@ fn test_activation_waits_for_bootstrap_direct_send() {
 	transport.block_next_send()
 	send_done := chan bool{cap: 1}
 	spawn fn [mut s, send_done] () {
-		s.send_maybe_queued(&protocol.TextPacket{
-			message: 'bootstrap direct'
-		}) or {}
+		s.send_maybe_queued(text_packet('bootstrap direct')) or {}
 		send_done <- true
 	}()
 	transport.wait_started()
@@ -424,17 +410,14 @@ fn test_disconnect_rejects_later_packet_enqueue() {
 	mut s := outbound_test_session(mut transport)
 
 	s.disconnect('bye')
-	if _ := s.send_packet(&protocol.TextPacket{
-		message: 'too late'
-	})
-	{
+	if _ := s.send_packet(text_packet('too late')) {
 		assert false // send_packet must refuse once disconnect's been accepted
 	}
 
 	assert blocking_sent_text(transport, 1, 2000)
 	assert transport.sent.len == 1
 	if p := transport.sent[0] {
-		assert p is protocol.DisconnectPacket
+		assert p is packets_1001.DisconnectPacket
 	}
 	_ := <-s.outbound_done
 }
@@ -443,9 +426,7 @@ fn test_abort_stops_idle_outbound_writer() {
 	mut transport := &BlockingFakeTransport{}
 	mut s := outbound_test_session(mut transport)
 
-	s.deliver(&protocol.TextPacket{
-		message: 'warmup'
-	})
+	s.deliver(text_packet('warmup'))
 	assert blocking_sent_text(transport, 1, 2000)
 
 	s.abort_outbound()
@@ -458,9 +439,7 @@ fn test_abort_stops_idle_outbound_writer() {
 	}
 
 	leaked_msg := OutboundMessage(OutboundPacket{
-		packet: &protocol.TextPacket{
-			message: 'leaked'
-		}
+		packet: text_packet('leaked')
 	})
 	select {
 		s.outbound <- leaked_msg {}
@@ -550,23 +529,17 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	overflow_world_test_session(mut hub, mut wr_b, mut other_world_transport)
 
 	overflowing_transport.block_next_send()
-	overflowing_session.deliver(&protocol.TextPacket{
-		message: 'blocks the writer'
-	})
+	overflowing_session.deliver(text_packet('blocks the writer'))
 	overflowing_transport.wait_started()
 	for i in 0 .. outbound_queue_capacity {
-		overflowing_session.deliver(&protocol.TextPacket{
-			message: 'fill${i}'
-		})
+		overflowing_session.deliver(text_packet('fill${i}'))
 	}
 	assert overflowing_session.state != .closed
 
 	done := chan bool{cap: 1}
 	spawn fn [mut wr_a, done] () {
 		world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
-			tx.wr.broadcast_world(&protocol.TextPacket{
-				message: 'broadcast'
-			})
+			tx.wr.broadcast_world(text_packet('broadcast'))
 			return true
 		}) or {}
 		done <- true
@@ -583,9 +556,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
 	world_call[bool](mut wr_b, fn (mut tx WorldTx) bool {
-		tx.wr.broadcast_world(&protocol.TextPacket{
-			message: 'other world'
-		})
+		tx.wr.broadcast_world(text_packet('other world'))
 		return true
 	}) or { panic('world b broadcast rejected - unaffected by world a overflow') }
 	assert wait_for_sent_len(other_world_transport, 1, 2000)
@@ -610,9 +581,7 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 	_ := <-s.outbound_done
 
 	s.disconnect('bye again')
-	s.deliver(&protocol.TextPacket{
-		message: 'late'
-	})
+	s.deliver(text_packet('late'))
 	s.abort_outbound()
 
 	select {
@@ -624,7 +593,7 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 
 	mut disconnect_count := 0
 	for p in transport.sent {
-		if p is protocol.DisconnectPacket {
+		if p is packets_1001.DisconnectPacket {
 			disconnect_count++
 		}
 	}

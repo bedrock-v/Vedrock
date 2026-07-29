@@ -1,7 +1,18 @@
 module session
 
 import protocol
-import protocol.enums
+import protocol.version.v662.packets as packets_662
+import protocol.version.v685.packets as packets_685
+import protocol.version.v712.packets as packets_712
+import protocol.version.v776.packets as packets_776
+import protocol.version.v800.packets as packets_800
+import protocol.version.v818.packets as packets_818
+import protocol.version.v898.packets as packets_898
+import protocol.version.v924.enums as enums_924
+import protocol.version.v924.packets as packets_924
+import protocol.version.v944.packets as packets_944
+import protocol.version.v975.packets as packets_975
+import protocol.version.v1001.packets as packets_1001
 import server.event
 import server.internal.gamedata
 import server.player
@@ -37,9 +48,11 @@ fn test_handle_text_dispatches_to_per_session_handler() {
 	mut per_session := &RecordingChatHandler{}
 	s.set_handler(per_session)
 
-	s.handle_text(protocol.TextPacket{
-		@type:   int(enums.TextType.chat)
-		message: 'hello'
+	s.handle_text(packets_924.TextPacket{
+		message_type: enums_924.TextChat{
+			player_name: 'Alex'
+			message:     'hello'
+		}
 	})!
 
 	assert per_session.calls == 1

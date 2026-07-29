@@ -3,7 +3,7 @@ module entity
 import sync
 import rand
 import protocol
-import protocol.types
+import types
 import server.world
 import server.effect
 
@@ -43,6 +43,16 @@ mut:
 	nearest_player(pos types.Vector3, radius f32) ?u64
 	// notify_entity_despawn lets the entity package announce a despawn.
 	notify_entity_despawn(identifier string, x f32, y f32, z f32)
+	// spawn_dropped_item spawns count units of a registered item at pos.
+	// Unknown items and non-positive counts are ignored; name to ID resolution
+	// remains in the session item registry.
+	spawn_dropped_item(item_name string, count int, pos types.Vector3)
+	// collect_item adds as much of stack as possible to the player identified
+	// by runtime_id and returns the number of units accepted. It returns 0 if
+	// no live player is registered there or the inventory cannot take any.
+	collect_item(runtime_id u64, stack types.ItemStack) int
+	// notify_item_taken lets viewers see the pickup animation.
+	notify_item_taken(item_runtime_id u64, taker_runtime_id u64)
 }
 
 // Manager stores every live actor in a world, keyed by runtime ID.
@@ -314,6 +324,72 @@ pub fn (mut m Manager) tick() {
 		}
 		if moved(before, e.pos) {
 			m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.move_packet())
+		}
+	}
+	m.merge_items()
+}
+
+// merge_items combines nearby compatible item entities whose pickup
+// cooldowns have expired. Matching stacks transfer into one another until
+// the receiving stack is full; emptied donors are marked dead and removed
+// by normal entity cleanup.
+//
+// The scan compares each live item with the others. This is acceptable for
+// the expected entity counts and should only be optimized if profiling
+// shows it becoming a problem.
+fn (mut m Manager) merge_items() {
+	list := m.snapshot()
+	for i := 0; i < list.len; i++ {
+		mut a := list[i]
+		if a.dead {
+			continue
+		}
+		if mut a.behaviour is Mergeable {
+			if !a.behaviour.mergeable_now(a.age) {
+				continue
+			}
+			mut a_room := a.behaviour.stack_room()
+			a_stack := a.behaviour.merge_stack()
+			a_radius := a.behaviour.merge_radius()
+			if a_room <= 0 {
+				continue
+			}
+			for j := i + 1; j < list.len; j++ {
+				if a_room <= 0 {
+					break
+				}
+				mut b := list[j]
+				if b.dead || a.dead {
+					continue
+				}
+				if mut b.behaviour is Mergeable {
+					if !b.behaviour.mergeable_now(b.age) {
+						continue
+					}
+					bs := b.behaviour.merge_stack()
+					if bs.id != a_stack.id || bs.meta != a_stack.meta
+						|| bs.block_runtime_id != a_stack.block_runtime_id
+						|| bs.raw_extra_data != a_stack.raw_extra_data {
+						continue
+					}
+					dx := a.pos.x - b.pos.x
+					dy := a.pos.y - b.pos.y
+					dz := a.pos.z - b.pos.z
+					if dx * dx + dy * dy + dz * dz > a_radius * a_radius {
+						continue
+					}
+					moved_count := if bs.count < a_room { bs.count } else { a_room }
+					if moved_count <= 0 {
+						continue
+					}
+					a.behaviour.add_count(moved_count)
+					b.behaviour.add_count(-moved_count)
+					a_room -= moved_count
+					if bs.count - moved_count <= 0 {
+						b.kill()
+					}
+				}
+			}
 		}
 	}
 }

@@ -1,30 +1,31 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v944.packets as packets_944
+import protocol.version.v944.enums as enums_944
+import protocol.version.v944.types as types_944
+import protocol.version.v766.types as types_766
+import protocol.version.v975.packets as packets_975
+import types
 import server.item as itemmod
+import server.internal.network
 
 struct SlotChange {
-	container types.FullContainerName
-	info      protocol.StackResponseSlotInfo
+	container types_944.FullContainerName
+	info      types_766.ItemStackResponseSlotInfo
 }
-
-const container_combined_hotbar_and_inventory = 12
-const container_hotbar = 28
-const container_inventory = 29
 
 // flat_slot maps a window-0 container/slot pair onto the 0-35 player
 // inventory layout (0-8 hotbar, 9-35 main grid). Other containers are
 // not tracked and return none.
-fn flat_slot(container types.FullContainerName, slot u8) ?int {
-	return match container.container_id {
-		container_hotbar, container_combined_hotbar_and_inventory { int(slot) }
-		container_inventory { int(slot) + give_hotbar_size }
+fn flat_slot(container types_944.FullContainerName, slot i8) ?int {
+	return match container.container {
+		.hotbar_container, .combined_hotbar_and_inventory_container { int(slot) }
+		.inventory_container { int(slot) + give_hotbar_size }
 		else { none }
 	}
 }
 
-fn (mut s NetworkSession) set_slot_stack(container types.FullContainerName, slot u8, net_id int) {
+fn (mut s NetworkSession) set_slot_stack(container types_944.FullContainerName, slot i8, net_id int) {
 	flat := flat_slot(container, slot) or { return }
 	if net_id == 0 {
 		s.player.delete_slot(flat)
@@ -51,13 +52,13 @@ fn (s &NetworkSession) inventory_stack_at(slot int) (types.ItemStack, int) {
 // send_slot_update keeps the client's inventory view in sync after slot
 // changes, including mutations performed by world owned gameplay tasks.
 fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
-	s.deliver(&protocol.InventorySlotPacket{
-		window_id:      inventory_window_id
-		inventory_slot: slot
-		container_name: ?types.FullContainerName(types.FullContainerName{
-			container_id: 0
-		})
-		item:           wrapped
+	s.deliver(&packets_975.InventorySlotPacket{
+		container_id:        u32(inventory_window_id)
+		slot:                u32(slot)
+		container_name_data: types_944.FullContainerName{
+			container: .inventory_container
+		}
+		item:                network.item_descriptor_v975(wrapped.item_stack)
 	})
 }
 
@@ -80,19 +81,20 @@ fn (t PlayerMobEquipmentTask) name() string {
 fn (t PlayerMobEquipmentTask) run(mut tx WorldTx) {
 	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
 	target.player.set_held(t.hotbar_slot, t.item)
-	tx.wr.broadcast_world_except(t.runtime_id, &protocol.MobEquipmentPacket{
-		actor_runtime_id: t.runtime_id
-		item:             t.item
-		inventory_slot:   t.inventory_slot
-		hotbar_slot:      t.hotbar_slot
-		window_id:        t.window_id
+	tx.wr.broadcast_world_except(t.runtime_id, &packets_975.MobEquipmentPacket{
+		target_runtime_id: network.actor_runtime_id(t.runtime_id)
+		item:              network.item_descriptor_v975(t.item.item_stack)
+		slot:              i8(t.inventory_slot)
+		selected_slot:     i8(t.hotbar_slot)
+		container_id:      .inventory
 	})
 }
 
-fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! {
+fn (mut s NetworkSession) handle_mob_equipment(p packets_975.MobEquipmentPacket) ! {
 	// Reject an out-of-range hotbar slot before it feeds held_slot (used to
 	// index the server inventory for combat damage).
-	if p.hotbar_slot < 0 || p.hotbar_slot > 8 {
+	hotbar_slot := int(p.selected_slot)
+	if hotbar_slot < 0 || hotbar_slot > 8 {
 		return
 	}
 	mut wr := s.current_world_runtime()
@@ -102,23 +104,25 @@ fn (mut s NetworkSession) handle_mob_equipment(p protocol.MobEquipmentPacket) ! 
 	if !wr.try_submit(PlayerMobEquipmentTask{
 		runtime_id:     s.runtime_id
 		epoch:          s.world_binding().epoch
-		hotbar_slot:    p.hotbar_slot
-		item:           p.item
-		inventory_slot: p.inventory_slot
-		window_id:      p.window_id
+		hotbar_slot:    hotbar_slot
+		item:           types.ItemStackWrapper{
+			item_stack: network.item_stack_from_descriptor_v975(p.item)
+		}
+		inventory_slot: int(p.slot)
+		window_id:      int(p.container_id)
 	}) {
 		s.log.debug('Dropped mob equipment task - actor queue full')
 	}
 }
 
-fn slot_change(container types.FullContainerName, slot u8, count u8, net_id int) SlotChange {
+fn slot_change(container types_944.FullContainerName, slot i8, count int, net_id int) SlotChange {
 	return SlotChange{
 		container: container
-		info:      protocol.StackResponseSlotInfo{
-			slot:             slot
-			hotbar_slot:      slot
-			count:            count
-			stack_network_id: net_id
+		info:      types_766.ItemStackResponseSlotInfo{
+			requested_slot:    slot
+			slot:              slot
+			amount:            i8(count)
+			item_stack_net_id: i32(net_id)
 		}
 	}
 }
@@ -128,7 +132,7 @@ fn stack_merge_compatible(a types.ItemStack, b types.ItemStack) bool {
 		&& a.raw_extra_data == b.raw_extra_data
 }
 
-fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
+fn (mut s NetworkSession) handle_item_stack_request(p packets_944.ItemStackRequestPacket) ! {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
@@ -136,39 +140,43 @@ fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestP
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := p.requests
-	responses := world_call[[]protocol.ItemStackResponseEntry](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []protocol.ItemStackResponseEntry {
+	responses := world_call[[]types_944.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_944.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
-	}) or { []protocol.ItemStackResponseEntry{} }
-	s.send_maybe_queued(&protocol.ItemStackResponsePacket{
+	}) or { []types_944.ItemStackResponseInfo{} }
+	s.send_maybe_queued(&packets_944.ItemStackResponsePacket{
 		responses: responses
 	})!
 }
 
-fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, requests []protocol.ItemStackRequestEntry) []protocol.ItemStackResponseEntry {
+fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, requests []packets_944.RequestsEntry) []types_944.ItemStackResponseInfo {
 	mut target := tx.player_for_epoch(runtime_id, epoch) or {
-		return []protocol.ItemStackResponseEntry{}
+		return []types_944.ItemStackResponseInfo{}
 	}
-	mut out := []protocol.ItemStackResponseEntry{}
+	mut out := []types_944.ItemStackResponseInfo{}
 	for request in requests {
 		mut changes := []SlotChange{}
 		for action in request.actions {
-			match action.action_type {
-				protocol.stack_request_action_take, protocol.stack_request_action_place,
-				protocol.stack_request_action_place_in_container,
-				protocol.stack_request_action_take_out_container {
-					changes << target.apply_move(action)
+			match action {
+				types_944.ItemStackActionTake {
+					changes << target.apply_move(action.source, action.destination, action.amount)
 				}
-				protocol.stack_request_action_swap {
-					changes << target.apply_swap(action)
+				types_944.ItemStackActionPlace {
+					changes << target.apply_move(action.source, action.destination, action.amount)
 				}
-				protocol.stack_request_action_destroy, protocol.stack_request_action_drop {
-					changes << target.apply_remove(action)
+				types_944.ItemStackActionSwap {
+					changes << target.apply_swap(action.source, action.destination)
 				}
-				protocol.stack_request_action_consume {
-					changes << target.apply_consume(mut tx.wr, action)
+				types_944.ItemStackActionDestroy {
+					changes << target.apply_remove(action.source, action.amount)
 				}
-				protocol.stack_request_action_craft_creative {
-					if target.player.game_mode() == protocol.game_type_creative {
+				types_944.ItemStackActionDrop {
+					changes << target.apply_drop(mut tx.wr, action.source, action.amount)
+				}
+				types_944.ItemStackActionConsume {
+					changes << target.apply_consume(mut tx.wr, action.source, action.amount)
+				}
+				types_944.ItemStackActionCraftCreative {
+					if target.player.game_mode() == network.game_type_creative {
 						target.set_pending_creative(int(action.creative_item_network_id))
 					} else {
 						target.player.set_pending_creative(none)
@@ -177,10 +185,12 @@ fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, reques
 				else {}
 			}
 		}
-		out << protocol.ItemStackResponseEntry{
-			status:         protocol.item_stack_response_status_ok
-			request_id:     request.request_id
-			container_info: group_changes(changes)
+		out << types_944.ItemStackResponseInfo{
+			result:            types_944.ItemStackNetResult{
+				kind:               enums_944.ItemStackNetResultKind.success
+				success_containers: group_changes(changes)
+			}
+			client_request_id: i32(request.client_request_id)
 		}
 	}
 	return out
@@ -203,10 +213,8 @@ fn (mut s NetworkSession) set_pending_creative(entry_id int) {
 	})
 }
 
-fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotChange {
-	src := action.source
-	dst := action.destination
-	mut moved := s.player.inv_stack(src.stack_network_id) or { types.ItemStack{} }
+fn (mut s NetworkSession) apply_move(src types_944.ItemStackRequestSlotInfo, dst types_944.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+	mut moved := s.player.inv_stack(src.raw_id) or { types.ItemStack{} }
 	mut from_creative := false
 	if moved.count == 0 {
 		if pending := s.player.pending_creative() {
@@ -214,13 +222,13 @@ fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotC
 			from_creative = true
 		}
 	}
-	mut take := int(action.count)
+	mut take := int(amount)
 	if take == 0 || take > moved.count {
 		take = moved.count
 	}
 	mut dest_stack := types.ItemStack{}
-	if dst.stack_network_id != 0 {
-		dest_stack = s.player.inv_stack(dst.stack_network_id) or { types.ItemStack{} }
+	if dst.raw_id != 0 {
+		dest_stack = s.player.inv_stack(dst.raw_id) or { types.ItemStack{} }
 	}
 	max_stack := s.max_stack_size_for_numeric(moved.id)
 	can_merge := dest_stack.count > 0 && stack_merge_compatible(moved, dest_stack)
@@ -250,9 +258,9 @@ fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotC
 		new_dest.count = take
 	}
 
-	s.player.delete_stack(src.stack_network_id)
-	if dst.stack_network_id != 0 {
-		s.player.delete_stack(dst.stack_network_id)
+	s.player.delete_stack(src.raw_id)
+	if dst.raw_id != 0 {
+		s.player.delete_stack(dst.raw_id)
 	}
 	new_dest_id := s.player.track_stack(new_dest)
 
@@ -268,21 +276,19 @@ fn (mut s NetworkSession) apply_move(action protocol.StackRequestAction) []SlotC
 		src_net = s.player.track_stack(src_stack)
 		src_count = remaining
 	}
-	s.set_slot_stack(dst.container, dst.slot, new_dest_id)
-	s.set_slot_stack(src.container, src.slot, src_net)
+	s.set_slot_stack(dst.container_name, dst.slot, new_dest_id)
+	s.set_slot_stack(src.container_name, src.slot, src_net)
 	return [
-		slot_change(dst.container, dst.slot, u8(new_dest.count), new_dest_id),
-		slot_change(src.container, src.slot, u8(src_count), src_net),
+		slot_change(dst.container_name, dst.slot, new_dest.count, new_dest_id),
+		slot_change(src.container_name, src.slot, src_count, src_net),
 	]
 }
 
-fn (mut s NetworkSession) apply_swap(action protocol.StackRequestAction) []SlotChange {
-	src := action.source
-	dst := action.destination
-	a := s.player.inv_stack(src.stack_network_id) or { types.ItemStack{} }
-	b := s.player.inv_stack(dst.stack_network_id) or { types.ItemStack{} }
-	s.player.delete_stack(src.stack_network_id)
-	s.player.delete_stack(dst.stack_network_id)
+fn (mut s NetworkSession) apply_swap(src types_944.ItemStackRequestSlotInfo, dst types_944.ItemStackRequestSlotInfo) []SlotChange {
+	a := s.player.inv_stack(src.raw_id) or { types.ItemStack{} }
+	b := s.player.inv_stack(dst.raw_id) or { types.ItemStack{} }
+	s.player.delete_stack(src.raw_id)
+	s.player.delete_stack(dst.raw_id)
 	mut new_src := 0
 	if b.count > 0 {
 		new_src = s.player.track_stack(b)
@@ -291,56 +297,68 @@ fn (mut s NetworkSession) apply_swap(action protocol.StackRequestAction) []SlotC
 	if a.count > 0 {
 		new_dst = s.player.track_stack(a)
 	}
-	s.set_slot_stack(src.container, src.slot, new_src)
-	s.set_slot_stack(dst.container, dst.slot, new_dst)
+	s.set_slot_stack(src.container_name, src.slot, new_src)
+	s.set_slot_stack(dst.container_name, dst.slot, new_dst)
 	return [
-		slot_change(src.container, src.slot, u8(b.count), new_src),
-		slot_change(dst.container, dst.slot, u8(a.count), new_dst),
+		slot_change(src.container_name, src.slot, b.count, new_src),
+		slot_change(dst.container_name, dst.slot, a.count, new_dst),
 	]
 }
 
-fn (mut s NetworkSession) apply_remove(action protocol.StackRequestAction) []SlotChange {
-	src := action.source
-	item := s.player.inv_stack(src.stack_network_id) or { types.ItemStack{} }
-	mut take := int(action.count)
+fn (mut s NetworkSession) apply_remove(src types_944.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+	item := s.player.inv_stack(src.raw_id) or { types.ItemStack{} }
+	mut take := int(amount)
 	if take == 0 || take > item.count {
 		take = item.count
 	}
 	remaining := item.count - take
-	s.player.delete_stack(src.stack_network_id)
+	s.player.delete_stack(src.raw_id)
 	mut net := 0
 	if remaining > 0 {
 		mut st := item
 		st.count = remaining
 		net = s.player.track_stack(st)
 	}
-	s.set_slot_stack(src.container, src.slot, net)
+	s.set_slot_stack(src.container_name, src.slot, net)
 	return [
-		slot_change(src.container, src.slot, u8(remaining), net),
+		slot_change(src.container_name, src.slot, remaining, net),
 	]
+}
+
+fn (mut s NetworkSession) apply_drop(mut wr WorldRuntime, src types_944.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+	item := s.player.inv_stack(src.raw_id) or { types.ItemStack{} }
+	mut take := int(amount)
+	if take == 0 || take > item.count {
+		take = item.count
+	}
+	changes := s.apply_remove(src, amount)
+	if take > 0 && item.id != 0 {
+		mut dropped := item
+		dropped.count = take
+		drop_player_item(mut wr, s, dropped)
+	}
+	return changes
 }
 
 // apply_consume receives the owning runtime explicitly so item effects are
 // dispatched through the same world as the inventory request.
-fn (mut s NetworkSession) apply_consume(mut wr WorldRuntime, action protocol.StackRequestAction) []SlotChange {
-	src := action.source
-	stack := s.player.inv_stack(src.stack_network_id) or { return []SlotChange{} }
+fn (mut s NetworkSession) apply_consume(mut wr WorldRuntime, src types_944.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+	stack := s.player.inv_stack(src.raw_id) or { return []SlotChange{} }
 	name := s.hub.data.item_name(stack.id)
-	result := s.hub.items.consume_result(name, stack.meta) or { return s.apply_remove(action) }
+	result := s.hub.items.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
 	for e in result.effects {
 		s.apply_add_effect(mut wr, e)
 	}
-	return s.replace_consumed_stack(action, stack, result)
+	return s.replace_consumed_stack(src, amount, stack, result)
 }
 
-fn (mut s NetworkSession) replace_consumed_stack(action protocol.StackRequestAction, stack types.ItemStack, result itemmod.ConsumeResult) []SlotChange {
-	src := action.source
-	mut take := int(action.count)
+fn (mut s NetworkSession) replace_consumed_stack(src types_944.ItemStackRequestSlotInfo, amount i8, stack types.ItemStack, result itemmod.ConsumeResult) []SlotChange {
+	mut take := int(amount)
 	if take == 0 || take > stack.count {
 		take = stack.count
 	}
 	remaining := stack.count - take
-	s.player.delete_stack(src.stack_network_id)
+	s.player.delete_stack(src.raw_id)
 
 	mut net := 0
 	mut count := remaining
@@ -362,27 +380,27 @@ fn (mut s NetworkSession) replace_consumed_stack(action protocol.StackRequestAct
 		}
 	}
 
-	s.set_slot_stack(src.container, src.slot, net)
+	s.set_slot_stack(src.container_name, src.slot, net)
 	return [
-		slot_change(src.container, src.slot, u8(count), net),
+		slot_change(src.container_name, src.slot, count, net),
 	]
 }
 
-fn group_changes(changes []SlotChange) []protocol.StackResponseContainerInfo {
-	mut infos := []protocol.StackResponseContainerInfo{}
+fn group_changes(changes []SlotChange) []types_944.ItemStackResponseContainerInfo {
+	mut infos := []types_944.ItemStackResponseContainerInfo{}
 	for change in changes {
 		mut found := false
 		for mut info in infos {
-			if info.container.container_id == change.container.container_id {
-				info.slot_info << change.info
+			if info.container_name == change.container {
+				info.slots << change.info
 				found = true
 				break
 			}
 		}
 		if !found {
-			infos << protocol.StackResponseContainerInfo{
-				container: change.container
-				slot_info: [change.info]
+			infos << types_944.ItemStackResponseContainerInfo{
+				container_name: change.container
+				slots:          [change.info]
 			}
 		}
 	}

@@ -1,8 +1,21 @@
 module default
 
 import protocol
-import protocol.types
+import protocol.version.v662.packets as packets_662
+import protocol.version.v685.packets as packets_685
+import protocol.version.v712.packets as packets_712
+import protocol.version.v776.packets as packets_776
+import protocol.version.v800.packets as packets_800
+import protocol.version.v898.enums as enums_898
+import protocol.version.v818.packets as packets_818
+import protocol.version.v898.packets as packets_898
+import protocol.version.v898.types as types_898
+import protocol.version.v924.packets as packets_924
+import protocol.version.v944.packets as packets_944
+import protocol.version.v975.packets as packets_975
+import protocol.version.v1001.packets as packets_1001
 import protocol.serializer
+import server.internal.network
 import server.internal.language
 import server.permission
 import server.form
@@ -269,7 +282,7 @@ fn test_gamemode_command() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
-	assert sender.gamemode == protocol.game_type_creative
+	assert sender.gamemode == network.game_type_creative
 	assert sender.messages[0].contains('commands.gamemode.success.self')
 }
 
@@ -347,23 +360,23 @@ fn test_resolve_missing() {
 }
 
 fn test_command_request_roundtrip() {
-	pkt := protocol.CommandRequestPacket{
-		command:     '/version'
-		origin_data: types.CommandOriginData{
-			type:       'player'
-			request_id: 'req-1'
+	pkt := packets_898.CommandRequestPacket{
+		command:        '/version'
+		command_origin: types_898.CommandOriginData{
+			command_type: enums_898.CommandOriginType.player
+			request_id:   'req-1'
 		}
-		version:     '1'
+		version:        '1'
 	}
 	encoded := protocol.encode_packet_to_bytes(&pkt)
-	mut pool := protocol.new_packet_pool()
+	mut pool := network.new_selected_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'CommandRequestPacket'
-	if decoded is protocol.CommandRequestPacket {
+	if decoded is packets_898.CommandRequestPacket {
 		assert decoded.command == '/version'
-		assert decoded.origin_data.type == 'player'
-		assert decoded.origin_data.request_id == 'req-1'
+		assert decoded.command_origin.command_type == enums_898.CommandOriginType.player
+		assert decoded.command_origin.request_id == 'req-1'
 	} else {
 		assert false
 	}
@@ -376,13 +389,13 @@ fn test_available_commands_roundtrip() {
 	pkt := r.available_commands(sender)
 	assert pkt.commands.len == 15
 	encoded := protocol.encode_packet_to_bytes(pkt)
-	mut pool := protocol.new_packet_pool()
+	mut pool := network.new_selected_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
-	if decoded is protocol.AvailableCommandsPacket {
+	if decoded is packets_898.AvailableCommandsPacket {
 		assert decoded.commands.len == 15
-		assert decoded.commands[0].alias_enum_index == -1
+		assert decoded.commands[0].alias_enum == -1
 		assert decoded.commands[0].overloads.len == 1
 	} else {
 		assert false
@@ -493,9 +506,9 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 		assert !seen[v], 'enum_values contains a duplicate: ${v}'
 		seen[v] = true
 	}
-	mut gamemode_enum := protocol.CommandEnumData{}
-	mut difficulty_enum := protocol.CommandEnumData{}
-	for e in pkt.enums {
+	mut gamemode_enum := packets_898.EnumDataEntry{}
+	mut difficulty_enum := packets_898.EnumDataEntry{}
+	for e in pkt.enum_data {
 		if e.name == 'gamemode_mode' {
 			gamemode_enum = e
 		}
@@ -506,11 +519,11 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 	assert gamemode_enum.name == 'gamemode_mode'
 	assert difficulty_enum.name == 'difficulty_difficulty'
 	mut gamemode_values := []string{}
-	for idx in gamemode_enum.value_indices {
+	for idx in gamemode_enum.values {
 		gamemode_values << pkt.enum_values[idx]
 	}
 	mut difficulty_values := []string{}
-	for idx in difficulty_enum.value_indices {
+	for idx in difficulty_enum.values {
 		difficulty_values << pkt.enum_values[idx]
 	}
 	assert gamemode_values == ['survival', 's', '0', 'creative', 'c', '1', 'adventure', 'a', '2',

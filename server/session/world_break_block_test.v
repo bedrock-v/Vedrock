@@ -1,8 +1,9 @@
 module session
 
-import protocol
-import protocol.types
+import protocol.version.v944.packets as packets_944
+import types
 import server.event
+import server.internal.network
 import server.internal.gamedata
 import server.player
 import server.internal.auth
@@ -36,7 +37,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(protocol.game_type_survival)
+	pl.set_game_mode(network.game_type_survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
@@ -153,7 +154,7 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
-		assert p !is protocol.UpdateBlockPacket
+		assert p !is packets_944.UpdateBlockPacket
 	}
 }
 

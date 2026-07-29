@@ -1,8 +1,8 @@
 module default
 
-import protocol
 import server.permission
 import server.cmd
+import server.internal.network
 
 pub struct DifficultyCommand {}
 
@@ -34,19 +34,19 @@ pub fn (c DifficultyCommand) arguments() []cmd.Argument {
 
 fn parse_difficulty(arg string) ?int {
 	return match arg.to_lower() {
-		'peaceful', 'p', '0' { protocol.difficulty_peaceful }
-		'easy', 'e', '1' { protocol.difficulty_easy }
-		'normal', 'n', '2' { protocol.difficulty_normal }
-		'hard', 'h', '3' { protocol.difficulty_hard }
+		'peaceful', 'p', '0' { network.difficulty_peaceful }
+		'easy', 'e', '1' { network.difficulty_easy }
+		'normal', 'n', '2' { network.difficulty_normal }
+		'hard', 'h', '3' { network.difficulty_hard }
 		else { none }
 	}
 }
 
 fn difficulty_name(value int) string {
 	return match value {
-		protocol.difficulty_peaceful { 'peaceful' }
-		protocol.difficulty_normal { 'normal' }
-		protocol.difficulty_hard { 'hard' }
+		network.difficulty_peaceful { 'peaceful' }
+		network.difficulty_normal { 'normal' }
+		network.difficulty_hard { 'hard' }
 		else { 'easy' }
 	}
 }
