@@ -1,6 +1,5 @@
 module default
 
-import protocol
 import server.internal.buildinfo
 import server.internal.network
 import server.permission

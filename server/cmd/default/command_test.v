@@ -1,19 +1,9 @@
 module default
 
 import protocol
-import protocol.version.v662.packets as packets_662
-import protocol.version.v685.packets as packets_685
-import protocol.version.v712.packets as packets_712
-import protocol.version.v776.packets as packets_776
-import protocol.version.v800.packets as packets_800
 import protocol.version.v898.enums as enums_898
-import protocol.version.v818.packets as packets_818
 import protocol.version.v898.packets as packets_898
 import protocol.version.v898.types as types_898
-import protocol.version.v924.packets as packets_924
-import protocol.version.v944.packets as packets_944
-import protocol.version.v975.packets as packets_975
-import protocol.version.v1001.packets as packets_1001
 import protocol.serializer
 import server.internal.network
 import server.internal.language
