@@ -104,6 +104,28 @@ pub const magma_block = new_block('minecraft:magma')
 pub const purpur_block = new_block('minecraft:purpur_block')
 pub const end_bricks = new_block('minecraft:end_bricks')
 
+pub const portal_block = new_block_with_states('minecraft:portal', [
+	BlockState{
+		key:        'portal_axis'
+		kind:       state_kind_string
+		string_val: 'unknown'
+	},
+])
+pub const portal_block_x = new_block_with_states('minecraft:portal', [
+	BlockState{
+		key:        'portal_axis'
+		kind:       state_kind_string
+		string_val: 'x'
+	},
+])
+pub const portal_block_z = new_block_with_states('minecraft:portal', [
+	BlockState{
+		key:        'portal_axis'
+		kind:       state_kind_string
+		string_val: 'z'
+	},
+])
+
 pub const water = new_block_with_states('minecraft:water', [
 	BlockState{
 		key:       'liquid_depth'

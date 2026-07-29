@@ -4,7 +4,7 @@ import server.world
 
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 402
+	assert r.len() == 403
 }
 
 fn test_short_grass_and_fern_are_replaceable() {
@@ -219,4 +219,12 @@ fn test_nether_and_end_blocks_registered() {
 	purpur := r.get_by_name('minecraft:purpur_block') or { panic('missing purpur_block') }
 	assert purpur is PurpurBlock
 	assert purpur.hardness() == 1.5
+}
+
+fn test_portal_block_is_unbreakable() {
+	r := new_registry()
+	portal := r.get_by_name('minecraft:portal') or { panic('missing portal block') }
+	assert portal is PortalBlock
+	assert portal.hardness() == -1.0
+	assert !portal.breakable()
 }
