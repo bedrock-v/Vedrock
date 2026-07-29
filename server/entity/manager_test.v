@@ -16,16 +16,18 @@ import server.effect
 // Any coordinate not in solids reads as air.
 struct FakeHost {
 mut:
-	next                   u64 = 1
-	broadcasts             int
-	near                   int
-	blocks                 map[string]int
-	boxes                  map[string][]world.AABB
-	positions              map[u64]types.Vector3
-	hit_target             ?u64
-	damage_calls           int
-	last_damage_runtime_id u64
-	last_damage_amount     f32
+	next                          u64 = 1
+	broadcasts                    int
+	near                          int
+	blocks                        map[string]int
+	boxes                         map[string][]world.AABB
+	positions                     map[u64]types.Vector3
+	hit_target                    ?u64
+	last_hit_test_excluded        []u64
+	damage_calls                  int
+	last_damage_runtime_id        u64
+	last_damage_amount            f32
+	last_damage_source_runtime_id u64
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
 	players              map[u64]types.Vector3
@@ -97,7 +99,13 @@ fn (mut h FakeHost) entity_position(runtime_id u64) ?types.Vector3 {
 	return h.positions[runtime_id] or { none }
 }
 
-fn (mut h FakeHost) entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
+fn (mut h FakeHost) entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64) ?u64 {
+	h.last_hit_test_excluded = exclude_runtime_ids
+	if target := h.hit_target {
+		if target in exclude_runtime_ids {
+			return none
+		}
+	}
 	return h.hit_target
 }
 
@@ -105,6 +113,7 @@ fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string
 	h.damage_calls++
 	h.last_damage_runtime_id = runtime_id
 	h.last_damage_amount = amount
+	h.last_damage_source_runtime_id = source_runtime_id
 }
 
 fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
@@ -478,6 +487,39 @@ fn test_projectile_hits_entity_via_entity_hit_test() {
 	assert host.last_damage_runtime_id == 42
 	assert host.last_damage_amount == 3
 	assert m.count() == 0 // the projectile kills itself on hit
+}
+
+fn test_projectile_doesnt_hit_owner_within_immunity_window() {
+	mut host := &FakeHost{}
+	host.hit_target = u64(77) // the "target" entity_hit_test would find is the owner itself
+	mut m := new_manager(host)
+	mut e := m.spawn(&ProjectileBehaviour{
+		network_id:       'minecraft:snowball'
+		damage:           3
+		owner_runtime_id: 77
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 2 // inside owner_immunity_ticks (5)
+	m.tick()
+	assert host.damage_calls == 0
+	assert m.count() == 1 // the projectile survives
+}
+
+fn test_projectile_can_hit_owner_after_immunity_window() {
+	mut host := &FakeHost{}
+	host.hit_target = u64(77) // the owner is standing exactly where the projectile now is
+	mut m := new_manager(host)
+	mut e := m.spawn(&ProjectileBehaviour{
+		network_id:       'minecraft:arrow'
+		damage:           3
+		owner_runtime_id: 77
+	}, types.Vector3{0, 10, 0})
+	e.no_gravity = true
+	e.age = 5 // owner_immunity_ticks has fully elapsed
+	m.tick()
+	assert host.damage_calls == 1
+	assert host.last_damage_runtime_id == 77
+	assert m.count() == 0 // the projectile still kills itself on this hit
 }
 
 fn test_entity_takes_poison_damage_on_tick() {

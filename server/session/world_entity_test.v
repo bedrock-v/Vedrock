@@ -347,9 +347,9 @@ fn test_entity_hit_test_never_matches_another_worlds_player() {
 	mut host_b := WorldEntityHost{
 		wr: wr_b
 	}
-	hit_a := host_a.entity_hit_test(pos, 0) or { panic('expected a hit in world-a') }
+	hit_a := host_a.entity_hit_test(pos, []u64{}) or { panic('expected a hit in world-a') }
 	assert hit_a == session_a.runtime_id
-	hit_b := host_b.entity_hit_test(pos, 0) or { panic('expected a hit in world-b') }
+	hit_b := host_b.entity_hit_test(pos, []u64{}) or { panic('expected a hit in world-b') }
 	assert hit_b == session_b.runtime_id
 }
 
@@ -401,9 +401,11 @@ fn test_entity_hit_test_matches_players_and_mobs() {
 	mut host := WorldEntityHost{
 		wr: wr
 	}
-	hit_player := host.entity_hit_test(player_pos, 0) or { panic('expected a hit at player_pos') }
+	hit_player := host.entity_hit_test(player_pos, []u64{}) or {
+		panic('expected a hit at player_pos')
+	}
 	assert hit_player == session.runtime_id
-	hit_mob := host.entity_hit_test(mob_pos, 0) or { panic('expected a hit at mob_pos') }
+	hit_mob := host.entity_hit_test(mob_pos, []u64{}) or { panic('expected a hit at mob_pos') }
 	assert hit_mob == mob.runtime_id
 }
 

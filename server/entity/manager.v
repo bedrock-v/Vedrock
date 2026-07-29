@@ -29,9 +29,9 @@ mut:
 	// importing session.
 	entity_position(runtime_id u64) ?types.Vector3
 	// entity_hit_test returns the runtime id of the first live actor other
-	// than exclude_runtime_id whose box contains pos or none. Used for
-	// projectile vs entity/player collision.
-	entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64
+	// than any id in exclude_runtime_ids whose box contains pos or none.
+	// Used for projectile vs entity/player collision.
+	entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64) ?u64
 	// damage_entity applies damage to the actor at runtime_id (player or
 	// entity), attributed to source_name/source_runtime_id, with
 	// knockback_from as the origin used to compute knockback direction.

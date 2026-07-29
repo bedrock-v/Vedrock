@@ -84,9 +84,9 @@ fn (mut h WorldEntityHost) entity_position(runtime_id u64) ?types.Vector3 {
 // entity_hit_test checks every registered actor using its own feet position
 // and dimensions. Players and non-player entities share the same path
 // through the Actor interface.
-fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id u64) ?u64 {
+fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64) ?u64 {
 	for a in h.wr.entities.all_actors() {
-		if a.runtime_id() == exclude_runtime_id || a.is_dead() {
+		if a.runtime_id() in exclude_runtime_ids || a.is_dead() {
 			continue
 		}
 		feet := a.feet_position()

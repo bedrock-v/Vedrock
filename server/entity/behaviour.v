@@ -287,10 +287,19 @@ pub fn (mut b HostileBehaviour) on_death(mut e Entity, mut host Host) {
 	apply_mob_loot_drops(b.network_id, e, mut host)
 }
 
+// owner_immunity_ticks prevents a projectile from hitting its owner during
+// the first few ticks after launch while it may still overlap the owner's
+// hitbox. After this window, the owner can be hit normally.
+const owner_immunity_ticks = i64(5)
+
 // ProjectileBehaviour flies with its initial velocity, deals damage to the
 // first entity or player its path touches and either despawns on its first
 // block collision (survive_block_collision: false, e.g. a snowball) or freezes
 // in place there until max_age (survive_block_collision: true, e.g. an arrow).
+//
+// owner_runtime_id identifies the entity that fired this projectile. The
+// owner is ignored during hit detection only for owner_immunity_ticks after
+// spawn, not for the projectile's whole lifetime.
 @[heap]
 pub struct ProjectileBehaviour {
 pub mut:
@@ -301,6 +310,7 @@ pub mut:
 	drag_factor             f32 = drag
 	survive_block_collision bool
 	dimensions              Dimensions
+	owner_runtime_id        u64
 	flying_despawn_policy   DespawnPolicy = DespawnPolicy{
 		distance:      true
 		random_chance: true
@@ -351,8 +361,12 @@ pub fn (mut b ProjectileBehaviour) tick(mut e Entity, mut host Host) {
 	if e.age <= 1 {
 		return
 	}
-	if hit_runtime_id := host.entity_hit_test(e.pos, e.runtime_id) {
-		host.damage_entity(hit_runtime_id, b.damage, e.identifier, e.runtime_id, e.pos)
+	mut exclude_ids := [e.runtime_id]
+	if e.age < owner_immunity_ticks {
+		exclude_ids << b.owner_runtime_id
+	}
+	if hit_runtime_id := host.entity_hit_test(e.pos, exclude_ids) {
+		host.damage_entity(hit_runtime_id, b.damage, e.identifier, b.owner_runtime_id, e.pos)
 		e.kill()
 		return
 	}
