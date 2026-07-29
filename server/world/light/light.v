@@ -12,7 +12,7 @@
 // unit-tested infrastructure that a gameplay system can query later. It is
 // deliberately NOT wired into the chunk network packet.
 //
-// Light spreads by a breadth-first flood fill, losing 1 level per block
+// Light spreads by a breadth first flood fill, losing 1 level per block
 // travelled and being attenuated or blocked by the opacity of the block it
 // enters.
 module light

@@ -225,7 +225,7 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 
 // carved_pumpkin_id returns the carved_pumpkin id matching an uncarved pumpkin
 // at id, facing the clicked horizontal face directly. Top and bottom faces
-// cannot carve a pumpkin.
+// can't carve a pumpkin.
 pub fn (p &BlockPalette) carved_pumpkin_id(id int, click_face int) ?int {
 	v := p.variant(id) or { return none }
 	if v.name != 'minecraft:pumpkin' || !is_horizontal_face(click_face) {
