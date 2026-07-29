@@ -114,31 +114,32 @@ fn is_player_in_portal(world_name string, pos types.Vector3, h &Hub) bool {
 }
 
 fn portal_in_frame(x int, y int, z int, obsidian_id int, air_id int, wld &db.World) bool {
-	has_edge_x := wld.block_id(x - 1, y, z) == obsidian_id
+	if !has_adjacent_portal(x, y, z, obsidian_id, wld) {
+		return false
+	}
+	return has_vertical_obsidian(x, y, z, 1, obsidian_id, air_id, wld)
+		&& has_vertical_obsidian(x, y, z, -1, obsidian_id, air_id, wld)
+}
+
+fn has_adjacent_portal(x int, y int, z int, obsidian_id int, wld &db.World) bool {
+	has_x := wld.block_id(x - 1, y, z) == obsidian_id
 		|| wld.block_id(x + 1, y, z) == obsidian_id
 		|| is_portal_id(wld.block_id(x - 1, y, z))
 		|| is_portal_id(wld.block_id(x + 1, y, z))
-	has_edge_z := wld.block_id(x, y, z - 1) == obsidian_id
+	has_z := wld.block_id(x, y, z - 1) == obsidian_id
 		|| wld.block_id(x, y, z + 1) == obsidian_id
 		|| is_portal_id(wld.block_id(x, y, z - 1))
 		|| is_portal_id(wld.block_id(x, y, z + 1))
-	if !has_edge_x && !has_edge_z {
-		return false
-	}
+	return has_x || has_z
+}
 
-	mut has_top := false
-	for dy := 1; dy <= 22; dy++ {
-		id := wld.block_id(x, y + dy, z)
-		if id == obsidian_id { has_top = true; break }
+fn has_vertical_obsidian(x int, y int, z int, dir int, obsidian_id int, air_id int, wld &db.World) bool {
+	for d := 1; d <= 22; d++ {
+		id := wld.block_id(x, y + d * dir, z)
+		if id == obsidian_id { return true }
 		if !is_portal_id(id) && id != air_id { break }
 	}
-	mut has_bottom := false
-	for dy := 1; dy <= 22; dy++ {
-		id := wld.block_id(x, y - dy, z)
-		if id == obsidian_id { has_bottom = true; break }
-		if !is_portal_id(id) && id != air_id { break }
-	}
-	return has_top && has_bottom
+	return false
 }
 
 pub fn (mut m PortalManager) try_enter_portal(session &NetworkSession) bool {
@@ -164,14 +165,7 @@ fn do_teleport(runtime_id u64, mut entry PortalEntry, mut h Hub) {
 	src_dim := src_world.dimension
 	target_dim, target_world_name := target_dimension_and_world(src_dim, h.default_world_name)
 
-	if _ := h.world(target_world_name) {
-	} else {
-		h.load_world(target_world_name) or {
-			h.create_world(target_world_name, target_dim, target_dim.default_generator) or {
-				return
-			}
-		}
-	}
+	ensure_world_loaded(target_world_name, target_dim, mut h) or { return }
 
 	to_nether := src_dim.id == world.overworld.id
 	dest_x, dest_y, dest_z := compute_portal_destination(int(entry.from_x), int(entry.from_y),
@@ -180,10 +174,6 @@ fn do_teleport(runtime_id u64, mut entry PortalEntry, mut h Hub) {
 	final_x, final_y, final_z := find_or_create_destination(target_world_name,
 		dest_x, dest_y, dest_z, h)
 
-	dim_name := if to_nether { 'the Nether' } else { 'the Overworld' }
-	session.send_message('Entering ${dim_name}...') or {}
-	// Spawn 2 blocks in front of the portal so the player isn't instantly
-	// re-detected inside it and teleported back.
 	session.teleport_to_world(target_world_name, f32(final_x) + 0.5, f32(final_y),
 		f32(final_z) + 2.5)
 
@@ -195,6 +185,11 @@ fn do_teleport(runtime_id u64, mut entry PortalEntry, mut h Hub) {
 		countdown_ticks: portal_countdown_ticks
 		cooldown_ticks:  int(portal_cooldown_ticks)
 	}
+}
+
+fn ensure_world_loaded(name string, dim world.Dimension, mut h Hub) ! {
+	if _ := h.world(name) { return }
+	h.load_world(name) or { h.create_world(name, dim, dim.default_generator)! }
 }
 
 fn target_dimension_and_world(src_dim world.Dimension, overworld_name string) (world.Dimension, string) {
@@ -226,23 +221,14 @@ fn compute_portal_destination(x int, y int, z int, to_nether bool, dim world.Dim
 
 fn find_or_create_destination(world_name string, dx int, dy int, dz int, h &Hub) (int, int, int) {
 	wld := h.worlds[world_name] or { return dx, dy, dz }
-	// Search radius scales with dimension. In the nether 1 block = 8 overworld,
-	// so radius 128 overworld-blocks = 16 nether-blocks.
 	search_radius := if wld.dimension.id == world.nether.id { 16 } else { 128 }
-	// Find ground surface at the centre column to anchor the Y search.
-	mut ground_y := dy
-	for check_y := wld.dimension.max_y() - 1; check_y >= wld.dimension.min_y; check_y-- {
-		bid := wld.block_id(dx, check_y, dz)
-		if bid != world.air.network_id && !is_portal_id(bid) {
-			ground_y = check_y
-			break
-		}
-	}
-	// Search ±16 Y around the surface and around dy, whichever is wider.
+
+	ground_y := find_surface_y(dx, dy, dz, wld)
 	mut min_y := if dy < ground_y { dy - 16 } else { ground_y - 16 }
 	mut max_y := if dy > ground_y { dy + 16 } else { ground_y + 16 }
 	if min_y < wld.dimension.min_y { min_y = wld.dimension.min_y }
 	if max_y > wld.dimension.max_y() - 1 { max_y = wld.dimension.max_y() - 1 }
+
 	for cy := max_y; cy >= min_y; cy-- {
 		for cx := dx - search_radius; cx <= dx + search_radius; cx++ {
 			for cz := dz - search_radius; cz <= dz + search_radius; cz++ {
@@ -255,64 +241,74 @@ fn find_or_create_destination(world_name string, dx int, dy int, dz int, h &Hub)
 	return generate_portal_at(dx, dy, dz, wld)
 }
 
+fn find_surface_y(dx int, fallback_y int, dz int, wld &db.World) int {
+	for check_y := wld.dimension.max_y() - 1; check_y >= wld.dimension.min_y; check_y-- {
+		bid := wld.block_id(dx, check_y, dz)
+		if bid != world.air.network_id && !is_portal_id(bid) {
+			return check_y
+		}
+	}
+	return fallback_y
+}
+
 fn generate_portal_at(dx int, dy int, dz int, wld &db.World) (int, int, int) {
 	obsidian_id := world.obsidian.network_id
 	portal_id := world.portal_block_z.network_id
-	air_id := world.air.network_id
 
-	const_x := dx
-	mut base_y := dy
+	mut base_y := find_portal_base_y(dx, dy, dz, wld)
 
-	// Scan up from min_y to find the surface ground — first solid block
-	// with air above it. Scanning down from max_y hits the nether ceiling.
-	for check_y := wld.dimension.min_y; check_y < wld.dimension.max_y() - portal_min_frame_h; check_y++ {
-		bid := wld.block_id(const_x, check_y, dz)
-		above := wld.block_id(const_x, check_y + 1, dz)
-		if bid != air_id && bid != portal_id && (above == air_id || is_portal_id(above)) {
-			base_y = check_y + 1
-			break
-		}
-	}
-
-	max_y := wld.dimension.max_y()
-	if base_y + portal_min_frame_h > max_y {
-		base_y = max_y - portal_min_frame_h
-	}
-	if base_y < wld.dimension.min_y {
-		base_y = wld.dimension.min_y
-	}
-
-	frame_x := const_x
 	frame_z_min := dz - 1
 	frame_z_max := dz + 2
 
 	if base_y < wld.dimension.min_y + 2 {
 		for pz := frame_z_min - 1; pz <= frame_z_max + 1; pz++ {
-			wld.set_block(frame_x, base_y - 1, pz, obsidian_id)
+			wld.set_block(dx, base_y - 1, pz, obsidian_id)
 		}
 	}
 
-	// Flat frame — all blocks at the same X plane, like vanilla.
-	for fy := base_y; fy < base_y + portal_min_frame_h; fy++ {
-		wld.set_block(frame_x, fy, frame_z_min, obsidian_id)
-		wld.set_block(frame_x, fy, frame_z_max, obsidian_id)
-	}
-	for fz := frame_z_min + 1; fz < frame_z_max; fz++ {
-		wld.set_block(frame_x, base_y, fz, obsidian_id)
-		wld.set_block(frame_x, base_y + portal_min_frame_h - 1, fz, obsidian_id)
-	}
+	place_flat_frame(dx, base_y, frame_z_min, frame_z_max, obsidian_id, wld)
 
 	interior_y := base_y + 1
 	interior_y_max := base_y + portal_min_frame_h - 1
 	for fz := frame_z_min + 1; fz < frame_z_max; fz++ {
 		for fy := interior_y; fy < interior_y_max; fy++ {
-			wld.set_block(frame_x, fy, fz, portal_id)
-			wld.schedule_tick(frame_x, fy, fz, 1)
+			wld.set_block(dx, fy, fz, portal_id)
+			wld.schedule_tick(dx, fy, fz, 1)
 		}
 	}
 
-	center_z := (frame_z_min + frame_z_max) / 2
-	return frame_x, interior_y, center_z
+	return dx, interior_y, (frame_z_min + frame_z_max) / 2
+}
+
+fn find_portal_base_y(dx int, dy int, dz int, wld &db.World) int {
+	air_id := world.air.network_id
+	portal_id := world.portal_block_z.network_id
+	for check_y := wld.dimension.min_y; check_y < wld.dimension.max_y() - portal_min_frame_h; check_y++ {
+		bid := wld.block_id(dx, check_y, dz)
+		above := wld.block_id(dx, check_y + 1, dz)
+		if bid != air_id && bid != portal_id && (above == air_id || is_portal_id(above)) {
+			return clamp_portal_y(check_y + 1, wld.dimension)
+		}
+	}
+	return clamp_portal_y(dy, wld.dimension)
+}
+
+fn clamp_portal_y(y int, dim world.Dimension) int {
+	mut clamped := y
+	if clamped + portal_min_frame_h > dim.max_y() { clamped = dim.max_y() - portal_min_frame_h }
+	if clamped < dim.min_y { clamped = dim.min_y }
+	return clamped
+}
+
+fn place_flat_frame(x int, base_y int, z_min int, z_max int, obsidian_id int, wld &db.World) {
+	for fy := base_y; fy < base_y + portal_min_frame_h; fy++ {
+		wld.set_block(x, fy, z_min, obsidian_id)
+		wld.set_block(x, fy, z_max, obsidian_id)
+	}
+	for fz := z_min + 1; fz < z_max; fz++ {
+		wld.set_block(x, base_y, fz, obsidian_id)
+		wld.set_block(x, base_y + portal_min_frame_h - 1, fz, obsidian_id)
+	}
 }
 
 pub fn find_frame(x int, y int, z int, block_id fn (int, int, int) int) ?PortalOrientation {
@@ -324,39 +320,26 @@ pub fn find_frame(x int, y int, z int, block_id fn (int, int, int) int) ?PortalO
 	}
 
 	portal_id := world.portal_block.network_id
-	is_interior := fn [air_id, portal_id, block_id](cx int, cy int, cz int) bool {
+	is_open := fn [air_id, portal_id, block_id](cx int, cy int, cz int) bool {
 		id := block_id(cx, cy, cz)
 		return id == air_id || id == portal_id
 	}
 
-	if is_interior(x, y + 1, z) {
-		if o := find_frame_from_interior(x, y + 1, z, obsidian_id, air_id, block_id) {
-			return o
+	try_interior := fn [is_open, obsidian_id, air_id, block_id](cx int, cy int, cz int) ?PortalOrientation {
+		if is_open(cx, cy, cz) {
+			return find_frame_from_interior(cx, cy, cz, obsidian_id, air_id, block_id)
 		}
+		return none
 	}
-	if is_interior(x, y - 1, z) {
-		if o := find_frame_from_interior(x, y - 1, z, obsidian_id, air_id, block_id) {
-			return o
-		}
-	}
+
+	if o := try_interior(x, y + 1, z) { return o }
+	if o := try_interior(x, y - 1, z) { return o }
 	for dir in [[1, 0], [-1, 0], [0, 1], [0, -1]] {
-		nx := x + dir[0]
-		nz := z + dir[1]
-		if is_interior(nx, y, nz) {
-			if o := find_frame_from_interior(nx, y, nz, obsidian_id, air_id, block_id) {
-				return o
-			}
-		}
+		if o := try_interior(x + dir[0], y, z + dir[1]) { return o }
 	}
 	for dy in [-1, 1] {
 		for dir in [[1, 0], [-1, 0], [0, 1], [0, -1]] {
-			nx := x + dir[0]
-			nz := z + dir[1]
-			if is_interior(nx, y + dy, nz) {
-				if o := find_frame_from_interior(nx, y + dy, nz, obsidian_id, air_id, block_id) {
-					return o
-				}
-			}
+			if o := try_interior(x + dir[0], y + dy, z + dir[1]) { return o }
 		}
 	}
 	return none
@@ -419,47 +402,9 @@ fn find_frame_from_interior(ix int, iy int, iz int, obsidian_id int, air_id int,
 	}
 
 	if found_z {
-		frame_min_z := fz - 1
-		frame_max_z := bz + 1
-		frame_min_y := dy - 1
-		frame_max_y := uy + 1
-		frame_min_x := ix - 1
-		frame_max_x := ix + 1
-		if frame_max_z - frame_min_z + 1 < portal_min_frame_w
-			|| frame_max_z - frame_min_z + 1 > portal_max_frame_size { return none }
-		if frame_max_y - frame_min_y + 1 < portal_min_frame_h
-			|| frame_max_y - frame_min_y + 1 > portal_max_frame_size { return none }
-		if !validate_flat_frame(frame_min_x, frame_max_x, frame_min_y, frame_max_y,
-			frame_min_z, frame_max_z, true, obsidian_id, block_id) {
-			return none
-		}
-		return PortalOrientation{
-			min_x: frame_min_x, max_x: frame_max_x,
-			min_y: frame_min_y, max_y: frame_max_y,
-			min_z: frame_min_z, max_z: frame_max_z,
-			axis_z: true, const_coord: ix
-		}
+		return new_orientation(ix - 1, ix + 1, dy - 1, uy + 1, fz - 1, bz + 1, true, ix, obsidian_id, block_id)
 	}
-	frame_min_x := lx - 1
-	frame_max_x := rx + 1
-	frame_min_y := dy - 1
-	frame_max_y := uy + 1
-	frame_min_z := iz - 1
-	frame_max_z := iz + 1
-	if frame_max_x - frame_min_x + 1 < portal_min_frame_w
-		|| frame_max_x - frame_min_x + 1 > portal_max_frame_size { return none }
-	if frame_max_y - frame_min_y + 1 < portal_min_frame_h
-		|| frame_max_y - frame_min_y + 1 > portal_max_frame_size { return none }
-	if !validate_flat_frame(frame_min_x, frame_max_x, frame_min_y, frame_max_y,
-		frame_min_z, frame_max_z, false, obsidian_id, block_id) {
-		return none
-	}
-	return PortalOrientation{
-		min_x: frame_min_x, max_x: frame_max_x,
-		min_y: frame_min_y, max_y: frame_max_y,
-		min_z: frame_min_z, max_z: frame_max_z,
-		axis_z: false, const_coord: iz
-	}
+	return new_orientation(lx - 1, rx + 1, dy - 1, uy + 1, iz - 1, iz + 1, false, iz, obsidian_id, block_id)
 }
 
 fn validate_flat_frame(min_x int, max_x int, min_y int, max_y int, min_z int, max_z int, axis_z bool, obsidian_id int, block_id fn (int, int, int) int) bool {
@@ -485,6 +430,22 @@ fn validate_flat_frame(min_x int, max_x int, min_y int, max_y int, min_z int, ma
 		if block_id(max_x, cy, mid_z) != obsidian_id { return false }
 	}
 	return true
+}
+
+fn new_orientation(min_x int, max_x int, min_y int, max_y int, min_z int, max_z int, axis_z bool, const_coord int, obsidian_id int, block_id fn (int, int, int) int) ?PortalOrientation {
+	w := if axis_z { max_z - min_z + 1 } else { max_x - min_x + 1 }
+	h := max_y - min_y + 1
+	if w < portal_min_frame_w || w > portal_max_frame_size { return none }
+	if h < portal_min_frame_h || h > portal_max_frame_size { return none }
+	if !validate_flat_frame(min_x, max_x, min_y, max_y, min_z, max_z, axis_z, obsidian_id, block_id) {
+		return none
+	}
+	return PortalOrientation{
+		min_x: min_x, max_x: max_x,
+		min_y: min_y, max_y: max_y,
+		min_z: min_z, max_z: max_z,
+		axis_z: axis_z, const_coord: const_coord
+	}
 }
 
 fn is_portal_id(id int) bool {
