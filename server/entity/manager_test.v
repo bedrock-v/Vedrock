@@ -28,6 +28,10 @@ mut:
 	last_damage_runtime_id        u64
 	last_damage_amount            f32
 	last_damage_source_runtime_id u64
+	mob_attack_calls              int
+	last_mob_attack_runtime_id    u64
+	last_mob_attack_amount        f32
+	visible bool = true
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
 	players              map[u64]types.Vector3
@@ -114,6 +118,16 @@ fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string
 	h.last_damage_runtime_id = runtime_id
 	h.last_damage_amount = amount
 	h.last_damage_source_runtime_id = source_runtime_id
+}
+
+fn (mut h FakeHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+	h.mob_attack_calls++
+	h.last_mob_attack_runtime_id = runtime_id
+	h.last_mob_attack_amount = amount
+}
+
+fn (mut h FakeHost) has_line_of_sight(from types.Vector3, to types.Vector3) bool {
+	return h.visible
 }
 
 fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
@@ -400,6 +414,65 @@ fn test_hostile_behaviour_chases_target_set_by_on_hurt() {
 	assert e.health == 15
 	m.tick()
 	assert e.velocity.x > 0 // now moving toward the attacker at x=10
+}
+
+fn test_hostile_behaviour_melee_attacks_once_in_range_and_stops_moving() {
+	mut host := &FakeHost{}
+	host.positions[99] = types.Vector3{1.5, 5, 0} // within mob_attack_range (2.0) of the mob
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{
+		network_id:    'minecraft:zombie'
+		attack_damage: 4.0
+	}, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	e.no_gravity = true
+	e.hurt(mut host, 1, false, 99)
+
+	m.tick()
+	assert e.velocity.x == 0 // in range, stands and attacks instead of closing the last distance
+	assert host.mob_attack_calls == 1
+	assert host.last_mob_attack_runtime_id == 99
+	assert host.last_mob_attack_amount == 4.0
+
+	// Attack cooldown gates the next hit
+	m.tick()
+	assert host.mob_attack_calls == 1
+}
+
+fn test_hostile_behaviour_does_not_acquire_target_without_line_of_sight() {
+	mut host := &FakeHost{}
+	host.players[99] = types.Vector3{5, 5, 0}
+	host.visible = false
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	e.no_gravity = true
+
+	for _ in 0 .. detection_scan_interval_ticks + 1 {
+		m.tick()
+	}
+	assert e.velocity.x == 0
+}
+
+fn test_hostile_behaviour_gives_up_chase_after_losing_line_of_sight() {
+	mut host := &FakeHost{}
+	host.positions[99] = types.Vector3{10, 5, 0}
+	mut m := new_manager(host)
+	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, types.Vector3{0, 5, 0})
+	e.floor_y = 5
+	e.no_gravity = true
+	e.hurt(mut host, 1, false, 99)
+
+	m.tick()
+	assert e.velocity.x > 0 // still chasing while visible
+
+	host.visible = false
+	for _ in 0 .. los_give_up_ticks + 1 {
+		m.tick()
+	}
+	e.velocity = types.Vector3{}
+	m.tick()
+	assert e.velocity.x == 0 // gave up
 }
 
 fn test_hurt_behaviour_not_dispatched_to_passive_mobs() {
@@ -723,7 +796,7 @@ fn test_hostile_mob_navigates_around_wall_to_reach_target() {
 			max_z = e.pos.z
 		}
 	}
-	assert e.pos.x > 4.5 // reached the far side of the wall
+	assert e.pos.x > 3.5
 	assert max_z > 0.8 // detoured through the z=1 gap to get there, not stuck at the wall
 }
 

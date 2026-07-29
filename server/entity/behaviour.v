@@ -153,16 +153,27 @@ pub fn (mut b PassiveBehaviour) tick(mut e Entity, mut host Host) {
 	set_wander_velocity(mut e, wander_speed)
 }
 
-// HostileBehaviour wanders the same way PassiveBehaviour does until it either
-// gets hurt (reactive) or spots a player within detection_radius on its own
-// (proactive), then chases that runtime id directly until the target dies,
-// despawns or wanders far enough past detection_radius to give up. However there is no line of sight or sound based
-// detection, just a periodic radius scan.
+// mob_attack_range is how close a HostileBehaviour must
+// be to its target to melee attack instead of continuing to chase.
+const mob_attack_range = f32(2.0)
+// mob_attack_cooldown_ticks throttles a HostileBehaviour's own attacks.
+const mob_attack_cooldown_ticks = i64(20)
+// los_give_up_ticks is how long a HostileBehaviour keeps chasing a target
+// it has lost line of sight to (e.g. the target ducked behind a wall)
+// before giving up.
+const los_give_up_ticks = i64(60)
+
+// HostileBehaviour wanders until it detects a visible player or is attacked,
+// then chases and attacks that target. It gives up when the target is gone,
+// too far away or out of sight for too long.
+//
+// Sound based detection and group aggression are not yet supported.
 @[heap]
 pub struct HostileBehaviour {
 pub mut:
 	network_id       string
 	detection_radius f32 = 16.0
+	attack_damage    f32 = 3.0
 	dimensions       Dimensions
 	despawn_policy   DespawnPolicy
 mut:
@@ -173,6 +184,8 @@ mut:
 	path                    []types.Vector3
 	path_index              int
 	path_recompute_cooldown i64
+	attack_cooldown         i64
+	los_lost_ticks          i64
 }
 
 pub fn (b &HostileBehaviour) identifier() string {
@@ -200,8 +213,17 @@ pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 			if dist > b.detection_radius * give_up_range_multiplier {
 				b.has_target = false
 				b.path = []
+			} else if b.line_of_sight_expired(mut e, mut host, target_pos) {
+				b.has_target = false
+				b.path = []
 			} else {
-				b.move_toward_target(mut e, mut host, target_pos)
+				dy := target_pos.y - e.pos.y
+				dist3 := math.sqrtf(dx * dx + dy * dy + dz * dz)
+				if dist3 <= mob_attack_range {
+					b.try_attack(mut e, mut host, target_pos)
+				} else {
+					b.move_toward_target(mut e, mut host, target_pos)
+				}
 				return
 			}
 		} else {
@@ -214,8 +236,12 @@ pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 	if b.scan_cooldown <= 0 {
 		b.scan_cooldown = detection_scan_interval_ticks
 		if target_runtime_id := host.nearest_player(e.pos, b.detection_radius) {
-			b.acquire_target(target_runtime_id)
-			return
+			if target_pos := host.entity_position(target_runtime_id) {
+				if host.has_line_of_sight(b.eye_pos(e), target_pos) {
+					b.acquire_target(target_runtime_id)
+					return
+				}
+			}
 		}
 	}
 	if !e.on_ground {
@@ -229,12 +255,49 @@ pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 	set_wander_velocity(mut e, wander_speed)
 }
 
+fn (b &HostileBehaviour) eye_pos(e &Entity) types.Vector3 {
+	return types.Vector3{e.pos.x, e.pos.y + e.dimensions.eye_height, e.pos.z}
+}
+
+// line_of_sight_expired tracks how long the current target has been hidden
+// from view, resetting the counter whenever it's visible again and reports
+// true only once that's exceeded los_give_up_ticks.
+fn (mut b HostileBehaviour) line_of_sight_expired(mut e Entity, mut host Host, target_pos types.Vector3) bool {
+	if host.has_line_of_sight(b.eye_pos(e), target_pos) {
+		b.los_lost_ticks = 0
+		return false
+	}
+	b.los_lost_ticks++
+	return b.los_lost_ticks > los_give_up_ticks
+}
+
+// try_attack faces the target and, once attack_cooldown has elapsed, lands
+// a melee hit through Host.mob_attack.
+fn (mut b HostileBehaviour) try_attack(mut e Entity, mut host Host, target_pos types.Vector3) {
+	dx := target_pos.x - e.pos.x
+	dz := target_pos.z - e.pos.z
+	if dx * dx + dz * dz > 0.0001 {
+		e.yaw = f32(math.atan2(f64(dz), f64(dx)) * (180.0 / math.pi))
+		e.head_yaw = e.yaw
+	}
+	e.velocity.x = 0
+	e.velocity.z = 0
+	if b.attack_cooldown > 0 {
+		b.attack_cooldown--
+		return
+	}
+	b.attack_cooldown = mob_attack_cooldown_ticks
+	host.mob_attack(b.target_runtime_id, b.attack_damage, e.identifier, e.runtime_id, e.pos)
+}
+
 fn (mut b HostileBehaviour) acquire_target(target_runtime_id u64) {
 	b.has_target = true
 	b.target_runtime_id = target_runtime_id
 	b.path = []
 	b.path_index = 0
 	b.path_recompute_cooldown = 0
+	b.attack_cooldown = 0
+	b.los_lost_ticks = 0
 }
 
 fn (mut b HostileBehaviour) move_toward_target(mut e Entity, mut host Host, target_pos types.Vector3) {

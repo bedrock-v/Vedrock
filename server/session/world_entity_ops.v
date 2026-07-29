@@ -1,10 +1,15 @@
 module session
 
+import math
 import protocol
 import types
 import server.entity
 import server.event
 import server.world
+
+// los_sample_step controls the distance between line of sight samples.
+// Smaller values improve accuracy but require more collision checks.
+const los_sample_step = f32(0.5)
 
 // WorldEntityHost adapts one WorldRuntime to entity.Host, scoping every
 // query and broadcast to sessions and blocks in this world only, the same
@@ -124,6 +129,33 @@ fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name
 	damage_actor(mut h.wr, runtime_id, amount, ProjectileDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
+}
+
+fn (mut h WorldEntityHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+	damage_actor(mut h.wr, runtime_id, amount, MobAttackDamageSource{
+		attacker_name: source_name
+	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
+}
+
+fn (mut h WorldEntityHost) has_line_of_sight(from types.Vector3, to types.Vector3) bool {
+	dx := to.x - from.x
+	dy := to.y - from.y
+	dz := to.z - from.z
+	dist := math.sqrtf(dx * dx + dy * dy + dz * dz)
+	if dist < 0.0001 {
+		return true
+	}
+	steps := int(dist / los_sample_step) + 1
+	for i := 1; i < steps; i++ {
+		t := f32(i) / f32(steps)
+		x := int(math.floor(from.x + dx * t))
+		y := int(math.floor(from.y + dy * t))
+		z := int(math.floor(from.z + dz * t))
+		if h.collision_boxes(x, y, z).len > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // nearest_player scans only registered player actors.

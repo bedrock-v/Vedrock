@@ -36,11 +36,19 @@ mut:
 	// entity), attributed to source_name/source_runtime_id, with
 	// knockback_from as the origin used to compute knockback direction.
 	damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
+	// mob_attack applies a hostile mob's own melee attack to the actor at
+	// runtime_id, attributed to source_name/source_runtime_id the same way
+	// as damage_entity.
+	mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
 	// nearest_player returns the runtime id of the closest connected player
 	// within radius of pos or none if nobody is that close. Used for
 	// proactive mob targeting (HostileBehaviour scanning for a target it
 	// hasn't been hit by yet).
 	nearest_player(pos types.Vector3, radius f32) ?u64
+	// has_line_of_sight reports whether no solid block obstructs the segment
+	// between from and to. It uses sampled points rather than exact voxel
+	// traversal and currently treats all blocks with collision boxes as opaque.
+	has_line_of_sight(from types.Vector3, to types.Vector3) bool
 	// notify_entity_despawn lets the entity package announce a despawn.
 	notify_entity_despawn(identifier string, x f32, y f32, z f32)
 	// spawn_dropped_item spawns count units of a registered item at pos.

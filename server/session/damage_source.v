@@ -65,6 +65,29 @@ pub fn (s ProjectileDamageSource) death_message_key(victim_name string) (string,
 	return '%death.attack.arrow', [victim_name, s.attacker_name]
 }
 
+// MobAttackDamageSource is damage from a hostile mob's own melee attack.
+// Kept distinct from AttackDamageSource and ProjectileDamageSource.
+pub struct MobAttackDamageSource {
+pub:
+	attacker_name string
+}
+
+pub fn (s MobAttackDamageSource) ignored_by_fire_resistance() bool {
+	return false
+}
+
+pub fn (s MobAttackDamageSource) reduced_by_resistance() bool {
+	return true
+}
+
+pub fn (s MobAttackDamageSource) attacker_label() string {
+	return s.attacker_name
+}
+
+pub fn (s MobAttackDamageSource) death_message_key(victim_name string) (string, []string) {
+	return '%death.attack.mob', [victim_name, s.attacker_name]
+}
+
 // MagicDamageSource is damage from a potion/status effect (instant damage,
 // poison, wither, etc.).
 pub struct MagicDamageSource {}
