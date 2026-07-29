@@ -6,7 +6,7 @@ import server.world
 import server.world.db
 
 const portal_countdown_ticks = 80
-const portal_cooldown_ticks = i64(10)
+const portal_cooldown_ticks = i64(30)
 const portal_max_frame_size = 23
 const portal_min_frame_w = 4
 const portal_min_frame_h = 5
