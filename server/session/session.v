@@ -374,7 +374,7 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_text(p)!
 			} else if p is packets_662.MovePlayerPacket {
 				s.update_movement(network.vec3_from_array(p.position), p.rotation[0],
-					p.rotation[1], p.y_head_rotation)
+					p.rotation[1], p.y_head_rotation, p.on_ground)
 			} else if p is packets_1001.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
 			} else if p is packets_898.InteractPacket {

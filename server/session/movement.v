@@ -10,17 +10,21 @@ import server.internal.network
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
 struct MovementSnapshot {
-	position types.Vector3
-	pitch    f32
-	yaw      f32
-	head_yaw f32
+	position  types.Vector3
+	pitch     f32
+	yaw       f32
+	head_yaw  f32
+	on_ground bool
 }
 
 // update_movement replaces the pending movement snapshot and schedules one
 // PlayerMoveTask if none is already queued. movement_scheduled must be set
 // before submission to prevent a lost wakeup if the actor processes the task
 // immediately. Routes to whichever world the session is bound to right now.
-fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) {
+//
+// on_ground is the client reported ground state, trusted like every other
+// movement field here.
+fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) {
 	if !s.spawned {
 		return
 	}
@@ -28,7 +32,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 		pitch, yaw, head_yaw)
 	s.movement_mutex.lock()
 	s.pending_movement =
-		MovementSnapshot{sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw}
+		MovementSnapshot{sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw, on_ground}
 	if s.movement_scheduled {
 		s.movement_mutex.unlock()
 		return
@@ -189,9 +193,32 @@ fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapsh
 			return
 		}
 	}
-	s.player.apply_movement(position, snapshot.pitch, snapshot.yaw, snapshot.head_yaw)
+	landed_distance := s.player.apply_movement(position, snapshot.pitch, snapshot.yaw,
+		snapshot.head_yaw, snapshot.on_ground)
 	if s.spawned {
 		tx.wr.broadcast_world_except(s.runtime_id, s.move_actor_packet())
 	}
+	s.apply_fall_damage(mut tx.wr, landed_distance)
 	s.stream_chunks_if_moved()
+}
+
+const fall_damage_safe_distance = f32(3.0)
+
+fn fall_damage_amount(fall_distance f32) f32 {
+	over := fall_distance - fall_damage_safe_distance
+	if over <= 0 {
+		return 0
+	}
+	whole := f32(int(over))
+	if over > whole {
+		return whole + 1
+	}
+	return whole
+}
+
+fn (mut s NetworkSession) apply_fall_damage(mut wr WorldRuntime, landed_distance f32) {
+	dmg := fall_damage_amount(landed_distance)
+	if dmg > 0 {
+		s.apply_hurt(mut wr, dmg, FallDamageSource{})
+	}
 }

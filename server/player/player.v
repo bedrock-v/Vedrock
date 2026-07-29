@@ -37,6 +37,8 @@ mut:
 	effects          effect.Manager
 	has_last_death   bool
 	last_death_pos   types.Vector3
+	air_supply_ticks i64 = max_air_supply_ticks
+	fire_ticks       i64
 	pos_mutex        &sync.Mutex = sync.new_mutex()
 	position         types.Vector3
 	pitch            f32
@@ -44,7 +46,11 @@ mut:
 	head_yaw         f32
 	vy               f32
 	prev_y           f32
+	fall_distance    f32
 }
+
+// max_air_supply_ticks is the underwater breath meter's full value.
+pub const max_air_supply_ticks = i64(300)
 
 pub fn new_player() &Player {
 	return &Player{
@@ -104,6 +110,36 @@ pub fn (p &Player) is_dead() bool {
 pub fn (mut p Player) set_dead(value bool) {
 	p.state_mutex.lock()
 	p.dead = value
+	p.state_mutex.unlock()
+}
+
+pub fn (p &Player) air_supply() i64 {
+	mut m := p.state_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return p.air_supply_ticks
+}
+
+pub fn (mut p Player) set_air_supply(value i64) {
+	p.state_mutex.lock()
+	p.air_supply_ticks = value
+	p.state_mutex.unlock()
+}
+
+pub fn (p &Player) fire_ticks() i64 {
+	mut m := p.state_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return p.fire_ticks
+}
+
+pub fn (mut p Player) set_fire_ticks(value i64) {
+	p.state_mutex.lock()
+	p.fire_ticks = value
 	p.state_mutex.unlock()
 }
 
@@ -365,15 +401,24 @@ pub fn (p &Player) position() types.Vector3 {
 // apply_movement updates the player's position and orientation as one unit,
 // deriving vertical velocity from the change in Y. Registered session callers
 // must invoke it on the Hub thread.
-pub fn (mut p Player) apply_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) {
+pub fn (mut p Player) apply_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) f32 {
 	p.pos_mutex.lock()
 	p.vy = position.y - p.prev_y
+	if p.vy < 0 {
+		p.fall_distance += -p.vy
+	}
+	mut landed_distance := f32(0)
+	if on_ground {
+		landed_distance = p.fall_distance
+		p.fall_distance = 0
+	}
 	p.prev_y = position.y
 	p.position = position
 	p.pitch = pitch
 	p.yaw = yaw
 	p.head_yaw = head_yaw
 	p.pos_mutex.unlock()
+	return landed_distance
 }
 
 pub fn (mut p Player) reset_position(position types.Vector3) {
@@ -381,6 +426,7 @@ pub fn (mut p Player) reset_position(position types.Vector3) {
 	p.position = position
 	p.prev_y = position.y
 	p.vy = 0.0
+	p.fall_distance = 0
 	p.pos_mutex.unlock()
 }
 

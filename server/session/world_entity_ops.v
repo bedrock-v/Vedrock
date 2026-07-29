@@ -101,11 +101,11 @@ fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id
 	return none
 }
 
-fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
+fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
 	mut a := wr.entities.actor_by_runtime_id(runtime_id) or { return }
 	if mut a is NetworkSession {
 		a.apply_knockback(knockback_from, knockback_force, knockback_height)
-		a.apply_hurt(mut wr, amount, source_name)
+		a.apply_hurt(mut wr, amount, source)
 		return
 	}
 	mut host := WorldEntityHost{
@@ -115,10 +115,15 @@ fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source_name str
 }
 
 // damage_entity applies mob/projectile-originated damage to a player or
-// another entity on the owning world runtime.
+// another entity on the owning world runtime. source_name identifies the
+// attacker and is wrapped here because the entity package can't construct
+// session damage sources without creating an import cycle.
+//
+// Melee damage uses PlayerAttackTask and doesn't pass through this path.
 fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
-	damage_actor(mut h.wr, runtime_id, amount, source_name, source_runtime_id, knockback_from,
-		knockback_horizontal, knockback_vertical)
+	damage_actor(mut h.wr, runtime_id, amount, ProjectileDamageSource{
+		attacker_name: source_name
+	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }
 
 // nearest_player scans only registered player actors.

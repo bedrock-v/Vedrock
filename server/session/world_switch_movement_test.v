@@ -46,7 +46,7 @@ fn test_pos_keeps_tracking_after_world_switch_roundtrip() {
 	mut last := types.Vector3{}
 	for i in 0 .. 200 {
 		last = types.Vector3{f32(i) * 0.1, 5.0, 0.0}
-		s.update_movement(last, 0.0, 0.0, 0.0)
+		s.update_movement(last, 0.0, 0.0, 0.0, false)
 	}
 
 	deadline := time.now().add(5 * time.second)
@@ -57,7 +57,7 @@ fn test_pos_keeps_tracking_after_world_switch_roundtrip() {
 	assert s.movement_scheduled == false
 
 	further := types.Vector3{last.x + 1.0, last.y, last.z}
-	s.update_movement(further, 0.0, 0.0, 0.0)
+	s.update_movement(further, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(5 * time.second)
 	for time.now() < deadline2 && s.player.position() != further {
 		time.sleep(2 * time.millisecond)

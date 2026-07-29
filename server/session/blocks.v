@@ -77,8 +77,9 @@ fn (mut s NetworkSession) handle_inventory_transaction(p packets_1001.InventoryT
 }
 
 fn (mut s NetworkSession) handle_player_auth_input(p packets_1001.PlayerAuthInputPacket) ! {
+	on_ground := network.has_input_flag(p.input_data, network.input_flag_vertical_collision)
 	s.update_movement(network.vec3_from_array(p.player_position), p.player_rotation[0],
-		p.player_rotation[1], p.player_head_rotation)
+		p.player_rotation[1], p.player_head_rotation, on_ground)
 	if tx := p.item_use_transaction {
 		s.handle_item_use_transaction(tx)!
 	}

@@ -67,7 +67,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	_ := <-started
 
 	stale_pos := types.Vector3{50.0, 0.0, 0.0}
-	s.update_movement(stale_pos, 0.0, 0.0, 0.0)
+	s.update_movement(stale_pos, 0.0, 0.0, 0.0, false)
 	assert s.movement_scheduled == true
 
 	// Simulate the session switching to world B while the task above is
@@ -93,7 +93,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	assert s.player.position() != stale_pos
 
 	fresh_pos := types.Vector3{1.0, 2.0, 3.0}
-	s.update_movement(fresh_pos, 0.0, 0.0, 0.0)
+	s.update_movement(fresh_pos, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(2 * time.second)
 	for time.now() < deadline2 && s.player.position() != fresh_pos {
 		time.sleep(2 * time.millisecond)
@@ -130,7 +130,7 @@ fn test_player_move_event_isolated_to_owning_world() {
 	wr_b.events.register(handler_b, .normal)
 
 	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
-	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0)
+	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 
 	deadline := time.now().add(2 * time.second)
 	for time.now() < deadline && s.movement_scheduled {
@@ -161,7 +161,7 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 	observer_b.transport = b_transport
 
 	mut mover := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
-	mover.update_movement(target_pos, 0.0, 0.0, 0.0)
+	mover.update_movement(target_pos, 0.0, 0.0, 0.0, false)
 
 	deadline := time.now().add(2 * time.second)
 	for time.now() < deadline && mover.movement_scheduled {

@@ -9,6 +9,18 @@ pub const selected_protocol = 1001
 pub const selected_minecraft_version = '1.26.30'
 pub const selected_player_auth_input_packet = u16(144)
 
+// input_flag_vertical_collision is PlayerAuthInputPacket.input_data's bit
+// index for the client reported ground/vertical-collision state. This is
+// the PlayerAuthInputPacket equivalent of MovePlayerPacket's own explicit
+// on_ground bool field.
+pub const input_flag_vertical_collision = u64(50)
+
+// has_input_flag reports whether bit is set in a PlayerAuthInputPacket's
+// input_data/input_data_high bitfield.
+pub fn has_input_flag(data u64, bit u64) bool {
+	return (data >> bit) & 1 != 0
+}
+
 pub const difficulty_peaceful = int(0)
 pub const difficulty_easy = int(1)
 pub const difficulty_normal = int(2)
@@ -34,8 +46,10 @@ pub const ability_walk_speed = int(enums_662.AbilitiesIndex.walk_speed)
 pub const ability_count = int(enums_662.AbilitiesIndex.ability_count)
 
 pub const meta_key_flags = u32(0)
+pub const meta_key_air_supply = u32(7)
 pub const meta_key_color_index = u32(3)
 pub const meta_key_name = u32(4)
+pub const meta_key_air_supply_max = u32(42)
 pub const meta_key_effect_color = u32(8)
 pub const meta_key_effect_ambience = u32(9)
 pub const meta_key_scale = u32(38)

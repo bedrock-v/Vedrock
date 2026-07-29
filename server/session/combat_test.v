@@ -46,14 +46,14 @@ fn test_is_critical_requires_falling_and_survival() {
 	mut s := &NetworkSession{
 		player: pl
 	}
-	s.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0)
-	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0)
+	s.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
 	assert s.is_critical()
 
-	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0)
+	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
 	assert !s.is_critical()
 
-	s.player.apply_movement(types.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0)
+	s.player.apply_movement(types.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0, false)
 	s.player.set_game_mode(network.game_type_creative)
 	assert !s.is_critical()
 }
@@ -203,7 +203,7 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, 'Alex')
+	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 0
 	assert victim.player.is_dead()
 }
@@ -221,7 +221,7 @@ fn test_apply_hurt_creative_is_immune() {
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, 'Alex')
+	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
 	assert !victim.player.is_dead()
 }
@@ -240,7 +240,7 @@ fn test_apply_hurt_cancelled_event_prevents_damage() {
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, 'Alex')
+	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
 	assert !victim.player.is_dead()
 }
@@ -325,8 +325,8 @@ fn test_apply_respawn_resets_health_and_position() {
 	}
 	// Give it a nonzero vy the same way real movement would, to prove
 	// apply_respawn actually resets it rather than it trivially starting at 0.
-	victim.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0)
-	victim.player.apply_movement(types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0)
+	victim.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
+	victim.player.apply_movement(types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 	hub.add(victim)
 
 	victim.apply_respawn(mut wr)

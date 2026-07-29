@@ -9,6 +9,7 @@ import protocol.version.v924.enums as enums_924
 import protocol.version.v975.packets as packets_975
 import protocol.version.v975.enums as enums_975
 import types
+import server.effect
 import server.event
 import server.internal.network
 
@@ -70,9 +71,9 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		return
 	}
 	tx.damage_held_item(mut attacker, 1)
-	damage_actor(mut tx.wr, t.victim_runtime_id, ctx.val.damage,
-		attacker.player.identity.display_name, t.attacker_runtime_id, own, ctx.val.knockback_force,
-		ctx.val.knockback_height)
+	damage_actor(mut tx.wr, t.victim_runtime_id, ctx.val.damage, AttackDamageSource{
+		attacker_name: attacker.player.identity.display_name
+	}, t.attacker_runtime_id, own, ctx.val.knockback_force, ctx.val.knockback_height)
 	if t.critical {
 		tx.wr.broadcast_world(&packets_898.AnimatePacket{
 			action:            packets_898.AnimatePacketAction.critical_hit
@@ -202,15 +203,33 @@ fn (s &NetworkSession) is_critical() bool {
 
 // apply_hurt runs only from an active world runtime. It dispatches player_hurt,
 // broadcasts damage in that world and routes lethal hits through apply_death.
-fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, attacker_name string) {
+//
+// source decides fire resistance immunity and resistance effect reduction
+// (see DamageSource, damage_source.v) and supplies the
+// death message. Effect damage doesn't go through here.
+fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source DamageSource) {
 	if s.player.is_dead() || s.player.game_mode() == network.game_type_creative
 		|| s.player.game_mode() == network.game_type_spectator {
 		return
 	}
+	if source.ignored_by_fire_resistance() {
+		if _ := s.player.effect(effect.fire_resistance) {
+			return
+		}
+	}
+	mut reduced_amount := amount
+	if source.reduced_by_resistance() {
+		if res := s.player.effect(effect.resistance) {
+			reduced_amount *= resistance_multiplier(res.level())
+		}
+	}
+	if reduced_amount <= 0 {
+		return
+	}
 	mut ctx := event.new_context(event.HurtData{
 		player:        s
-		amount:        amount
-		attacker_name: attacker_name
+		amount:        reduced_amount
+		attacker_name: source.attacker_label()
 	})
 	wr.events.player_hurt(mut ctx)
 	if ctx.is_cancelled() {
@@ -225,8 +244,8 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, attacker_n
 		data:              0
 	})
 	if s.player.health() <= 0 {
-		s.apply_death(mut wr, '%death.attack.player',
-			[s.player.identity.display_name, attacker_name])
+		key, params := source.death_message_key(s.player.identity.display_name)
+		s.apply_death(mut wr, key, params)
 	}
 }
 

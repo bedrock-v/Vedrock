@@ -257,7 +257,8 @@ fn (mut s NetworkSession) apply_damage_from_effect(mut wr WorldRuntime, amount f
 		})
 	}
 	if s.player.health() <= 0 {
-		s.apply_death(mut wr, '%death.attack.magic', [s.player.identity.display_name])
+		key, params := MagicDamageSource{}.death_message_key(s.player.identity.display_name)
+		s.apply_death(mut wr, key, params)
 	}
 }
 

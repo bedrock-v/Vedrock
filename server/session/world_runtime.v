@@ -508,6 +508,7 @@ fn (mut tx WorldTx) tick_effects() {
 	for mut a in tx.wr.entities.player_actors() {
 		if mut a is NetworkSession {
 			a.tick_effects(mut tx.wr)
+			a.tick_environmental_damage(mut tx)
 			tx.wr.sample_outbound_depth(int(a.outbound.len))
 		}
 	}

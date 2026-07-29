@@ -42,7 +42,7 @@ fn test_within_place_reach_uses_pending_mov_not_stale_pos() {
 
 	target_pos := types.BlockPosition{10, 0, 0}
 	assert !s.within_place_reach(target_pos)
-	s.update_movement(types.Vector3{10.0, 0.0, 0.0}, 0.0, 0.0, 0.0)
+	s.update_movement(types.Vector3{10.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 
 	assert s.within_place_reach(target_pos)
 	gate <- true
@@ -75,7 +75,7 @@ fn test_effective_pos_uses_pending_movement_not_stale_confirmed() {
 
 	assert s.effective_position() == types.Vector3{0.0, player_eye_height, 0.0}
 
-	s.update_movement(types.Vector3{2.0, player_eye_height, 2.0}, 0.0, 0.0, 0.0)
+	s.update_movement(types.Vector3{2.0, player_eye_height, 2.0}, 0.0, 0.0, 0.0, false)
 
 	// The movement task itself is still queued behind the filler and has
 	// not run.
