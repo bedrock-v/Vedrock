@@ -12,10 +12,9 @@
 // unit-tested infrastructure that a gameplay system can query later. It is
 // deliberately NOT wired into the chunk network packet.
 //
-// The propagation model mirrors the inspiration engines (dragonfly
-// server/world/chunk/light*.go and PocketMine-MP src/world/light/): light
-// spreads by a breadth-first flood fill, losing 1 level per block travelled and
-// being attenuated/blocked by the opacity of the block it enters.
+// Light spreads by a breadth-first flood fill, losing 1 level per block
+// travelled and being attenuated or blocked by the opacity of the block it
+// enters.
 module light
 
 // max_light is the brightest a light level can be, matching vanilla's 0-15.

@@ -10,8 +10,7 @@ const aes_block_size = 16
 // ctrStream is a minimal AES-CTR keystream. vlib's crypto.cipher.Ctr is a
 // private type so it cannot be held as a struct field - we replicate its
 // stateful behaviour here: a persistent counter block and a keystream buffer
-// consumed across calls, so one stream spans the whole session in one
-// direction exactly like PocketMine's persistent cipher.
+// consumed across calls, so one stream spans the whole session in one direction.
 struct CtrStream {
 mut:
 	block     cipher.Block
@@ -54,7 +53,7 @@ fn (mut s CtrStream) xor(src []u8) []u8 {
 // tag", which is just AES-256-CTR with the GCM initial counter block as IV:
 // the first 12 bytes of the key followed by 00 00 00 02. Each direction keeps
 // its own persistent CTR keystream and a monotonic counter that feeds a
-// per-packet SHA-256 checksum, matching PocketMine's EncryptionContext.
+// per-packet SHA-256 checksum.
 @[heap]
 pub struct Context {
 mut:

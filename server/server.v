@@ -26,11 +26,9 @@ pub const day_length_ticks = 24000
 const tick_overrun_log_interval = u64(ticks_per_second) * 5
 
 // Options is the framework's composition-root entry point. settings carries
-// the same YAML-loadable tuning conf.Config always has; hub_options is the
-// injection point for swapping Hub's own subsystems (command registry,
-// entity registry) - every field left unset falls back to Vedrock's own
-// built-in default, so new() with no arguments still boots a fully working
-// default server. Mirrors Dragonfly's Config{...}.New() defaulting pattern.
+// YAML-loadable server tuning; hub_options swaps Hub subsystems such as the
+// command and entity registries. Every field left unset falls back to Vedrock's
+// built-in default, so new() with no arguments still boots a working server.
 @[params]
 pub struct Options {
 pub:

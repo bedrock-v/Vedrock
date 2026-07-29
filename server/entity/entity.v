@@ -24,9 +24,9 @@ const mob_max_health = f32(20.0)
 const fall_damage_safe_distance = f32(3.0)
 
 // Entity is a non-player actor living in the world - a mob, item or projectile.
-// It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable
-// Behaviour that drives its per-tick logic. Players stay as NetworkSession; this
-// system covers everything else the client renders as an actor.
+// It owns shared state and delegates per-tick logic to its Behaviour. Players
+// stay as NetworkSession; this system covers everything else the client renders
+// as an actor.
 @[heap]
 pub struct Entity {
 pub:

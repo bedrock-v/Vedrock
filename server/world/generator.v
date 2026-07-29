@@ -129,9 +129,9 @@ pub fn (g FlatGenerator) biome_at(x int, z int) int {
 
 // ---- Nether ----
 //
-// PNX/vanilla-inspired but intentionally smaller: bedrock shell, a lava sea,
-// rough lower/upper netherrack masses and a wide traversable middle cavern.
-// Explicitly out of scope: extra nether biomes, structures, netherite and portals.
+// The Nether generator is intentionally compact: bedrock shell, a lava sea,
+// rough lower and upper netherrack masses, and a wide traversable middle cavern.
+// Extra nether biomes, structures, netherite and portals are out of scope.
 pub const nether_lava_level = 31
 const nether_spawn_floor_y = 63
 const nether_floor_salt = u32(401)

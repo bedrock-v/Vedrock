@@ -223,12 +223,9 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 	return id
 }
 
-// carved_pumpkin_id returns the carved_pumpkin id matching an uncarved
-// pumpkin at id, facing the clicked face directly - or none if id isn't an
-// uncarved pumpkin, or the click was on the top/bottom face. Matches
-// Dragonfly's Pumpkin.Carve (the carved face is the one clicked, not its
-// opposite - unlike oriented()'s player-facing placement logic above) and
-// Shears.UseOnBlock (top/bottom faces can't be carved).
+// carved_pumpkin_id returns the carved_pumpkin id matching an uncarved pumpkin
+// at id, facing the clicked horizontal face directly. Top and bottom faces
+// cannot carve a pumpkin.
 pub fn (p &BlockPalette) carved_pumpkin_id(id int, click_face int) ?int {
 	v := p.variant(id) or { return none }
 	if v.name != 'minecraft:pumpkin' || !is_horizontal_face(click_face) {

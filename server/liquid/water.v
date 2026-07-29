@@ -2,8 +2,6 @@ module liquid
 
 import server.world
 
-// Water depth model, adapted from dragonfly and PocketMine.
-//
 // depth runs 1..8 internally: 8 is a source, 1..7 are flowing levels where a
 // higher number is a fuller (taller) cell, and a falling cell behaves like a
 // full column. Each horizontal step loses spread_decay levels, so a source

@@ -1,8 +1,8 @@
 module scheduler
 
-// Task is the unit of scheduled work, modelled on PocketMine's Task. Implement
-// run() with whatever should happen when the task fires. For one-off callbacks
-// without a dedicated struct, use ClosureTask.
+// Task is the unit of scheduled work. Implement run() with whatever should
+// happen when the task fires. For one-off callbacks without a dedicated struct,
+// use ClosureTask.
 pub interface Task {
 	run()
 }
@@ -25,9 +25,8 @@ pub fn new_closure_task(cb fn ()) &ClosureTask {
 }
 
 // TaskHandler is the scheduler's live record of a queued task. It is returned
-// from every schedule_* call so the caller can cancel the task later. Mirrors
-// PocketMine's TaskHandler: delay and period are in ticks, next_run is the tick
-// the task fires on.
+// from every schedule_* call so the caller can cancel the task later. delay and
+// period are in ticks; next_run is the tick the task fires on.
 @[heap]
 pub struct TaskHandler {
 	id     int

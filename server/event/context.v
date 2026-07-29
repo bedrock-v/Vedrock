@@ -1,9 +1,8 @@
 module event
 
-// Context is a homage to dragonfly's event.Context[T]. It wraps the subject of
-// an event and lets handlers cancel the outcome or mutate the subject in place.
-// Callers dispatch a Context through the Bus, then read back is_cancelled() and
-// the possibly-modified val to decide what actually happens.
+// Context wraps the subject of an event and lets handlers cancel the outcome or
+// mutate the subject in place. Callers dispatch a Context through the Bus, then
+// read back is_cancelled() and the possibly modified val to decide what happens.
 pub struct Context[T] {
 pub mut:
 	cancelled bool
@@ -28,9 +27,8 @@ pub fn (c &Context[T]) is_cancelled() bool {
 	return c.cancelled
 }
 
-// Priority orders handlers on the Bus. Lowest runs first so that highest and
-// monitor see the final, already-modified state - monitor handlers are expected
-// to only observe, never mutate. Mirrors PocketMine's EventPriority.
+// Priority orders handlers on the Bus. Lowest runs first so highest and monitor
+// see the final state. Monitor handlers are expected to observe only.
 pub enum Priority {
 	lowest
 	low

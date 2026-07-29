@@ -4,11 +4,11 @@ import math
 import rand
 import types
 
-// Behaviour drives an Entity's per-tick logic, mirroring dragonfly's Behaviour
-// interface. identifier() returns the network type id used when the entity is
-// spawned for clients; tick() runs once per server tick before physics is
-// applied, with Host access for querying/affecting the rest of the world. A
-// Behaviour mutates the Entity directly (velocity, kill, etc.).
+// Behaviour drives an Entity's per tick logic. identifier() returns the network
+// type id used when the entity is spawned for clients; tick() runs once per
+// server tick before physics is applied, with Host access for querying and
+// affecting the rest of the world. A Behaviour mutates the Entity directly
+// (velocity, kill, etc.).
 pub interface Behaviour {
 	identifier() string
 	dimensions() Dimensions
@@ -166,10 +166,10 @@ pub mut:
 	dimensions       Dimensions
 	despawn_policy   DespawnPolicy
 mut:
-	wander_cooldown   i64 = wander_interval_ticks
-	scan_cooldown     i64
-	target_runtime_id u64
-	has_target        bool
+	wander_cooldown         i64 = wander_interval_ticks
+	scan_cooldown           i64
+	target_runtime_id       u64
+	has_target              bool
 	path                    []types.Vector3
 	path_index              int
 	path_recompute_cooldown i64

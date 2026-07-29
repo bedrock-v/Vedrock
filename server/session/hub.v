@@ -130,10 +130,9 @@ pub fn (mut h Hub) set_load(v f64) {
 	h.load_bits.store(math.f64_bits(v))
 }
 
-// HubOptions overrides Hub's default subsystems - the framework-level
-// injection point. Every field left unset falls back to Vedrock's own
-// built-in default, mirroring Dragonfly's Config.New() defaulting pattern:
-// new_hub(data) with no options still boots a fully working default server.
+// HubOptions overrides Hub's default subsystems. Every field left unset falls
+// back to Vedrock's builtin default, so new_hub(data) still boots a working
+// default server.
 @[params]
 pub struct HubOptions {
 pub:

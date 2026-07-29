@@ -15,8 +15,8 @@ struct Node {
 	level u8
 }
 
-// queue is a simple FIFO ring buffer of BFS nodes, mirroring dragonfly's
-// lightQueue. A slice-backed ring keeps push/pop O(1) and avoids re-slicing.
+// queue is a simple FIFO ring buffer of BFS nodes. A slice-backed ring keeps
+// push/pop O(1) and avoids re-slicing.
 struct Queue {
 mut:
 	nodes []Node
@@ -296,10 +296,9 @@ pub fn (mut g LightGrid) add_light(src BlockSource, x int, y int, z int) {
 
 // remove_light clears block light originating from an emitter that was removed
 // at the given position and re-propagates any surrounding light back into the
-// hole. This is the classic two-pass BFS removal (dragonfly/PocketMine): first
-// tear down every cell that was lit by the removed source, collecting brighter
-// edge cells, then flood those edges back in. src must already report the block
-// AFTER removal.
+// hole. Removal first tears down every cell lit by the removed source, collects
+// brighter edge cells, then floods those edges back in. src must already report
+// the block AFTER removal.
 pub fn (mut g LightGrid) remove_light(src BlockSource, x int, y int, z int) {
 	if !g.region.contains(x, y, z) {
 		return
