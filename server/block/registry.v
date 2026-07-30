@@ -150,6 +150,7 @@ fn default_blocks() []Block {
 		new_magma_block(),
 		new_purpur_block(),
 		new_end_bricks(),
+		new_portal_block(),
 	]
 	result << wood_blocks()
 	result << redstone_component_blocks()

@@ -71,6 +71,7 @@ pub mut:
 	// conf_file is the path to vedrock.yml so runtime difficulty changes can
 	// persist across restarts.
 	conf_file string
+	portal    PortalManager
 }
 
 pub fn (mut h Hub) tps() f64 {
@@ -103,6 +104,7 @@ pub fn new_hub(data gamedata.GameData) &Hub {
 		scheduler:       scheduler.new_scheduler()
 		entity_registry: registry
 		started_at:      time.now().unix()
+		portal:          new_portal_manager()
 	}
 	hub.entities = entity.new_manager(hub)
 	hub.liquids = liquid.new_manager(hub)

@@ -28,6 +28,7 @@ fn (j TickJob) run(mut h Hub) {
 	h.entities.tick()
 	h.liquids.tick()
 	h.tick_worlds()
+	tick_portal(mut h)
 }
 
 // tick_worlds advances each loaded world by one game tick, processing random

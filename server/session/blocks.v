@@ -927,11 +927,8 @@ fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, cl
 		s.after_block_changed(pos)
 		return true
 	}
-	if b := s.hub.blocks.get(old_id) {
-		if b is block.CraftingTableBlock {
-			s.open_crafting_container(pos)!
-			return true
-		}
+	if old_id == world.obsidian.network_id && s.light_portal(pos) {
+		return true
 	}
 	interactable := s.hub.blocks.get(old_id) or { return false }
 	if interactable is block.Interactable {
@@ -1195,4 +1192,51 @@ fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWr
 		hotbar_slot:      slot
 		window_id:        inventory_window_id
 	})
+}
+
+fn (mut s NetworkSession) light_portal(pos types.BlockPosition) bool {
+	_, held_name := s.held_stack_and_name()
+	if held_name != 'minecraft:flint_and_steel' {
+		return false
+	}
+
+	orientation := find_frame(pos.x, pos.y, pos.z, fn [s](x int, y int, z int) int {
+		return s.block_at(x, y, z)
+	}) or {
+		return false
+	}
+
+	wld := s.current_world()
+	if isnil(wld) {
+		return false
+	}
+
+	portal_id := if orientation.axis_z {
+		world.portal_block_z.network_id
+	} else {
+		world.portal_block_x.network_id
+	}
+
+	for fz := orientation.min_z + 1; fz < orientation.max_z; fz++ {
+		for fy := orientation.min_y + 1; fy < orientation.max_y; fy++ {
+			for fx := orientation.min_x + 1; fx < orientation.max_x; fx++ {
+				s.set_block_runtime(types.BlockPosition{fx, fy, fz}, portal_id)
+				wld.schedule_tick(fx, fy, fz, 1)
+			}
+		}
+	}
+
+	if s.game_mode != protocol.game_type_creative {
+		s.consume_held_item()
+	}
+	s.broadcast_swing()
+
+	if _ := s.hub.world('nether') {
+	} else {
+		s.hub.load_world('nether') or {
+			s.hub.create_world('nether', world.nether, 'nether') or {}
+		}
+	}
+
+	return true
 }

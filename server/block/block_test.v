@@ -215,3 +215,11 @@ fn test_nether_and_end_blocks_registered() {
 	assert purpur is PurpurBlock
 	assert purpur.hardness() == 1.5
 }
+
+fn test_portal_block_is_unbreakable() {
+	r := new_registry()
+	portal := r.get_by_name('minecraft:portal') or { panic('missing portal block') }
+	assert portal is PortalBlock
+	assert portal.hardness() == -1.0
+	assert !portal.breakable()
+}
