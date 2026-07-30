@@ -91,6 +91,12 @@ pub fn (mut b Bus) item_use(mut ctx Context[ItemUseData]) {
 	}
 }
 
+pub fn (mut b Bus) item_consume(mut ctx Context[ItemConsumeData]) {
+	for mut r in b.handlers {
+		r.handler.on_item_consume(mut ctx)
+	}
+}
+
 pub fn (mut b Bus) player_attack(mut ctx Context[AttackData]) {
 	for mut r in b.handlers {
 		r.handler.on_player_attack(mut ctx)
@@ -124,5 +130,41 @@ pub fn (mut b Bus) player_move(mut ctx Context[MoveData]) {
 pub fn (mut b Bus) gamemode_change(mut ctx Context[GameModeChangeData]) {
 	for mut r in b.handlers {
 		r.handler.on_gamemode_change(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) entity_spawn(mut ctx Context[EntitySpawnData]) {
+	for mut r in b.handlers {
+		r.handler.on_entity_spawn(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) entity_despawn(mut ctx Context[EntityDespawnData]) {
+	for mut r in b.handlers {
+		r.handler.on_entity_despawn(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) world_load(mut ctx Context[WorldLoadData]) {
+	for mut r in b.handlers {
+		r.handler.on_world_load(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) world_unload(mut ctx Context[WorldUnloadData]) {
+	for mut r in b.handlers {
+		r.handler.on_world_unload(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) effect_add(mut ctx Context[EffectAddData]) {
+	for mut r in b.handlers {
+		r.handler.on_effect_add(mut ctx)
+	}
+}
+
+pub fn (mut b Bus) effect_remove(mut ctx Context[EffectRemoveData]) {
+	for mut r in b.handlers {
+		r.handler.on_effect_remove(mut ctx)
 	}
 }

@@ -5,6 +5,11 @@ import protocol.types
 import server.item
 
 fn (mut s NetworkSession) handle_book_edit(p protocol.BookEditPacket) ! {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	stack, net := s.inventory_stack_at(p.inventory_slot)
 	if net == 0 {
 		return

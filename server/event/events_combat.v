@@ -10,8 +10,10 @@ pub:
 	victim_runtime_id u64
 	critical          bool
 pub mut:
-	player player.View
-	damage f32
+	player           player.View
+	damage           f32
+	knockback_force  f32
+	knockback_height f32
 }
 
 // HurtData is dispatched when a player takes damage. player is the victim,

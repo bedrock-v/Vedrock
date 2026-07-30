@@ -152,6 +152,11 @@ fn (s &NetworkSession) creative_content() &protocol.CreativeContentPacket {
 }
 
 fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	mut items := []types.ItemStackWrapper{}
 	for i in 0 .. inventory_slot_count {
 		if i < s.loaded_items.len {
@@ -186,6 +191,11 @@ fn (mut s NetworkSession) restore_inventory() &protocol.InventoryContentPacket {
 }
 
 fn (mut s NetworkSession) save_player_data() {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	mut items := []playerdb.InvItem{}
 	for _, stack in s.inv_stacks {
 		count := s.clamp_stack_count(stack.id, stack.count)

@@ -115,8 +115,17 @@ fn slot_change(container types.FullContainerName, slot u8, count u8, net_id int)
 }
 
 fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestPacket) ! {
+	s.handle_stack_requests(p.requests)!
+}
+
+fn (mut s NetworkSession) handle_stack_requests(requests []protocol.ItemStackRequestEntry) ! {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	mut responses := []protocol.ItemStackResponseEntry{}
-	for request in p.requests {
+	for request in requests {
 		mut changes := []SlotChange{}
 		for action in request.actions {
 			match action.action_type {
@@ -128,8 +137,11 @@ fn (mut s NetworkSession) handle_item_stack_request(p protocol.ItemStackRequestP
 				protocol.stack_request_action_swap {
 					changes << s.apply_swap(action)
 				}
-				protocol.stack_request_action_destroy, protocol.stack_request_action_drop {
+				protocol.stack_request_action_destroy {
 					changes << s.apply_remove(action)
+				}
+				protocol.stack_request_action_drop {
+					changes << s.apply_drop(action)
 				}
 				protocol.stack_request_action_consume {
 					changes << s.apply_consume(action)
@@ -285,6 +297,42 @@ fn (mut s NetworkSession) apply_remove(action protocol.StackRequestAction) []Slo
 	]
 }
 
+fn (mut s NetworkSession) apply_drop(action protocol.StackRequestAction) []SlotChange {
+	src := action.source
+	mut item := s.inv_stacks[src.stack_network_id] or { types.ItemStack{} }
+	mut net := src.stack_network_id
+	if item.count == 0 {
+		if flat := flat_slot(src.container, src.slot) {
+			item, net = s.inventory_stack_at(flat)
+		}
+	}
+	if item.count == 0 {
+		return []SlotChange{}
+	}
+	mut take := int(action.count)
+	if take == 0 || take > item.count {
+		take = item.count
+	}
+	if take <= 0 {
+		return []SlotChange{}
+	}
+	remaining := item.count - take
+	s.inv_stacks.delete(net)
+	mut new_net := 0
+	if remaining > 0 {
+		mut st := item
+		st.count = remaining
+		new_net = s.track_stack(st)
+	}
+	s.set_slot_stack(src.container, src.slot, new_net)
+	mut dropped := item
+	dropped.count = take
+	s.throw_item(dropped)
+	return [
+		slot_change(src.container, src.slot, u8(remaining), new_net),
+	]
+}
+
 fn (mut s NetworkSession) apply_consume(action protocol.StackRequestAction) []SlotChange {
 	src := action.source
 	stack := s.inv_stacks[src.stack_network_id] or { return []SlotChange{} }
@@ -292,6 +340,15 @@ fn (mut s NetworkSession) apply_consume(action protocol.StackRequestAction) []Sl
 	result := s.hub.items.consume_result(name, stack.meta) or { return s.apply_remove(action) }
 	for e in result.effects {
 		s.apply_add_effect(e)
+	}
+	if result.sound != '' {
+		s.hub.broadcast(&protocol.LevelSoundEventPacket{
+			sound:           result.sound
+			position:        s.current_position()
+			extra_data:      -1
+			entity_type:     'minecraft:player'
+			actor_unique_id: i64(s.runtime_id)
+		})
 	}
 	return s.replace_consumed_stack(action, stack, result)
 }

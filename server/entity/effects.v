@@ -1,6 +1,7 @@
 module entity
 
 import protocol
+import protocol.types
 import server.effect
 
 const mob_effect_add = 1
@@ -15,6 +16,7 @@ pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
 	if !result.stored {
 		e.apply_effect_tick(mut host, result.effect)
 	}
+	e.update_effect_metadata(mut host)
 	host.broadcast(e.mob_effect_packet(result.effect, mob_effect_add))
 }
 
@@ -26,6 +28,7 @@ pub fn (mut e Entity) remove_effect(mut host Host, typ effect.Type) {
 		event_id:         mob_effect_remove
 		effect_id:        typ.id
 	})
+	e.update_effect_metadata(mut host)
 }
 
 // active_effects lists every effect currently active on e.
@@ -46,6 +49,9 @@ fn (mut e Entity) tick_effects(mut host Host) {
 			event_id:         mob_effect_remove
 			effect_id:        ef.effect_type().id
 		})
+	}
+	if result.expired.len > 0 {
+		e.update_effect_metadata(mut host)
 	}
 }
 
@@ -99,3 +105,37 @@ fn effect_tick_interval(base int, level int, level_minus_one bool) int {
 	interval := base >> shift
 	return if interval > 1 { interval } else { 1 }
 }
+
+// update_effect_metadata recalculates the blended potion particle colour from all
+// active effects on e and broadcasts it as entity metadata so viewers see the
+// correct swirling particles.
+fn (e &Entity) update_effect_metadata(mut host Host) {
+	active := e.effects.effects()
+	colour := effect.blend_colour(active)
+	ambient := effect.any_ambient(active)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
+	host.broadcast(&protocol.SetActorDataPacket{
+		actor_runtime_id:  e.runtime_id
+		metadata:          [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{
+					value: colour
+				}
+			},
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_ambience
+				value: types.MetaByte{
+					value: i8(ambient_byte)
+				}
+			},
+		]
+		synced_properties: types.PropertySyncData{}
+		tick:              0
+	})
+}
+
+// particle colour. Format: array of {name, value} with float RGB in [0,1].

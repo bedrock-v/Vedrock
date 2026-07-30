@@ -11,6 +11,14 @@ A lightweight Minecraft: Bedrock Edition server software written in [V](https://
 > [!NOTE]
 > Vedrock is currently in early development. APIs, project structure and behavior may change frequently.
 
+Feel free to join our Discord community!
+
+<p align="center">
+    <a href="https://discord.gg/cM9BQsAk9D" target="_blank">
+        <img src="https://discord.com/api/guilds/1520807994999439550/widget.png?style=banner2" alt="Discord Banner"/>
+    </a>
+</p>
+
 ## Building from source
 
 ### Prerequisites

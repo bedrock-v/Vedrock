@@ -87,6 +87,10 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 }
 
 fn (mut s NetworkSession) handle_inventory_transaction(p protocol.InventoryTransactionPacket) ! {
+	if p.transaction_type == protocol.inventory_transaction_type_normal {
+		s.handle_normal_transaction(p.actions)
+		return
+	}
 	if p.transaction_type == protocol.inventory_transaction_type_use_item_on_entity {
 		ue := p.use_item_on_entity
 		if ue.action_type == protocol.item_use_on_entity_action_attack {
@@ -288,6 +292,11 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 		|| s.game_mode == protocol.game_type_creative_spectator {
 		return
 	}
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	stack, net := s.inventory_stack_at(s.held_slot)
 	if net == 0 {
 		return
@@ -311,12 +320,61 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 	s.send_slot_update(s.held_slot, s.held_item)
 }
 
-// use_held_item_in_air runs a UseableItem's on use behaviour (e.g. goat_horn's sound).
+// use_held_item_in_air runs a UseableItem or ConsumableItem's behaviour when
+// the player right-clicks in air. For potions the drinking animation plays
+// client-side; the server applies effects as soon as the click arrives.
+// TODO: defer ConsumableItem processing until the client's use-duration
+// (32 ticks for potions) elapses, once the protocol carries use_duration.
 fn (mut s NetworkSession) use_held_item_in_air() {
 	if s.dead || !s.can_interact() {
 		return
 	}
 	stack, name := s.held_stack_and_name()
+
+	// Splash/lingering potions  -  throw as projectile.
+	if name == 'minecraft:splash_potion' || name == 'minecraft:lingering_potion' {
+		mut use_ctx := event.new_context(event.ItemUseData{
+			player:    s
+			item_name: name
+			meta:      stack.meta
+		})
+		s.hub.events.item_use(mut use_ctx)
+		if use_ctx.is_cancelled() {
+			return
+		}
+		s.throw_splash_potion(name, stack.meta)
+		return
+	}
+
+	// ConsumableItem  -  potions, drinkables.
+	if consume := s.hub.items.consume_result(name, stack.meta) {
+		mut use_ctx := event.new_context(event.ItemUseData{
+			player:    s
+			item_name: name
+			meta:      stack.meta
+		})
+		s.hub.events.item_use(mut use_ctx)
+		if use_ctx.is_cancelled() {
+			return
+		}
+		for e in consume.effects {
+			s.apply_add_effect(e)
+		}
+		if consume.sound != '' {
+			s.hub.broadcast(&protocol.LevelSoundEventPacket{
+				sound:           consume.sound
+				position:        s.current_position()
+				extra_data:      -1
+				entity_type:     'minecraft:player'
+				actor_unique_id: i64(s.runtime_id)
+			})
+		}
+		// Replace the held potion with the empty bottle (or nothing in creative).
+		s.replace_held_stack_with(consume.replacement_id, consume.replacement_count)
+		return
+	}
+
+	// UseableItem  -  goat horn etc.
 	if cooldown := s.hub.items.cooldown_ticks(name) {
 		if s.hub.current_tick < s.cooldown_until[name] {
 			return
@@ -343,6 +401,119 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		entity_type:     'minecraft:player'
 		actor_unique_id: i64(s.runtime_id)
 	})
+}
+
+struct PlannedDrop {
+	slot  int
+	stack types.ItemStack
+	net   int
+	take  int
+}
+
+fn stacks_match(a types.ItemStack, b types.ItemStack) bool {
+	return a.id == b.id && a.meta == b.meta && a.block_runtime_id == b.block_runtime_id
+		&& a.raw_extra_data == b.raw_extra_data
+}
+
+fn (mut s NetworkSession) handle_normal_transaction(actions []protocol.InventoryAction) {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
+	mut drops := []types.ItemStack{}
+	mut sources := []protocol.InventoryAction{}
+	for a in actions {
+		match a.source_type {
+			protocol.inventory_action_source_world {
+				if a.inventory_slot != 0 || a.old_item.item_stack.id != 0
+					|| a.new_item.item_stack.count <= 0 {
+					s.reject_normal_transaction(actions)
+					return
+				}
+				drops << a.new_item.item_stack
+			}
+			protocol.inventory_action_source_container {
+				if int(a.window_id) != inventory_window_id {
+					s.reject_normal_transaction(actions)
+					return
+				}
+				sources << a
+			}
+			else {
+				s.reject_normal_transaction(actions)
+				return
+			}
+		}
+	}
+	if drops.len != 1 || sources.len != 1 {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	src := sources[0]
+	flat := int(src.inventory_slot)
+	if flat < 0 || flat >= inventory_slot_count {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	server_stack, net := s.inventory_stack_at(flat)
+	if net == 0 || !stacks_match(server_stack, src.old_item.item_stack)
+		|| server_stack.count != src.old_item.item_stack.count {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	new_stack := src.new_item.item_stack
+	if new_stack.count < 0 || new_stack.count >= server_stack.count {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	if new_stack.count > 0 && !stacks_match(server_stack, new_stack) {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	take := server_stack.count - new_stack.count
+	dropped := drops[0]
+	if dropped.count != take || !stacks_match(server_stack, dropped) {
+		s.reject_normal_transaction(actions)
+		return
+	}
+	s.apply_slot_drop(PlannedDrop{flat, server_stack, net, take})
+}
+
+fn (mut s NetworkSession) apply_slot_drop(pd PlannedDrop) {
+	remaining := pd.stack.count - pd.take
+	s.inv_stacks.delete(pd.net)
+	mut wrapped := empty_stack()
+	if remaining > 0 {
+		mut st := pd.stack
+		st.count = remaining
+		new_net := s.track_stack(st)
+		s.inv_slots[pd.slot] = new_net
+		wrapped = wrap_stack_id(st, new_net)
+	} else {
+		s.inv_slots.delete(pd.slot)
+	}
+	s.send_slot_update(pd.slot, wrapped)
+	if pd.slot == s.held_slot {
+		s.held_item = wrapped
+	}
+	mut dropped := pd.stack
+	dropped.count = pd.take
+	s.throw_item(dropped)
+}
+
+fn (mut s NetworkSession) reject_normal_transaction(actions []protocol.InventoryAction) {
+	for a in actions {
+		if a.source_type != protocol.inventory_action_source_container {
+			continue
+		}
+		flat := int(a.inventory_slot)
+		if flat < 0 || flat >= inventory_slot_count {
+			continue
+		}
+		stack, net := s.inventory_stack_at(flat)
+		s.send_slot_update(flat, wrap_stack_id(stack, net))
+	}
 }
 
 fn (mut s NetworkSession) handle_player_action(p protocol.PlayerActionPacket) ! {
@@ -553,8 +724,22 @@ fn (mut s NetworkSession) place_door(pos types.BlockPosition, parts world.DoorPl
 }
 
 fn (mut s NetworkSession) consume_held_item() {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	stack, net := s.inventory_stack_at(s.held_slot)
 	if net == 0 || stack.count <= 0 {
+		return
+	}
+	item_name := s.hub.data.item_name(stack.id)
+	mut ctx := event.new_context(event.ItemConsumeData{
+		item_name: item_name
+		player:    s
+	})
+	s.hub.events.item_consume(mut ctx)
+	if ctx.is_cancelled() {
 		return
 	}
 	s.inv_stacks.delete(net)
@@ -568,6 +753,43 @@ fn (mut s NetworkSession) consume_held_item() {
 	} else {
 		s.inv_slots.delete(s.held_slot)
 	}
+	s.held_item = wrapped
+	s.send_slot_update(s.held_slot, wrapped)
+}
+
+// replace_held_stack_with swaps the held item stack for replacement_id (count
+// items). Does nothing in creative mode. An empty replacement_id leaves the
+// slot empty  -  used after drinking a potion to give back a glass bottle.
+fn (mut s NetworkSession) replace_held_stack_with(replacement_id string, count int) {
+	if s.game_mode == protocol.game_type_creative || s.game_mode == protocol.game_type_creative_spectator {
+		return
+	}
+	if replacement_id == '' || count <= 0 {
+		// No replacement  -  just remove the held stack.
+		s.consume_held_item()
+		return
+	}
+	// Remove the current held item.
+	_, net := s.inventory_stack_at(s.held_slot)
+	if net != 0 {
+		s.inv_stacks.delete(net)
+		s.inv_slots.delete(s.held_slot)
+	}
+	numeric_id := s.hub.data.item_id(replacement_id)
+	if numeric_id == 0 && replacement_id != 'minecraft:air' {
+		s.held_item = empty_stack()
+		s.send_slot_update(s.held_slot, s.held_item)
+		return
+	}
+	replacement := types.ItemStack{
+		id:               numeric_id
+		count:            count
+		block_runtime_id: 0
+		raw_extra_data:   []u8{}
+	}
+	new_net := s.track_stack(replacement)
+	s.inv_slots[s.held_slot] = new_net
+	wrapped := wrap_stack_id(replacement, new_net)
 	s.held_item = wrapped
 	s.send_slot_update(s.held_slot, wrapped)
 }
@@ -653,6 +875,9 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	s.write_block_runtime(pos, air_id)
 	s.broadcast_block_update(pos, air_id)
 	s.damage_held_item(1)
+	if s.drops_on_break() {
+		s.drop_block_item(pos, old_id)
+	}
 	if pair := s.door_pair_pos(pos, old_id) {
 		pair_id := s.block_at(pair.x, pair.y, pair.z)
 		if s.door_pair_matches(old_id, pair_id) {
@@ -669,15 +894,8 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 fn (mut s NetworkSession) interact_block(pos types.BlockPosition, old_id int, click_face int) !bool {
 	if b := s.hub.blocks.get(old_id) {
 		if b is block.SignBlock {
-			if !isnil(s.log) {
-				s.log.debug('[sign-debug] interact_block: recognized sign at (${pos.x}, ${pos.y}, ${pos.z}), old_id=${old_id}, click_face=${click_face} - reopening editor')
-			}
 			s.maybe_open_sign_editor(pos, old_id)
 			return true
-		}
-	} else {
-		if !isnil(s.log) {
-			s.log.debug('[sign-debug] interact_block: block_at(${pos.x},${pos.y},${pos.z})=${old_id} not found in registry at all')
 		}
 	}
 	if isnil(s.hub.palette) {
@@ -876,6 +1094,11 @@ fn (mut s NetworkSession) broadcast_swing() {
 }
 
 fn (mut s NetworkSession) handle_block_pick_request(p protocol.BlockPickRequestPacket) ! {
+	mut mtx := s.inv_mutex
+	mtx.lock()
+	defer {
+		mtx.unlock()
+	}
 	runtime_id := s.block_at(p.block_position.x, p.block_position.y, p.block_position.z)
 	if runtime_id == world.air.network_id {
 		return

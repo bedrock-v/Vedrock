@@ -1,6 +1,7 @@
 module conf
 
 import os
+import protocol
 
 pub struct Config {
 pub mut:
@@ -11,6 +12,7 @@ pub mut:
 	max_players   int    = 20
 	view_distance int    = 8
 	gamemode      string = 'survival'
+	difficulty    string = 'normal'
 	xbox_auth     bool   = true
 	// encryption negotiates Bedrock protocol encryption. Off by default - the
 	// implementation is spec-complete but not yet verified against a real client,
@@ -29,7 +31,7 @@ pub mut:
 	debug                 bool
 }
 
-const default_file = 'vedrock.yml'
+pub const default_file = 'vedrock.yml'
 
 pub fn load() !Config {
 	return load_from(default_file)
@@ -51,6 +53,7 @@ pub fn load_from(path string) !Config {
 	cfg.max_players = (values['max-players'] or { cfg.max_players.str() }).int()
 	cfg.view_distance = (values['view-distance'] or { cfg.view_distance.str() }).int()
 	cfg.gamemode = values['gamemode'] or { cfg.gamemode }
+	cfg.difficulty = values['difficulty'] or { cfg.difficulty }
 	cfg.xbox_auth = to_bool(values['xbox-auth'] or { cfg.xbox_auth.str() })
 	cfg.encryption = to_bool(values['encryption'] or { cfg.encryption.str() })
 	cfg.compression_threshold = (values['compression-threshold'] or {
@@ -111,6 +114,7 @@ port: ${cfg.port}
 max-players: ${cfg.max_players}
 view-distance: ${cfg.view_distance}
 gamemode: "${cfg.gamemode}"
+difficulty: "${cfg.difficulty}"
 xbox-auth: ${cfg.xbox_auth}
 encryption: ${cfg.encryption}
 compression-threshold: ${cfg.compression_threshold}
@@ -131,4 +135,44 @@ debug: ${cfg.debug}
 
 pub fn (c &Config) bind_address() string {
 	return '${c.address}:${c.port}'
+}
+
+// difficulty_from_string maps a human-readable difficulty name to its protocol
+// constant. Unknown values fall back to normal.
+pub fn difficulty_from_string(s string) int {
+	return match s.to_lower() {
+		'peaceful', 'p', '0' { protocol.difficulty_peaceful }
+		'easy', 'e', '1' { protocol.difficulty_easy }
+		'normal', 'n', '2' { protocol.difficulty_normal }
+		'hard', 'h', '3' { protocol.difficulty_hard }
+		else { protocol.difficulty_normal }
+	}
+}
+
+// difficulty_name returns the canonical name for a protocol difficulty constant.
+pub fn difficulty_name(value int) string {
+	return match value {
+		protocol.difficulty_peaceful { 'peaceful' }
+		protocol.difficulty_easy { 'easy' }
+		protocol.difficulty_normal { 'normal' }
+		protocol.difficulty_hard { 'hard' }
+		else { 'normal' }
+	}
+}
+
+// update_difficulty_in_file rewrites the difficulty line in a vedrock.yml file.
+pub fn update_difficulty_in_file(path string, new_name string) ! {
+	mut lines := os.read_lines(path)!
+	mut found := false
+	for mut line in lines {
+		if line.starts_with('difficulty:') {
+			line = 'difficulty: "${new_name}"'
+			found = true
+			break
+		}
+	}
+	if !found {
+		return error("difficulty key not found in ${path}")
+	}
+	os.write_file(path, lines.join_lines())!
 }

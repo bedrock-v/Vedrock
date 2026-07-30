@@ -154,7 +154,7 @@ fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[event.HurtData
 	ctx.cancel()
 }
 
-fn test_die_sets_dead_even_when_event_cancelled() {
+fn test_die_cancelled_prevents_death_entirely() {
 	mut hub := new_hub(gamedata.GameData{})
 	hub.events.register(&CancelDeathHandler{}, .normal)
 	mut victim := &NetworkSession{
@@ -168,9 +168,10 @@ fn test_die_sets_dead_even_when_event_cancelled() {
 	hub.add(victim)
 
 	victim.die('%death.attack.player', ['Steve', 'Alex'])
-	// Cancelling the DeathData event only suppresses the death-position/message
-	// broadcast. It never un kills the player (see die() in combat.v).
-	assert victim.dead
+	// Cancelling DeathData now prevents death outright, dead/has_last_death
+	// stay false, and the animation broadcast is skipped along with the
+	// message.
+	assert !victim.dead
 	assert !victim.has_last_death
 }
 
@@ -249,7 +250,7 @@ fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 		transport: transport
 		position:  types.Vector3{0.0, 0.0, 0.0}
 	}
-	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0})
+	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert transport.sent.len == 1
 	sent := transport.sent[0]
 	if sent is protocol.SetActorMotionPacket {
@@ -267,7 +268,7 @@ fn test_apply_knockback_pushes_away_from_attacker() {
 		transport: transport
 		position:  types.Vector3{10.0, 0.0, 0.0}
 	}
-	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0})
+	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	sent := transport.sent[0]
 	if sent is protocol.SetActorMotionPacket {
 		assert sent.motion.x == knockback_horizontal

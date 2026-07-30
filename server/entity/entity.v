@@ -19,9 +19,9 @@ const entity_half_width = f32(0.3)
 const entity_height = f32(1.8)
 
 // Entity is a non-player actor living in the world - a mob, item or projectile.
-// It is the Vedrock counterpart to dragonfly's Ent: shared state plus a pluggable
-// Behaviour that drives its per-tick logic. Players stay as NetworkSession; this
-// system covers everything else the client renders as an actor.
+// Shared state plus a pluggable Behaviour that drives its per-tick logic.
+// Players stay as NetworkSession; this system covers everything else the client
+// renders as an actor.
 @[heap]
 pub struct Entity {
 pub:
@@ -37,11 +37,16 @@ pub mut:
 	floor_y    f32
 	on_ground  bool
 	no_gravity bool
+	gravity_accel f32 = gravity
+	drag_factor   f32 = drag
+	hit_block  bool
 	health     f32 = 20.0
 	dead       bool
 	age        i64
 	behaviour  Behaviour
 	effects    effect.Manager
+	item         ?types.ItemStack
+	pickup_delay i64
 }
 
 // position returns the entity's current position.
@@ -121,22 +126,26 @@ pub fn (mut e Entity) teleport(pos types.Vector3) {
 // over ungenerated terrain.
 fn (mut e Entity) apply_physics(mut host Host) {
 	if !e.no_gravity {
-		e.velocity.y -= gravity
+		e.velocity.y -= e.gravity_accel
 	}
-	e.velocity.x *= (1.0 - drag)
-	e.velocity.y *= (1.0 - drag)
-	e.velocity.z *= (1.0 - drag)
+	e.velocity.x *= (1.0 - e.drag_factor)
+	e.velocity.y *= (1.0 - e.drag_factor)
+	e.velocity.z *= (1.0 - e.drag_factor)
+
+	e.hit_block = false
 
 	e.pos.x += e.velocity.x
 	if e.collides(mut host) {
 		e.pos.x -= e.velocity.x
 		e.velocity.x = 0.0
+		e.hit_block = true
 	}
 
 	e.pos.z += e.velocity.z
 	if e.collides(mut host) {
 		e.pos.z -= e.velocity.z
 		e.velocity.z = 0.0
+		e.hit_block = true
 	}
 
 	e.on_ground = false
@@ -151,6 +160,7 @@ fn (mut e Entity) apply_physics(mut host Host) {
 			e.pos.y -= e.velocity.y
 		}
 		e.velocity.y = 0.0
+		e.hit_block = true
 	}
 
 	if e.pos.y <= e.floor_y {
@@ -195,9 +205,44 @@ fn math_floor(v f32) f32 {
 	return if v < i { i - 1.0 } else { i }
 }
 
-// spawn_packet builds the AddActorPacket that makes this entity appear for a
-// viewer. Public so the session layer can send it to players joining late.
-pub fn (e &Entity) spawn_packet() &protocol.AddActorPacket {
+// CustomSpawnBehaviour is an optional interface a Behaviour can implement to
+// provide a custom AddActorPacket instead of the default mob-style one. Area
+// Effect Clouds implement it to send radius metadata instead of effect colour.
+pub interface CustomSpawnBehaviour {
+	spawn_packet(e &Entity) &protocol.AddActorPacket
+}
+
+// spawn_packet builds the packet that makes this entity appear for a viewer.
+// Item entities use AddItemActorPacket; entities whose Behaviour implements
+// CustomSpawnBehaviour delegate to it; everything else uses the default
+// mob-style AddActorPacket with effect colour metadata.
+pub fn (e &Entity) spawn_packet() protocol.Packet {
+	if stack := e.item {
+		return &protocol.AddItemActorPacket{
+			actor_unique_id:  e.unique_id
+			actor_runtime_id: e.runtime_id
+			item:             types.ItemStackWrapper{
+				stack_id:         0
+				stack_id_variant: 0
+				item_stack:       stack
+			}
+			position:        e.pos
+			motion:          e.velocity
+			metadata:        []types.MetadataEntry{}
+			is_from_fishing: false
+		}
+	}
+	mut b := e.behaviour
+	if mut b is CustomSpawnBehaviour {
+		return b.spawn_packet(e)
+	}
+	active := e.effects.effects()
+	colour := effect.blend_colour(active)
+	ambient := effect.any_ambient(active)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
 	return &protocol.AddActorPacket{
 		actor_unique_id:   e.unique_id
 		actor_runtime_id:  e.runtime_id
@@ -209,7 +254,16 @@ pub fn (e &Entity) spawn_packet() &protocol.AddActorPacket {
 		head_yaw:          e.head_yaw
 		body_yaw:          e.yaw
 		attributes:        []types.ActorAttribute{}
-		metadata:          []types.MetadataEntry{}
+		metadata:          [
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_color
+				value: types.MetaInt{value: colour}
+			},
+			types.MetadataEntry{
+				key:   protocol.meta_key_effect_ambience
+				value: types.MetaByte{value: i8(ambient_byte)}
+			},
+		]
 		synced_properties: types.PropertySyncData{}
 		links:             []types.EntityLink{}
 	}

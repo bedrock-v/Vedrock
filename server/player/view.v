@@ -20,6 +20,7 @@ mut:
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool
+	give_item_meta(id string, meta int, count int) int
 	send_form(f form.Form) !
 	show_scoreboard(title string, lines []string)
 	clear_scoreboard()

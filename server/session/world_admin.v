@@ -2,6 +2,7 @@ module session
 
 import protocol.types
 import server.cmd
+import server.event
 import server.world
 import server.world.db
 
@@ -24,13 +25,31 @@ pub fn (mut s NetworkSession) world_create(name string, dimension string, genera
 		return error('unknown dimension "${dimension}"')
 	}
 	s.hub.create_world(name, dim, generator)!
+	mut load_ctx := event.new_context(event.WorldLoadData{
+		name:   name
+		player: s
+	})
+	s.hub.events.world_load(mut load_ctx)
 }
 
 pub fn (mut s NetworkSession) world_load(name string) ! {
 	s.hub.load_world(name)!
+	mut ctx := event.new_context(event.WorldLoadData{
+		name:   name
+		player: s
+	})
+	s.hub.events.world_load(mut ctx)
 }
 
 pub fn (mut s NetworkSession) world_delete(name string) ! {
+	mut ctx := event.new_context(event.WorldUnloadData{
+		name:   name
+		player: s
+	})
+	s.hub.events.world_unload(mut ctx)
+	if ctx.is_cancelled() {
+		return error('world deletion cancelled')
+	}
 	s.hub.delete_world(name)!
 }
 
@@ -55,13 +74,31 @@ pub fn (mut c ConsoleSender) world_create(name string, dimension string, generat
 		return error('unknown dimension "${dimension}"')
 	}
 	c.hub.create_world(name, dim, generator)!
+	mut load_ctx := event.new_context(event.WorldLoadData{
+		name:   name
+		player: c
+	})
+	c.hub.events.world_load(mut load_ctx)
 }
 
 pub fn (mut c ConsoleSender) world_load(name string) ! {
 	c.hub.load_world(name)!
+	mut ctx := event.new_context(event.WorldLoadData{
+		name:   name
+		player: c
+	})
+	c.hub.events.world_load(mut ctx)
 }
 
 pub fn (mut c ConsoleSender) world_delete(name string) ! {
+	mut ctx := event.new_context(event.WorldUnloadData{
+		name:   name
+		player: c
+	})
+	c.hub.events.world_unload(mut ctx)
+	if ctx.is_cancelled() {
+		return error('world deletion cancelled')
+	}
 	c.hub.delete_world(name)!
 }
 

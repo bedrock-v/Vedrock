@@ -2,13 +2,21 @@ module session
 
 import protocol
 import protocol.types
+import server.effect
 
 fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
 }
 
-fn visible_name_metadata(name string) []types.MetadataEntry {
+fn (s &NetworkSession) visible_name_metadata(name string) []types.MetadataEntry {
 	flags := entity_flag_bit(protocol.entity_flag_breathing) | entity_flag_bit(protocol.entity_flag_can_climb) | entity_flag_bit(protocol.entity_flag_has_collision) | entity_flag_bit(protocol.entity_flag_affected_by_gravity) | entity_flag_bit(protocol.entity_flag_show_name) | entity_flag_bit(protocol.entity_flag_always_show_name)
+	active := s.effects.effects()
+	colour := effect.blend_colour(active)
+	ambient := effect.any_ambient(active)
+	mut ambient_byte := u8(0)
+	if ambient {
+		ambient_byte = 1
+	}
 	return [
 		types.MetadataEntry{
 			key:   protocol.meta_key_flags
@@ -31,13 +39,13 @@ fn visible_name_metadata(name string) []types.MetadataEntry {
 		types.MetadataEntry{
 			key:   protocol.meta_key_effect_color
 			value: types.MetaInt{
-				value: 0
+				value: colour
 			}
 		},
 		types.MetadataEntry{
 			key:   protocol.meta_key_effect_ambience
 			value: types.MetaByte{
-				value: 0
+				value: i8(ambient_byte)
 			}
 		},
 		types.MetadataEntry{
@@ -64,7 +72,7 @@ fn visible_name_metadata(name string) []types.MetadataEntry {
 fn (s &NetworkSession) set_actor_data() &protocol.SetActorDataPacket {
 	return &protocol.SetActorDataPacket{
 		actor_runtime_id:  s.runtime_id
-		metadata:          visible_name_metadata(s.identity.display_name)
+		metadata:          s.visible_name_metadata(s.identity.display_name)
 		synced_properties: types.PropertySyncData{}
 		tick:              0
 	}

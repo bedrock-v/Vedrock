@@ -79,6 +79,10 @@ pub fn (mut c ConsoleSender) give_item(id string, count int) bool {
 	return false
 }
 
+pub fn (mut c ConsoleSender) give_item_meta(id string, meta int, count int) int {
+	return 0
+}
+
 pub fn (mut c ConsoleSender) send_form(f form.Form) ! {
 	return error('the console cannot display forms')
 }

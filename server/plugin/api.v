@@ -57,6 +57,9 @@ mut:
 	custom_item_names() []string
 	custom_block_names() []string
 	custom_entity_names() []string
+	// nearest_player_name returns the display name of the closest connected
+	// player within radius of (x, y, z) or none if nobody is that close.
+	nearest_player_name(x f32, y f32, z f32, radius f32) ?string
 }
 
 // Api is the single handle handed to a plugin on enable. Everything a plugin can
@@ -123,4 +126,10 @@ pub fn (mut a Api) register_enchantment(e enchant.Enchantment) bool {
 // next_enchantment_id returns the next free custom enchantment id.
 pub fn (mut a Api) next_enchantment_id() int {
 	return a.server.next_enchantment_id()
+}
+
+// nearest_player_name returns the display name of the closest connected
+// player within radius of (x, y, z) or none if nobody is that close.
+pub fn (mut a Api) nearest_player_name(x f32, y f32, z f32, radius f32) ?string {
+	return a.server.nearest_player_name(x, y, z, radius)
 }

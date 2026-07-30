@@ -17,6 +17,7 @@ pub fn register_all(mut r cmd.Registry) {
 	r.register(GiveCommand{})
 	r.register(DifficultyCommand{})
 	r.register(SayCommand{})
+        r.register(MsgCommand{})
 	r.register(TitleCommand{})
 	r.register(WorldCommand{})
 	r.register(WaterCommand{})

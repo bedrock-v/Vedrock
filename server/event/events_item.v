@@ -17,3 +17,12 @@ pub:
 pub mut:
 	player player.View
 }
+
+// ItemConsumeData is dispatched right before a held item is consumed (e.g.
+// eating food, drinking a potion). Cancelling it keeps the item.
+pub struct ItemConsumeData {
+pub:
+	item_name string
+pub mut:
+	player player.View
+}

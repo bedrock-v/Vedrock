@@ -36,8 +36,29 @@ mut:
 	// entity), attributed to source_name/source_runtime_id, with
 	// knockback_from as the origin used to compute knockback direction.
 	damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
+	// add_effect_to adds ef to the actor at runtime_id (player or entity).
+	add_effect_to(runtime_id u64, ef effect.Effect)
+	// nearest_player returns the runtime id of the closest connected player
+	// within radius of pos or none if nobody is that close. Used for
+	// proactive mob targeting (HostileBehaviour scanning for a target it
+	// hasn't been hit by yet).
+	nearest_player(pos types.Vector3, radius f32) ?u64
+	// entities_near returns the runtime ids of every actor (player and
+	// non-player entity) whose position is within radius blocks of pos.
+	// Used by splash potions to apply area-of-effect.
+	entities_near(pos types.Vector3, radius f32) []u64
+	// notify_entity_despawn lets the entity package announce a despawn.
+	notify_entity_despawn(identifier string, x f32, y f32, z f32)
+	pickup_item(item_runtime_id u64, stack types.ItemStack, pos types.Vector3) int
+	// is_undead reports whether the actor at runtime_id is an undead mob
+	// (zombie, skeleton, wither, etc.). Used by splash potions to invert
+	// instant health/damage effects  -  Healing harms undead, Harming heals.
+	// Players and non-undead entities return false.
+	is_undead(runtime_id u64) bool
+	// spawn_behaviour creates a new entity driven by b at pos, registers
+	// it and broadcasts its appearance. Returns the spawned Entity.
+	spawn_behaviour(b Behaviour, pos types.Vector3) &Entity
 }
-
 // Manager owns every live non-player Entity. spawn/despawn are safe from any
 // thread (mutex-guarded); tick() runs once per server tick on the Hub actor
 // thread, the same place player state is mutated.
@@ -75,6 +96,45 @@ pub fn (mut m Manager) spawn(behaviour Behaviour, pos types.Vector3) &Entity {
 	return e
 }
 
+pub fn (mut m Manager) spawn_item(stack types.ItemStack, pos types.Vector3, velocity types.Vector3, pickup_delay i64) &Entity {
+	rid := m.host.allocate_runtime_id()
+	mut e := &Entity{
+		unique_id:    i64(rid)
+		runtime_id:   rid
+		identifier:   'minecraft:item'
+		pos:          pos
+		velocity:     velocity
+		floor_y:      pos.y - 320.0
+		behaviour:    &ItemBehaviour{}
+		effects:      effect.new_manager()
+		item:         stack
+		pickup_delay: pickup_delay
+	}
+	m.mutex.lock()
+	m.entities[rid] = e
+	m.mutex.unlock()
+	m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.spawn_packet())
+	return e
+}
+
+// spawn_behaviour is the Host-facing spawn: it delegates to Manager.spawn
+// so behaviours can create new entities without importing session.
+pub fn (mut m Manager) spawn_behaviour(b Behaviour, pos types.Vector3) &Entity {
+	return m.spawn(b, pos)
+}
+
+// add_effect applies ef to the entity at runtime_id.
+pub fn (mut m Manager) add_effect(runtime_id u64, ef effect.Effect) {
+	m.mutex.lock()
+	mut e := m.entities[runtime_id] or {
+		m.mutex.unlock()
+		return
+	}
+	m.mutex.unlock()
+	mut host := m.host
+	e.add_effect(mut host, ef)
+}
+
 // despawn removes the entity with runtime_id and tells viewers to drop it.
 pub fn (mut m Manager) despawn(runtime_id u64) {
 	m.mutex.lock()
@@ -85,6 +145,7 @@ pub fn (mut m Manager) despawn(runtime_id u64) {
 	m.entities.delete(runtime_id)
 	m.mutex.unlock()
 	m.host.broadcast(e.despawn_packet())
+	m.host.notify_entity_despawn(e.identifier, e.pos.x, e.pos.y, e.pos.z)
 }
 
 // by_runtime_id returns the live entity with runtime_id.
