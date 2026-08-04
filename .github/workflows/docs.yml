@@ -1,0 +1,23 @@
+name: Update documentation
+
+on:
+  push:
+    branches:
+      - stable
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger documentation deployment
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+        run: |
+          gh workflow run docs.yml \
+            --repo bedrock-v/vedrock-docs \
+            --ref stable
