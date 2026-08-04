@@ -18,6 +18,8 @@ import server.resource
 import server.permission
 import server.plugin
 import server.plugin.sample
+import server.metrics
+import server.internal.buildinfo
 import server.crash
 import sync.stdatomic
 
@@ -63,6 +65,7 @@ mut:
 	hub      &session.Hub     = unsafe { nil }
 	guid     i64
 	plugins  &plugin.Manager            = unsafe { nil }
+	metrics  &metrics.Metrics           = unsafe { nil }
 	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
@@ -112,8 +115,8 @@ pub fn new(cfg conf.Config) &Server {
 		log.warn('Failed to load language "${cfg.language}", falling back to en: ${err}')
 		language.load('en') or {
 			log.error('Failed to load fallback language: ${err}')
-			if path := crash.write_dump(crashdumps_dir, time.now().unix(),
-				'fatal: language load failed', err.msg())
+			if path := crash.write_dump(crashdumps_dir, time.now().unix(), 'fatal: language load failed',
+				err.msg())
 			{
 				log.error('Wrote crash report to ${path}')
 			}
@@ -166,9 +169,64 @@ pub fn new(cfg conf.Config) &Server {
 		cfg:        cfg
 		hub:        hub
 		plugins:    plugins
+		metrics:    new_metrics(mut hub, cfg, log)
 		guid:       rand.i64()
 		created_at: boot_start
 	}
+}
+
+// new_metrics builds the bStats reporter and registers the charts the server
+// software submits. Collection runs on the metrics thread, so every chart must
+// only touch state that is safe to read from any thread.
+fn new_metrics(mut hub session.Hub, cfg conf.Config, log &logger.Logger) &metrics.Metrics {
+	mut reporter := metrics.new(buildinfo.name, metrics.Config{
+		enabled:             cfg.bstats
+		server_uuid:         cfg.bstats_uuid
+		log_failed_requests: cfg.bstats_log_failed
+	}, log)
+	reporter.add_chart(&metrics.SingleLineChart{
+		chart_id: 'players'
+		value:    fn [mut hub] () int {
+			return hub.count()
+		}
+	})
+	reporter.add_chart(&metrics.SimplePie{
+		chart_id: 'minecraft_version'
+		value:    fn () string {
+			return protocol.minecraft_version_network
+		}
+	})
+	reporter.add_chart(&metrics.SimplePie{
+		chart_id: 'vedrock_version'
+		value:    fn () string {
+			return buildinfo.version
+		}
+	})
+	reporter.add_chart(&metrics.SimplePie{
+		chart_id: 'xbox_auth'
+		value:    fn [cfg] () string {
+			return if cfg.xbox_auth { 'Required' } else { 'Not required' }
+		}
+	})
+	reporter.add_chart(&metrics.SimplePie{
+		chart_id: 'encryption'
+		value:    fn [cfg] () string {
+			return if cfg.encryption { 'Enabled' } else { 'Disabled' }
+		}
+	})
+	reporter.add_chart(&metrics.SimplePie{
+		chart_id: 'generator'
+		value:    fn [cfg] () string {
+			return cfg.generator
+		}
+	})
+	reporter.add_chart(&metrics.SimplePie{
+		chart_id: 'language'
+		value:    fn [cfg] () string {
+			return cfg.language
+		}
+	})
+	return reporter
 }
 
 // register_plugins is the single place built-in plugins are wired in. Add a
@@ -190,6 +248,10 @@ pub fn (mut s Server) start() ! {
 	s.log.info('Listening on ${s.cfg.bind_address()}')
 	elapsed := (time.now() - s.created_at).seconds()
 	s.log.info('Started successfully! Type /help for available commands. (${elapsed:.6f}s)')
+	if s.metrics.enabled() {
+		s.metrics.start()
+		s.log.info('bStats metrics enabled - set bstats: false in ${conf.default_file} to opt out')
+	}
 	spawn s.tick_loop()
 	spawn s.console_loop()
 	s.accept_loop()
@@ -358,6 +420,9 @@ pub fn (mut s Server) stop() {
 	}
 	s.log.info('Stopping server')
 	s.running.store(false)
+	if s.metrics != unsafe { nil } {
+		s.metrics.stop()
+	}
 	if s.plugins != unsafe { nil } {
 		s.plugins.disable_all()
 	}

@@ -1,6 +1,7 @@
 module conf
 
 import os
+import rand
 import protocol
 
 pub struct Config {
@@ -28,7 +29,12 @@ pub mut:
 	cdn_packs             string
 	default_world         string = 'world'
 	load_all_worlds       bool
-	debug                 bool
+	// bstats submits anonymous usage statistics to bStats.org. bstats_uuid
+	// identifies this install across restarts and is generated on first start.
+	bstats            bool = true
+	bstats_uuid       string
+	bstats_log_failed bool
+	debug             bool
 }
 
 pub const default_file = 'vedrock.yml'
@@ -39,7 +45,8 @@ pub fn load() !Config {
 
 pub fn load_from(path string) !Config {
 	if !os.exists(path) {
-		cfg := if should_run_wizard() { run_wizard() } else { Config{} }
+		mut cfg := if should_run_wizard() { run_wizard() } else { Config{} }
+		cfg.bstats_uuid = rand.uuid_v4()
 		write_default(path, cfg)!
 		return cfg
 	}
@@ -78,8 +85,35 @@ pub fn load_from(path string) !Config {
 	cfg.cdn_packs = values['cdn-packs'] or { cfg.cdn_packs }
 	cfg.default_world = values['default-world'] or { cfg.default_world }
 	cfg.load_all_worlds = to_bool(values['load-all-worlds'] or { cfg.load_all_worlds.str() })
+	cfg.bstats = to_bool(values['bstats'] or { cfg.bstats.str() })
+	cfg.bstats_uuid = values['bstats-uuid'] or { cfg.bstats_uuid }
+	cfg.bstats_log_failed = to_bool(values['bstats-log-failed'] or { cfg.bstats_log_failed.str() })
 	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
+	// Configs written before bStats existed - or hand edited - have no id yet.
+	if cfg.bstats_uuid == '' {
+		cfg.bstats_uuid = rand.uuid_v4()
+		persist_bstats_uuid(path, cfg.bstats_uuid) or {}
+	}
 	return cfg
+}
+
+// persist_bstats_uuid stores a freshly generated id so the same install keeps
+// reporting under one identity across restarts.
+fn persist_bstats_uuid(path string, uuid string) ! {
+	mut lines := os.read_lines(path)!
+	line := 'bstats-uuid: "${uuid}"'
+	mut found := false
+	for mut existing in lines {
+		if existing.trim_space().starts_with('bstats-uuid:') {
+			existing = line
+			found = true
+			break
+		}
+	}
+	if !found {
+		lines << line
+	}
+	os.write_file(path, lines.join_lines())!
 }
 
 fn parse_flat_yaml(content string) map[string]string {
@@ -128,6 +162,10 @@ allow-client-packs: ${cfg.allow_client_packs}
 cdn-packs: "${cfg.cdn_packs}"
 default-world: "${cfg.default_world}"
 load-all-worlds: ${cfg.load_all_worlds}
+# bStats collects anonymous statistics about servers running Vedrock - https://bStats.org/
+bstats: ${cfg.bstats}
+bstats-uuid: "${cfg.bstats_uuid}"
+bstats-log-failed: ${cfg.bstats_log_failed}
 debug: ${cfg.debug}
 '
 	os.write_file(path, content)!
@@ -172,7 +210,7 @@ pub fn update_difficulty_in_file(path string, new_name string) ! {
 		}
 	}
 	if !found {
-		return error("difficulty key not found in ${path}")
+		return error('difficulty key not found in ${path}')
 	}
 	os.write_file(path, lines.join_lines())!
 }

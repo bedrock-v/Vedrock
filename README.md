@@ -84,6 +84,12 @@ docker compose up -d
 
 The compose setup mounts `worlds/`, `players/` and `vedrock.yml` from the repository root so world data and configuration persist across container restarts.
 
+## Metrics
+
+Vedrock reports anonymous usage statistics to [bStats](https://bStats.org/) - online player
+count, server and Minecraft version, and a few configuration values. No player data is sent.
+Set `bstats: false` in `vedrock.yml` to opt out.
+
 ## Contributing
 
 Contributions are welcome.
