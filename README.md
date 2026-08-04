@@ -21,20 +21,38 @@ Feel free to join our Discord community!
 
 ## Getting Started
 
-To get started with Vedrock, clone the repository and follow the installation instructions.
+Clone Vedrock and install its dependencies:
 
 ```bash
 git clone https://github.com/bedrock-v/Vedrock.git
 cd Vedrock
 
-v install # for i18n
-# VPM doesn't support organizations for now
+v install
+
+# VPM does not currently support organization packages.
 v install --git https://github.com/bedrock-v/protocol.git
 v install --git https://github.com/bedrock-v/nbt.git
 v install --git https://github.com/bedrock-v/raknet.git
-
-v run main.v # run the server (example)
 ```
+
+You can develop a server directly inside the cloned repository or place one or more projects beneath it:
+
+```text
+Vedrock/
+├── server/
+└── examplemc/
+```
+
+V resolves Vedrock modules from the parent directory in this layout.
+
+To use Vedrock from projects located elsewhere, clone it into your V modules path:
+
+```bash
+git clone https://github.com/bedrock-v/Vedrock.git \
+  "$VMODULES_PATH/bedrockv/vedrock"
+```
+
+Vedrock modules can then be imported normally from any V project. (via bedrockv.vedrock.*)
 
 ## Development
 
