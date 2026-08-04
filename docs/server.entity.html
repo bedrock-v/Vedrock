@@ -1,0 +1,1353 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="x-ua-compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>server.entity | vdoc</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+		<link rel="manifest" href="site.webmanifest" />
+		<link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5" />
+		<meta name="msapplication-TileColor" content="#da532c" />
+		<meta name="theme-color" content="#ffffff" />
+		<link rel="stylesheet" href="doc.css" />
+		<link rel="stylesheet" href="normalize.css" />
+		<script src="dark-mode.js"></script>
+	</head>
+
+	<body>
+		<div><a id="skip-to-content-link" href="#main-content">Skip to content</a></div>
+		<div id="page">
+			<header class="doc-nav hidden">
+				<div class="heading-container">
+					<div class="heading">
+						<div class="info">
+							<div class="module">vedrocknew</div>
+							<div class="toggle-version-container">
+								<span>0.1.0-dev4 5fc71b2</span>
+								<div
+									id="dark-mode-toggle"
+									role="switch"
+									aria-checked="false"
+									aria-label="Toggle dark mode"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="light-icon" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="dark-icon" enable-background="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24"><g><rect fill="none" height="24" width="24"/></g><g><g><g><path d="M11.1,12.08C8.77,7.57,10.6,3.6,11.63,2.01C6.27,2.2,1.98,6.59,1.98,12c0,0.14,0.02,0.28,0.02,0.42 C2.62,12.15,3.29,12,4,12c1.66,0,3.18,0.83,4.1,2.15C9.77,14.63,11,16.17,11,18c0,1.52-0.87,2.83-2.12,3.51 c0.98,0.32,2.03,0.5,3.11,0.5c3.5,0,6.58-1.8,8.37-4.52C18,17.72,13.38,16.52,11.1,12.08z"/></g><path d="M7,16l-0.18,0C6.4,14.84,5.3,14,4,14c-1.66,0-3,1.34-3,3s1.34,3,3,3c0.62,0,2.49,0,3,0c1.1,0,2-0.9,2-2 C9,16.9,8.1,16,7,16z"/></g></g></svg>
+
+								</div>
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" id="toggle-menu" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+
+						</div>
+						<div id="search">
+							<input type="text" placeholder="Search... (beta)" autocomplete="off" />
+						</div>
+					</div>
+				</div>
+				<nav class="search hidden"></nav>
+				<nav class="content hidden">
+					<ul>
+						<li class="open">
+<div class="menu-row"><a href="./main.html">main</a></div>
+</li>
+<li class="open">
+<div class="menu-row"><svg xmlns="http://www.w3.org/2000/svg" class="dropdown-arrow" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M7 10l5 5 5-5z"/></svg><a href="./server.html">server</a></div>
+<ul>
+<li><a href="./server.arena.html">arena</a></li>
+<li><a href="./server.block.html">block</a></li>
+<li><a href="./server.cmd.html">cmd</a></li>
+<li><a href="./server.cmd.default.html">cmd.default</a></li>
+<li><a href="./server.conf.html">conf</a></li>
+<li><a href="./server.crash.html">crash</a></li>
+<li><a href="./server.effect.html">effect</a></li>
+<li><a href="./server.enchant.html">enchant</a></li>
+<li class="active"><a href="./server.entity.html">entity</a></li>
+<li><a href="./server.event.html">event</a></li>
+<li><a href="./server.form.html">form</a></li>
+<li><a href="./server.internal.auth.html">internal.auth</a></li>
+<li><a href="./server.internal.buildinfo.html">internal.buildinfo</a></li>
+<li><a href="./server.internal.encryption.html">internal.encryption</a></li>
+<li><a href="./server.internal.gamedata.html">internal.gamedata</a></li>
+<li><a href="./server.internal.language.html">internal.language</a></li>
+<li><a href="./server.internal.logger.html">internal.logger</a></li>
+<li><a href="./server.internal.network.html">internal.network</a></li>
+<li><a href="./server.item.html">item</a></li>
+<li><a href="./server.liquid.html">liquid</a></li>
+<li><a href="./server.permission.html">permission</a></li>
+<li><a href="./server.player.html">player</a></li>
+<li><a href="./server.player.playerdb.html">player.playerdb</a></li>
+<li><a href="./server.resource.html">resource</a></li>
+<li><a href="./server.scheduler.html">scheduler</a></li>
+<li><a href="./server.session.html">session</a></li>
+<li><a href="./server.world.html">world</a></li>
+<li><a href="./server.world.db.html">world.db</a></li>
+<li><a href="./server.world.light.html">world.light</a></li>
+<li><a href="./server.world.upgrader.html">world.upgrader</a></li>
+</ul>
+</li>
+<li class="open">
+<div class="menu-row"><a href="./types.html">types</a></div>
+</li>
+
+					</ul>
+				</nav>
+			</header>
+			<div class="doc-scrollview" tabindex="-1" id="main-content">
+				<div class="doc-container">
+					<div class="doc-content">
+								<section id="server.entity" class="doc-node">
+			<div class="title"><h1> server.entity</h1></div>
+
+
+</section>
+
+		<section id="Constants" class="doc-node const">
+			<div class="title"><h2>Constants <a href="#Constants">#</a></h2></div>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> custom_entity_runtime_id_start <span class="token operator">=</span> <span class="token number">10000</span></code></pre>
+<p>Runtime ids for custom entity types start above the vanilla list so they never collide with it.</p>
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> natural_mob_despawn_policy <span class="token operator">=</span> <span class="token symbol">DespawnPolicy</span><span class="token punctuation">{</span>
+	distance<span class="token punctuation">:</span>        <span class="token boolean">true</span>
+	random_chance<span class="token punctuation">:</span>   <span class="token boolean">true</span>
+	inactivity<span class="token punctuation">:</span>      <span class="token boolean">true</span>
+	simulation_edge<span class="token punctuation">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> item_pickup_delay_ticks <span class="token operator">=</span> <span class="token builtin">i64</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> item_drop_pickup_delay_ticks <span class="token operator">=</span> <span class="token builtin">i64</span><span class="token punctuation">(</span><span class="token number">40</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> item_existence_duration_ticks <span class="token operator">=</span> <span class="token builtin">i64</span><span class="token punctuation">(</span><span class="token number">6000</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> path_max_search_radius <span class="token operator">=</span> <span class="token builtin">f32</span><span class="token punctuation">(</span><span class="token number">32.0</span><span class="token punctuation">)</span></code></pre>
+<p>Pathfinding is intentionally bounded to keep per tick work predictable. path_max_search_radius limits how far a search may reach while path_max_nodes_expanded limits how much of that area it may explore.</p>
+<p>Searches that exhaust either limit return no path. Callers then fall back to direct movement instead of leaving the entity stuck.</p>
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> path_max_nodes_expanded <span class="token operator">=</span> <span class="token number">400</span></code></pre>
+
+
+</section>
+
+		<section id="" class="doc-node const">
+<pre class="signature">
+<code><span class="token keyword">const</span> path_max_safe_drop <span class="token operator">=</span> <span class="token number">3</span></code></pre>
+
+
+</section>
+
+		<section id="find_path" class="doc-node">
+			<div class="title"><h2>fn find_path <a href="#find_path">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">find_path</span><span class="token punctuation">(</span><span class="token keyword">mut</span> host Host<span class="token punctuation">,</span> start types<span class="token punctuation">.</span>Vector3<span class="token punctuation">,</span> target types<span class="token punctuation">.</span>Vector3<span class="token punctuation">,</span> dims Dimensions<span class="token punctuation">)</span> <span class="token operator">?</span><span class="token punctuation">[</span><span class="token punctuation">]</span>types<span class="token punctuation">.</span>Vector3</code></pre>
+<p>find_path searches for a bounded route from start to the target column. It returns block centered waypoints excluding the starting cell, or none when the start is not walkable, no route exists or a search limit is hit.</p>
+<p>Entity height determines required headroom. Width is intentionally ignored, so wide entities may clip corners.</p>
+
+</section>
+
+		<section id="load_entities" class="doc-node">
+			<div class="title"><h2>fn load_entities <a href="#load_entities">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">load_entities</span><span class="token punctuation">(</span>dir <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>SaveData</code></pre>
+<p>load_entities returns the entities saved in dir. Missing, unreadable or invalid save files are treated as an empty entity list.</p>
+
+</section>
+
+		<section id="new_custom_registry" class="doc-node">
+			<div class="title"><h2>fn new_custom_registry <a href="#new_custom_registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_custom_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> CustomRegistry</code></pre>
+
+
+</section>
+
+		<section id="new_item_behaviour" class="doc-node">
+			<div class="title"><h2>fn new_item_behaviour <a href="#new_item_behaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_item_behaviour</span><span class="token punctuation">(</span>stack types<span class="token punctuation">.</span>ItemStack<span class="token punctuation">,</span> max_stack_size <span class="token builtin">int</span><span class="token punctuation">,</span> pickup_delay_ticks <span class="token builtin">i64</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>ItemBehaviour</code></pre>
+
+
+</section>
+
+		<section id="new_manager" class="doc-node">
+			<div class="title"><h2>fn new_manager <a href="#new_manager">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_manager</span><span class="token punctuation">(</span>host Host<span class="token punctuation">)</span> <span class="token operator">&amp;</span>Manager</code></pre>
+
+
+</section>
+
+		<section id="new_registry" class="doc-node">
+			<div class="title"><h2>fn new_registry <a href="#new_registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">new_registry</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Registry</code></pre>
+
+
+</section>
+
+		<section id="rand_int_range" class="doc-node">
+			<div class="title"><h2>fn rand_int_range <a href="#rand_int_range">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">rand_int_range</span><span class="token punctuation">(</span>min <span class="token builtin">int</span><span class="token punctuation">,</span> max <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>rand_int_range returns a random value between min and max, inclusive. If max is not greater than min, it returns min.</p>
+
+</section>
+
+		<section id="register_defaults" class="doc-node">
+			<div class="title"><h2>fn register_defaults <a href="#register_defaults">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">register_defaults</span><span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span></code></pre>
+<p>register_defaults registers the entity types Vedrock ships with.</p>
+<p>Dimensions approximate each entity type's Bedrock hitbox closely enough for collision and hit testing, but are not treated as exact vanilla data. eye_height is currently unused for non-player entities and is included for future features that need an eye level position.</p>
+<p>Wild mobs use natural_mob_despawn_policy. Persistent, named, tamed or boss entities can disable natural despawning with DespawnPolicy{}.</p>
+
+</section>
+
+		<section id="save_entities" class="doc-node">
+			<div class="title"><h2>fn save_entities <a href="#save_entities">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token function">save_entities</span><span class="token punctuation">(</span>dir <span class="token builtin">string</span><span class="token punctuation">,</span> entities <span class="token punctuation">[</span><span class="token punctuation">]</span>SaveData<span class="token punctuation">)</span> <span class="token operator">!</span></code></pre>
+<p>save_entities atomically writes the entity list to dir, preserving the previous save if writing or renaming the temporary file fails.</p>
+
+</section>
+
+		<section id="Actor" class="doc-node">
+			<div class="title"><h2>interface Actor <a href="#Actor">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Actor</span> <span class="token punctuation">{</span>
+	<span class="token function">runtime_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u64</span>
+	<span class="token function">current_position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>Vector3
+	<span class="token comment">// feet_position returns the bottom of the actor&#39;s collision box.</span>
+	<span class="token comment">// Use it for collision and hit testing because current_position may refer</span>
+	<span class="token comment">// to eye level for players but already represents feet for entities.</span>
+	<span class="token function">feet_position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>Vector3
+	<span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions
+	<span class="token function">is_dead</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Actor is the shared identity of players and non-player entities rendered in a world. It allows world scoped queries to use one registry while each concrete type keeps its own movement and tick behavior.</p>
+<p>When narrowing an Actor to a concrete type, use the bare type name.</p>
+
+</section>
+
+		<section id="Behaviour" class="doc-node">
+			<div class="title"><h2>interface Behaviour <a href="#Behaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Behaviour</span> <span class="token punctuation">{</span>
+	<span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+	<span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions
+	<span class="token comment">// despawn_policy defines which distance based despawn rules apply to this</span>
+	<span class="token comment">// entity. The zero value disables them all and is valid for persistent</span>
+	<span class="token comment">// entities or those that manage their own lifetime.</span>
+	<span class="token function">despawn_policy</span><span class="token punctuation">(</span><span class="token punctuation">)</span> DespawnPolicy
+	<span class="token function">takes_fall_damage</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Behaviour drives an Entity's per tick logic. identifier() returns the network type id used when the entity is spawned for clients; tick() runs once per server tick before physics is applied, with Host access for querying and affecting the rest of the world. A Behaviour mutates the Entity directly (velocity, kill, etc.).</p>
+
+</section>
+
+		<section id="DeathBehaviour" class="doc-node">
+			<div class="title"><h2>interface DeathBehaviour <a href="#DeathBehaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">DeathBehaviour</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">on_death</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>DeathBehaviour is an opt-in capability notified once, right before an Entity that died from Entity.hurt is despawned , as opposed to Behaviour.tick calling kill() directly for other reasons (a projectile expiring, a wandering mob walking into the void). host is passed through so a mob can drop loot without the entity package needing to know numeric item ids itself (see Host.spawn_dropped_item).</p>
+
+</section>
+
+		<section id="Host" class="doc-node">
+			<div class="title"><h2>interface Host <a href="#Host">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Host</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">broadcast</span><span class="token punctuation">(</span>p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span>
+	<span class="token function">broadcast_near</span><span class="token punctuation">(</span>x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">,</span> radius <span class="token builtin">f32</span><span class="token punctuation">,</span> p protocol<span class="token punctuation">.</span>Packet<span class="token punctuation">)</span>
+	<span class="token function">allocate_runtime_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u64</span>
+	<span class="token function">get_block</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token builtin">int</span>
+	<span class="token function">collision_boxes</span><span class="token punctuation">(</span>x <span class="token builtin">int</span><span class="token punctuation">,</span> y <span class="token builtin">int</span><span class="token punctuation">,</span> z <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>world<span class="token punctuation">.</span>AABB
+	<span class="token comment">// entity_position returns the current position of any live actor (player</span>
+	<span class="token comment">// or non player entity) the Host knows about or none if runtime_id no</span>
+	<span class="token comment">// longer exists. Lets a Behaviour target something outside the entity</span>
+	<span class="token comment">// Manager&#39;s own bookkeeping without the entity package</span>
+	<span class="token comment">// importing session.</span>
+	<span class="token function">entity_position</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span> <span class="token operator">?</span>types<span class="token punctuation">.</span>Vector3
+	<span class="token comment">// entity_hit_test returns the runtime id of the first live actor other</span>
+	<span class="token comment">// than any id in exclude_runtime_ids whose box contains pos or none.</span>
+	<span class="token comment">// Used for projectile vs entity/player collision.</span>
+	<span class="token function">entity_hit_test</span><span class="token punctuation">(</span>pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">,</span> exclude_runtime_ids <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">u64</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token builtin">u64</span>
+	<span class="token comment">// damage_entity applies damage to the actor at runtime_id (player or</span>
+	<span class="token comment">// entity), attributed to source_name/source_runtime_id, with</span>
+	<span class="token comment">// knockback_from as the origin used to compute knockback direction.</span>
+	<span class="token function">damage_entity</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">,</span> source_name <span class="token builtin">string</span><span class="token punctuation">,</span> source_runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> knockback_from types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span>
+	<span class="token comment">// mob_attack applies a hostile mob&#39;s own melee attack to the actor at</span>
+	<span class="token comment">// runtime_id, attributed to source_name/source_runtime_id the same way</span>
+	<span class="token comment">// as damage_entity.</span>
+	<span class="token function">mob_attack</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">,</span> source_name <span class="token builtin">string</span><span class="token punctuation">,</span> source_runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> knockback_from types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span>
+	<span class="token comment">// nearest_player returns the runtime id of the closest connected player</span>
+	<span class="token comment">// within radius of pos or none if nobody is that close. Used for</span>
+	<span class="token comment">// proactive mob targeting (HostileBehaviour scanning for a target it</span>
+	<span class="token comment">// hasn&#39;t been hit by yet).</span>
+	<span class="token function">nearest_player</span><span class="token punctuation">(</span>pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">,</span> radius <span class="token builtin">f32</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token builtin">u64</span>
+	<span class="token comment">// has_line_of_sight reports whether no solid block obstructs the segment</span>
+	<span class="token comment">// between from and to. It uses sampled points rather than exact voxel</span>
+	<span class="token comment">// traversal and currently treats all blocks with collision boxes as opaque.</span>
+	<span class="token function">has_line_of_sight</span><span class="token punctuation">(</span>from types<span class="token punctuation">.</span>Vector3<span class="token punctuation">,</span> to types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span> <span class="token builtin">bool</span>
+	<span class="token comment">// notify_entity_despawn lets the entity package announce a despawn.</span>
+	<span class="token function">notify_entity_despawn</span><span class="token punctuation">(</span>identifier <span class="token builtin">string</span><span class="token punctuation">,</span> x <span class="token builtin">f32</span><span class="token punctuation">,</span> y <span class="token builtin">f32</span><span class="token punctuation">,</span> z <span class="token builtin">f32</span><span class="token punctuation">)</span>
+	<span class="token comment">// spawn_dropped_item spawns count units of a registered item at pos.</span>
+	<span class="token comment">// Unknown items and non-positive counts are ignored; name to ID resolution</span>
+	<span class="token comment">// remains in the session item registry.</span>
+	<span class="token function">spawn_dropped_item</span><span class="token punctuation">(</span>item_name <span class="token builtin">string</span><span class="token punctuation">,</span> count <span class="token builtin">int</span><span class="token punctuation">,</span> pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span>
+	<span class="token comment">// collect_item adds as much of stack as possible to the player identified</span>
+	<span class="token comment">// by runtime_id and returns the number of units accepted. It returns 0 if</span>
+	<span class="token comment">// no live player is registered there or the inventory cannot take any.</span>
+	<span class="token function">collect_item</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> stack types<span class="token punctuation">.</span>ItemStack<span class="token punctuation">)</span> <span class="token builtin">int</span>
+	<span class="token comment">// notify_item_taken lets viewers see the pickup animation.</span>
+	<span class="token function">notify_item_taken</span><span class="token punctuation">(</span>item_runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> taker_runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Host is the slice of the server the entity Manager needs: world scoped broadcasting, collision queries and the shared runtime-id allocator. session.WorldEntityHost satisfies it for one world.</p>
+
+</section>
+
+		<section id="HurtBehaviour" class="doc-node">
+			<div class="title"><h2>interface HurtBehaviour <a href="#HurtBehaviour">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">HurtBehaviour</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">on_hurt</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">,</span> source_runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>HurtBehaviour is an opt-in capability: a Behaviour implementing it is notified whenever its Entity survives a hit, letting e.g. a hostile mob start targeting whoever hit it.</p>
+
+</section>
+
+		<section id="Mergeable" class="doc-node">
+			<div class="title"><h2>interface Mergeable <a href="#Mergeable">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">interface</span> <span class="token symbol">Mergeable</span> <span class="token punctuation">{</span>
+	<span class="token function">merge_radius</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">f32</span>
+	<span class="token function">merge_stack</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>ItemStack
+	<span class="token function">stack_room</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span>
+	<span class="token function">mergeable_now</span><span class="token punctuation">(</span>age <span class="token builtin">i64</span><span class="token punctuation">)</span> <span class="token builtin">bool</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	<span class="token function">add_count</span><span class="token punctuation">(</span>n <span class="token builtin">int</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Mergeable allows an entity to combine with another compatible entity. merge_stack provides the stack to compare and update while mergeable_now prevents merging until the entity's pickup delay has elapsed.</p>
+
+</section>
+
+		<section id="BehaviourFactory" class="doc-node">
+			<div class="title"><h2>type BehaviourFactory <a href="#BehaviourFactory">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">type</span> BehaviourFactory <span class="token operator">=</span> <span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> Behaviour</code></pre>
+<p>BehaviourFactory builds a fresh Behaviour for a registered entity type. Each spawn gets its own instance so per-entity behaviour state stays isolated.</p>
+
+</section>
+
+		<section id="CustomEntityDefinition" class="doc-node">
+			<div class="title"><h2>struct CustomEntityDefinition <a href="#CustomEntityDefinition">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">CustomEntityDefinition</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	id            <span class="token builtin">string</span>
+	summonable    <span class="token builtin">bool</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+	has_spawn_egg <span class="token builtin">bool</span>
+	runtime_id    <span class="token builtin">int</span>
+<span class="token punctuation">}</span></code></pre>
+<p>CustomEntityDefinition describes an entity type a plugin registers. The definition ends up in the AvailableActorIdentifiersPacket idlist so the client accepts AddActor packets with the custom identifier.</p>
+
+</section>
+
+		<section id="CustomEntityDefinition.short_name" class="doc-node">
+			<div class="title"><h2>fn (CustomEntityDefinition) short_name <a href="#CustomEntityDefinition.short_name">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>d <span class="token operator">&amp;</span>CustomEntityDefinition<span class="token punctuation">)</span> <span class="token function">short_name</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+<p>short_name derives the registry name from the namespaced id, e.g. 'myplugin:fire_golem' -&gt; 'fire_golem'.</p>
+
+</section>
+
+		<section id="CustomRegistry" class="doc-node">
+			<div class="title"><h2>struct CustomRegistry <a href="#CustomRegistry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">CustomRegistry</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	defs    <span class="token punctuation">[</span><span class="token punctuation">]</span>CustomEntityDefinition
+	ids     <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span><span class="token builtin">int</span>
+	next_id <span class="token builtin">int</span> <span class="token operator">=</span> custom_entity_runtime_id_start
+<span class="token punctuation">}</span></code></pre>
+<p>CustomRegistry owns every registered custom entity definition and hands out runtime ids sequentially, starting at custom_entity_runtime_id_start.</p>
+
+</section>
+
+		<section id="CustomRegistry.register" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) register <a href="#CustomRegistry.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r CustomRegistry<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>def CustomEntityDefinition<span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>register allocates a runtime id for def and stores it, returning false when the id was already registered.</p>
+
+</section>
+
+		<section id="CustomRegistry.all" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) all <a href="#CustomRegistry.all">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>CustomEntityDefinition</code></pre>
+
+
+</section>
+
+		<section id="CustomRegistry.len" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) len <a href="#CustomRegistry.len">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="CustomRegistry.names" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) names <a href="#CustomRegistry.names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="CustomRegistry.identifiers_nbt" class="doc-node">
+			<div class="title"><h2>fn (CustomRegistry) identifiers_nbt <a href="#CustomRegistry.identifiers_nbt">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>CustomRegistry<span class="token punctuation">)</span> <span class="token function">identifiers_nbt</span><span class="token punctuation">(</span><span class="token punctuation">)</span> nbt<span class="token punctuation">.</span>RootTag</code></pre>
+<p>identifiers_nbt builds the AvailableActorIdentifiers root tag: an idlist of one compound per custom entity, in the format the client expects.</p>
+
+</section>
+
+		<section id="DespawnPolicy" class="doc-node">
+			<div class="title"><h2>struct DespawnPolicy <a href="#DespawnPolicy">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">DespawnPolicy</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	distance        <span class="token builtin">bool</span>
+	random_chance   <span class="token builtin">bool</span>
+	inactivity      <span class="token builtin">bool</span>
+	simulation_edge <span class="token builtin">bool</span>
+
+	min_distance         <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">32.0</span>
+	max_distance         <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">128.0</span>
+	random_chance_one_in <span class="token builtin">i64</span> <span class="token operator">=</span> <span class="token number">800</span>
+	inactivity_ticks     <span class="token builtin">i64</span> <span class="token operator">=</span> <span class="token number">600</span>
+<span class="token punctuation">}</span></code></pre>
+<p>DespawnPolicy configures how an entity despawns naturally once players are far away, mirroring Bedrock's minecraft:despawn component: distance, random chance, inactivity and simulation-distance edge can each be switched on per entity type. The zero value turns everything off.</p>
+<p>random_chance and inactivity only take effect once distance is also on - they refine the distance rule rather than triggering independently. simulation_edge isn't implemented yet.</p>
+
+</section>
+
+		<section id="Dimensions" class="doc-node">
+			<div class="title"><h2>struct Dimensions <a href="#Dimensions">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Dimensions</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	width         <span class="token builtin">f32</span>  <span class="token operator">=</span> <span class="token number">0.6</span>
+	height        <span class="token builtin">f32</span>  <span class="token operator">=</span> <span class="token number">1.8</span>
+	eye_height    <span class="token builtin">f32</span>  <span class="token operator">=</span> <span class="token number">1.62</span>
+	step_height   <span class="token builtin">f32</span>  <span class="token operator">=</span> <span class="token number">0.6</span>
+	has_collision <span class="token builtin">bool</span> <span class="token operator">=</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Dimensions describes an actor's collision box and related vertical offsets. Width and height are full dimensions.</p>
+<p>step_height is reserved for future auto step behavior and is not yet used by entity physics.</p>
+
+</section>
+
+		<section id="Entity" class="doc-node">
+			<div class="title"><h2>struct Entity <a href="#Entity">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Entity</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span><span class="token punctuation">:</span>
+	unique_id  <span class="token builtin">i64</span>
+	runtime_id <span class="token builtin">u64</span>
+	identifier <span class="token builtin">string</span>     <span class="token comment">// network type id, e.g. &#34;minecraft:pig&#34;</span>
+	dimensions Dimensions <span class="token comment">// physical footprint, fixed at spawn from the Behaviour that created this entity</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	pos       types<span class="token punctuation">.</span>Vector3
+	velocity  types<span class="token punctuation">.</span>Vector3
+	pitch     <span class="token builtin">f32</span>
+	yaw       <span class="token builtin">f32</span>
+	head_yaw  <span class="token builtin">f32</span>
+	floor_y   <span class="token builtin">f32</span>
+	on_ground <span class="token builtin">bool</span>
+	<span class="token comment">// fall_distance accumulates actual downward movement while airborne and</span>
+	<span class="token comment">// resets on landing - see apply_landing/fall_damage_amount below.</span>
+	fall_distance <span class="token builtin">f32</span>
+	no_gravity    <span class="token builtin">bool</span>
+	gravity_accel <span class="token builtin">f32</span> <span class="token operator">=</span> gravity
+	drag_factor   <span class="token builtin">f32</span> <span class="token operator">=</span> drag
+	hit_block     <span class="token builtin">bool</span>
+	health        <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">20.0</span>
+	dead          <span class="token builtin">bool</span>
+	age           <span class="token builtin">i64</span>
+	<span class="token comment">// ticks_inactive counts ticks since this entity was last hurt.</span>
+	ticks_inactive <span class="token builtin">i64</span>
+	behaviour      Behaviour
+	effects        effect<span class="token punctuation">.</span>Manager
+<span class="token punctuation">}</span></code></pre>
+<p>Entity is a non-player actor living in the world - a mob, item or projectile. It owns shared state and delegates per-tick logic to its Behaviour. Players stay as NetworkSession; this system covers everything else the client renders as an actor.</p>
+
+</section>
+
+		<section id="Entity.active_effects" class="doc-node">
+			<div class="title"><h2>fn (Entity) active_effects <a href="#Entity.active_effects">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">active_effects</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>effect<span class="token punctuation">.</span>Effect</code></pre>
+<p>active_effects lists every effect currently active on e.</p>
+
+</section>
+
+		<section id="Entity.add_effect" class="doc-node">
+			<div class="title"><h2>fn (Entity) add_effect <a href="#Entity.add_effect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">add_effect</span><span class="token punctuation">(</span><span class="token keyword">mut</span> host Host<span class="token punctuation">,</span> ef effect<span class="token punctuation">.</span>Effect<span class="token punctuation">)</span></code></pre>
+<p>add_effect stores ef on e and syncs it to viewers.</p>
+
+</section>
+
+		<section id="Entity.current_position" class="doc-node">
+			<div class="title"><h2>fn (Entity) current_position <a href="#Entity.current_position">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">current_position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>Vector3</code></pre>
+<p>current_position returns the entity's current position.</p>
+
+</section>
+
+		<section id="Entity.despawn_packet" class="doc-node">
+			<div class="title"><h2>fn (Entity) despawn_packet <a href="#Entity.despawn_packet">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">despawn_packet</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>packets_662<span class="token punctuation">.</span>RemoveActorPacket</code></pre>
+<p>despawn_packet builds the RemoveActorPacket that removes this entity from a viewer.</p>
+
+</section>
+
+		<section id="Entity.dimensions" class="doc-node">
+			<div class="title"><h2>fn (Entity) dimensions <a href="#Entity.dimensions">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions</code></pre>
+<p>dimensions satisfies entity.Actor.</p>
+
+</section>
+
+		<section id="Entity.feet_position" class="doc-node">
+			<div class="title"><h2>fn (Entity) feet_position <a href="#Entity.feet_position">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">feet_position</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>Vector3</code></pre>
+<p>feet_position satisfies entity.Actor. An Entity's pos is already its feet , so this is the same value as current_position().</p>
+
+</section>
+
+		<section id="Entity.heal" class="doc-node">
+			<div class="title"><h2>fn (Entity) heal <a href="#Entity.heal">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">heal</span><span class="token punctuation">(</span><span class="token keyword">mut</span> host Host<span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Entity.hurt" class="doc-node">
+			<div class="title"><h2>fn (Entity) hurt <a href="#Entity.hurt">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">hurt</span><span class="token punctuation">(</span><span class="token keyword">mut</span> host Host<span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">,</span> fatal <span class="token builtin">bool</span><span class="token punctuation">,</span> source_runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Entity.is_dead" class="doc-node">
+			<div class="title"><h2>fn (Entity) is_dead <a href="#Entity.is_dead">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">is_dead</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>is_dead reports whether the entity is scheduled for removal.</p>
+
+</section>
+
+		<section id="Entity.kill" class="doc-node">
+			<div class="title"><h2>fn (Entity) kill <a href="#Entity.kill">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">kill</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>kill marks the entity dead. The Manager removes and despawns it on the next tick.</p>
+
+</section>
+
+		<section id="Entity.move_packet" class="doc-node">
+			<div class="title"><h2>fn (Entity) move_packet <a href="#Entity.move_packet">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">move_packet</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>packets_662<span class="token punctuation">.</span>MoveActorAbsolutePacket</code></pre>
+<p>move_packet builds the movement update broadcast each tick the entity moves.</p>
+
+</section>
+
+		<section id="Entity.remove_effect" class="doc-node">
+			<div class="title"><h2>fn (Entity) remove_effect <a href="#Entity.remove_effect">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">remove_effect</span><span class="token punctuation">(</span><span class="token keyword">mut</span> host Host<span class="token punctuation">,</span> typ effect<span class="token punctuation">.</span>Type<span class="token punctuation">)</span></code></pre>
+<p>remove_effect strips typ from e, if present, and tells viewers.</p>
+
+</section>
+
+		<section id="Entity.runtime_id" class="doc-node">
+			<div class="title"><h2>fn (Entity) runtime_id <a href="#Entity.runtime_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">runtime_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">u64</span></code></pre>
+<p>runtime_id satisfies entity.Actor.</p>
+
+</section>
+
+		<section id="Entity.set_velocity" class="doc-node">
+			<div class="title"><h2>fn (Entity) set_velocity <a href="#Entity.set_velocity">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">set_velocity</span><span class="token punctuation">(</span>v types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span></code></pre>
+<p>set_velocity replaces the entity's velocity (blocks/tick).</p>
+
+</section>
+
+		<section id="Entity.spawn_packet" class="doc-node">
+			<div class="title"><h2>fn (Entity) spawn_packet <a href="#Entity.spawn_packet">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>e <span class="token operator">&amp;</span>Entity<span class="token punctuation">)</span> <span class="token function">spawn_packet</span><span class="token punctuation">(</span><span class="token punctuation">)</span> protocol<span class="token punctuation">.</span>Packet</code></pre>
+<p>spawn_packet builds the packet that makes this entity appear for a viewer. Public so the session layer can send it to players joining late.</p>
+
+</section>
+
+		<section id="Entity.teleport" class="doc-node">
+			<div class="title"><h2>fn (Entity) teleport <a href="#Entity.teleport">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">)</span> <span class="token function">teleport</span><span class="token punctuation">(</span>pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span></code></pre>
+<p>teleport moves the entity to pos and resets its ground clamp there.</p>
+
+</section>
+
+		<section id="HostileBehaviour" class="doc-node">
+			<div class="title"><h2>struct HostileBehaviour <a href="#HostileBehaviour">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">HostileBehaviour</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	network_id       <span class="token builtin">string</span>
+	detection_radius <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">16.0</span>
+	attack_damage    <span class="token builtin">f32</span> <span class="token operator">=</span> <span class="token number">3.0</span>
+	dimensions       Dimensions
+	despawn_policy   DespawnPolicy
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	wander_cooldown         <span class="token builtin">i64</span> <span class="token operator">=</span> wander_interval_ticks
+	scan_cooldown           <span class="token builtin">i64</span>
+	target_runtime_id       <span class="token builtin">u64</span>
+	has_target              <span class="token builtin">bool</span>
+	path                    <span class="token punctuation">[</span><span class="token punctuation">]</span>types<span class="token punctuation">.</span>Vector3
+	path_index              <span class="token builtin">int</span>
+	path_recompute_cooldown <span class="token builtin">i64</span>
+	attack_cooldown         <span class="token builtin">i64</span>
+	los_lost_ticks          <span class="token builtin">i64</span>
+<span class="token punctuation">}</span></code></pre>
+<p>HostileBehaviour wanders until it detects a visible player or is attacked, then chases and attacks that target. It gives up when the target is gone, too far away or out of sight for too long.</p>
+<p>Sound based detection and group aggression are not yet supported.</p>
+
+</section>
+
+		<section id="HostileBehaviour.identifier" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) identifier <a href="#HostileBehaviour.identifier">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>HostileBehaviour<span class="token punctuation">)</span> <span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="HostileBehaviour.dimensions" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) dimensions <a href="#HostileBehaviour.dimensions">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>HostileBehaviour<span class="token punctuation">)</span> <span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions</code></pre>
+
+
+</section>
+
+		<section id="HostileBehaviour.despawn_policy" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) despawn_policy <a href="#HostileBehaviour.despawn_policy">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>HostileBehaviour<span class="token punctuation">)</span> <span class="token function">despawn_policy</span><span class="token punctuation">(</span><span class="token punctuation">)</span> DespawnPolicy</code></pre>
+
+
+</section>
+
+		<section id="HostileBehaviour.takes_fall_damage" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) takes_fall_damage <a href="#HostileBehaviour.takes_fall_damage">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>HostileBehaviour<span class="token punctuation">)</span> <span class="token function">takes_fall_damage</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="HostileBehaviour.tick" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) tick <a href="#HostileBehaviour.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b HostileBehaviour<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="HostileBehaviour.on_hurt" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) on_hurt <a href="#HostileBehaviour.on_hurt">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b HostileBehaviour<span class="token punctuation">)</span> <span class="token function">on_hurt</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">,</span> source_runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+<p>on_hurt makes the mob start chasing whoever/whatever just hit it. Plain PassiveBehaviour mobs don't implement HurtBehaviour, so being attacked never gives them a target.</p>
+
+</section>
+
+		<section id="HostileBehaviour.on_death" class="doc-node">
+			<div class="title"><h2>fn (HostileBehaviour) on_death <a href="#HostileBehaviour.on_death">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b HostileBehaviour<span class="token punctuation">)</span> <span class="token function">on_death</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span></code></pre>
+<p>on_death drops this mob's loot table (see mob_loot_drops) at its death position.</p>
+
+</section>
+
+		<section id="ItemBehaviour" class="doc-node">
+			<div class="title"><h2>struct ItemBehaviour <a href="#ItemBehaviour">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">ItemBehaviour</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	stack              types<span class="token punctuation">.</span>ItemStack
+	max_stack_size     <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">64</span>
+	pickup_delay_ticks <span class="token builtin">i64</span> <span class="token operator">=</span> item_pickup_delay_ticks
+<span class="token punctuation">}</span></code></pre>
+<p>ItemBehaviour represents a dropped item stack. It falls, becomes collectible and mergeable after its pickup delay, and despawns when its lifetime expires.</p>
+
+</section>
+
+		<section id="ItemBehaviour.identifier" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) identifier <a href="#ItemBehaviour.identifier">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.dimensions" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) dimensions <a href="#ItemBehaviour.dimensions">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions</code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.despawn_policy" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) despawn_policy <a href="#ItemBehaviour.despawn_policy">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">despawn_policy</span><span class="token punctuation">(</span><span class="token punctuation">)</span> DespawnPolicy</code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.takes_fall_damage" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) takes_fall_damage <a href="#ItemBehaviour.takes_fall_damage">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">takes_fall_damage</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.tick" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) tick <a href="#ItemBehaviour.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b ItemBehaviour<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.merge_radius" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) merge_radius <a href="#ItemBehaviour.merge_radius">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">merge_radius</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">f32</span></code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.merge_stack" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) merge_stack <a href="#ItemBehaviour.merge_stack">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">merge_stack</span><span class="token punctuation">(</span><span class="token punctuation">)</span> types<span class="token punctuation">.</span>ItemStack</code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.stack_room" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) stack_room <a href="#ItemBehaviour.stack_room">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">stack_room</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.mergeable_now" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) mergeable_now <a href="#ItemBehaviour.mergeable_now">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ItemBehaviour<span class="token punctuation">)</span> <span class="token function">mergeable_now</span><span class="token punctuation">(</span>age <span class="token builtin">i64</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ItemBehaviour.add_count" class="doc-node">
+			<div class="title"><h2>fn (ItemBehaviour) add_count <a href="#ItemBehaviour.add_count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b ItemBehaviour<span class="token punctuation">)</span> <span class="token function">add_count</span><span class="token punctuation">(</span>n <span class="token builtin">int</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Manager" class="doc-node">
+			<div class="title"><h2>struct Manager <a href="#Manager">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Manager</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	mutex  <span class="token operator">&amp;</span>sync<span class="token punctuation">.</span>Mutex <span class="token operator">=</span> sync<span class="token punctuation">.</span><span class="token function">new_mutex</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	actors <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">u64</span><span class="token punctuation">]</span>ActorEntry
+	host   Host
+<span class="token punctuation">}</span></code></pre>
+<p>Manager stores every live actor in a world, keyed by runtime ID.</p>
+<p>The mutex protects registry membership only. Live entity pointers must remain on the owning world thread; cross thread callers must copy plain values through a world task.</p>
+
+</section>
+
+		<section id="Manager.actor_by_runtime_id" class="doc-node">
+			<div class="title"><h2>fn (Manager) actor_by_runtime_id <a href="#Manager.actor_by_runtime_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">actor_by_runtime_id</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span> <span class="token operator">?</span>Actor</code></pre>
+<p>actor_by_runtime_id returns the player or non-player entity registered under the runtime ID. Use it only when both actor kinds are valid.</p>
+
+</section>
+
+		<section id="Manager.all_actors" class="doc-node">
+			<div class="title"><h2>fn (Manager) all_actors <a href="#Manager.all_actors">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">all_actors</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>Actor</code></pre>
+<p>all_actors returns every registered actor, mob and player alike.</p>
+
+</section>
+
+		<section id="Manager.by_runtime_id" class="doc-node">
+			<div class="title"><h2>fn (Manager) by_runtime_id <a href="#Manager.by_runtime_id">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">by_runtime_id</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span> <span class="token operator">?</span><span class="token operator">&amp;</span>Entity</code></pre>
+<p>by_runtime_id returns the live entity with runtime_id or none if it does not exist or belongs to a player.</p>
+
+</section>
+
+		<section id="Manager.count" class="doc-node">
+			<div class="title"><h2>fn (Manager) count <a href="#Manager.count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">int</span></code></pre>
+<p>count reports how many mob entities are alive.</p>
+
+</section>
+
+		<section id="Manager.damage" class="doc-node">
+			<div class="title"><h2>fn (Manager) damage <a href="#Manager.damage">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">damage</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> amount <span class="token builtin">f32</span><span class="token punctuation">,</span> fatal <span class="token builtin">bool</span><span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">,</span> source_runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Manager.deregister_player_actor" class="doc-node">
+			<div class="title"><h2>fn (Manager) deregister_player_actor <a href="#Manager.deregister_player_actor">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">deregister_player_actor</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+<p>deregister_player_actor removes a player actor entry.</p>
+
+</section>
+
+		<section id="Manager.despawn" class="doc-node">
+			<div class="title"><h2>fn (Manager) despawn <a href="#Manager.despawn">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">despawn</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span></code></pre>
+<p>despawn removes the entity with runtime_id and tells viewers to drop it.</p>
+
+</section>
+
+		<section id="Manager.is_player_actor" class="doc-node">
+			<div class="title"><h2>fn (Manager) is_player_actor <a href="#Manager.is_player_actor">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">is_player_actor</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+<p>is_player_actor reports whether the runtime ID belongs to a registered player. PlayerMoveTask uses it without an epoch check so stale tasks can still resolve the session and clear movement_scheduled.</p>
+
+</section>
+
+		<section id="Manager.player_actor_count" class="doc-node">
+			<div class="title"><h2>fn (Manager) player_actor_count <a href="#Manager.player_actor_count">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">player_actor_count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">i64</span></code></pre>
+<p>player_actor_count reports how many players are registered.</p>
+
+</section>
+
+		<section id="Manager.player_actor_for_epoch" class="doc-node">
+			<div class="title"><h2>fn (Manager) player_actor_for_epoch <a href="#Manager.player_actor_for_epoch">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">player_actor_for_epoch</span><span class="token punctuation">(</span>runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> epoch <span class="token builtin">i64</span><span class="token punctuation">)</span> <span class="token operator">?</span>Actor</code></pre>
+<p>player_actor_for_epoch resolves a player actor and rejects a stale or missing registration before any side effects occur.</p>
+
+</section>
+
+		<section id="Manager.player_actors" class="doc-node">
+			<div class="title"><h2>fn (Manager) player_actors <a href="#Manager.player_actors">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">player_actors</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>Actor</code></pre>
+<p>player_actors returns every registered player actor.</p>
+
+</section>
+
+		<section id="Manager.register_player_actor" class="doc-node">
+			<div class="title"><h2>fn (Manager) register_player_actor <a href="#Manager.register_player_actor">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">register_player_actor</span><span class="token punctuation">(</span>a Actor<span class="token punctuation">,</span> runtime_id <span class="token builtin">u64</span><span class="token punctuation">,</span> epoch <span class="token builtin">i64</span><span class="token punctuation">)</span></code></pre>
+<p>register_player_actor adds or replaces a player actor entry.</p>
+
+</section>
+
+		<section id="Manager.restore_from_save" class="doc-node">
+			<div class="title"><h2>fn (Manager) restore_from_save <a href="#Manager.restore_from_save">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">restore_from_save</span><span class="token punctuation">(</span>reg <span class="token operator">&amp;</span>Registry<span class="token punctuation">,</span> saved <span class="token punctuation">[</span><span class="token punctuation">]</span>SaveData<span class="token punctuation">)</span></code></pre>
+<p>restore_from_save recreates saved entities whose types are still registered. Unknown types are skipped without failing the world load.</p>
+<p>This must run on the owning world thread because live entity pointers are confined to that thread.</p>
+
+</section>
+
+		<section id="Manager.save_snapshot" class="doc-node">
+			<div class="title"><h2>fn (Manager) save_snapshot <a href="#Manager.save_snapshot">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">save_snapshot</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>SaveData</code></pre>
+<p>save_snapshot returns the persistent state of all non-transient entities. Projectiles and dropped items are excluded because their short lived state is not restored across restarts.</p>
+
+</section>
+
+		<section id="Manager.snapshot" class="doc-node">
+			<div class="title"><h2>fn (Manager) snapshot <a href="#Manager.snapshot">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">snapshot</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token operator">&amp;</span>Entity</code></pre>
+<p>snapshot returns a stable slice of live mob entity pointers, excluding registered players.</p>
+
+</section>
+
+		<section id="Manager.spawn" class="doc-node">
+			<div class="title"><h2>fn (Manager) spawn <a href="#Manager.spawn">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token keyword">spawn</span><span class="token punctuation">(</span>behaviour Behaviour<span class="token punctuation">,</span> pos types<span class="token punctuation">.</span>Vector3<span class="token punctuation">)</span> <span class="token operator">&amp;</span>Entity</code></pre>
+<p>spawn creates an entity driven by behaviour at pos, registers it and broadcasts its appearance to all viewers. Returns the live Entity.</p>
+
+</section>
+
+		<section id="Manager.tick" class="doc-node">
+			<div class="title"><h2>fn (Manager) tick <a href="#Manager.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> m Manager<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<p>tick advances every entity one server tick: run its Behaviour, apply physics, remove the dead, and broadcast movement for the ones that moved.</p>
+
+</section>
+
+		<section id="PassiveBehaviour" class="doc-node">
+			<div class="title"><h2>struct PassiveBehaviour <a href="#PassiveBehaviour">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">PassiveBehaviour</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	network_id     <span class="token builtin">string</span>
+	dimensions     Dimensions
+	despawn_policy DespawnPolicy
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	wander_cooldown <span class="token builtin">i64</span> <span class="token operator">=</span> wander_interval_ticks
+<span class="token punctuation">}</span></code></pre>
+<p>PassiveBehaviour wanders in a new random direction roughly every wander_interval_ticks while grounded and otherwise does nothing. Physics still applies, so the entity falls to floor_y and rests there between wanders.</p>
+
+</section>
+
+		<section id="PassiveBehaviour.identifier" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) identifier <a href="#PassiveBehaviour.identifier">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="PassiveBehaviour.dimensions" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) dimensions <a href="#PassiveBehaviour.dimensions">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions</code></pre>
+
+
+</section>
+
+		<section id="PassiveBehaviour.despawn_policy" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) despawn_policy <a href="#PassiveBehaviour.despawn_policy">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">despawn_policy</span><span class="token punctuation">(</span><span class="token punctuation">)</span> DespawnPolicy</code></pre>
+
+
+</section>
+
+		<section id="PassiveBehaviour.takes_fall_damage" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) takes_fall_damage <a href="#PassiveBehaviour.takes_fall_damage">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">takes_fall_damage</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="PassiveBehaviour.on_death" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) on_death <a href="#PassiveBehaviour.on_death">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">on_death</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span></code></pre>
+<p>on_death drops this mob's loot table (see mob_loot_drops) at its death position.</p>
+
+</section>
+
+		<section id="PassiveBehaviour.tick" class="doc-node">
+			<div class="title"><h2>fn (PassiveBehaviour) tick <a href="#PassiveBehaviour.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b PassiveBehaviour<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="ProjectileBehaviour" class="doc-node">
+			<div class="title"><h2>struct ProjectileBehaviour <a href="#ProjectileBehaviour">#</a></h2></div>
+<div class="attributes"><div class="attribute">@[heap]</div></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">ProjectileBehaviour</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	network_id              <span class="token builtin">string</span>
+	max_age                 <span class="token builtin">i64</span> <span class="token operator">=</span> <span class="token number">100</span>
+	damage                  <span class="token builtin">f32</span>
+	gravity_accel           <span class="token builtin">f32</span> <span class="token operator">=</span> gravity
+	drag_factor             <span class="token builtin">f32</span> <span class="token operator">=</span> drag
+	survive_block_collision <span class="token builtin">bool</span>
+	dimensions              Dimensions
+	owner_runtime_id        <span class="token builtin">u64</span>
+	flying_despawn_policy   DespawnPolicy <span class="token operator">=</span> <span class="token symbol">DespawnPolicy</span><span class="token punctuation">{</span>
+		distance<span class="token punctuation">:</span>      <span class="token boolean">true</span>
+		random_chance<span class="token punctuation">:</span> <span class="token boolean">true</span>
+	<span class="token punctuation">}</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	stuck     <span class="token builtin">bool</span>
+	stuck_age <span class="token builtin">i64</span>
+<span class="token punctuation">}</span></code></pre>
+<p>ProjectileBehaviour flies with its initial velocity, deals damage to the first entity or player its path touches and either despawns on its first block collision (survive_block_collision: false, e.g. a snowball) or freezes in place there until max_age (survive_block_collision: true, e.g. an arrow).</p>
+<p>owner_runtime_id identifies the entity that fired this projectile. The owner is ignored during hit detection only for owner_immunity_ticks after spawn, not for the projectile's whole lifetime.</p>
+
+</section>
+
+		<section id="ProjectileBehaviour.identifier" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) identifier <a href="#ProjectileBehaviour.identifier">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">identifier</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span></code></pre>
+
+
+</section>
+
+		<section id="ProjectileBehaviour.dimensions" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) dimensions <a href="#ProjectileBehaviour.dimensions">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">dimensions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> Dimensions</code></pre>
+
+
+</section>
+
+		<section id="ProjectileBehaviour.despawn_policy" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) despawn_policy <a href="#ProjectileBehaviour.despawn_policy">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">despawn_policy</span><span class="token punctuation">(</span><span class="token punctuation">)</span> DespawnPolicy</code></pre>
+<p>despawn_policy changes with projectile state. While flying, the configured distance policy applies because no other lifetime rule can remove a projectile that never lands. Since this engine doesn't cull entities when chunks unload, distance despawning fills that role.</p>
+<p>Once stuck, distance despawning is disabled and stuck_age/max_age becomes the sole authority for removal. This is intentionally not configurable per instance, preventing distance rules from interfering with the stuck projectile lifetime.</p>
+
+</section>
+
+		<section id="ProjectileBehaviour.takes_fall_damage" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) takes_fall_damage <a href="#ProjectileBehaviour.takes_fall_damage">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>b <span class="token operator">&amp;</span>ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">takes_fall_damage</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">bool</span></code></pre>
+
+
+</section>
+
+		<section id="ProjectileBehaviour.tick" class="doc-node">
+			<div class="title"><h2>fn (ProjectileBehaviour) tick <a href="#ProjectileBehaviour.tick">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> b ProjectileBehaviour<span class="token punctuation">)</span> <span class="token function">tick</span><span class="token punctuation">(</span><span class="token keyword">mut</span> e Entity<span class="token punctuation">,</span> <span class="token keyword">mut</span> host Host<span class="token punctuation">)</span></code></pre>
+
+
+</section>
+
+		<section id="Registry" class="doc-node">
+			<div class="title"><h2>struct Registry <a href="#Registry">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">Registry</span> <span class="token punctuation">{</span>
+<span class="token keyword">mut</span><span class="token punctuation">:</span>
+	factories <span class="token builtin">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span>BehaviourFactory
+<span class="token punctuation">}</span></code></pre>
+<p>Registry maps short type names (e.g. 'pig') to Behaviour factories. It is the lookup /summon and plugins use to spawn entities by name.</p>
+
+</section>
+
+		<section id="Registry.register" class="doc-node">
+			<div class="title"><h2>fn (Registry) register <a href="#Registry.register">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span><span class="token keyword">mut</span> r Registry<span class="token punctuation">)</span> <span class="token function">register</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">,</span> factory BehaviourFactory<span class="token punctuation">)</span></code></pre>
+<p>register adds a named entity type. Re-registering a name overwrites it.</p>
+
+</section>
+
+		<section id="Registry.create" class="doc-node">
+			<div class="title"><h2>fn (Registry) create <a href="#Registry.create">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">create</span><span class="token punctuation">(</span>name <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">?</span>Behaviour</code></pre>
+<p>create builds a new Behaviour for name, or none if the type is unknown.</p>
+
+</section>
+
+		<section id="Registry.names" class="doc-node">
+			<div class="title"><h2>fn (Registry) names <a href="#Registry.names">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">fn</span> <span class="token punctuation">(</span>r <span class="token operator">&amp;</span>Registry<span class="token punctuation">)</span> <span class="token function">names</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">string</span></code></pre>
+<p>names lists every registered type name.</p>
+
+</section>
+
+		<section id="SaveData" class="doc-node">
+			<div class="title"><h2>struct SaveData <a href="#SaveData">#</a></h2></div>
+<pre class="signature">
+<code><span class="token keyword">struct</span> <span class="token symbol">SaveData</span> <span class="token punctuation">{</span>
+<span class="token keyword">pub</span> <span class="token keyword">mut</span><span class="token punctuation">:</span>
+	type_name  <span class="token builtin">string</span> <span class="token comment">// Registry key (e.g. &#34;zombie&#34;) used to reconstruct the Behaviour via Registry.create</span>
+	x          <span class="token builtin">f32</span>
+	y          <span class="token builtin">f32</span>
+	z          <span class="token builtin">f32</span>
+	velocity_x <span class="token builtin">f32</span>
+	velocity_y <span class="token builtin">f32</span>
+	velocity_z <span class="token builtin">f32</span>
+	pitch      <span class="token builtin">f32</span>
+	yaw        <span class="token builtin">f32</span>
+	head_yaw   <span class="token builtin">f32</span>
+	health     <span class="token builtin">f32</span>
+<span class="token punctuation">}</span></code></pre>
+<p>SaveData contains the persistent state needed to recreate an entity. Temporary Behaviour state such as targets, cooldowns and paths is rebuilt after loading and is intentionally not stored.</p>
+<p>Projectiles are excluded from persistence by save_snapshot.</p>
+
+</section>
+
+
+						<div class="footer">Powered by vdoc. Generated on: 4 Aug 2026 21:04:16</div>
+					</div>
+					<div class="doc-toc"><ul><li class="open"><a href="#Constants">Constants</a></li>
+<li class="open"><a href="#find_path">fn find_path</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#load_entities">fn load_entities</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_custom_registry">fn new_custom_registry</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_item_behaviour">fn new_item_behaviour</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_manager">fn new_manager</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#new_registry">fn new_registry</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#rand_int_range">fn rand_int_range</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#register_defaults">fn register_defaults</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#save_entities">fn save_entities</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Actor">interface Actor</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Behaviour">interface Behaviour</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#DeathBehaviour">interface DeathBehaviour</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Host">interface Host</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#HurtBehaviour">interface HurtBehaviour</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Mergeable">interface Mergeable</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#BehaviourFactory">type BehaviourFactory</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#CustomEntityDefinition">struct CustomEntityDefinition</a>        <ul>
+<li><a href="#CustomEntityDefinition.short_name">fn short_name</a></li>
+</ul>
+</li>
+<li class="open"><a href="#CustomRegistry">struct CustomRegistry</a>        <ul>
+<li><a href="#CustomRegistry.register">fn register</a></li>
+<li><a href="#CustomRegistry.all">fn all</a></li>
+<li><a href="#CustomRegistry.len">fn len</a></li>
+<li><a href="#CustomRegistry.names">fn names</a></li>
+<li><a href="#CustomRegistry.identifiers_nbt">fn identifiers_nbt</a></li>
+</ul>
+</li>
+<li class="open"><a href="#DespawnPolicy">struct DespawnPolicy</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Dimensions">struct Dimensions</a>        <ul>
+</ul>
+</li>
+<li class="open"><a href="#Entity">struct Entity</a>        <ul>
+<li><a href="#Entity.active_effects">fn active_effects</a></li>
+<li><a href="#Entity.add_effect">fn add_effect</a></li>
+<li><a href="#Entity.current_position">fn current_position</a></li>
+<li><a href="#Entity.despawn_packet">fn despawn_packet</a></li>
+<li><a href="#Entity.dimensions">fn dimensions</a></li>
+<li><a href="#Entity.feet_position">fn feet_position</a></li>
+<li><a href="#Entity.heal">fn heal</a></li>
+<li><a href="#Entity.hurt">fn hurt</a></li>
+<li><a href="#Entity.is_dead">fn is_dead</a></li>
+<li><a href="#Entity.kill">fn kill</a></li>
+<li><a href="#Entity.move_packet">fn move_packet</a></li>
+<li><a href="#Entity.remove_effect">fn remove_effect</a></li>
+<li><a href="#Entity.runtime_id">fn runtime_id</a></li>
+<li><a href="#Entity.set_velocity">fn set_velocity</a></li>
+<li><a href="#Entity.spawn_packet">fn spawn_packet</a></li>
+<li><a href="#Entity.teleport">fn teleport</a></li>
+</ul>
+</li>
+<li class="open"><a href="#HostileBehaviour">struct HostileBehaviour</a>        <ul>
+<li><a href="#HostileBehaviour.identifier">fn identifier</a></li>
+<li><a href="#HostileBehaviour.dimensions">fn dimensions</a></li>
+<li><a href="#HostileBehaviour.despawn_policy">fn despawn_policy</a></li>
+<li><a href="#HostileBehaviour.takes_fall_damage">fn takes_fall_damage</a></li>
+<li><a href="#HostileBehaviour.tick">fn tick</a></li>
+<li><a href="#HostileBehaviour.on_hurt">fn on_hurt</a></li>
+<li><a href="#HostileBehaviour.on_death">fn on_death</a></li>
+</ul>
+</li>
+<li class="open"><a href="#ItemBehaviour">struct ItemBehaviour</a>        <ul>
+<li><a href="#ItemBehaviour.identifier">fn identifier</a></li>
+<li><a href="#ItemBehaviour.dimensions">fn dimensions</a></li>
+<li><a href="#ItemBehaviour.despawn_policy">fn despawn_policy</a></li>
+<li><a href="#ItemBehaviour.takes_fall_damage">fn takes_fall_damage</a></li>
+<li><a href="#ItemBehaviour.tick">fn tick</a></li>
+<li><a href="#ItemBehaviour.merge_radius">fn merge_radius</a></li>
+<li><a href="#ItemBehaviour.merge_stack">fn merge_stack</a></li>
+<li><a href="#ItemBehaviour.stack_room">fn stack_room</a></li>
+<li><a href="#ItemBehaviour.mergeable_now">fn mergeable_now</a></li>
+<li><a href="#ItemBehaviour.add_count">fn add_count</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Manager">struct Manager</a>        <ul>
+<li><a href="#Manager.actor_by_runtime_id">fn actor_by_runtime_id</a></li>
+<li><a href="#Manager.all_actors">fn all_actors</a></li>
+<li><a href="#Manager.by_runtime_id">fn by_runtime_id</a></li>
+<li><a href="#Manager.count">fn count</a></li>
+<li><a href="#Manager.damage">fn damage</a></li>
+<li><a href="#Manager.deregister_player_actor">fn deregister_player_actor</a></li>
+<li><a href="#Manager.despawn">fn despawn</a></li>
+<li><a href="#Manager.is_player_actor">fn is_player_actor</a></li>
+<li><a href="#Manager.player_actor_count">fn player_actor_count</a></li>
+<li><a href="#Manager.player_actor_for_epoch">fn player_actor_for_epoch</a></li>
+<li><a href="#Manager.player_actors">fn player_actors</a></li>
+<li><a href="#Manager.register_player_actor">fn register_player_actor</a></li>
+<li><a href="#Manager.restore_from_save">fn restore_from_save</a></li>
+<li><a href="#Manager.save_snapshot">fn save_snapshot</a></li>
+<li><a href="#Manager.snapshot">fn snapshot</a></li>
+<li><a href="#Manager.spawn">fn spawn</a></li>
+<li><a href="#Manager.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#PassiveBehaviour">struct PassiveBehaviour</a>        <ul>
+<li><a href="#PassiveBehaviour.identifier">fn identifier</a></li>
+<li><a href="#PassiveBehaviour.dimensions">fn dimensions</a></li>
+<li><a href="#PassiveBehaviour.despawn_policy">fn despawn_policy</a></li>
+<li><a href="#PassiveBehaviour.takes_fall_damage">fn takes_fall_damage</a></li>
+<li><a href="#PassiveBehaviour.on_death">fn on_death</a></li>
+<li><a href="#PassiveBehaviour.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#ProjectileBehaviour">struct ProjectileBehaviour</a>        <ul>
+<li><a href="#ProjectileBehaviour.identifier">fn identifier</a></li>
+<li><a href="#ProjectileBehaviour.dimensions">fn dimensions</a></li>
+<li><a href="#ProjectileBehaviour.despawn_policy">fn despawn_policy</a></li>
+<li><a href="#ProjectileBehaviour.takes_fall_damage">fn takes_fall_damage</a></li>
+<li><a href="#ProjectileBehaviour.tick">fn tick</a></li>
+</ul>
+</li>
+<li class="open"><a href="#Registry">struct Registry</a>        <ul>
+<li><a href="#Registry.register">fn register</a></li>
+<li><a href="#Registry.create">fn create</a></li>
+<li><a href="#Registry.names">fn names</a></li>
+</ul>
+</li>
+<li class="open"><a href="#SaveData">struct SaveData</a>        <ul>
+</ul>
+</li>
+</ul></div>
+				</div>
+			</div>
+		</div>
+		<script src="doc.js"></script>
+		<script async src="search_index.js"></script>
+	</body>
+</html>
