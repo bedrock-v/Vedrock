@@ -179,7 +179,7 @@ fn (mut s NetworkSession) start_game() ! {
 		template_content_identity:             ''
 		is_trial:                              false
 		movement_settings:                     types_818.SyncedPlayerMovementSettings{
-			server_authoritative_block_breaking: false
+			server_authoritative_block_breaking: true
 		}
 		current_level_time:                    0
 		enchantment_seed:                      0
