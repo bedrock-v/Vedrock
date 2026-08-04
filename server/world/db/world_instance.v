@@ -2,6 +2,7 @@ module db
 
 import sync
 import server.world
+import types
 
 // BlockPersist and TilePersist are immutable records of one write already
 // applied to a World's in memory state, handed to the storage worker so the
@@ -24,11 +25,18 @@ struct TilePersist {
 	text string
 }
 
+struct ContainerPersist {
+	x     int
+	y     int
+	z     int
+	items []ContainerSlotItem
+}
+
 struct PersistBarrier {
 	done chan bool
 }
 
-type PersistRecord = BlockPersist | PersistBarrier | TilePersist
+type PersistRecord = BlockPersist | ContainerPersist | PersistBarrier | TilePersist
 
 // World is a single loaded world, its persistent store plus the in memory
 // cache of block overrides layered on top of the generated/vanilla chunks.
@@ -42,9 +50,11 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store              ?Provider
-	overrides          map[string]int
-	tile_data          map[string]TileData
+	store          ?Provider
+	overrides      map[string]int
+	tile_data      map[string]TileData
+	container_data map[string][]ContainerSlotItem
+	open_holders       map[string]u64
 	mutex              &sync.Mutex = sync.new_mutex()
 	current_tick       i64
 	scheduled          []ScheduledEntry
@@ -121,6 +131,9 @@ pub fn (mut w World) load() {
 		w.tile_data[override_key(x, y, z)] = TileData{
 			text: text
 		}
+	})
+	store.each_container(fn [mut w] (x int, y int, z int, items []ContainerSlotItem) {
+		w.container_data[override_key(x, y, z)] = items
 	})
 }
 
@@ -257,6 +270,13 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 				w.mutex.unlock()
 			}
 		}
+		ContainerPersist {
+			store.set_container_items(record.x, record.y, record.z, record.items) or {
+				w.mutex.lock()
+				w.last_persist_error = err.msg()
+				w.mutex.unlock()
+			}
+		}
 		PersistBarrier {
 			record.done <- true
 		}
@@ -280,6 +300,101 @@ pub fn (w &World) tile_text(x int, y int, z int) ?string {
 	}
 	td := w.tile_data[override_key(x, y, z)] or { return none }
 	return td.text
+}
+
+// container_slot_count is a chest's fixed slot count.
+pub const container_slot_count = 27
+
+// set_container_items updates a container's in memory
+// contents immediately, under mutex, then hands the actual disk write to
+// the storage worker.
+pub fn (mut w World) set_container_items(x int, y int, z int, items []ContainerSlotItem) {
+	w.mutex.lock()
+	w.container_data[override_key(x, y, z)] = items.clone()
+	w.mutex.unlock()
+	w.enqueue_persist(ContainerPersist{
+		x:     x
+		y:     y
+		z:     z
+		items: items
+	})
+}
+
+pub fn (w &World) container_items(x int, y int, z int) []ContainerSlotItem {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return w.container_data[override_key(x, y, z)] or { return []ContainerSlotItem{} }.clone()
+}
+
+// container_slots resolves a container's contents into slot-indexed
+// ItemStacks, empty ItemStack{} for any slot with nothing stored.
+pub fn (w &World) container_slots(x int, y int, z int) []types.ItemStack {
+	mut out := []types.ItemStack{len: container_slot_count}
+	for item in w.container_items(x, y, z) {
+		if item.slot >= 0 && item.slot < container_slot_count && item.count > 0 {
+			out[item.slot] = types.ItemStack{
+				id:               item.id
+				meta:             item.meta
+				count:            item.count
+				block_runtime_id: item.block_runtime_id
+				raw_extra_data:   item.raw_extra_data.clone()
+			}
+		}
+	}
+	return out
+}
+
+pub fn (mut w World) set_container_slot(x int, y int, z int, slot int, stack types.ItemStack) {
+	mut items := w.container_items(x, y, z).filter(it.slot != slot)
+	if stack.count > 0 && stack.id != 0 {
+		items << ContainerSlotItem{
+			slot:             slot
+			id:               stack.id
+			meta:             stack.meta
+			count:            stack.count
+			block_runtime_id: stack.block_runtime_id
+			raw_extra_data:   stack.raw_extra_data.clone()
+		}
+	}
+	w.set_container_items(x, y, z, items)
+}
+
+// clear_container empties a container's contents (e.g. after its block is
+// broken and its items have already been dropped into the world).
+pub fn (mut w World) clear_container(x int, y int, z int) {
+	w.set_container_items(x, y, z, []ContainerSlotItem{})
+}
+
+// try_hold_container claims a container position for one session at a time.
+pub fn (mut w World) try_hold_container(x int, y int, z int, runtime_id u64) bool {
+	w.mutex.lock()
+	defer {
+		w.mutex.unlock()
+	}
+	key := override_key(x, y, z)
+	if held_by := w.open_holders[key] {
+		if held_by != runtime_id {
+			return false
+		}
+	}
+	w.open_holders[key] = runtime_id
+	return true
+}
+
+pub fn (mut w World) release_container_hold(x int, y int, z int, runtime_id u64) {
+	w.mutex.lock()
+	defer {
+		w.mutex.unlock()
+	}
+	key := override_key(x, y, z)
+	if held_by := w.open_holders[key] {
+		if held_by == runtime_id {
+			w.open_holders.delete(key)
+		}
+	}
 }
 
 pub fn (w &World) tile_entries_in_chunk(cx int, cz int) []TileEntry {

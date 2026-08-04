@@ -171,7 +171,7 @@ fn (mut s NetworkSession) restore_inventory() &packets_1001.InventoryContentPack
 			}
 			net_id := s.player.track_stack(stack)
 			s.player.set_slot(i, net_id)
-			items << network.item_descriptor_v975(stack)
+			items << network.item_descriptor_v975_tracked(stack, net_id)
 		} else {
 			items << network.item_descriptor_v975(types.ItemStack{})
 		}

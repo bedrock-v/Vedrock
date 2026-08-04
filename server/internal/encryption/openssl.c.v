@@ -56,7 +56,6 @@ fn C.EVP_PKEY_derive_set_peer(ctx &C.EVP_PKEY_CTX, peer &C.EVP_PKEY) int
 fn C.EVP_PKEY_derive(ctx &C.EVP_PKEY_CTX, key &u8, keylen &usize) int
 
 fn C.EVP_DigestSignInit(ctx &C.EVP_MD_CTX, pctx &&C.EVP_PKEY_CTX, tipe &C.EVP_MD, e voidptr, pkey &C.EVP_PKEY) int
-fn C.EVP_DigestSign(ctx &C.EVP_MD_CTX, sig &u8, siglen &usize, tbs &u8, tbslen usize) int
 fn C.EVP_MD_CTX_new() &C.EVP_MD_CTX
 fn C.EVP_MD_CTX_free(ctx &C.EVP_MD_CTX)
 fn C.EVP_sha384() &C.EVP_MD
@@ -67,7 +66,15 @@ fn C.BIO_free_all(a &C.BIO)
 fn C.BIO_write(b &C.BIO, buf &u8, length int) int
 fn C.i2d_PUBKEY_bio(bo &C.BIO, pkey &C.EVP_PKEY) int
 fn C.BIO_ctrl(b &C.BIO, cmd int, larg i64, parg voidptr) i64
-fn C.d2i_PUBKEY(k &&C.EVP_PKEY, pp &&u8, length i64) &C.EVP_PKEY
+
+// vedrock_evp_digest_sign/vedrock_d2i_pubkey (evp_shim.c) forward to
+// EVP_DigestSign/d2i_PUBKEY under distinct symbol names: vlib's crypto.ecdsa
+// also declares those two C symbols directly, with narrower parameter
+// types, and V rejects two conflicting `fn C.X` declarations for one symbol.
+#include "@VMODROOT/server/internal/encryption/evp_shim.c"
+
+fn C.vedrock_evp_digest_sign(ctx &C.EVP_MD_CTX, sig &u8, siglen &usize, tbs &u8, tbslen usize) int
+fn C.vedrock_d2i_pubkey(k &&C.EVP_PKEY, pp &&u8, length i64) &C.EVP_PKEY
 
 const nid_secp384r1 = C.NID_secp384r1
 const evp_pkey_ec = C.EVP_PKEY_EC

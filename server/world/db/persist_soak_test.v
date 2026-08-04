@@ -31,6 +31,10 @@ fn (mut p CountingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 
 fn (mut p CountingProvider) set_tile_text(x int, y int, z int, text string) ! {}
 
+fn (p &CountingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (mut p CountingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {}
+
 fn (mut p CountingProvider) flush() ! {}
 
 fn (mut p CountingProvider) close() ! {}

@@ -128,11 +128,11 @@ fn (mut s NetworkSession) start_game() ! {
 				y: i32(spawn_y)
 				z: 0
 			}
-			achievements_disabled:                        true
+			achievements_disabled:                        false
 			editor_world_type:                            enums_662.EditorWorldType.non_editor
 			is_created_in_editor:                         false
 			is_exported_from_editor:                      false
-			day_cycle_stop_time:                          -1
+			day_cycle_stop_time:                          0
 			education_edition_offer:                      enums_662.EducationEditionOffer.@none
 			education_features_enabled:                   false
 			education_product_id:                         ''
@@ -140,9 +140,9 @@ fn (mut s NetworkSession) start_game() ! {
 			lightning_level:                              0
 			has_confirmed_platform_locked_content:        false
 			multiplayer_enabled:                          true
-			lan_broadcasting_enabled:                     true
-			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.public
-			platform_broadcast_setting:                   enums_662.GamePublishSetting.public
+			lan_broadcasting_enabled:                     false
+			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.no_multi_play
+			platform_broadcast_setting:                   enums_662.GamePublishSetting.no_multi_play
 			commands_enabled:                             true
 			texture_packs_required:                       false
 			rule_data:                                    types_1001.GameRuleLegacyData{}
@@ -168,7 +168,7 @@ fn (mut s NetworkSession) start_game() ! {
 			limited_world_depth:                          0
 			nether_type:                                  dimension_id == world.nether.id
 			edu_shared_uri_resource:                      types_662.EduSharedUriResource{}
-			override_force_experimental_gameplay:         false
+			override_force_experimental_gameplay:         none
 			chat_restriction_level:                       enums_662.ChatRestrictionLevel.@none
 			disable_player_interactions:                  false
 			server_editor_connection_policy:              0
@@ -179,7 +179,7 @@ fn (mut s NetworkSession) start_game() ! {
 		template_content_identity:             ''
 		is_trial:                              false
 		movement_settings:                     types_818.SyncedPlayerMovementSettings{
-			server_authoritative_block_breaking: true
+			server_authoritative_block_breaking: false
 		}
 		current_level_time:                    0
 		enchantment_seed:                      0
@@ -198,10 +198,7 @@ fn (mut s NetworkSession) start_game() ! {
 		network_permissions:                   types_662.NetworkPermissions{}
 		is_logging_chat:                       false
 		server_join_information:               none
-		server_id:                             ''
-		world_id:                              ''
-		scenario_id:                           ''
-		owner_id:                              ''
+		server_telemetry_data:                 packets_1001.ServerTelemetryData{}
 	}
 	start_packet.position[0] = spawn_pos.x
 	start_packet.position[1] = spawn_pos.y
@@ -523,16 +520,20 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	}
 }
 
+// level_chunk_packet sends the chunk in truncated/limited mode: only biome
+// data is inline and sub_chunk_count is the limited sentinel.
 fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &packets_662.LevelChunkPacket {
+	highest := u16(chunk.section_count())
 	return &packets_662.LevelChunkPacket{
 		chunk_position:        types_662.ChunkPos{
 			x: i32(x)
 			z: i32(z)
 		}
 		dimension_id:          dim.id
-		sub_chunk_count:       u32(chunk.section_count())
+		sub_chunk_count:       packets_662.level_chunk_limited
+		sub_chunk_limit:       highest
 		cache_enabled:         false
-		serialized_chunk_data: chunk.serialize()
+		serialized_chunk_data: chunk_biome_payload(dim, chunk)
 	}
 }
 

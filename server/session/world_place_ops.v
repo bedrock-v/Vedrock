@@ -162,6 +162,10 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 			tx.maybe_open_sign_editor(mut s, pos, old_id)
 			return true
 		}
+		if b is block.ChestBlock {
+			tx.open_chest_container(mut s, pos)
+			return true
+		}
 	}
 	if isnil(tx.wr.hub.palette) {
 		return false

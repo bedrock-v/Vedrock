@@ -3,8 +3,8 @@ module block
 import server.world
 
 // Container family: chest, trapped chest, barrel, furnace (blast furnace, smoker),
-// hopper, dispenser, asdropper, shulker box(es). None of these carry inventory
-// storage, smelting or item transfer behaviour yet.
+// hopper, dispenser, asdropper, shulker box(es). Only chest (ChestBlock below)
+// carries real inventory storage and item transfer behaviour.
 
 const shulker_colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray',
 	'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black']
@@ -29,6 +29,28 @@ fn cardinal_container_block(name string, direction string, hardness f32) Block {
 		id:             id
 		block_runtime:  runtime.network_id
 		break_hardness: hardness
+	}
+}
+
+pub struct ChestBlock {
+	SimpleBlock
+}
+
+fn chest_block(direction string) Block {
+	id := 'minecraft:chest'
+	runtime := world.new_block_with_states(id, [
+		world.BlockState{
+			key:        'minecraft:cardinal_direction'
+			kind:       world.state_kind_string
+			string_val: direction
+		},
+	])
+	return ChestBlock{
+		SimpleBlock: SimpleBlock{
+			id:             id
+			block_runtime:  runtime.network_id
+			break_hardness: chest_hardness
+		}
 	}
 }
 
@@ -65,7 +87,7 @@ fn simple_container_block(name string, hardness f32) Block {
 pub fn container_blocks() []Block {
 	mut result := []Block{}
 	for direction in cardinal_directions {
-		result << cardinal_container_block('chest', direction, chest_hardness)
+		result << chest_block(direction)
 		result << cardinal_container_block('trapped_chest', direction, chest_hardness)
 		result << cardinal_container_block('furnace', direction, furnace_hardness)
 		result << cardinal_container_block('lit_furnace', direction, furnace_hardness)

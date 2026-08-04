@@ -84,13 +84,21 @@ pub fn item_stack_from_descriptor(item types_662.NetworkItemStackDescriptor) mod
 }
 
 pub fn item_descriptor_v975(item model.ItemStack) types_975.NetworkItemStackDescriptorV2 {
-	return types_975.NetworkItemStackDescriptorV2{
+	return item_descriptor_v975_tracked(item, 0)
+}
+
+pub fn item_descriptor_v975_tracked(item model.ItemStack, net_id int) types_975.NetworkItemStackDescriptorV2 {
+	mut d := types_975.NetworkItemStackDescriptorV2{
 		id:               i16(item.id)
 		stack_size:       u16(item.count)
 		aux_value:        u32(item.meta)
 		block_runtime_id: u32(item.block_runtime_id)
 		user_data_buffer: item.raw_extra_data
 	}
+	if item.count > 0 && item.id != 0 && net_id != 0 {
+		d.net_id = i32(net_id)
+	}
+	return d
 }
 
 pub fn item_stack_from_descriptor_v975(item types_975.NetworkItemStackDescriptorV2) model.ItemStack {

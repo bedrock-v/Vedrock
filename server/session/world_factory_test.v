@@ -28,6 +28,10 @@ fn (mut p FakeProvider) set_tile_text(x int, y int, z int, text string) ! {}
 
 fn (p &FakeProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
+fn (mut p FakeProvider) set_container_items(x int, y int, z int, items []db.ContainerSlotItem) ! {}
+
+fn (p &FakeProvider) each_container(cb fn (x int, y int, z int, items []db.ContainerSlotItem)) {}
+
 fn (mut p FakeProvider) flush() ! {}
 
 fn (mut p FakeProvider) close() ! {}

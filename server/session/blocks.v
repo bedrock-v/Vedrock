@@ -60,19 +60,14 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 }
 
 fn (mut s NetworkSession) handle_inventory_transaction(p packets_1001.InventoryTransactionPacket) ! {
-	if tx_type := p.transaction_type {
-		match tx_type {
-			.normal_transaction, .inventory_mismatch {
-				return
-			}
-			.item_use_transaction, .item_use_on_entity_transaction, .item_release_transaction {
-				s.log.debug('Dropped ${tx_type} InventoryTransactionPacket; protocol ${network.selected_protocol} carries item-use actions in PlayerAuthInputPacket')
-				return
-			}
+	match p.transaction_type {
+		.normal_transaction, .inventory_mismatch {
+			return
 		}
-	}
-	if _ := p.transaction {
-		s.log.debug('Dropped InventoryTransactionPacket without a complex transaction type')
+		.item_use_transaction, .item_use_on_entity_transaction, .item_release_transaction {
+			s.log.debug('Dropped ${p.transaction_type} InventoryTransactionPacket; protocol ${network.selected_protocol} carries item-use actions in PlayerAuthInputPacket')
+			return
+		}
 	}
 }
 
@@ -493,6 +488,12 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 		if drop_name != '' {
 			center := types.Vector3{f32(t.x) + 0.5, f32(t.y) + 0.5, f32(t.z) + 0.5}
 			spawn_dropped_item_stack(mut tx.wr, drop_name, drop_count, center)
+		}
+	}
+
+	if b := tx.wr.hub.blocks.get(t.old_id) {
+		if b is block.ChestBlock {
+			drop_chest_contents(mut tx.wr, mut s, t.x, t.y, t.z)
 		}
 	}
 

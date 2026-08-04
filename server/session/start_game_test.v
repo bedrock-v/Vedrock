@@ -3,6 +3,7 @@ module session
 import protocol
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
+import protocol.version.v662.packets as packets_662
 import protocol.version.v776.packets as packets_776
 import protocol.version.v818.types as types_818
 import protocol.version.v818.packets as packets_818
@@ -337,10 +338,10 @@ fn test_prune_sent_chunks_keeps_only_current_radius() {
 fn test_level_chunk_packet_uses_subchunk_request_mode() {
 	chunk := world.FlatGenerator{}.generate(0, 0)
 	packet := level_chunk_packet(world.overworld, 0, 0, chunk)
-	assert packet.sub_chunk_count == u32(chunk.section_count())
+	assert packet.sub_chunk_count == packets_662.level_chunk_limited
+	assert packet.sub_chunk_limit == u16(chunk.section_count())
 	assert !packet.cache_enabled
 	assert packet.serialized_chunk_data.len > 0
-	assert packet.serialized_chunk_data[0] == 9
 	assert packet.serialized_chunk_data[packet.serialized_chunk_data.len - 1] == 0
 }
 

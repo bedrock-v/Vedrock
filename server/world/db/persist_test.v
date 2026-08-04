@@ -57,6 +57,12 @@ fn (mut p RecordingProvider) set_tile_text(x int, y int, z int, text string) ! {
 	p.calls << 'set_tile_text'
 }
 
+fn (p &RecordingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (mut p RecordingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
+	p.calls << 'set_container_items'
+}
+
 fn (mut p RecordingProvider) flush() ! {
 	p.calls << 'flush'
 }
@@ -90,6 +96,13 @@ fn (mut p FailingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 }
 
 fn (mut p FailingProvider) set_tile_text(x int, y int, z int, text string) ! {
+	p.calls++
+	return error('simulated disk full')
+}
+
+fn (p &FailingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (mut p FailingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
 	p.calls++
 	return error('simulated disk full')
 }

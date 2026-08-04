@@ -228,13 +228,18 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	if !isnil(previous_wr) {
 		remove_pkt := s.remove_actor_packet()
 		list_remove_pkt := s.player_list_remove_packet()
-		world_call[bool](mut previous_wr, fn [rid, remove_pkt, list_remove_pkt] (mut tx WorldTx) bool {
+		held_container := s.open_container_position()
+		world_call[bool](mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx WorldTx) bool {
 			tx.deregister_player(rid)
+			if pos := held_container {
+				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
+			}
 			tx.wr.broadcast_world_except(rid, remove_pkt)
 			tx.wr.broadcast_world_except(rid, list_remove_pkt)
 			return true
 		}) or {}
 	}
+	s.set_open_container_position(none)
 
 	s.set_world_binding(target_wr, gen)
 	// Position must be updated before the join packets below are built, so

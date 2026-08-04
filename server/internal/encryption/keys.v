@@ -74,7 +74,7 @@ pub fn (k &ServerKeyPair) derive_shared_secret(client_public_key_b64 string) ![]
 	}
 	mut peer := &C.EVP_PKEY(unsafe { nil })
 	pp := &u8(der.data)
-	peer = C.d2i_PUBKEY(&peer, &pp, i64(der.len))
+	peer = C.vedrock_d2i_pubkey(&peer, &pp, i64(der.len))
 	if peer == unsafe { nil } {
 		return error('failed to parse client public key DER')
 	}
@@ -122,11 +122,11 @@ pub fn (k &ServerKeyPair) sign_es384(message []u8) ![]u8 {
 		return error('EVP_DigestSignInit failed')
 	}
 	mut sig_len := usize(0)
-	if C.EVP_DigestSign(md_ctx, unsafe { nil }, &sig_len, message.data, usize(message.len)) != 1 {
+	if C.vedrock_evp_digest_sign(md_ctx, unsafe { nil }, &sig_len, message.data, usize(message.len)) != 1 {
 		return error('EVP_DigestSign length query failed')
 	}
 	mut der_sig := []u8{len: int(sig_len)}
-	if C.EVP_DigestSign(md_ctx, der_sig.data, &sig_len, message.data, usize(message.len)) != 1 {
+	if C.vedrock_evp_digest_sign(md_ctx, der_sig.data, &sig_len, message.data, usize(message.len)) != 1 {
 		return error('EVP_DigestSign failed')
 	}
 	return der_ecdsa_to_raw(der_sig[..int(sig_len)], p384_component_size)!

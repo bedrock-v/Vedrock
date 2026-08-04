@@ -272,6 +272,21 @@ fn test_entity_does_not_pass_through_wall() {
 	assert e.pos.x < 1.0 // blocked before entering the wall block at x=1
 }
 
+fn test_entity_steps_up_slab_height_ledge() {
+	mut host := &FakeHost{}
+	host.set_slab(2, 5, 0) // top surface at y=5.5 - a 0.5 block step up
+	mut m := new_manager(host)
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 5, 0.5})
+	e.floor_y = 5
+	e.no_gravity = true
+	for _ in 0 .. 20 {
+		e.set_velocity(types.Vector3{0.3, 0, 0})
+		m.tick()
+	}
+	assert e.pos.x > 2.0 // stepped up and continued past the slab, not stuck at its vertical face
+	assert e.pos.y >= 5.5 // settled on top of the stepped-up surface
+}
+
 fn test_entity_without_collision_passes_through_wall() {
 	mut host := &FakeHost{}
 	host.set_solid(1, 5, 0) // wall east of the entity, would normally block it

@@ -72,24 +72,27 @@ mut:
 	runtime_id         u64
 	spawned            bool
 	inv_opened         bool
-	movement_mutex     &sync.Mutex = sync.new_mutex()
-	pending_movement   ?MovementSnapshot
-	movement_scheduled bool
-	pending_radius     int
-	give_next_slot     int
-	next_form_id       int
-	pending_forms      map[int]form.Form
-	forms_mutex        &sync.Mutex = sync.new_mutex()
-	last_place_ms      i64
-	view_radius        int
-	last_chunk_x       int
-	last_chunk_z       int
-	chunk_cache        map[u64]world.Chunk
-	sent_chunks        map[u64]bool
-	chunk_cache_mutex  &sync.Mutex = sync.new_mutex()
-	chunk_stream_mutex &sync.Mutex = sync.new_mutex()
-	transfer_mutex     &sync.Mutex = sync.new_mutex()
-	cooldown_until     map[string]i64
+	open_container_pos          ?types.BlockPosition
+	open_container_slot_net_ids map[int]int
+	open_container_mutex        &sync.Mutex = sync.new_mutex()
+	movement_mutex       &sync.Mutex = sync.new_mutex()
+	pending_movement     ?MovementSnapshot
+	movement_scheduled   bool
+	pending_radius       int
+	give_next_slot       int
+	next_form_id         int
+	pending_forms        map[int]form.Form
+	forms_mutex          &sync.Mutex = sync.new_mutex()
+	last_place_ms        i64
+	view_radius          int
+	last_chunk_x         int
+	last_chunk_z         int
+	chunk_cache          map[u64]world.Chunk
+	sent_chunks          map[u64]bool
+	chunk_cache_mutex    &sync.Mutex = sync.new_mutex()
+	chunk_stream_mutex   &sync.Mutex = sync.new_mutex()
+	transfer_mutex       &sync.Mutex = sync.new_mutex()
+	cooldown_until       map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
 	// are managed in outbound.v.
 	outbound      chan OutboundMessage = chan OutboundMessage{cap: outbound_queue_capacity}
@@ -305,8 +308,12 @@ fn (mut s NetworkSession) leave() {
 		rid := s.runtime_id
 		list_remove_pkt := s.player_list_remove_packet()
 		remove_pkt := s.remove_actor_packet()
-		world_call[bool](mut wr, fn [rid, list_remove_pkt, remove_pkt] (mut tx WorldTx) bool {
+		held_container := s.open_container_position()
+		world_call[bool](mut wr, fn [rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
 			tx.deregister_player(rid)
+			if pos := held_container {
+				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
+			}
 			tx.wr.broadcast_world(list_remove_pkt)
 			tx.wr.broadcast_world(remove_pkt)
 			return true

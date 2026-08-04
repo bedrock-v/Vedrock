@@ -23,6 +23,14 @@ fn test_chest_direction_variants() {
 	assert by_south.hardness() == 2.5
 }
 
+fn test_chest_resolves_to_chest_block_marker_type_but_trapped_chest_does_not() {
+	r := new_registry()
+	chest := r.get_by_name('minecraft:chest') or { panic('missing chest') }
+	trapped := r.get_by_name('minecraft:trapped_chest') or { panic('missing trapped_chest') }
+	assert chest is ChestBlock
+	assert trapped !is ChestBlock
+}
+
 fn test_lit_furnace_variants_registered_but_have_no_item() {
 	r := new_registry()
 	assert r.get_by_name('minecraft:furnace') != none

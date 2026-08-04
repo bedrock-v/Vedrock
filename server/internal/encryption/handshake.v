@@ -52,7 +52,7 @@ fn build_handshake_jwt(mut keys ServerKeyPair, salt []u8) !string {
 		'x5u': json2.Any(base64.encode(der))
 	})
 	payload := json2.Any({
-		'salt': json2.Any(base64.url_encode(salt).trim_right('='))
+		'salt': json2.Any(base64.encode(salt).trim_right('='))
 	})
 	signing_input := '${b64url_encode_json(header)}.${b64url_encode_json(payload)}'
 	raw_sig := keys.sign_es384(signing_input.bytes())!

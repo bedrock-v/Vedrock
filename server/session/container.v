@@ -25,10 +25,43 @@ fn (mut s NetworkSession) handle_interact(p packets_898.InteractPacket) ! {
 }
 
 fn (mut s NetworkSession) handle_container_close(p packets_685.ContainerClosePacket) ! {
-	s.inv_opened = false
+	if p.container_id == enums_662.ContainerID.inventory {
+		s.inv_opened = false
+	} else if int(p.container_id) == chest_dynamic_container_id {
+		s.release_open_chest_container()
+	}
 	s.send_maybe_queued(&packets_685.ContainerClosePacket{
 		container_id:           p.container_id
 		container_type:         p.container_type
 		server_initiated_close: false
 	})!
+}
+
+// release_open_chest_container runs close_chest_container on the owning
+// world's actor.
+fn (mut s NetworkSession) release_open_chest_container() {
+	mut wr := s.current_world_runtime()
+	if isnil(wr) {
+		return
+	}
+	rid := s.runtime_id
+	epoch := s.world_binding().epoch
+	wr.try_submit(CloseChestContainerTask{
+		runtime_id: rid
+		epoch:      epoch
+	})
+}
+
+struct CloseChestContainerTask {
+	runtime_id u64
+	epoch      i64
+}
+
+fn (t CloseChestContainerTask) name() string {
+	return 'CloseChestContainerTask'
+}
+
+fn (t CloseChestContainerTask) run(mut tx WorldTx) {
+	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	target.close_chest_container(mut tx)
 }

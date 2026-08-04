@@ -1,6 +1,17 @@
 module db
 
+import json2
 import server.world
+
+pub struct ContainerSlotItem {
+pub mut:
+	slot             int
+	id               int
+	meta             int
+	count            int
+	block_runtime_id int
+	raw_extra_data   []u8
+}
 
 // Provider is the storage backend contract a world needs, the same shape
 // WorldStore (LevelDB) already implements, extracted so a framework user can
@@ -10,9 +21,11 @@ pub interface Provider {
 	load_chunk(cx int, cz int) ?world.Chunk
 	each_block(cb fn (x int, y int, z int, runtime_id int))
 	each_tile(cb fn (x int, y int, z int, text string))
+	each_container(cb fn (x int, y int, z int, items []ContainerSlotItem))
 mut:
 	set_block(x int, y int, z int, runtime_id int) !
 	set_tile_text(x int, y int, z int, text string) !
+	set_container_items(x int, y int, z int, items []ContainerSlotItem) !
 	flush() !
 	close() !
 }
@@ -70,6 +83,15 @@ fn tile_key(x int, y int, z int) []u8 {
 	return b
 }
 
+fn container_key(x int, y int, z int) []u8 {
+	mut b := []u8{}
+	b << u8(`c`)
+	put_i32(mut b, x)
+	put_i32(mut b, y)
+	put_i32(mut b, z)
+	return b
+}
+
 pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) ! {
 	mut v := []u8{}
 	put_i32(mut v, runtime_id)
@@ -97,6 +119,21 @@ pub fn (w &WorldStore) each_tile(cb fn (x int, y int, z int, text string)) {
 			return
 		}
 		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), value.bytestr())
+	})
+}
+
+// set_container_items persists a container's contents.
+pub fn (w &WorldStore) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
+	w.overrides.put(container_key(x, y, z), json2.encode(items).bytes())!
+}
+
+pub fn (w &WorldStore) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {
+	w.overrides.each(fn [cb] (key []u8, value []u8) {
+		if key.len != 13 || key[0] != u8(`c`) {
+			return
+		}
+		items := json2.decode[[]ContainerSlotItem](value.bytestr()) or { return }
+		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), items)
 	})
 }
 
