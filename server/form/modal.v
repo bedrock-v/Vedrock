@@ -45,11 +45,6 @@ pub fn (f &ModalForm) request_body() string {
 	)}}'
 }
 
-// has_network_image is always false because modal form buttons don't carry images.
-pub fn (f &ModalForm) has_network_image() bool {
-	return false
-}
-
 pub fn (f &ModalForm) submit(raw ?string) ! {
 	data := raw or {
 		if callback := f.on_close {

@@ -15,13 +15,6 @@ pub:
 	image ?ButtonImage
 }
 
-pub fn (b Button) has_network_image() bool {
-	if img := b.image {
-		return img.typ == 'url'
-	}
-	return false
-}
-
 pub fn button(text string) Button {
 	return Button{
 		text: text

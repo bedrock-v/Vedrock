@@ -35,11 +35,6 @@ pub fn (f &CustomForm) request_body() string {
 	return '{"type":"custom_form","title":${json2.encode(f.title, escape_unicode: true)},"content":[${parts.join(',')}]}'
 }
 
-// has_network_image is always false because custom form elements don't carry images.
-pub fn (f &CustomForm) has_network_image() bool {
-	return false
-}
-
 pub fn (f &CustomForm) submit(raw ?string) ! {
 	data := raw or {
 		if callback := f.on_close {

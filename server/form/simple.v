@@ -50,15 +50,6 @@ pub fn (f &SimpleForm) request_body() string {
 	)},"buttons":[${parts.join(',')}]}'
 }
 
-pub fn (f &SimpleForm) has_network_image() bool {
-	for b in f.buttons {
-		if b.has_network_image() {
-			return true
-		}
-	}
-	return false
-}
-
 pub fn (f &SimpleForm) submit(raw ?string) ! {
 	data := raw or {
 		if callback := f.on_close {
