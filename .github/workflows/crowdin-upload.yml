@@ -1,4 +1,4 @@
-# Uploads source strings (lang/en.toml) to Crowdin on every push to master
+# Uploads source strings (lang/en.toml) to Crowdin on every push to stable
 # that touches the source file. Manual runs via workflow_dispatch.
 #
 # Required repo secrets:
@@ -9,7 +9,7 @@ name: Crowdin upload
 on:
   push:
     branches:
-      - master
+      - stable
     paths:
       - lang/en.toml
   workflow_dispatch:

@@ -9,18 +9,19 @@ body:
         bugs are expected - but a clear, reproducible report is what actually gets them fixed.
 
         > [!IMPORTANT]
-        > Vedrock has an in-tree plugin system. If you run a custom plugin, please try to
-        > reproduce the bug without it first. This saves everyone time if the plugin is the cause.
+        > Vedrock is a library. If you're running your own code built on
+        > top of it, please try to reproduce the bug with Vedrock's own default server first.
+        > This saves everyone time if your own code is the cause.
 
   - type: dropdown
     attributes:
-      label: Are plugins involved?
-      description: Vedrock loads plugins at startup. Tell us whether a custom plugin is in play.
+      label: Is custom code involved?
+      description: Tell us whether you're running Vedrock's own default server or your own code built on top of it as a library.
       options:
-        - "No custom plugins loaded"
-        - "Bug still happens without custom plugins"
-        - "Bug only happens with a custom plugin (describe below)"
-        - "Not sure / haven't tested without plugins"
+        - "Running Vedrock's own default server, unmodified"
+        - "Bug still happens with Vedrock's own default server"
+        - "Bug only happens in my own code built on Vedrock (describe below)"
+        - "Not sure / haven't tested without my own code"
     validations:
       required: true
 

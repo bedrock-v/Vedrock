@@ -15,10 +15,9 @@ world:
   - changed-files:
       - any-glob-to-any-file: server/world/**
 
-plugin:
+gameplay:
   - changed-files:
       - any-glob-to-any-file:
-          - server/plugin/**
           - server/event/**
           - server/entity/**
           - server/scheduler/**
