@@ -1,0 +1,154 @@
+# ru.toml - Russian
+
+[server.starting]
+other = "Запуск Vedrock для Minecraft Bedrock {{.Version}} (протокол {{.Protocol}})"
+
+[server.listening]
+other = "Прослушивание {{.Address}}"
+
+[server.stopping]
+other = "Остановка сервера"
+
+[server.gamedata_loaded]
+other = "Загружено предметов: {{.Items}}, творческих записей: {{.CreativeItems}}"
+
+[server.world_loaded]
+other = "Мир загружен, сохранённых изменений блоков: {{.Blocks}}"
+
+[player.join_log]
+other = "{{.Name}} присоединился к игре"
+
+[player.leave_log]
+other = "{{.Name}} вышел из игры (онлайн: {{.Online}})"
+
+[player.incoming]
+other = "Входящее подключение с {{.Address}}"
+
+[cmd.unknown]
+other = "§cНеизвестная команда: {{.Name}}"
+
+[cmd.empty]
+other = "§cПустая команда"
+
+[cmd.no_permission]
+other = "§cУ вас нет прав на использование этой команды"
+
+[cmd.version.body]
+other = "На сервере работает §a{{.Software}}§r\nВерсия сервера: §a{{.Version}}§r (git: §a{{.Hash}}§r)\nСовместимая версия MC: §a{{.MCVersion}}§r (протокол §a{{.Protocol}}§r)"
+
+[cmd.status.header]
+other = "§a---- §6Состояние сервера §a----§r"
+
+[cmd.gamemode.usage]
+other = "§cИспользование: /gamemode <survival|creative|adventure|spectator>"
+
+[cmd.gamemode.unknown]
+other = "§cНеизвестный режим игры: {{.Mode}}"
+
+[cmd.gamemode.set]
+other = "Режим игры изменён на §a{{.Mode}}§r"
+
+[cmd.player_not_found]
+other = "§cИгрок {{.Name}} не найден"
+
+[cmd.player_only]
+other = "§cЭту команду можно использовать только в игре§r"
+
+[cmd.whitelist.usage]
+other = "§cИспользование: /whitelist <add|remove|on|off|list> [игрок]§r"
+
+[cmd.whitelist.added]
+other = "§a{{.Name}} добавлен в белый список§r"
+
+[cmd.whitelist.removed]
+other = "§a{{.Name}} удалён из белого списка§r"
+
+[cmd.whitelist.enabled]
+other = "§aБелый список включён§r"
+
+[cmd.whitelist.disabled]
+other = "§aБелый список отключён§r"
+
+[cmd.whitelist.list_empty]
+other = "§7В белом списке нет игроков§r"
+
+[cmd.kill_self]
+other = "§aВы погибли§r"
+
+[cmd.kill_other]
+other = "§aИгрок {{.Name}} убит§r"
+
+[cmd.teleport.usage]
+other = "§cИспользование: /tp <x> <y> <z> | /tp <игрок> | /tp <цель> <x> <y> <z> | /tp <цель> <игрок>§r"
+
+[cmd.teleport.moved]
+other = "§aТелепортация в {{.X}}, {{.Y}}, {{.Z}}§r"
+
+[cmd.teleport.moved_other]
+other = "§a{{.Name}} телепортирован в {{.X}}, {{.Y}}, {{.Z}}§r"
+
+[cmd.clear_self]
+other = "§aВаш инвентарь очищен§r"
+
+[cmd.clear_other]
+other = "§aИнвентарь игрока {{.Name}} очищен§r"
+
+[cmd.give.usage]
+other = "§cИспользование: /give <игрок> <предмет> [количество]§r"
+
+[cmd.give.unknown_item]
+other = "§cНеизвестный предмет: {{.Item}}§r"
+
+[cmd.give.success]
+other = "§aИгроку {{.Name}} выдано {{.Count}}x {{.Item}}§r"
+
+[cmd.give.received]
+other = "§aВы получили {{.Count}}x {{.Item}}§r"
+
+[cmd.difficulty.usage]
+other = "§cИспользование: /difficulty <peaceful|easy|normal|hard>§r"
+
+[cmd.difficulty.set]
+other = "§aСложность установлена на {{.Difficulty}}§r"
+
+[cmd.say.usage]
+other = "§cИспользование: /say <сообщение>§r"
+
+[cmd.title.usage]
+other = "§cИспользование: /title <игрок|@a> <title|subtitle|actionbar> <текст>§r"
+
+[cmd.world.usage]
+other = "§cИспользование: /world <list|info|create|load|delete|tp> [имя] [измерение] [генератор]§r"
+
+[cmd.world.none]
+other = "§eНи один мир не загружен§r"
+
+[cmd.world.list]
+other = "§6Миры ({{.Count}}): §a{{.Worlds}}§r"
+
+[cmd.world.not_found]
+other = '§cМир "{{.Name}}" не загружен§r'
+
+[cmd.world.created]
+other = '§aМир "{{.Name}}" создан§r'
+
+[cmd.world.create_failed]
+other = '§cНе удалось создать "{{.Name}}": {{.Reason}}§r'
+
+[cmd.world.loaded]
+other = '§aМир "{{.Name}}" загружен§r'
+
+[cmd.world.load_failed]
+other = '§cНе удалось загрузить "{{.Name}}": {{.Reason}}§r'
+
+[cmd.world.deleted]
+other = '§aМир "{{.Name}}" удалён§r'
+
+[cmd.world.delete_failed]
+other = '§cНе удалось удалить "{{.Name}}": {{.Reason}}§r'
+
+[cmd.world.tp]
+other = '§aТелепортация в мир "{{.Name}}"§r'
+
+[cmd.world.tp_failed]
+other = '§cНе удалось телепортироваться в мир "{{.Name}}": {{.Reason}}§r'
