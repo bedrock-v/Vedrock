@@ -92,8 +92,15 @@ fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 	s.player.identity = identity
 	s.transport.mark_logged_in()
 	s.player.perm.set_op(s.hub.is_op(identity.display_name))
-	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, identity.xuid,
-		identity.uuid)
+	// xuid/uuid grants (player_permissions.yml's "xuid:"/"uuid:" lines) are
+	// only meaningful for a verified account: both fields are populated from
+	// client supplied JWT claims regardless of whether the chain actually
+	// verified, so an unauthenticated claim must
+	// never match another player's xuid/uuid-keyed grants.
+	grant_xuid := if identity.xbox_authenticated { identity.xuid } else { '' }
+	grant_uuid := if identity.xbox_authenticated { identity.uuid } else { '' }
+	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, grant_xuid,
+		grant_uuid)
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
 	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
 	// Negotiate protocol encryption before login_success so the rest of the

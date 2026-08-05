@@ -29,12 +29,19 @@ struct ChunkSendTarget {
 	order    int
 }
 
+// player_key picks the save file identity: xuid, then uuid, then
+// display_name. xuid/uuid are only trusted when xbox_authenticated.
+// both fields are populated from client-supplied JWT claims regardless
+// of whether the chain actually verified, an unauthenticated claim must
+// never resolve to the same key a real Xbox authenticated player would get.
 fn (mut s NetworkSession) player_key() string {
-	if s.player.identity.xuid != '' {
-		return s.player.identity.xuid
-	}
-	if s.player.identity.uuid != '' {
-		return s.player.identity.uuid
+	if s.player.identity.xbox_authenticated {
+		if s.player.identity.xuid != '' {
+			return s.player.identity.xuid
+		}
+		if s.player.identity.uuid != '' {
+			return s.player.identity.uuid
+		}
 	}
 	return s.player.identity.display_name
 }
