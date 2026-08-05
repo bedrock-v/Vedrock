@@ -7,11 +7,11 @@ import protocol.version.v662.packets as packets_662
 import protocol.version.v662.types as types_662
 import protocol.version.v776.packets as packets_776
 import protocol.version.v818.types as types_818
-import protocol.version.v818.packets as packets_818
 import protocol.version.v944.types as types_944
 import protocol.version.v944.packets as packets_944
-import protocol.version.v1001.types as types_1001
 import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.packets as packets_2168
 import types
 import nbt
 import server.event
@@ -115,11 +115,11 @@ fn (mut s NetworkSession) start_game() ! {
 	} else {
 		enums_662.PlayerPermissionLevel.member
 	}
-	mut start_packet := &packets_1001.StartGamePacket{
+	mut start_packet := &packets_2168.StartGamePacket{
 		target_actor_id:                       network.actor_unique_id(i64(s.runtime_id))
 		target_runtime_id:                     network.actor_runtime_id(s.runtime_id)
 		actor_game_type:                       network.game_type(s.player.game_mode())
-		settings:                              types_1001.LevelSettings{
+		settings:                              types_2168.LevelSettings{
 			seed:                                         0
 			spawn_settings:                               types_662.SpawnSettings{
 				spawn_type:              enums_662.SpawnBiomeType.default
@@ -152,11 +152,11 @@ fn (mut s NetworkSession) start_game() ! {
 			platform_broadcast_setting:                   enums_662.GamePublishSetting.no_multi_play
 			commands_enabled:                             true
 			texture_packs_required:                       false
-			rule_data:                                    types_1001.GameRuleLegacyData{}
+			rule_data:                                    types_2168.GameRuleLegacyData{}
 			experiments:                                  types_662.Experiments{}
 			bonus_chest_enabled:                          false
 			starting_map_enabled:                         false
-			player_permissions:                           player_permission
+			player_permissions:                           u8(player_permission)
 			server_chunk_tick_range:                      s.cfg.view_distance
 			locked_behaviour_pack:                        false
 			locked_resource_pack:                         false
@@ -203,9 +203,11 @@ fn (mut s NetworkSession) start_game() ! {
 		server_enabled_client_side_generation: false
 		block_network_ids_are_hashes:          true
 		network_permissions:                   types_662.NetworkPermissions{}
-		is_logging_chat:                       false
 		server_join_information:               none
-		server_telemetry_data:                 packets_1001.ServerTelemetryData{}
+		server_id:                             ''
+		world_id:                              ''
+		scenario_id:                           ''
+		owner_id:                              ''
 	}
 	start_packet.position[0] = spawn_pos.x
 	start_packet.position[1] = spawn_pos.y
@@ -220,10 +222,7 @@ fn (mut s NetworkSession) start_game() ! {
 	}
 	s.transport.send(s.item_registry())!
 	s.transport.send(s.creative_content())!
-	s.transport.send(&packets_1001.BiomeDefinitionListPacket{
-		biomes:  []packets_1001.BiomeEntry{}
-		strings: []string{}
-	})!
+	s.transport.send(biome_definition_list())!
 	s.transport.send(&packets_662.SetDifficultyPacket{
 		difficulty: u32(s.hub.difficulty_value())
 	})!
@@ -267,11 +266,11 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p packets_662.RequestChunk
 		new_view_radius:     u32(radius * 16)
 		server_built_chunks: []types_662.ChunkPos{}
 	})!
-	s.send_spawn_chunks(radius)!
-	s.remember_chunk_window(radius)
 	s.transport.send(&packets_662.PlayStatusPacket{
 		status: enums_662.PlayStatus.player_spawn
 	})!
+	s.send_spawn_chunks(radius)!
+	s.remember_chunk_window(radius)
 	s.log.debug('Sent ${(radius * 2 + 1) * (radius * 2 + 1)} chunks to ${s.player.identity.display_name}')
 }
 
@@ -528,19 +527,21 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 }
 
 // level_chunk_packet sends the chunk in truncated/limited mode: only biome
-// data is inline and sub_chunk_count is the limited sentinel.
-fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &packets_662.LevelChunkPacket {
-	highest := u16(chunk.section_count())
-	return &packets_662.LevelChunkPacket{
-		chunk_position:        types_662.ChunkPos{
+// data is inline and the client is told to request subchunks separately
+// via SubChunkRequestPacket. That request-mode signal is
+// client_request_sub_chunk_limit being present.
+fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &packets_2168.LevelChunkPacket {
+	highest := i32(chunk.section_count())
+	return &packets_2168.LevelChunkPacket{
+		chunk_position:                 types_662.ChunkPos{
 			x: i32(x)
 			z: i32(z)
 		}
-		dimension_id:          dim.id
-		sub_chunk_count:       packets_662.level_chunk_limited
-		sub_chunk_limit:       highest
-		cache_enabled:         false
-		serialized_chunk_data: chunk_biome_payload(dim, chunk)
+		dimension_id:                   dim.id
+		sub_chunk_count:                0
+		client_request_sub_chunk_limit: highest
+		cache_enabled:                  false
+		serialized_chunk_data:          chunk_biome_payload(dim, chunk)
 	}
 }
 
@@ -610,15 +611,15 @@ fn tile_data_packets(wld &db.World, cx int, cz int) []protocol.Packet {
 	return packets
 }
 
-fn subchunk_center(pos [3]i32) types_662.SubChunkPos {
-	return types_662.SubChunkPos{
+fn subchunk_center(pos [3]i32) types_2168.SubChunkPos {
+	return types_2168.SubChunkPos{
 		x: pos[0]
 		y: pos[1]
 		z: pos[2]
 	}
 }
 
-fn subchunk_height_map(height_map []int, abs_index int) (packets_818.HeightMapDataType, [16][16]i8) {
+fn subchunk_height_map(height_map []int, abs_index int) (packets_2168.HeightMapDataType, [16][16]i8) {
 	section_min_y := abs_index * 16
 	section_max_y := section_min_y + 15
 	mut out := [16][16]i8{}
@@ -640,12 +641,12 @@ fn subchunk_height_map(height_map []int, abs_index int) (packets_818.HeightMapDa
 		}
 	}
 	if all_too_high {
-		return packets_818.HeightMapDataType.all_too_high, [16][16]i8{}
+		return packets_2168.HeightMapDataType.all_too_high, [16][16]i8{}
 	}
 	if all_too_low {
-		return packets_818.HeightMapDataType.all_too_low, [16][16]i8{}
+		return packets_2168.HeightMapDataType.all_too_low, [16][16]i8{}
 	}
-	return packets_818.HeightMapDataType.has_data, out
+	return packets_2168.HeightMapDataType.has_data, out
 }
 
 // handle_sub_chunk_request may run before outbound activation because
@@ -654,14 +655,14 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 	wld, gen := s.world_and_generator()
 	dim := if isnil(wld) { world.overworld } else { wld.dimension }
 	if p.dimension_type != dim.id {
-		mut entries := []packets_818.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+		mut entries := []packets_2168.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 		for off in p.sub_chunk_pos_offsets {
-			entries << packets_818.SubChunkDataEntry{
+			entries << packets_2168.SubChunkDataEntry{
 				sub_chunk_pos_offset:     off
 				sub_chunk_request_result: .wrong_dimension
 			}
 		}
-		s.send_maybe_queued(&packets_818.SubChunkPacket{
+		s.send_maybe_queued(&packets_2168.SubChunkPacket{
 			cache_enabled:  false
 			dimension_type: p.dimension_type
 			center_pos:     subchunk_center(p.center_pos)
@@ -670,7 +671,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 		return
 	}
 
-	mut entries := []packets_818.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+	mut entries := []packets_2168.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 	mut height_cache := map[u64][]int{}
 	mut tile_sent_columns := map[u64]bool{}
 	for off in p.sub_chunk_pos_offsets {
@@ -693,13 +694,13 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 		}
 		height_map_type, height_map_data := subchunk_height_map(height_map, abs_index)
 		terrain := chunk.serialize_subchunk(abs_index) or {
-			entries << packets_818.SubChunkDataEntry{
+			entries << packets_2168.SubChunkDataEntry{
 				sub_chunk_pos_offset:     off
 				sub_chunk_request_result: .index_out_of_bounds
 			}
 			continue
 		}
-		entries << packets_818.SubChunkDataEntry{
+		entries << packets_2168.SubChunkDataEntry{
 			sub_chunk_pos_offset:        off
 			sub_chunk_request_result:    .success
 			serialized_sub_chunk:        terrain
@@ -709,7 +710,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 			render_height_map_data:      height_map_data
 		}
 	}
-	s.send_maybe_queued(&packets_818.SubChunkPacket{
+	s.send_maybe_queued(&packets_2168.SubChunkPacket{
 		cache_enabled:  false
 		dimension_type: p.dimension_type
 		center_pos:     subchunk_center(p.center_pos)

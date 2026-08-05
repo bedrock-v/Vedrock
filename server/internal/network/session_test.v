@@ -5,7 +5,7 @@ import protocol.serializer
 import protocol.version
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
-import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.packets as packets_2168
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	mut pool := new_selected_packet_pool()
@@ -18,9 +18,9 @@ fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	return packets
 }
 
-fn test_network_pool_is_locked_to_protocol_1001() {
-	assert selected_protocol == 1001
-	assert selected_proto_version() == version.ProtoVersion.v1001
+fn test_network_pool_is_locked_to_protocol_2168() {
+	assert selected_protocol == 2168
+	assert selected_proto_version() == version.ProtoVersion.v2168
 	assert selected_minecraft_version == selected_proto_version().minecraft_version()
 	mut pool := new_selected_packet_pool()
 	assert pool.get_packet_by_id(193) or { return }.name() == 'RequestNetworkSettingsPacket'
@@ -37,8 +37,8 @@ fn test_request_network_settings_through_batch() {
 	assert p.name() == 'RequestNetworkSettingsPacket'
 }
 
-fn test_selected_pool_decodes_1001_auth_input() {
-	mut auth := &packets_1001.PlayerAuthInputPacket{}
+fn test_selected_pool_decodes_2168_auth_input() {
+	mut auth := &packets_2168.PlayerAuthInputPacket{}
 	auth.player_rotation[0] = 12.5
 	auth.player_rotation[1] = 34.25
 	auth.player_position[0] = 1.0
@@ -49,7 +49,7 @@ fn test_selected_pool_decodes_1001_auth_input() {
 	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(auth))
 	p := pool.decode(mut r)!
 	assert p.name() == 'PlayerAuthInputPacket'
-	if p is packets_1001.PlayerAuthInputPacket {
+	if p is packets_2168.PlayerAuthInputPacket {
 		assert p.player_rotation[0] == f32(12.5)
 		assert p.player_rotation[1] == f32(34.25)
 		assert p.player_position[0] == f32(1.0)

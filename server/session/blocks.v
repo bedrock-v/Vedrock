@@ -2,12 +2,11 @@ module session
 
 import time
 import protocol.version.v662.packets as packets_662
-import protocol.version.v662.types as types_662
 import protocol.version.v898.packets as packets_898
 import protocol.version.v944.packets as packets_944
-import protocol.version.v975.packets as packets_975
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v1001.types as types_1001
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
 import types
 import server.event
 import server.world
@@ -60,51 +59,11 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 }
 
 // handle_inventory_transaction processes the standalone InventoryTransactionPacket.
-// item_use_transaction is the client's sole channel for block placement,
-// interaction and break: PlayerAuthInputPacket.item_use_transaction exists
-// for this protocol version too, but its input flag
-// (input_flag_perform_item_interaction) is never set, so it never carries
-// data. item_use_on_entity_transaction and item_release_transaction are not
-// yet handled.
-fn (mut s NetworkSession) handle_inventory_transaction(p packets_1001.InventoryTransactionPacket) ! {
-	match p.transaction_type {
-		.normal_transaction, .inventory_mismatch {
-			return
-		}
-		.item_use_transaction {
-			s.handle_use_item_transaction_data(p.transaction.data)!
-		}
-		.item_use_on_entity_transaction, .item_release_transaction {
-			return
-		}
-	}
+fn (mut s NetworkSession) handle_inventory_transaction(_ packets_2168.InventoryTransactionPacket) ! {
 }
 
-// handle_use_item_transaction_data dispatches on UseItemTransactionData's
-// action_type: 0 (ClickBlock) places/interacts, 2 (BreakBlock) breaks and
-// everything else (1 ClickAir, 3 UseAsAttack) uses the held item in the air.
-fn (mut s NetworkSession) handle_use_item_transaction_data(data types_1001.InventoryTransactionData) ! {
-	match data {
-		types_1001.UseItemTransactionData {
-			pos := network.block_pos_from_v944(data.position)
-			match data.action_type {
-				0 {
-					s.handle_place_click(pos, int(data.face), data.click_position[1])
-				}
-				2 {
-					s.break_block(pos)!
-				}
-				else {
-					s.use_held_item_in_air()
-				}
-			}
-		}
-		else {}
-	}
-}
-
-fn (mut s NetworkSession) handle_player_auth_input(p packets_1001.PlayerAuthInputPacket) ! {
-	on_ground := network.has_input_flag(p.input_data, network.input_flag_vertical_collision)
+fn (mut s NetworkSession) handle_player_auth_input(p packets_2168.PlayerAuthInputPacket) ! {
+	on_ground := enums_2168.PlayerAuthInputData.vertical_collision in p.input_data
 	s.update_movement(network.vec3_from_array(p.player_position), p.player_rotation[0],
 		p.player_rotation[1], p.player_head_rotation, on_ground)
 	if tx := p.item_use_transaction {
@@ -117,7 +76,7 @@ fn (mut s NetworkSession) handle_player_auth_input(p packets_1001.PlayerAuthInpu
 	}
 }
 
-fn (mut s NetworkSession) handle_item_use_transaction(tx types_1001.PackedItemUseLegacyInventoryTransaction) ! {
+fn (mut s NetworkSession) handle_item_use_transaction(tx types_2168.PackedItemUseLegacyInventoryTransaction) ! {
 	pos := network.block_pos_from_v944(tx.position)
 	match tx.action_type {
 		.place {
@@ -285,7 +244,7 @@ fn (mut s NetworkSession) handle_player_action(p packets_944.PlayerActionPacket)
 	}
 }
 
-fn (mut s NetworkSession) handle_player_block_action(action types_662.PlayerBlockActionData) ! {
+fn (mut s NetworkSession) handle_player_block_action(action types_2168.PlayerBlockActionData) ! {
 	pos := network.block_pos_from_v662(action.position)
 	match action.action_type {
 		.creative_destroy_block, .predict_destroy_block {
@@ -719,9 +678,9 @@ fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWr
 		container_id:       .inventory
 		should_select_slot: true
 	}) or {}
-	s.hub.broadcast_except(s.runtime_id, &packets_975.MobEquipmentPacket{
+	s.hub.broadcast_except(s.runtime_id, &packets_2168.MobEquipmentPacket{
 		target_runtime_id: network.actor_runtime_id(s.runtime_id)
-		item:              network.item_descriptor_v975(wrapped.item_stack)
+		item:              network.item_descriptor_v2168_v2(wrapped.item_stack)
 		slot:              i8(slot)
 		selected_slot:     i8(slot)
 		container_id:      .inventory

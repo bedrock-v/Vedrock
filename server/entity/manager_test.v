@@ -3,9 +3,8 @@ module entity
 import os
 import time
 import protocol
-import protocol.version.v662.packets as packets_662
-import protocol.version.v662.types as types_662
-import protocol.version.v712.packets as packets_712
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.enums as enums_2168
 import types
 import server.internal.network
 import server.world
@@ -31,7 +30,7 @@ mut:
 	mob_attack_calls              int
 	last_mob_attack_runtime_id    u64
 	last_mob_attack_amount        f32
-	visible bool = true
+	visible                       bool = true
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
 	players              map[u64]types.Vector3
@@ -531,7 +530,7 @@ fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
 	e.health = 7
 
 	packet := e.spawn_packet()
-	if packet is packets_712.AddActorPacket {
+	if packet is packets_2168.AddActorPacket {
 		assert packet.attributes.len == 1
 		assert packet.attributes[0].attribute_name == 'minecraft:health'
 		assert packet.attributes[0].current_value == 7
@@ -541,13 +540,13 @@ fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
 		mut saw_height := false
 		for entry in packet.actor_data {
 			if entry.data_item_id == network.meta_key_width {
-				if entry.data_item_type is types_662.DataItemFloat {
+				if entry.data_item_type is enums_2168.DataItemFloat {
 					assert entry.data_item_type.value == f32(0.9)
 					saw_width = true
 				}
 			}
 			if entry.data_item_id == network.meta_key_height {
-				if entry.data_item_type is types_662.DataItemFloat {
+				if entry.data_item_type is enums_2168.DataItemFloat {
 					assert entry.data_item_type.value == f32(1.4)
 					saw_height = true
 				}
@@ -927,7 +926,7 @@ fn test_item_spawn_packet_is_add_item_actor_not_add_actor() {
 	mut m := new_manager(host)
 	e := spawn_item(mut m, 5, 3, 64, types.Vector3{0, 5, 0})
 	pkt := e.spawn_packet()
-	if pkt is packets_662.AddItemActorPacket {
+	if pkt is packets_2168.AddItemActorPacket {
 		assert pkt.item.id == 5
 		assert pkt.item.stack_size == 3
 	} else {
