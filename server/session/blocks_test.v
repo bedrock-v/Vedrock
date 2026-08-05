@@ -530,6 +530,12 @@ fn test_place_resolves_block_from_item_registry() {
 		generator:     world.FlatGenerator{}
 	}
 	s.player.reset_position(types.Vector3{2.1901546, -58.37999, 10.302694})
+	held_net_id := s.player.track_stack(types.ItemStack{
+		id:               390
+		count:            16
+		block_runtime_id: 0
+	})
+	s.player.set_slot(s.player.held_slot(), held_net_id)
 	hub.add(s)
 	register_test_session(mut s)
 

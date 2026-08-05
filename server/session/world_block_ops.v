@@ -75,6 +75,16 @@ fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id 
 	tx.wr.broadcast_world(packet)
 }
 
+// broadcast_place_sound sends the block placement sound to every session in
+// this transaction's world.
+fn (mut tx WorldTx) broadcast_place_sound(s &NetworkSession, x int, y int, z int, runtime_id int) {
+	tx.wr.broadcast_world(network.level_sound_event('place', types.Vector3{
+		x: f32(x) + 0.5
+		y: f32(y) + 0.5
+		z: f32(z) + 0.5
+	}, i32(runtime_id), 'minecraft:player', s.runtime_id))
+}
+
 // notify_block_changed re-evaluates liquid flow and connected block state
 // (walls, fence gates, etc.) at pos after a mutation, mirroring the old
 // session level after_block_changed.

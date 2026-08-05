@@ -59,15 +59,47 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 	}
 }
 
+// handle_inventory_transaction processes the standalone InventoryTransactionPacket.
+// item_use_transaction is the client's sole channel for block placement,
+// interaction and break: PlayerAuthInputPacket.item_use_transaction exists
+// for this protocol version too, but its input flag
+// (input_flag_perform_item_interaction) is never set, so it never carries
+// data. item_use_on_entity_transaction and item_release_transaction are not
+// yet handled.
 fn (mut s NetworkSession) handle_inventory_transaction(p packets_1001.InventoryTransactionPacket) ! {
 	match p.transaction_type {
 		.normal_transaction, .inventory_mismatch {
 			return
 		}
-		.item_use_transaction, .item_use_on_entity_transaction, .item_release_transaction {
-			s.log.debug('Dropped ${p.transaction_type} InventoryTransactionPacket; protocol ${network.selected_protocol} carries item-use actions in PlayerAuthInputPacket')
+		.item_use_transaction {
+			s.handle_use_item_transaction_data(p.transaction.data)!
+		}
+		.item_use_on_entity_transaction, .item_release_transaction {
 			return
 		}
+	}
+}
+
+// handle_use_item_transaction_data dispatches on UseItemTransactionData's
+// action_type: 0 (ClickBlock) places/interacts, 2 (BreakBlock) breaks and
+// everything else (1 ClickAir, 3 UseAsAttack) uses the held item in the air.
+fn (mut s NetworkSession) handle_use_item_transaction_data(data types_1001.InventoryTransactionData) ! {
+	match data {
+		types_1001.UseItemTransactionData {
+			pos := network.block_pos_from_v944(data.position)
+			match data.action_type {
+				0 {
+					s.handle_place_click(pos, int(data.face), data.click_position[1])
+				}
+				2 {
+					s.break_block(pos)!
+				}
+				else {
+					s.use_held_item_in_air()
+				}
+			}
+		}
+		else {}
 	}
 }
 
@@ -89,8 +121,7 @@ fn (mut s NetworkSession) handle_item_use_transaction(tx types_1001.PackedItemUs
 	pos := network.block_pos_from_v944(tx.position)
 	match tx.action_type {
 		.place {
-			s.handle_place_click(pos, int(tx.face), network.item_stack_from_descriptor(tx.item),
-				tx.click_position[1])
+			s.handle_place_click(pos, int(tx.face), tx.click_position[1])
 		}
 		.destroy {
 			s.break_block(pos)!
@@ -101,7 +132,7 @@ fn (mut s NetworkSession) handle_item_use_transaction(tx types_1001.PackedItemUs
 	}
 }
 
-fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, packet_stack types.ItemStack, clicked_y f32) {
+fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, clicked_y f32) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -126,7 +157,7 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		s.resend_block(neighbor)
 		return
 	}
-	runtime_id := s.placement_runtime_id(packet_stack)
+	runtime_id := s.placement_runtime_id()
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
 		return
@@ -153,13 +184,10 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	}
 }
 
-fn (s &NetworkSession) placement_runtime_id(packet_stack types.ItemStack) int {
-	stack := if s.player.game_mode() == network.game_type_creative {
-		packet_stack
-	} else {
-		held, _ := s.inventory_stack_at(s.player.held_slot())
-		held
-	}
+// placement_runtime_id resolves the block to place from the server's own
+// tracked held slot stack.
+fn (s &NetworkSession) placement_runtime_id() int {
+	stack, _ := s.inventory_stack_at(s.player.held_slot())
 	if stack.count <= 0 || stack.id == 0 {
 		return 0
 	}
