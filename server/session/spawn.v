@@ -1,6 +1,7 @@
 module session
 
 import math
+import time
 import protocol
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
@@ -21,6 +22,7 @@ import server.world.db
 
 const generated_chunk_cache_limit = 768
 const chunk_send_batch_size = 4
+const chunk_batch_pace = 50 * time.millisecond
 
 struct ChunkSendTarget {
 	x        int
@@ -249,10 +251,6 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p packets_662.RequestChunk
 	if radius < 1 {
 		radius = 1
 	}
-	s.chunk_stream_mutex.lock()
-	defer {
-		s.chunk_stream_mutex.unlock()
-	}
 	own := s.player.position()
 	s.transport.send(&packets_662.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
@@ -269,7 +267,18 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p packets_662.RequestChunk
 	s.transport.send(&packets_662.PlayStatusPacket{
 		status: enums_662.PlayStatus.player_spawn
 	})!
-	s.send_spawn_chunks(radius)!
+	spawn s.stream_spawn_chunks_background(radius)
+}
+
+fn (mut s NetworkSession) stream_spawn_chunks_background(radius int) {
+	s.chunk_stream_mutex.lock()
+	defer {
+		s.chunk_stream_mutex.unlock()
+	}
+	s.send_spawn_chunks(radius) or {
+		s.log.debug('Initial chunk stream to ${s.player.identity.display_name} ended: ${err}')
+		return
+	}
 	s.remember_chunk_window(radius)
 	s.log.debug('Sent ${(radius * 2 + 1) * (radius * 2 + 1)} chunks to ${s.player.identity.display_name}')
 }
@@ -330,7 +339,9 @@ fn (mut s NetworkSession) handle_play_chunk_radius(p packets_662.RequestChunkRad
 // column, then sends the required columns to the generation worker so the
 // world thread is not held up by chunk generation.
 fn (mut s NetworkSession) stream_chunks_if_moved() {
-	s.chunk_stream_mutex.lock()
+	if !s.chunk_stream_mutex.try_lock() {
+		return
+	}
 	if s.view_radius <= 0 {
 		s.chunk_stream_mutex.unlock()
 		return
@@ -516,6 +527,7 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 			}
 			batch.clear()
 			batch_keys.clear()
+			time.sleep(chunk_batch_pace)
 		}
 	}
 	if batch.len > 0 {
