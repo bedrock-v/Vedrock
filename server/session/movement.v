@@ -1,8 +1,8 @@
 module session
 
 import math
-import protocol.version.v662.enums as enums_662
-import protocol.version.v662.packets as packets_662
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.enums as enums_2168
 import types
 import server.event
 import server.internal.network
@@ -178,10 +178,10 @@ fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapsh
 		tx.wr.events.player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
-			mut move_packet := &packets_662.MovePlayerPacket{
+			mut move_packet := &packets_2168.MovePlayerPacket{
 				player_runtime_id: network.actor_runtime_id(s.runtime_id)
 				y_head_rotation:   current.head_yaw
-				position_mode:     enums_662.PlayerPositionRespawn{}
+				position_mode:     enums_2168.PlayerPositionMode.respawn
 				on_ground:         false
 			}
 			move_packet.position[0] = current.position.x

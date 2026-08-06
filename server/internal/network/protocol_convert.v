@@ -5,8 +5,8 @@ import types as model
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
 import protocol.version.v944.types as types_944
-import protocol.version.v975.types as types_975
 import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.types as types_2168
 
 pub fn actor_unique_id(value i64) types_662.ActorUniqueID {
 	return types_662.ActorUniqueID{
@@ -73,6 +73,26 @@ pub fn item_instance_v662(item model.ItemStack) types_662.NetworkItemInstanceDes
 	}
 }
 
+pub fn item_instance_v2168(item model.ItemStack) types_2168.NetworkItemInstanceDescriptor {
+	return types_2168.NetworkItemInstanceDescriptor{
+		id:               i32(item.id)
+		stack_size:       u16(item.count)
+		aux_value:        u32(item.meta)
+		block_runtime_id: i32(item.block_runtime_id)
+		user_data_buffer: item.raw_extra_data
+	}
+}
+
+pub fn item_descriptor_v2168(item model.ItemStack) types_2168.NetworkItemStackDescriptor {
+	return types_2168.NetworkItemStackDescriptor{
+		id:               i16(item.id)
+		stack_size:       u16(item.count)
+		aux_value:        u32(item.meta)
+		block_runtime_id: u32(item.block_runtime_id)
+		user_data_buffer: item.raw_extra_data
+	}
+}
+
 pub fn item_stack_from_descriptor(item types_662.NetworkItemStackDescriptor) model.ItemStack {
 	return model.ItemStack{
 		id:               int(item.id)
@@ -83,12 +103,12 @@ pub fn item_stack_from_descriptor(item types_662.NetworkItemStackDescriptor) mod
 	}
 }
 
-pub fn item_descriptor_v975(item model.ItemStack) types_975.NetworkItemStackDescriptorV2 {
-	return item_descriptor_v975_tracked(item, 0)
+pub fn item_descriptor_v2168_v2(item model.ItemStack) types_2168.NetworkItemStackDescriptorV2 {
+	return item_descriptor_v2168_v2_tracked(item, 0)
 }
 
-pub fn item_descriptor_v975_tracked(item model.ItemStack, net_id int) types_975.NetworkItemStackDescriptorV2 {
-	mut d := types_975.NetworkItemStackDescriptorV2{
+pub fn item_descriptor_v2168_v2_tracked(item model.ItemStack, net_id int) types_2168.NetworkItemStackDescriptorV2 {
+	mut d := types_2168.NetworkItemStackDescriptorV2{
 		id:               i16(item.id)
 		stack_size:       u16(item.count)
 		aux_value:        u32(item.meta)
@@ -101,7 +121,7 @@ pub fn item_descriptor_v975_tracked(item model.ItemStack, net_id int) types_975.
 	return d
 }
 
-pub fn item_stack_from_descriptor_v975(item types_975.NetworkItemStackDescriptorV2) model.ItemStack {
+pub fn item_stack_from_descriptor_v2168_v2(item types_2168.NetworkItemStackDescriptorV2) model.ItemStack {
 	return model.ItemStack{
 		id:               int(item.id)
 		count:            int(item.stack_size)

@@ -5,7 +5,8 @@ import server.internal.network
 import protocol.version.v662.enums as enums_662
 import protocol.version.v944.packets as packets_944
 import protocol.version.v1001.packets as packets_1001
-import protocol.version.v1001.types as types_1001
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
 import types
 import server.event
 import server.internal.gamedata
@@ -92,14 +93,14 @@ fn give_held_stack(mut s NetworkSession, item_id int, count int) {
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 }
 
-fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_1001.PlayerAuthInputPacket {
-	mut tx := types_1001.PackedItemUseLegacyInventoryTransaction{
+fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_2168.PlayerAuthInputPacket {
+	mut tx := types_2168.PackedItemUseLegacyInventoryTransaction{
 		action_type:      enums_662.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
 		position:         network.block_pos_v944(clicked_pos)
 		face:             1
 		slot:             0
-		item:             network.item_descriptor_v662(types.ItemStack{
+		item:             network.item_descriptor_v2168(types.ItemStack{
 			id:               held_id
 			count:            64
 			block_runtime_id: 0
@@ -113,8 +114,7 @@ fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, 
 	tx.click_position[0] = 0.5
 	tx.click_position[1] = 1.0
 	tx.click_position[2] = 0.5
-	return packets_1001.PlayerAuthInputPacket{
-		input_data:           packets_1001.input_flag_perform_item_interaction
+	return packets_2168.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }
@@ -138,6 +138,54 @@ fn test_place_block_writes_and_consumes_item_once() {
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
 	assert stack.count == 2
+}
+
+fn test_inventory_transaction_packet_is_a_safe_no_op() {
+	mut hub := place_test_hub()
+	target := db.new_world('world', none, 'void', world.overworld)
+	hub.add_world(target)
+	target.set_block(0, 0, 1, world.bedrock.network_id)
+	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
+	mut transport := &FakeTransport{}
+	mut s := place_test_session(mut hub, mut transport, mut wr)
+	give_held_stack(mut s, 500, 3)
+	defer {
+		hub.close_worlds()
+	}
+
+	s.handle_inventory_transaction(packets_2168.InventoryTransactionPacket{})!
+
+	assert target.block_override(0, 1, 1) == none
+	stack, _ := s.inventory_stack_at(s.player.held_slot())
+	assert stack.count == 3
+}
+
+fn test_place_block_broadcasts_place_sound() {
+	mut hub := place_test_hub()
+	target := db.new_world('world', none, 'void', world.overworld)
+	hub.add_world(target)
+	target.set_block(0, 0, 1, world.bedrock.network_id)
+	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
+	mut transport := &FakeTransport{}
+	mut s := place_test_session(mut hub, mut transport, mut wr)
+	give_held_stack(mut s, 500, 3)
+	defer {
+		hub.close_worlds()
+	}
+
+	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500))!
+
+	assert wait_for_sent_len(transport, 1, 5000)
+	mut heard_place_sound := false
+	for p in transport.sent {
+		if p is packets_1001.LevelSoundEventPacket {
+			if p.event_name == 'place' && p.data == world.bedrock.network_id {
+				heard_place_sound = true
+			}
+		}
+	}
+	assert heard_place_sound
 }
 
 struct CancelBlockPlaceHandler {

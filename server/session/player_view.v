@@ -4,9 +4,10 @@ import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
 import protocol.version.v662.types as types_662
 import protocol.version.v712.types as types_712
-import protocol.version.v776.packets as packets_776
-import protocol.version.v800.packets as packets_800
 import protocol.version.v800.types as types_800
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
 import server.internal.network
 
 const skin_width = u32(64)
@@ -56,16 +57,16 @@ fn (s &NetworkSession) uuid() types_662.Uuid {
 	return network.uuid_from_bytes(parse_uuid(s.player.identity.uuid, s.runtime_id))
 }
 
-fn default_skin(id string) types_662.SerializedSkin {
+fn default_skin(id string) types_2168.SerializedSkin {
 	pixels := []u8{len: int(skin_width * skin_height * 4), init: u8(0xff)}
-	return types_662.SerializedSkin{
+	return types_2168.SerializedSkin{
 		skin_id:                         '${id}.Vedrock'
 		play_fab_id:                     ''
 		skin_resource_patch:             '{"geometry":{"default":"geometry.humanoid.custom"}}'
 		skin_image_width:                skin_width
 		skin_image_height:               skin_height
 		skin_image_bytes:                pixels
-		animations:                      []types_662.SerializedSkinAnimationFrame{}
+		animations:                      []types_2168.SerializedSkinAnimationFrame{}
 		cape_image_width:                0
 		cape_image_height:               0
 		cape_image_bytes:                []u8{}
@@ -74,23 +75,25 @@ fn default_skin(id string) types_662.SerializedSkin {
 		animation_data:                  ''
 		cape_id:                         ''
 		full_id:                         '${id}.Vedrock'
-		arm_size:                        'wide'
-		skin_color:                      '#0'
-		persona_pieces:                  []types_662.PersonaPiecesEntry{}
-		piece_tint_colors:               []types_662.PieceTintColorsEntry{}
+		arm_size:                        enums_2168.ArmSizeType.wide
+		skin_color:                      0
+		persona_pieces:                  []types_2168.PersonaPiecesEntry{}
+		piece_tint_colors:               []types_2168.PieceTintColorsEntry{}
 		is_premium_skin:                 false
 		is_persona_skin:                 false
 		is_persona_cape_on_classic_skin: false
 		is_primary_user:                 true
 		overrides_player_appearance:     true
+		trusted_skin_flag:               ''
+		profile_hash:                    ''
 	}
 }
 
-fn (s &NetworkSession) player_list_add_packet() &packets_800.PlayerListPacket {
-	return &packets_800.PlayerListPacket{
-		action: packets_800.PlayerListAdd{
-			add_player_list: [
-				packets_800.AddPlayerListEntry{
+fn (s &NetworkSession) player_list_add_packet() &packets_2168.PlayerListPacket {
+	return &packets_2168.PlayerListPacket{
+		entries: [
+			packets_2168.PlayerListEntry(packets_2168.PlayerListAdd{
+				entry: packets_2168.AddPlayerListEntry{
 					uuid:             s.uuid()
 					target_actor_id:  network.actor_unique_id(i64(s.runtime_id))
 					player_name:      s.player.identity.display_name
@@ -107,32 +110,31 @@ fn (s &NetworkSession) player_list_add_packet() &packets_800.PlayerListPacket {
 						b: -1
 						a: -1
 					}
-				},
-			]
-			is_trusted_skin: [s.player.identity.xbox_authenticated]
-		}
+				}
+			}),
+		]
 	}
 }
 
-fn (s &NetworkSession) player_list_remove_packet() &packets_800.PlayerListPacket {
-	return &packets_800.PlayerListPacket{
-		action: packets_800.PlayerListRemove{
-			remove_player_list: [
-				s.uuid(),
-			]
-		}
+fn (s &NetworkSession) player_list_remove_packet() &packets_2168.PlayerListPacket {
+	return &packets_2168.PlayerListPacket{
+		entries: [
+			packets_2168.PlayerListEntry(packets_2168.PlayerListRemove{
+				uuid: s.uuid()
+			}),
+		]
 	}
 }
 
-fn (s &NetworkSession) add_player_packet() &packets_776.AddPlayerPacket {
+fn (s &NetworkSession) add_player_packet() &packets_2168.AddPlayerPacket {
 	current := s.player.movement()
-	mut packet := &packets_776.AddPlayerPacket{
+	mut packet := &packets_2168.AddPlayerPacket{
 		uuid:              s.uuid()
 		player_name:       s.player.identity.display_name
 		target_runtime_id: network.actor_runtime_id(s.runtime_id)
 		platform_chat_id:  ''
 		y_head_rotation:   current.head_yaw
-		carried_item:      network.item_descriptor_v662(s.player.held_item().item_stack)
+		carried_item:      network.item_descriptor_v2168(s.player.held_item().item_stack)
 		player_game_type:  network.game_type(s.player.game_mode())
 		entity_data:       visible_name_metadata(s.player.identity.display_name)
 		synced_properties: types_662.PropertySyncData{}

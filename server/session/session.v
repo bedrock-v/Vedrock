@@ -7,8 +7,8 @@ import protocol.version.v685.packets as packets_685
 import protocol.version.v898.packets as packets_898
 import protocol.version.v924.packets as packets_924
 import protocol.version.v944.packets as packets_944
-import protocol.version.v975.packets as packets_975
 import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.packets as packets_2168
 import types
 import server.internal.logger
 import server.conf
@@ -67,32 +67,32 @@ mut:
 	// capture it at submission and drop stale work after a world switch.
 	world_epoch i64
 	// world_mutex guards world/generator/world_runtime/world_epoch.
-	world_mutex        &sync.Mutex = sync.new_mutex()
-	encryption_enabled bool
-	runtime_id         u64
-	spawned            bool
-	inv_opened         bool
+	world_mutex                 &sync.Mutex = sync.new_mutex()
+	encryption_enabled          bool
+	runtime_id                  u64
+	spawned                     bool
+	inv_opened                  bool
 	open_container_pos          ?types.BlockPosition
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
-	movement_mutex       &sync.Mutex = sync.new_mutex()
-	pending_movement     ?MovementSnapshot
-	movement_scheduled   bool
-	pending_radius       int
-	give_next_slot       int
-	next_form_id         int
-	pending_forms        map[int]form.Form
-	forms_mutex          &sync.Mutex = sync.new_mutex()
-	last_place_ms        i64
-	view_radius          int
-	last_chunk_x         int
-	last_chunk_z         int
-	chunk_cache          map[u64]world.Chunk
-	sent_chunks          map[u64]bool
-	chunk_cache_mutex    &sync.Mutex = sync.new_mutex()
-	chunk_stream_mutex   &sync.Mutex = sync.new_mutex()
-	transfer_mutex       &sync.Mutex = sync.new_mutex()
-	cooldown_until       map[string]i64
+	movement_mutex              &sync.Mutex = sync.new_mutex()
+	pending_movement            ?MovementSnapshot
+	movement_scheduled          bool
+	pending_radius              int
+	give_next_slot              int
+	next_form_id                int
+	pending_forms               map[int]form.Form
+	forms_mutex                 &sync.Mutex = sync.new_mutex()
+	last_place_ms               i64
+	view_radius                 int
+	last_chunk_x                int
+	last_chunk_z                int
+	chunk_cache                 map[u64]world.Chunk
+	sent_chunks                 map[u64]bool
+	chunk_cache_mutex           &sync.Mutex = sync.new_mutex()
+	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
+	transfer_mutex              &sync.Mutex = sync.new_mutex()
+	cooldown_until              map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
 	// are managed in outbound.v.
 	outbound      chan OutboundMessage = chan OutboundMessage{cap: outbound_queue_capacity}
@@ -354,7 +354,7 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 			}
 		}
 		.resource_packs {
-			if p is packets_662.ResourcePackClientResponsePacket {
+			if p is packets_2168.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
 			} else if p is packets_662.ResourcePackChunkRequestPacket {
 				s.handle_resource_pack_chunk_request(p)!
@@ -379,26 +379,26 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_player_initialized(p)!
 			} else if p is packets_924.TextPacket {
 				s.handle_text(p)!
-			} else if p is packets_662.MovePlayerPacket {
+			} else if p is packets_2168.MovePlayerPacket {
 				s.update_movement(network.vec3_from_array(p.position), p.rotation[0],
 					p.rotation[1], p.y_head_rotation, p.on_ground)
-			} else if p is packets_1001.PlayerAuthInputPacket {
+			} else if p is packets_2168.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
 			} else if p is packets_898.InteractPacket {
 				s.handle_interact(p)!
 			} else if p is packets_685.ContainerClosePacket {
 				s.handle_container_close(p)!
-			} else if p is packets_944.ItemStackRequestPacket {
+			} else if p is packets_2168.ItemStackRequestPacket {
 				s.handle_item_stack_request(p)!
 			} else if p is packets_898.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is packets_1001.InventoryTransactionPacket {
+			} else if p is packets_2168.InventoryTransactionPacket {
 				s.handle_inventory_transaction(p)!
 			} else if p is packets_944.PlayerActionPacket {
 				s.handle_player_action(p)!
 			} else if p is packets_662.BlockPickRequestPacket {
 				s.handle_block_pick_request(p)!
-			} else if p is packets_975.MobEquipmentPacket {
+			} else if p is packets_2168.MobEquipmentPacket {
 				s.handle_mob_equipment(p)!
 			} else if p is packets_662.RespawnPacket {
 				s.handle_respawn(p)!

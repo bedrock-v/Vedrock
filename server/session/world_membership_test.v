@@ -2,7 +2,7 @@ module session
 
 import time
 import protocol.version.v662.packets as packets_662
-import protocol.version.v776.packets as packets_776
+import protocol.version.v2168.packets as packets_2168
 import server.internal.gamedata
 import server.internal.auth
 import server.internal.logger
@@ -60,7 +60,7 @@ fn membership_test_session_with_transport(mut hub Hub, wr &WorldRuntime, name st
 fn add_player_packet_count(transport &FakeTransport, runtime_id u64) int {
 	mut count := 0
 	for p in transport.sent {
-		if p is packets_776.AddPlayerPacket {
+		if p is packets_2168.AddPlayerPacket {
 			if p.target_runtime_id.value == runtime_id {
 				count++
 			}
