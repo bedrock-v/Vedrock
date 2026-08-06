@@ -264,9 +264,9 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p packets_662.RequestChunk
 		new_view_radius:     u32(radius * 16)
 		server_built_chunks: []types_662.ChunkPos{}
 	})!
-	/*s.transport.send(&packets_662.PlayStatusPacket{
+	s.transport.send(&packets_662.PlayStatusPacket{
 		status: enums_662.PlayStatus.player_spawn
-	})!*/
+	})!
 	spawn s.stream_spawn_chunks_background(radius)
 }
 
@@ -280,13 +280,6 @@ fn (mut s NetworkSession) stream_spawn_chunks_background(radius int) {
 		return
 	}
 	s.remember_chunk_window(radius)
-
-	s.send_maybe_queued(&packets_662.PlayStatusPacket{
-			status: enums_662.PlayStatus.player_spawn
-	}) or {
-		s.log.debug('Failed to finish initial spawn for ${s.player.identity.display_name}: ${err}')
-		return
-	}
 	s.log.debug('Sent ${(radius * 2 + 1) * (radius * 2 + 1)} chunks to ${s.player.identity.display_name}')
 }
 
