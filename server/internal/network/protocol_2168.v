@@ -3,23 +3,11 @@ module network
 import protocol
 import protocol.version
 import protocol.version.v662.enums as enums_662
-import protocol.version.v1001
+import protocol.version.v2168
 
-pub const selected_protocol = 1001
-pub const selected_minecraft_version = '1.26.30'
+pub const selected_protocol = 2168
+pub const selected_minecraft_version = '1.26.40'
 pub const selected_player_auth_input_packet = u16(144)
-
-// input_flag_vertical_collision is PlayerAuthInputPacket.input_data's bit
-// index for the client reported ground/vertical-collision state. This is
-// the PlayerAuthInputPacket equivalent of MovePlayerPacket's own explicit
-// on_ground bool field.
-pub const input_flag_vertical_collision = u64(50)
-
-// has_input_flag reports whether bit is set in a PlayerAuthInputPacket's
-// input_data/input_data_high bitfield.
-pub fn has_input_flag(data u64, bit u64) bool {
-	return (data >> bit) & 1 != 0
-}
 
 pub const difficulty_peaceful = int(0)
 pub const difficulty_easy = int(1)
@@ -68,9 +56,9 @@ pub const move_actor_flag_on_ground = int(1)
 pub const level_event_particles_destroy_block = int(2001)
 
 pub fn selected_proto_version() version.ProtoVersion {
-	return version.ProtoVersion.v1001
+	return version.ProtoVersion.v2168
 }
 
 pub fn new_selected_packet_pool() protocol.PacketPool {
-	return v1001.new_pool()
+	return v2168.new_pool()
 }

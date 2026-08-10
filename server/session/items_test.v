@@ -2,12 +2,13 @@ module session
 
 import os
 import protocol
-import protocol.version.v662.packets as packets_662
 import protocol.version.v662.types as types_662
 import protocol.version.v729.packets as packets_729
 import protocol.version.v944.packets as packets_944
 import protocol.version.v944.types as types_944
-import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
 import types
 import protocol.serializer
 import server.conf
@@ -26,18 +27,18 @@ fn decode_packet(p protocol.Packet) !protocol.Packet {
 }
 
 fn test_inventory_content_roundtrip() {
-	decoded := decode_packet(&packets_1001.InventoryContentPacket{
+	decoded := decode_packet(&packets_2168.InventoryContentPacket{
 		inventory_id:        u32(inventory_window_id)
 		slots:               [
-			network.item_descriptor_v975(types.ItemStack{ id: 1, count: 64 }),
+			network.item_descriptor_v2168_v2(types.ItemStack{ id: 1, count: 64 }),
 		]
 		container_name_data: types_944.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        network.item_descriptor_v975(types.ItemStack{})
+		storage_item:        network.item_descriptor_v2168_v2(types.ItemStack{})
 	})!
 	assert decoded.name() == 'InventoryContentPacket'
-	if decoded is packets_1001.InventoryContentPacket {
+	if decoded is packets_2168.InventoryContentPacket {
 		assert decoded.inventory_id == u32(inventory_window_id)
 		assert decoded.slots[0].id == 1
 	} else {
@@ -67,12 +68,12 @@ fn test_container_open_roundtrip() {
 
 fn test_set_actor_data_flags_roundtrip() {
 	flags := entity_flag_bit(network.entity_flag_affected_by_gravity) | entity_flag_bit(network.entity_flag_has_collision)
-	decoded := decode_packet(&packets_662.SetActorDataPacket{
+	decoded := decode_packet(&packets_2168.SetActorDataPacket{
 		target_runtime_id: network.actor_runtime_id(1)
 		actor_data:        [
-			types_662.DataItem{
+			types_2168.DataItem{
 				data_item_id:   network.meta_key_flags
-				data_item_type: types_662.DataItemType(types_662.DataItemInt64{
+				data_item_type: enums_2168.DataItemType(enums_2168.DataItemInt64{
 					value: flags
 				})
 			},
@@ -81,12 +82,44 @@ fn test_set_actor_data_flags_roundtrip() {
 		tick:              0
 	})!
 	assert decoded.name() == 'SetActorDataPacket'
-	if decoded is packets_662.SetActorDataPacket {
+	if decoded is packets_2168.SetActorDataPacket {
 		assert decoded.actor_data.len == 1
 		assert decoded.actor_data[0].data_item_id == network.meta_key_flags
 	} else {
 		assert false
 	}
+}
+
+fn test_creative_content_replaces_empty_group_icons() {
+	mut hub := new_hub(gamedata.GameData{
+		creative_groups: [
+			gamedata.CreativeGroup{
+				category:        1
+				name:            ''
+				icon_numeric_id: 0
+			},
+			gamedata.CreativeGroup{
+				category:              1
+				name:                  'itemGroup.name.planks'
+				icon_numeric_id:       5
+				icon_block_runtime_id: 123
+			},
+		]
+		item_id_by_name: {
+			'minecraft:stone': 1
+		}
+	})
+	sess := &NetworkSession{
+		hub: hub
+	}
+
+	packet := sess.creative_content()
+	assert packet.groups.len == 2
+	assert packet.groups[0].icon.id == 1
+	assert packet.groups[0].icon.stack_size == 1
+	assert packet.groups[0].icon.block_runtime_id == 0
+	assert packet.groups[1].icon.id == 5
+	assert packet.groups[1].icon.block_runtime_id == 123
 }
 
 fn test_update_attributes_roundtrip() {

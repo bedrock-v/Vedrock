@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.version.v712.packets as packets_712
+import protocol.version.v2168.packets as packets_2168
 import types
 import server.internal.network
 import server.entity
@@ -82,14 +82,14 @@ fn test_entity_spawn_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_spawn := false
 	for p in a_transport.sent {
-		if p is packets_712.AddActorPacket {
+		if p is packets_2168.AddActorPacket {
 			a_saw_spawn = true
 		}
 	}
 	assert a_saw_spawn
 
 	for p in b_transport.sent {
-		assert p !is packets_712.AddActorPacket
+		assert p !is packets_2168.AddActorPacket
 	}
 }
 

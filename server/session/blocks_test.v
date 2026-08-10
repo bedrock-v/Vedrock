@@ -6,8 +6,8 @@ import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
 import protocol.version.v662.types as types_662
 import protocol.version.v944.packets as packets_944
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v1001.types as types_1001
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
 import types
 import server.event
 import server.internal.gamedata
@@ -30,14 +30,14 @@ fn wire_runtime_id(id int) u32 {
 	return u32(id)
 }
 
-fn place_auth_input_packet(block_position types.BlockPosition, block_face int, hotbar_slot int, held_item types.ItemStack, position types.Vector3, clicked_position types.Vector3, target_block_id u32) packets_1001.PlayerAuthInputPacket {
-	mut tx := types_1001.PackedItemUseLegacyInventoryTransaction{
+fn place_auth_input_packet(block_position types.BlockPosition, block_face int, hotbar_slot int, held_item types.ItemStack, position types.Vector3, clicked_position types.Vector3, target_block_id u32) packets_2168.PlayerAuthInputPacket {
+	mut tx := types_2168.PackedItemUseLegacyInventoryTransaction{
 		action_type:      enums_662.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
 		position:         network.block_pos_v944(block_position)
 		face:             block_face
 		slot:             hotbar_slot
-		item:             network.item_descriptor_v662(held_item)
+		item:             network.item_descriptor_v2168(held_item)
 		target_block_id:  target_block_id
 		predicted_result: .success
 	}
@@ -47,8 +47,7 @@ fn place_auth_input_packet(block_position types.BlockPosition, block_face int, h
 	tx.click_position[0] = clicked_position.x
 	tx.click_position[1] = clicked_position.y
 	tx.click_position[2] = clicked_position.z
-	return packets_1001.PlayerAuthInputPacket{
-		input_data:           packets_1001.input_flag_perform_item_interaction
+	return packets_2168.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }

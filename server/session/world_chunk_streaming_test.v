@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.version.v662.packets as packets_662
+import protocol.version.v2168.packets as packets_2168
 import types
 import server.internal.gamedata
 import server.internal.logger
@@ -107,7 +107,7 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 	deadline := time.now().add(timeout_ms * time.millisecond)
 	for time.now() < deadline {
 		for p in transport.sent {
-			if p is packets_662.LevelChunkPacket {
+			if p is packets_2168.LevelChunkPacket {
 				return true
 			}
 		}
@@ -117,7 +117,7 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 		}
 	}
 	for p in transport.sent {
-		if p is packets_662.LevelChunkPacket {
+		if p is packets_2168.LevelChunkPacket {
 			return true
 		}
 	}
@@ -186,6 +186,6 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	time.sleep(300 * time.millisecond) // bounded window for a wrongly delivered batch to show up
 	for p in transport.sent {
-		assert p !is packets_662.LevelChunkPacket
+		assert p !is packets_2168.LevelChunkPacket
 	}
 }

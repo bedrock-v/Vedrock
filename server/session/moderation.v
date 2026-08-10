@@ -4,10 +4,11 @@ import protocol.version.v662.packets as packets_662
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
 import protocol.version.v944.types as types_944
-import protocol.version.v975.types as types_975
 import protocol.version.v712.packets as packets_712
 import protocol.version.v944.packets as packets_944
-import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
 import types
 import server.internal.network
 
@@ -296,10 +297,11 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	s.player.reset_position(types.Vector3{x, y, z})
 	current := s.player.movement()
-	mut move_packet := &packets_662.MovePlayerPacket{
+	mut move_packet := &packets_2168.MovePlayerPacket{
 		player_runtime_id: network.actor_runtime_id(s.runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     enums_662.PlayerPositionTeleport{}
+		position_mode:     enums_2168.PlayerPositionMode.teleport
+		teleport_data:     types_2168.MovePlayerTeleportData{}
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x
@@ -350,17 +352,17 @@ fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
 
 fn (mut s NetworkSession) apply_clear_inventory() {
 	s.player.clear_inventory()
-	mut items := []types_975.NetworkItemStackDescriptorV2{}
+	mut items := []types_2168.NetworkItemStackDescriptorV2{}
 	for _ in 0 .. inventory_slot_count {
-		items << network.item_descriptor_v975(types.ItemStack{})
+		items << network.item_descriptor_v2168_v2(types.ItemStack{})
 	}
-	s.deliver(&packets_1001.InventoryContentPacket{
+	s.deliver(&packets_2168.InventoryContentPacket{
 		inventory_id:        u32(inventory_window_id)
 		slots:               items
 		container_name_data: types_944.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        network.item_descriptor_v975(types.ItemStack{})
+		storage_item:        network.item_descriptor_v2168_v2(types.ItemStack{})
 	})
 }
 

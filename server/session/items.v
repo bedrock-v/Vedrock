@@ -3,8 +3,8 @@ module session
 import protocol.version.v776.packets as packets_776
 import protocol.version.v776.enums as enums_776
 import protocol.version.v944.types as types_944
-import protocol.version.v975.types as types_975
-import protocol.version.v1001.packets as packets_1001
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
 import types
 import nbt
 import server.player.playerdb
@@ -85,12 +85,12 @@ fn (s &NetworkSession) item_registry() &packets_776.ItemComponentPacket {
 	}
 }
 
-fn (s &NetworkSession) custom_block_entries() []packets_1001.BlockProperty {
+fn (s &NetworkSession) custom_block_entries() []packets_2168.BlockProperty {
 	defs := s.hub.custom_blocks.all()
-	mut out := []packets_1001.BlockProperty{cap: defs.len}
+	mut out := []packets_2168.BlockProperty{cap: defs.len}
 	for def in defs {
 		entry := def.network_entry()
-		out << packets_1001.BlockProperty{
+		out << packets_2168.BlockProperty{
 			block_name:       entry.name
 			block_definition: entry.properties
 		}
@@ -98,25 +98,34 @@ fn (s &NetworkSession) custom_block_entries() []packets_1001.BlockProperty {
 	return out
 }
 
-fn (s &NetworkSession) creative_content() &packets_776.CreativeContentPacket {
-	mut groups := []packets_776.CreativeItemGroup{}
+fn (s &NetworkSession) creative_content() &packets_2168.CreativeContentPacket {
+	mut groups := []packets_2168.CreativeItemGroup{}
 	for group in s.hub.data.creative_groups {
-		groups << packets_776.CreativeItemGroup{
-			category: unsafe { packets_776.CreativeItemCategory(group.category) }
+		mut icon_id := group.icon_numeric_id
+		mut icon_block_runtime_id := group.icon_block_runtime_id
+		if icon_id == 0 {
+			icon_id = s.hub.data.item_id('minecraft:stone')
+			if icon_id == 0 {
+				icon_id = 1
+			}
+			icon_block_runtime_id = 0
+		}
+		groups << packets_2168.CreativeItemGroup{
+			category: unsafe { packets_2168.CreativeItemCategory(group.category) }
 			name:     group.name
-			icon:     network.item_instance_v662(types.ItemStack{
-				id:               group.icon_numeric_id
+			icon:     network.item_instance_v2168(types.ItemStack{
+				id:               icon_id
 				count:            1
-				block_runtime_id: group.icon_block_runtime_id
+				block_runtime_id: icon_block_runtime_id
 				raw_extra_data:   []u8{}
 			})
 		}
 	}
-	mut items := []packets_776.CreativeItemData{}
+	mut items := []packets_2168.CreativeItemData{}
 	for index, item in s.hub.data.creative_items {
-		items << packets_776.CreativeItemData{
+		items << packets_2168.CreativeItemData{
 			creative_net_id: u32(index + 1)
-			item_instance:   network.item_instance_v662(types.ItemStack{
+			item_instance:   network.item_instance_v2168(types.ItemStack{
 				id:               item.numeric_id
 				meta:             item.meta
 				count:            1
@@ -128,9 +137,9 @@ fn (s &NetworkSession) creative_content() &packets_776.CreativeContentPacket {
 	}
 	mut next_entry := s.hub.data.creative_items.len + 1
 	for def in s.hub.custom_items.all() {
-		items << packets_776.CreativeItemData{
+		items << packets_2168.CreativeItemData{
 			creative_net_id: u32(next_entry)
-			item_instance:   network.item_instance_v662(types.ItemStack{
+			item_instance:   network.item_instance_v2168(types.ItemStack{
 				id:             def.runtime_id
 				count:          1
 				raw_extra_data: []u8{}
@@ -139,14 +148,14 @@ fn (s &NetworkSession) creative_content() &packets_776.CreativeContentPacket {
 		}
 		next_entry++
 	}
-	return &packets_776.CreativeContentPacket{
+	return &packets_2168.CreativeContentPacket{
 		groups:   groups
 		contents: items
 	}
 }
 
-fn (mut s NetworkSession) restore_inventory() &packets_1001.InventoryContentPacket {
-	mut items := []types_975.NetworkItemStackDescriptorV2{}
+fn (mut s NetworkSession) restore_inventory() &packets_2168.InventoryContentPacket {
+	mut items := []types_2168.NetworkItemStackDescriptorV2{}
 	mut loaded_by_slot := map[int]playerdb.InvItem{}
 	for i in 0 .. s.player.loaded_items_len() {
 		saved := s.player.loaded_item(i)
@@ -159,7 +168,7 @@ fn (mut s NetworkSession) restore_inventory() &packets_1001.InventoryContentPack
 		if saved := loaded_by_slot[i] {
 			count := s.clamp_stack_count(saved.id, saved.count)
 			if count <= 0 {
-				items << network.item_descriptor_v975(types.ItemStack{})
+				items << network.item_descriptor_v2168_v2(types.ItemStack{})
 				continue
 			}
 			stack := types.ItemStack{
@@ -171,18 +180,18 @@ fn (mut s NetworkSession) restore_inventory() &packets_1001.InventoryContentPack
 			}
 			net_id := s.player.track_stack(stack)
 			s.player.set_slot(i, net_id)
-			items << network.item_descriptor_v975_tracked(stack, net_id)
+			items << network.item_descriptor_v2168_v2_tracked(stack, net_id)
 		} else {
-			items << network.item_descriptor_v975(types.ItemStack{})
+			items << network.item_descriptor_v2168_v2(types.ItemStack{})
 		}
 	}
-	return &packets_1001.InventoryContentPacket{
+	return &packets_2168.InventoryContentPacket{
 		inventory_id:        u32(inventory_window_id)
 		slots:               items
 		container_name_data: types_944.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        network.item_descriptor_v975(types.ItemStack{})
+		storage_item:        network.item_descriptor_v2168_v2(types.ItemStack{})
 	}
 }
 

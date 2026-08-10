@@ -4,6 +4,7 @@ import protocol
 import protocol.version.v662.packets as packets_662
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
+import protocol.version.v2168.packets as packets_2168
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the
@@ -32,23 +33,19 @@ fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 		criteria_name:          'dummy'
 		sort_order:             enums_662.ObjectiveSortOrder.ascending
 	}
-	mut entries := []packets_662.ScorePacketInfoChangeEntry{cap: lines.len}
+	mut entries := []packets_2168.ScorePacketEntry{cap: lines.len}
 	for i, line in lines {
-		entries << packets_662.ScorePacketInfoChangeEntry{
-			id:                       types_662.ScoreboardId{
+		entries << packets_2168.ScoreEntryChangeFakePlayer{
+			scoreboard_id:    types_662.ScoreboardId{
 				id: i64(i + 1)
 			}
-			objective_name:           sidebar_objective
-			score_value:              i
-			identity_definition_type: types_662.IdentityFakePlayer{
-				fake_player_name: line
-			}
+			objective_name:   sidebar_objective
+			score_value:      i32(i)
+			fake_player_name: line
 		}
 	}
-	packets << &packets_662.SetScorePacket{
-		action: packets_662.SetScoreChange{
-			entries: entries
-		}
+	packets << &packets_2168.SetScorePacket{
+		score_info: entries
 	}
 	return packets
 }
