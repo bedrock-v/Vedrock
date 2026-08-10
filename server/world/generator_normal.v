@@ -51,8 +51,8 @@ pub fn (g NormalGenerator) uses_blocks() bool {
 // ---- biome map ----
 
 fn normal_climate(x int, z int, salt u32) f64 {
-	return fbm2d_persist(f64(x) / normal_climate_scale, f64(z) / normal_climate_scale, salt,
-		2, normal_climate_persistence)
+	return fbm2d_persist(f64(x) / normal_climate_scale, f64(z) / normal_climate_scale, salt, 2,
+		normal_climate_persistence)
 }
 
 fn normal_biome_lookup(temperature f64, rainfall f64) int {
@@ -97,7 +97,8 @@ fn normal_biome_lookup(temperature f64, rainfall f64) int {
 fn normal_select_biome(x int, z int) int {
 	temperature := int(normal_climate(x, z, normal_temperature_salt) * f64(normal_biome_buckets - 1))
 	rainfall := int(normal_climate(x, z, normal_rainfall_salt) * f64(normal_biome_buckets - 1))
-	return normal_biome_lookup(f64(temperature) / f64(normal_biome_buckets - 1), f64(rainfall) / f64(normal_biome_buckets - 1))
+	return normal_biome_lookup(f64(temperature) / f64(normal_biome_buckets - 1),
+		f64(rainfall) / f64(normal_biome_buckets - 1))
 }
 
 // normal_biome_jitter breaks up the straight edges the quantised biome map
@@ -198,12 +199,15 @@ fn kernel_weight_sum(kernel []f64) f64 {
 	return sum
 }
 
+const normal_kernel = gaussian_kernel_1d()
+const normal_kernel_weight_sum = kernel_weight_sum(normal_kernel)
+
 // gaussian_smooth_elevation turns the padded biome map into per column min/max
 // elevation bounds. biomes is indexed x * normal_padded_size + z with
 // normal_smooth_size blocks of padding on every side.
 fn gaussian_smooth_elevation(biomes []int) ([]f64, []f64) {
-	kernel := gaussian_kernel_1d()
-	weight_sum := kernel_weight_sum(kernel)
+	kernel := normal_kernel
+	weight_sum := normal_kernel_weight_sum
 
 	mut min_x := []f64{len: 16 * normal_padded_size}
 	mut max_x := []f64{len: 16 * normal_padded_size}
@@ -242,8 +246,8 @@ fn gaussian_smooth_elevation(biomes []int) ([]f64, []f64) {
 // smoothed_elevation is gaussian_smooth_elevation for a single column, used by
 // the block_at path where no chunk wide biome map is available.
 fn (g NormalGenerator) smoothed_elevation(x int, z int) (f64, f64) {
-	kernel := gaussian_kernel_1d()
-	weight_sum := kernel_weight_sum(kernel)
+	kernel := normal_kernel
+	weight_sum := normal_kernel_weight_sum
 	mut min_sum := 0.0
 	mut max_sum := 0.0
 	for sx in 0 .. kernel.len {
@@ -372,6 +376,7 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 	for x in 0 .. normal_padded_size {
 		for z in 0 .. normal_padded_size {
 			biomes[x * normal_padded_size + z] = g.biome_at(base_x + x - normal_smooth_size,
+
 				base_z + z - normal_smooth_size)
 		}
 	}
@@ -381,6 +386,7 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 	})
 
 	mut ids := []int{len: normal_terrain_height}
+	mut column := []f64{len: density_grid_y}
 	for x in 0 .. 16 {
 		for z in 0 .. 16 {
 			biome := biomes[(x + normal_smooth_size) * normal_padded_size + z + normal_smooth_size]
@@ -393,9 +399,9 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 				ids[y] = air.network_id
 			}
 			ids[0] = bedrock.network_id
+			fill_density_column(mut column, grid, x, z)
 			for y := 1; y <= top; y++ {
-				ids[y] = normal_terrain_id(y, min_sum, max_sum, density_from_grid(grid, x,
-					y, z))
+				ids[y] = normal_terrain_id(y, min_sum, max_sum, density_from_column(column, y))
 			}
 			apply_ground_cover(mut ids, normal_ground_cover(biome))
 
@@ -459,8 +465,7 @@ fn place_ore_cluster(mut c Chunk, t OreType, x int, y int, z int, mut r Random) 
 		center_x := x1 + (x2 - x1) * progress
 		center_y := y1 + (y2 - y1) * progress
 		center_z := z1 + (z2 - z1) * progress
-		radius := ((math.sin(f64(count) * (math.pi / size)) + 1) * r.next_float() * size / 16.0 +
-			1) / 2.0
+		radius := ((math.sin(f64(count) * (math.pi / size)) + 1) * r.next_float() * size / 16.0 + 1) / 2.0
 		place_ore_sphere(mut c, t.material, center_x, center_y, center_z, radius)
 	}
 }
@@ -597,7 +602,8 @@ fn place_broadleaf_canopy(mut c Chunk, x int, y int, z int, height int, leaves B
 			x_offset := abs_int(xx - x)
 			for zz := z - mid; zz <= z + mid; zz++ {
 				z_offset := abs_int(zz - z)
-				if x_offset == mid && z_offset == mid && (y_offset == 0 || r.next_bounded_int(2) == 0) {
+				if x_offset == mid && z_offset == mid
+					&& (y_offset == 0 || r.next_bounded_int(2) == 0) {
 					continue
 				}
 				if chunk_id_or_air(c, xx, yy, zz) == air.network_id {

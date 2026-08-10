@@ -158,6 +158,40 @@ fn (g NetherGenerator) density_grid(base_x int, base_z int) []f64 {
 	})
 }
 
+// fill_density_column resolves the horizontal half of the interpolation once
+// for a whole column. Generators that walk every y of a column pay it per
+// column instead of per block; density_from_column finishes the job.
+fn fill_density_column(mut column []f64, grid []f64, local_x int, local_z int) {
+	mut gx := local_x / density_cell_xz
+	mut gz := local_z / density_cell_xz
+	if gx >= density_grid_xz - 1 {
+		gx = density_grid_xz - 2
+	}
+	if gz >= density_grid_xz - 1 {
+		gz = density_grid_xz - 2
+	}
+	fx := f64(local_x - gx * density_cell_xz) / f64(density_cell_xz)
+	fz := f64(local_z - gz * density_cell_xz) / f64(density_cell_xz)
+	for gy in 0 .. density_grid_y {
+		c00 := grid[density_grid_index(gx, gy, gz)]
+		c10 := grid[density_grid_index(gx + 1, gy, gz)]
+		c01 := grid[density_grid_index(gx, gy, gz + 1)]
+		c11 := grid[density_grid_index(gx + 1, gy, gz + 1)]
+		x0 := lerp_f64(c00, c10, fx)
+		x1 := lerp_f64(c01, c11, fx)
+		column[gy] = lerp_f64(x0, x1, fz)
+	}
+}
+
+fn density_from_column(column []f64, y int) f64 {
+	mut gy := y / density_cell_y
+	if gy >= density_grid_y - 1 {
+		gy = density_grid_y - 2
+	}
+	fy := f64(y - gy * density_cell_y) / f64(density_cell_y)
+	return lerp_f64(column[gy], column[gy + 1], fy)
+}
+
 fn density_from_grid(grid []f64, local_x int, y int, local_z int) f64 {
 	mut gx := local_x / density_cell_xz
 	mut gy := y / density_cell_y

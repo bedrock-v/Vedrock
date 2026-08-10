@@ -182,3 +182,20 @@ fn test_generator_registry_void_and_normal_respect_dimension() {
 	assert chunk.subchunk_count == nether.subchunk_count
 	assert normal.spawn_y() >= nether.min_y && normal.spawn_y() <= nether.max_y()
 }
+
+fn test_density_column_matches_full_grid_sampling() {
+	g := NormalGenerator{}
+	grid := build_density_grid(64, -32, fn [g] (x int, y int, z int) f64 {
+		return g.terrain_noise(x, y, z)
+	})
+	mut column := []f64{len: density_grid_y}
+	for x in 0 .. 16 {
+		for z in 0 .. 16 {
+			fill_density_column(mut column, grid, x, z)
+			for y in 0 .. 128 {
+				delta := density_from_grid(grid, x, y, z) - density_from_column(column, y)
+				assert delta < 1e-9 && delta > -1e-9
+			}
+		}
+	}
+}
