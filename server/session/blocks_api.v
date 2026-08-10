@@ -186,9 +186,7 @@ fn (t ArenaRestoreTask) run(mut tx WorldTx) {
 	if end >= total {
 		return
 	}
-	if !tx.wr.try_submit(ArenaRestoreTask{ snapshot: t.snapshot, next: end }) {
-		eprintln('[world ${tx.wr.world.name}] arena restore stalled at ${end}/${total} blocks, queue full')
-	}
+	tx.resubmit(ArenaRestoreTask{ snapshot: t.snapshot, next: end })
 }
 
 fn (mut h Hub) restore_area(snapshot &world.Snapshot) {

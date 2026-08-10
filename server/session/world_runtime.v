@@ -58,6 +58,11 @@ mut:
 
 	jobs chan WorldTask = chan WorldTask{cap: 256}
 
+	// Follow up work left behind by a task that yielded part way through a
+	// large job. Owned by the actor thread and deliberately unbounded: routing
+	// it back through jobs would let a full queue abandon the job halfway.
+	continuations []WorldTask
+
 	// Timestamps for tasks waiting in the world queue, ordered oldest first.
 	// They are added when a task is queued and removed when the world thread
 	// begins processing it, allowing queue wait time to be measured safely.
@@ -81,8 +86,8 @@ mut:
 	published_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
 	liquids  &block.LiquidManager = unsafe { nil }
-	events   &event.Bus            = unsafe { nil }
-	entities &entity.Manager       = unsafe { nil }
+	events   &event.Bus           = unsafe { nil }
+	entities &entity.Manager      = unsafe { nil }
 
 	// Cross thread metric snapshots. The world thread publishes simulation
 	// values, session threads publish outbound values and other threads only
@@ -130,6 +135,13 @@ mut:
 // reachable through a WorldTx, i.e. only from the owning actor thread.
 fn (tx &WorldTx) world() &db.World {
 	return tx.wr.world
+}
+
+// resubmit schedules task to run again on this actor after the work already
+// queued has had a turn. A task processing a large job in bounded batches uses
+// it to yield without risking the remainder being refused by a full queue.
+fn (mut tx WorldTx) resubmit(task WorldTask) {
+	tx.wr.continuations << task
 }
 
 fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {
@@ -297,6 +309,75 @@ fn (mut wr WorldRuntime) run_jobs() {
 		wr: wr
 	}
 	for {
+		if wr.continuations.len > 0 {
+			// A yielded job is still outstanding. Give the queue and the tick
+			// wakeup a turn without blocking on them, then advance that job by
+			// one more step so it finishes even while the world stays busy.
+			if !wr.poll_once(mut tx) {
+				return
+			}
+			wr.run_continuation(mut tx)
+			continue
+		}
+		if !wr.wait_once(mut tx) {
+			return
+		}
+	}
+}
+
+// poll_once handles at most one pending job, tick or stop signal and returns
+// false once the actor has shut down.
+fn (mut wr WorldRuntime) poll_once(mut tx WorldTx) bool {
+	select {
+		task := <-wr.jobs {
+			wr.run_task(mut tx, task)
+		}
+		_ := <-wr.tick_wakeup {
+			tx.run_due_tick()
+		}
+		_ := <-wr.stop {
+			wr.finish(mut tx)
+			return false
+		}
+		else {}
+	}
+	return true
+}
+
+// wait_once is poll_once for an idle actor: it blocks until there is something
+// to do rather than spinning.
+fn (mut wr WorldRuntime) wait_once(mut tx WorldTx) bool {
+	select {
+		task := <-wr.jobs {
+			wr.run_task(mut tx, task)
+		}
+		_ := <-wr.tick_wakeup {
+			tx.run_due_tick()
+		}
+		_ := <-wr.stop {
+			wr.finish(mut tx)
+			return false
+		}
+	}
+	return true
+}
+
+fn (mut wr WorldRuntime) run_continuation(mut tx WorldTx) {
+	if wr.continuations.len == 0 {
+		return
+	}
+	task := wr.continuations[0]
+	wr.continuations.delete(0)
+	wr.run_task(mut tx, task)
+}
+
+// finish drains everything still outstanding before the actor exits. Shutdown
+// waits for all accepted submissions before signalling stop, so the queue drain
+// is exhaustive; continuations are run to completion so a half applied job does
+// not survive into the saved world.
+fn (mut wr WorldRuntime) finish(mut tx WorldTx) {
+	for {
+		mut idle := false
 		select {
 			task := <-wr.jobs {
 				wr.run_task(mut tx, task)
@@ -304,27 +385,19 @@ fn (mut wr WorldRuntime) run_jobs() {
 			_ := <-wr.tick_wakeup {
 				tx.run_due_tick()
 			}
-			_ := <-wr.stop {
-				// shutdown waits for all accepted submissions before signalling
-				// stop, so this final non blocking drain is exhaustive.
-				for {
-					select {
-						task := <-wr.jobs {
-							wr.run_task(mut tx, task)
-						}
-						_ := <-wr.tick_wakeup {
-							tx.run_due_tick()
-						}
-						else {
-							break
-						}
-					}
-				}
-				wr.done <- true
-				return
+			else {
+				idle = true
 			}
 		}
+		if !idle {
+			continue
+		}
+		if wr.continuations.len == 0 {
+			break
+		}
+		wr.run_continuation(mut tx)
 	}
+	wr.done <- true
 }
 
 fn (mut wr WorldRuntime) run_task(mut tx WorldTx, task WorldTask) {

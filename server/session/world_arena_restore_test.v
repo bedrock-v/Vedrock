@@ -121,3 +121,54 @@ fn test_arena_restore_yields_between_batches() {
 		return id == blocks_needed
 	})
 }
+
+struct ArenaQueueFillerTask {}
+
+fn (t ArenaQueueFillerTask) name() string {
+	return 'ArenaQueueFillerTask'
+}
+
+fn (t ArenaQueueFillerTask) run(mut tx WorldTx) {
+	time.sleep(time.millisecond)
+}
+
+fn test_arena_restore_completes_while_the_world_queue_stays_full() {
+	mut hub := new_hub(gamedata.GameData{})
+	w := db.new_world('arena-restore-saturated', none, 'void', world.overworld)
+	hub.add_world(w)
+	mut wr := hub.world_runtime('arena-restore-saturated') or { panic('expected runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	blocks_needed := arena_restore_batch_size * 4 + 1
+	mut src := SequentialBlockSource{}
+	snap := world.capture(mut src, world.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
+
+	// Keep the world queue at capacity for the whole restore. A restore that
+	// hands its remaining batches back through the queue never finishes here.
+	stop := chan bool{cap: 1}
+	feeder_done := chan bool{cap: 1}
+	spawn fn [mut wr, stop, feeder_done] () {
+		for {
+			select {
+				_ := <-stop {
+					feeder_done <- true
+					return
+				}
+				else {}
+			}
+			wr.try_submit(ArenaQueueFillerTask{})
+		}
+	}()
+
+	hub.restore_area(snap)
+
+	restored := arena_restore_wait_until(10000, fn [wr, blocks_needed] () bool {
+		id := wr.world.block_override(blocks_needed - 1, 64, 0) or { return false }
+		return id == blocks_needed
+	})
+	stop <- true
+	_ := <-feeder_done
+	assert restored, 'restore abandoned its remaining batches under a saturated queue'
+}
