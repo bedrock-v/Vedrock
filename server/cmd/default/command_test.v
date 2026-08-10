@@ -377,14 +377,14 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 15
+	assert pkt.commands.len == 14
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := network.new_selected_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
 	if decoded is packets_898.AvailableCommandsPacket {
-		assert decoded.commands.len == 15
+		assert decoded.commands.len == 14
 		assert decoded.commands[0].alias_enum == -1
 		assert decoded.commands[0].overloads.len == 1
 	} else {
