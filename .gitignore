@@ -29,7 +29,7 @@ bin/
 modules/
 
 # Runtime-generated config/data
-vedrock.yml
+vedrock.toml
 ops.txt
 permissions.yml
 player_permissions.yml

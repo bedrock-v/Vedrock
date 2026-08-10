@@ -38,7 +38,7 @@ pub fn (r &PackRegistry) find(id string) ?&ResourcePack {
 	return none
 }
 
-// parse_cdn_packs decodes the vedrock.yml cdn-packs value. Format:
+// parse_cdn_packs decodes the vedrock.toml cdn-packs value. Format:
 //   uuid,version,url,size ; uuid,version,url,size
 // size is optional. Malformed entries are skipped.
 pub fn parse_cdn_packs(encoded string) []&ResourcePack {
