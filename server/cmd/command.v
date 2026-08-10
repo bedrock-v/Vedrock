@@ -13,7 +13,10 @@ pub:
 	uptime_seconds i64
 	tps            f64
 	load           f64
-	args           []string
+	// Heap in use and total heap reserved from the OS, both in bytes.
+	memory_used_bytes i64
+	memory_heap_bytes i64
+	args              []string
 }
 
 pub interface Command {
@@ -111,15 +114,17 @@ pub fn (r &Registry) dispatch(line string, mut sender Sender, ctx_base Context) 
 		return
 	}
 	ctx := Context{
-		lang:           ctx_base.lang
-		sender_name:    ctx_base.sender_name
-		player_count:   ctx_base.player_count
-		max_players:    ctx_base.max_players
-		server_motd:    ctx_base.server_motd
-		uptime_seconds: ctx_base.uptime_seconds
-		tps:            ctx_base.tps
-		load:           ctx_base.load
-		args:           args
+		lang:              ctx_base.lang
+		sender_name:       ctx_base.sender_name
+		player_count:      ctx_base.player_count
+		max_players:       ctx_base.max_players
+		server_motd:       ctx_base.server_motd
+		uptime_seconds:    ctx_base.uptime_seconds
+		tps:               ctx_base.tps
+		load:              ctx_base.load
+		memory_used_bytes: ctx_base.memory_used_bytes
+		memory_heap_bytes: ctx_base.memory_heap_bytes
+		args:              args
 	}
 	cmd.execute(mut sender, ctx)!
 }

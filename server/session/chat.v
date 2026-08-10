@@ -55,14 +55,16 @@ fn (mut s NetworkSession) run_command(line string) ! {
 	final := cctx.val.command
 	s.log.info('${s.player.identity.display_name} issued command: ${final}')
 	ctx := cmd.Context{
-		lang:           s.hub.lang
-		sender_name:    s.player.identity.display_name
-		player_count:   s.hub.count()
-		max_players:    s.cfg.max_players
-		server_motd:    s.cfg.motd
-		uptime_seconds: s.hub.uptime_seconds()
-		tps:            s.hub.tps()
-		load:           s.hub.load()
+		lang:              s.hub.lang
+		sender_name:       s.player.identity.display_name
+		player_count:      s.hub.count()
+		max_players:       s.cfg.max_players
+		server_motd:       s.cfg.motd
+		uptime_seconds:    s.hub.uptime_seconds()
+		tps:               s.hub.tps()
+		load:              s.hub.load()
+		memory_used_bytes: i64(gc_memory_use())
+		memory_heap_bytes: i64(gc_heap_usage().heap_size)
 	}
 	s.hub.commands.dispatch(final, mut s, ctx)!
 }

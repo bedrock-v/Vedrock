@@ -32,6 +32,7 @@ pub fn (c StatusCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	lines << '§6Uptime: §c${format_uptime(ctx.uptime_seconds)}§r'
 	lines << '§6Current TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
 	lines << '§6Average TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
+	lines << '§6Memory: §c${format_bytes(ctx.memory_used_bytes)}§6/§c${format_bytes(ctx.memory_heap_bytes)}§r'
 	lines << '§6Online players: §c${ctx.player_count}§6/§c${ctx.max_players}§r'
 	lines << '§6World: §a${ctx.server_motd}§r'
 	sender.send_message(lines.join('\n'))!
@@ -43,6 +44,23 @@ fn tps_format_color(tps f64) string {
 		tps < 17.0 { '§6' }
 		else { '§a' }
 	}
+}
+
+fn format_bytes(total i64) string {
+	if total < 1024 {
+		return '${total} B'
+	}
+	mut value := f64(total)
+	units := ['KiB', 'MiB', 'GiB', 'TiB']
+	mut unit := units[0]
+	for u in units {
+		unit = u
+		value /= 1024.0
+		if value < 1024.0 {
+			break
+		}
+	}
+	return '${value:.1f} ${unit}'
 }
 
 fn format_uptime(total i64) string {
