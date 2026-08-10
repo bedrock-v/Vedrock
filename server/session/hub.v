@@ -20,7 +20,7 @@ import server.cmd
 import server.cmd.default as defaultcmd
 import server.world as blockworld
 import server.world.db
-import server.resource
+import server.resourcepack
 import server.permission
 import server.enchant
 import server.internal.auth
@@ -85,7 +85,7 @@ pub mut:
 	// Defaults to db.LevelDBFactory the first time set_world_config runs,
 	// unless HubOptions already supplied one at construction time.
 	world_factory ?db.Factory
-	packs         &resource.PackRegistry   = unsafe { nil }
+	packs         &resourcepack.PackRegistry   = unsafe { nil }
 	palette       &blockworld.BlockPalette = unsafe { nil }
 	ops           permission.OpList
 	player_grants permission.PlayerGrants

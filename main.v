@@ -5,17 +5,6 @@ import time
 import server.conf
 import server
 import server.crash
-import server.event
-
-// GreetHandler sends a test message to every player as they join. Embeds
-// event.NopHandler so it only needs to override the one event it cares about.
-struct GreetHandler {
-	event.NopHandler
-}
-
-fn (mut h GreetHandler) on_player_join(mut ctx event.Context[event.JoinData]) {
-	ctx.val.player.send_message('test') or {}
-}
 
 // This is the reference/example entrypoint, not a fixed binary a user must
 // use as-is. server.new(...) is a real library constructor. Compile your
@@ -29,7 +18,6 @@ fn main() {
 		eprintln('Failed to start: ${err}')
 		exit(1)
 	}
-	srv.register_event(&GreetHandler{}, .normal)
 	os.signal_opt(.int, fn [mut srv] (_ os.Signal) {
 		srv.stop()
 		exit(0)

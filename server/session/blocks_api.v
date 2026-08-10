@@ -1,7 +1,6 @@
 module session
 
 import server.world
-import server.arena
 
 struct SetBlockTask {
 	x  int
@@ -149,12 +148,12 @@ fn (mut h Hub) on_block_changed(x int, y int, z int) {
 }
 
 // capture_area snapshots the block ids over the box between the two corners in
-// the default world. See arena.max_volume for the size cap. This is a plain
+// the default world. See world.max_volume for the size cap. This is a plain
 // synchronous read against Hub.get_block, not a WorldTask, so it never
 // competes with the world's own task queue - only restoring needs the
 // budgeted treatment below.
-fn (mut h Hub) capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) ?&arena.Snapshot {
-	return arena.capture(mut h, arena.new_box(x1, y1, z1, x2, y2, z2)) or { return none }
+fn (mut h Hub) capture_area(x1 int, y1 int, z1 int, x2 int, y2 int, z2 int) ?&world.Snapshot {
+	return world.capture(mut h, world.new_box(x1, y1, z1, x2, y2, z2)) or { return none }
 }
 
 // arena_restore_batch_size limits how many blocks one restore task writes
@@ -165,7 +164,7 @@ const arena_restore_batch_size = 4096
 // itself for the remaining blocks so movement, combat and ticks can run
 // between batches.
 struct ArenaRestoreTask {
-	snapshot &arena.Snapshot
+	snapshot &world.Snapshot
 	next     int
 }
 
@@ -192,7 +191,7 @@ fn (t ArenaRestoreTask) run(mut tx WorldTx) {
 	}
 }
 
-fn (mut h Hub) restore_area(snapshot &arena.Snapshot) {
+fn (mut h Hub) restore_area(snapshot &world.Snapshot) {
 	mut wr := h.default_world_runtime() or { return }
 	wr.submit(ArenaRestoreTask{
 		snapshot: snapshot

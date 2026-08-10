@@ -2,7 +2,7 @@ module session
 
 import protocol.version.v662.packets as packets_662
 import protocol.version.v898.packets as packets_898
-import types
+import protocol.types
 import server.internal.network
 import server.world
 
@@ -73,6 +73,16 @@ fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id 
 	packet.position[1] = f32(y) + 0.5
 	packet.position[2] = f32(z) + 0.5
 	tx.wr.broadcast_world(packet)
+}
+
+// broadcast_place_sound sends the block placement sound to every session in
+// this transaction's world.
+fn (mut tx WorldTx) broadcast_place_sound(s &NetworkSession, x int, y int, z int, runtime_id int) {
+	tx.wr.broadcast_world(network.level_sound_event('place', types.Vector3{
+		x: f32(x) + 0.5
+		y: f32(y) + 0.5
+		z: f32(z) + 0.5
+	}, i32(runtime_id), 'minecraft:player', s.runtime_id))
 }
 
 // notify_block_changed re-evaluates liquid flow and connected block state

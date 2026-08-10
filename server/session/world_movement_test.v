@@ -2,7 +2,7 @@ module session
 
 import time
 import protocol.version.v662.packets as packets_662
-import types
+import protocol.types
 import server.event
 import server.internal.gamedata
 import server.internal.logger

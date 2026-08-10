@@ -3,13 +3,13 @@ module session
 import server.internal.network
 import server.internal.auth
 import server.internal.encryption
-import server.resource
+import server.resourcepack
 import protocol.serializer
 import protocol.version.v662.packets as packets_662
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
-import protocol.version.v818.packets as packets_818
 import protocol.version.v898.packets as packets_898
+import protocol.version.v2168.packets as packets_2168
 
 fn login_chain_json(connection_request []u8) !string {
 	mut r := serializer.new_reader(connection_request)
@@ -92,8 +92,14 @@ fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 	s.player.identity = identity
 	s.transport.mark_logged_in()
 	s.player.perm.set_op(s.hub.is_op(identity.display_name))
-	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, identity.xuid,
-		identity.uuid)
+	// xuid/uuid grants (player_permissions.yml's "xuid:"/"uuid:" lines) are
+	// only meaningful for a verified account: both fields are populated from
+	// client supplied JWT claims regardless of whether the chain actually
+	// verified, so an unauthenticated claim must
+	// never match another player's xuid/uuid-keyed grants.
+	grant_xuid := if identity.xbox_authenticated { identity.xuid } else { '' }
+	grant_uuid := if identity.xbox_authenticated { identity.uuid } else { '' }
+	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, grant_xuid, grant_uuid)
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
 	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
 	// Negotiate protocol encryption before login_success so the rest of the
@@ -169,10 +175,10 @@ fn (s &NetworkSession) validate_identity(identity auth.Identity) ! {
 }
 
 fn (mut s NetworkSession) start_resource_packs() ! {
-	mut entries := []packets_818.ResourcePackEntry{}
+	mut entries := []packets_2168.ResourcePackEntry{}
 	if !isnil(s.hub.packs) {
 		for pack in s.hub.packs.packs {
-			entries << packets_818.ResourcePackEntry{
+			entries << packets_2168.ResourcePackEntry{
 				id:      network.uuid_from_bytes(pack.uuid_bytes())
 				version: pack.version
 				size:    u64(pack.size)
@@ -180,7 +186,7 @@ fn (mut s NetworkSession) start_resource_packs() ! {
 			}
 		}
 	}
-	s.transport.send(&packets_818.ResourcePacksInfoPacket{
+	s.transport.send(&packets_2168.ResourcePacksInfoPacket{
 		resource_pack_required: s.packs_must_accept()
 		resource_packs:         entries
 	})!
@@ -211,22 +217,22 @@ fn (mut s NetworkSession) send_pack_stack() ! {
 	})!
 }
 
-fn (mut s NetworkSession) handle_resource_pack_response(p packets_662.ResourcePackClientResponsePacket) ! {
+fn (mut s NetworkSession) handle_resource_pack_response(p packets_2168.ResourcePackClientResponsePacket) ! {
 	match p.response {
-		.cancel {
+		packets_2168.ResourcePackResponseCancel {
 			if s.packs_must_accept() {
 				s.reject_bootstrap('You must accept the server resource packs to play')
 				return
 			}
 			s.send_pack_stack()!
 		}
-		.downloading {
-			s.send_requested_packs(p.downloading_packs)!
+		packets_2168.ResourcePackResponseDownloading {
+			s.send_requested_packs(p.response.downloading_packs)!
 		}
-		.downloading_finished {
+		packets_2168.ResourcePackResponseDownloadingFinished {
 			s.send_pack_stack()!
 		}
-		.resource_pack_stack_finished {
+		packets_2168.ResourcePackResponseStackFinished {
 			s.start_game()!
 		}
 	}
@@ -247,7 +253,7 @@ fn (mut s NetworkSession) send_requested_packs(pack_ids []string) ! {
 		}
 		s.transport.send(&packets_662.ResourcePackDataInfoPacket{
 			resource_name: pack.id()
-			chunk_size:    u32(resource.pack_chunk_size)
+			chunk_size:    u32(resourcepack.pack_chunk_size)
 			chunk_amount:  u32(pack.chunk_count())
 			file_size:     u64(pack.size)
 			file_hash:     pack.sha256.bytes()
@@ -268,7 +274,7 @@ fn (mut s NetworkSession) handle_resource_pack_chunk_request(p packets_662.Resou
 	s.transport.send(&packets_662.ResourcePackChunkDataPacket{
 		resource_name: pack.id()
 		chunk_id:      p.chunk
-		byte_offset:   u64(p.chunk) * u64(resource.pack_chunk_size)
+		byte_offset:   u64(p.chunk) * u64(resourcepack.pack_chunk_size)
 		chunk_data:    pack.chunk(int(p.chunk))
 	})!
 }

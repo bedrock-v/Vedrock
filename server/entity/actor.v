@@ -1,6 +1,6 @@
 module entity
 
-import types
+import protocol.types
 
 // Dimensions describes an actor's collision box and related vertical
 // offsets. Width and height are full dimensions.

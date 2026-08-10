@@ -1,7 +1,7 @@
 module entity
 
 import math
-import types
+import protocol.types
 
 // Pathfinding is intentionally bounded to keep per tick work predictable.
 // path_max_search_radius limits how far a search may reach while

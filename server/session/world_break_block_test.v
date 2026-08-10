@@ -1,7 +1,7 @@
 module session
 
 import protocol.version.v944.packets as packets_944
-import types
+import protocol.types
 import server.event
 import server.internal.network
 import server.internal.gamedata

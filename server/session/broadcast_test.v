@@ -2,13 +2,13 @@ module session
 
 import protocol
 import protocol.version.v662.packets as packets_662
-import protocol.version.v662.types as types_662
 import protocol.version.v776.packets as packets_776
-import protocol.version.v800.packets as packets_800
 import protocol.version.v800.types as types_800
 import protocol.version.v898.packets as packets_898
 import protocol.version.v924.enums as enums_924
 import protocol.version.v924.packets as packets_924
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.enums as enums_2168
 import protocol.serializer
 import server.internal.gamedata
 import server.internal.network
@@ -152,10 +152,10 @@ fn test_mob_effect_packet_roundtrip() {
 }
 
 fn test_player_list_add_roundtrip_with_skin() {
-	decoded := roundtrip_packet(&packets_800.PlayerListPacket{
-		action: packets_800.PlayerListAdd{
-			add_player_list: [
-				packets_800.AddPlayerListEntry{
+	decoded := roundtrip_packet(&packets_2168.PlayerListPacket{
+		entries: [
+			packets_2168.PlayerListEntry(packets_2168.PlayerListAdd{
+				entry: packets_2168.AddPlayerListEntry{
 					uuid:            network.uuid_from_bytes(seed_uuid(5))
 					target_actor_id: network.actor_unique_id(5)
 					player_name:     'Steve'
@@ -167,23 +167,19 @@ fn test_player_list_add_roundtrip_with_skin() {
 						b: -1
 						a: -1
 					}
-				},
-			]
-			is_trusted_skin: [true]
-		}
+				}
+			}),
+		]
 	})!
 	assert decoded.name() == 'PlayerListPacket'
-	if decoded is packets_800.PlayerListPacket {
-		match decoded.action {
-			packets_800.PlayerListAdd {
-				action := decoded.action
-				assert action.add_player_list.len == 1
-				assert action.add_player_list[0].player_name == 'Steve'
-				assert action.add_player_list[0].serialized_skin.skin_image_width == skin_width
-			}
-			packets_800.PlayerListRemove {
-				assert false
-			}
+	if decoded is packets_2168.PlayerListPacket {
+		assert decoded.entries.len == 1
+		entry := decoded.entries[0]
+		if entry is packets_2168.PlayerListAdd {
+			assert entry.entry.player_name == 'Steve'
+			assert entry.entry.serialized_skin.skin_image_width == skin_width
+		} else {
+			assert false
 		}
 	} else {
 		assert false
@@ -201,7 +197,7 @@ fn test_add_player_roundtrip() {
 	}
 	decoded := roundtrip_packet(s.add_player_packet())!
 	assert decoded.name() == 'AddPlayerPacket'
-	if decoded is packets_776.AddPlayerPacket {
+	if decoded is packets_2168.AddPlayerPacket {
 		assert decoded.player_name == 'Alex'
 		assert decoded.target_runtime_id.value == 9
 	} else {
@@ -224,7 +220,7 @@ fn test_add_player_visible_nametag_metadata() {
 	assert p.entity_data[2].data_item_id == network.meta_key_name
 	assert p.entity_data[8].data_item_id == network.meta_key_always_show_name_tag
 	match p.entity_data[2].data_item_type {
-		types_662.DataItemString {
+		enums_2168.DataItemString {
 			value := p.entity_data[2].data_item_type
 			assert value.value == 'Alex'
 		}
@@ -233,7 +229,7 @@ fn test_add_player_visible_nametag_metadata() {
 		}
 	}
 	match p.entity_data[8].data_item_type {
-		types_662.DataItemByte {
+		enums_2168.DataItemByte {
 			value := p.entity_data[8].data_item_type
 			assert value.value == 1
 		}
@@ -244,7 +240,7 @@ fn test_add_player_visible_nametag_metadata() {
 }
 
 fn test_move_and_remove_roundtrip() {
-	mut move_packet := &packets_662.MovePlayerPacket{
+	mut move_packet := &packets_2168.MovePlayerPacket{
 		player_runtime_id: network.actor_runtime_id(3)
 		on_ground:         true
 	}

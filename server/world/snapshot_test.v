@@ -1,4 +1,4 @@
-module arena
+module world
 
 // FakeWorld is an in-memory block grid standing in for a real world. It
 // satisfies both BlockSource and BlockSink so a capture-then-restore round

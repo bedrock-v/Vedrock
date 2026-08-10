@@ -1,6 +1,7 @@
 module conf
 
 import os
+import toml
 import server.internal.network
 
 pub struct Config {
@@ -43,122 +44,121 @@ pub mut:
 	config_file string = default_file
 }
 
-const default_file = 'vedrock.yml'
+const default_file = 'vedrock.toml'
 
 pub fn load() !Config {
 	return load_from(default_file)
 }
 
 pub fn load_from(path string) !Config {
+	mut cfg := Config{}
+	cfg.config_file = path
 	if !os.exists(path) {
-		mut cfg := Config{}
-		cfg.config_file = path
 		write_default(path, cfg)!
 		return cfg
 	}
-	content := os.read_file(path)!
-	mut cfg := Config{}
-	values := parse_flat_yaml(content)
-	cfg.motd = values['motd'] or { cfg.motd }
-	cfg.sub_motd = values['sub-motd'] or { cfg.sub_motd }
-	cfg.address = values['address'] or { cfg.address }
-	cfg.port = (values['port'] or { cfg.port.str() }).int()
-	cfg.max_players = (values['max-players'] or { cfg.max_players.str() }).int()
-	cfg.view_distance = (values['view-distance'] or { cfg.view_distance.str() }).int()
-	cfg.gamemode = values['gamemode'] or { cfg.gamemode }
-	cfg.difficulty = values['difficulty'] or { cfg.difficulty }
-	cfg.xbox_auth = to_bool(values['xbox-auth'] or { cfg.xbox_auth.str() })
-	cfg.encryption = to_bool(values['encryption'] or { cfg.encryption.str() })
-	cfg.compression_threshold = (values['compression-threshold'] or {
-		cfg.compression_threshold.str()
-	}).int()
+	doc := toml.parse_file(path)!
+	cfg.motd = text(doc, 'server.motd', cfg.motd)
+	cfg.sub_motd = text(doc, 'server.sub-motd', cfg.sub_motd)
+	cfg.max_players = number(doc, 'server.max-players', cfg.max_players)
+	cfg.gamemode = text(doc, 'server.gamemode', cfg.gamemode)
+	cfg.difficulty = text(doc, 'server.difficulty', cfg.difficulty)
+	cfg.language = text(doc, 'server.language', cfg.language)
+	cfg.debug = flag(doc, 'server.debug', cfg.debug)
+
+	cfg.address = text(doc, 'network.address', cfg.address)
+	cfg.port = number(doc, 'network.port', cfg.port)
+	cfg.view_distance = number(doc, 'network.view-distance', cfg.view_distance)
+	cfg.xbox_auth = flag(doc, 'network.xbox-auth', cfg.xbox_auth)
+	cfg.encryption = flag(doc, 'network.encryption', cfg.encryption)
+	cfg.compression_threshold = number(doc, 'network.compression-threshold',
+		cfg.compression_threshold)
 	// the threshold is sent to clients as a u16 in NetworkSettings
 	if cfg.compression_threshold < 0 {
 		cfg.compression_threshold = 0
 	} else if cfg.compression_threshold > 65535 {
 		cfg.compression_threshold = 65535
 	}
-	cfg.generator = values['generator'] or { cfg.generator }
-	cfg.language = values['language'] or { cfg.language }
-	cfg.resource_packs = to_bool(values['resource-packs'] or { cfg.resource_packs.str() })
-	cfg.resource_packs_dir = values['resource-packs-dir'] or { cfg.resource_packs_dir }
-	cfg.force_resource_packs = to_bool(values['force-resource-packs'] or {
-		cfg.force_resource_packs.str()
-	})
-	cfg.allow_client_packs = to_bool(values['allow-client-packs'] or {
-		cfg.allow_client_packs.str()
-	})
-	cfg.cdn_packs = values['cdn-packs'] or { cfg.cdn_packs }
-	cfg.default_world = values['default-world'] or { cfg.default_world }
-	cfg.load_all_worlds = to_bool(values['load-all-worlds'] or { cfg.load_all_worlds.str() })
-	cfg.debug = to_bool(values['debug'] or { cfg.debug.str() })
-	cfg.worlds_dir = values['worlds-dir'] or { cfg.worlds_dir }
-	cfg.players_dir = values['players-dir'] or { cfg.players_dir }
-	cfg.crashdumps_dir = values['crashdumps-dir'] or { cfg.crashdumps_dir }
-	cfg.ops_file = values['ops-file'] or { cfg.ops_file }
-	cfg.permissions_file = values['permissions-file'] or { cfg.permissions_file }
-	cfg.player_permissions_file = values['player-permissions-file'] or {
-		cfg.player_permissions_file
-	}
-	cfg.whitelist_file = values['whitelist-file'] or { cfg.whitelist_file }
-	cfg.config_file = path
+
+	cfg.generator = text(doc, 'world.generator', cfg.generator)
+	cfg.default_world = text(doc, 'world.default', cfg.default_world)
+	cfg.load_all_worlds = flag(doc, 'world.load-all', cfg.load_all_worlds)
+
+	cfg.resource_packs = flag(doc, 'resource-packs.enabled', cfg.resource_packs)
+	cfg.resource_packs_dir = text(doc, 'resource-packs.dir', cfg.resource_packs_dir)
+	cfg.force_resource_packs = flag(doc, 'resource-packs.force', cfg.force_resource_packs)
+	cfg.allow_client_packs = flag(doc, 'resource-packs.allow-client-packs', cfg.allow_client_packs)
+	cfg.cdn_packs = text(doc, 'resource-packs.cdn-packs', cfg.cdn_packs)
+
+	cfg.worlds_dir = text(doc, 'paths.worlds-dir', cfg.worlds_dir)
+	cfg.players_dir = text(doc, 'paths.players-dir', cfg.players_dir)
+	cfg.crashdumps_dir = text(doc, 'paths.crashdumps-dir', cfg.crashdumps_dir)
+	cfg.ops_file = text(doc, 'paths.ops-file', cfg.ops_file)
+	cfg.permissions_file = text(doc, 'paths.permissions-file', cfg.permissions_file)
+	cfg.player_permissions_file = text(doc, 'paths.player-permissions-file',
+		cfg.player_permissions_file)
+	cfg.whitelist_file = text(doc, 'paths.whitelist-file', cfg.whitelist_file)
 	return cfg
 }
 
-fn parse_flat_yaml(content string) map[string]string {
-	mut values := map[string]string{}
-	for raw_line in content.split_into_lines() {
-		line := raw_line.trim_space()
-		if line == '' || line.starts_with('#') {
-			continue
-		}
-		idx := line.index(':') or { continue }
-		key := line[..idx].trim_space()
-		mut value := line[idx + 1..].trim_space()
-		if comment := value.index(' #') {
-			value = value[..comment].trim_space()
-		}
-		value = value.trim('"').trim("'")
-		values[key] = value
-	}
-	return values
+// A key the file leaves out keeps the struct default, so a partial config
+// stays valid and new settings do not need a rewrite of every existing file.
+fn text(doc toml.Doc, key string, fallback string) string {
+	value := doc.value_opt(key) or { return fallback }
+	return value.string()
 }
 
-fn to_bool(value string) bool {
-	return value.to_lower() in ['true', 'yes', 'on', '1']
+fn number(doc toml.Doc, key string, fallback int) int {
+	value := doc.value_opt(key) or { return fallback }
+	return value.int()
+}
+
+fn flag(doc toml.Doc, key string, fallback bool) bool {
+	value := doc.value_opt(key) or { return fallback }
+	return value.bool()
 }
 
 fn write_default(path string, cfg Config) ! {
 	content := '# Vedrock server configuration
-motd: "${cfg.motd}"
-sub-motd: "${cfg.sub_motd}"
-address: "${cfg.address}"
-port: ${cfg.port}
-max-players: ${cfg.max_players}
-view-distance: ${cfg.view_distance}
-gamemode: "${cfg.gamemode}"
-difficulty: "${cfg.difficulty}"
-xbox-auth: ${cfg.xbox_auth}
-encryption: ${cfg.encryption}
-compression-threshold: ${cfg.compression_threshold}
-generator: "${cfg.generator}"
-language: "${cfg.language}"
-resource-packs: ${cfg.resource_packs}
-resource-packs-dir: "${cfg.resource_packs_dir}"
-force-resource-packs: ${cfg.force_resource_packs}
-allow-client-packs: ${cfg.allow_client_packs}
+
+[server]
+motd = "${cfg.motd}"
+sub-motd = "${cfg.sub_motd}"
+max-players = ${cfg.max_players}
+gamemode = "${cfg.gamemode}"
+difficulty = "${cfg.difficulty}"
+language = "${cfg.language}"
+debug = ${cfg.debug}
+
+[network]
+address = "${cfg.address}"
+port = ${cfg.port}
+view-distance = ${cfg.view_distance}
+xbox-auth = ${cfg.xbox_auth}
+encryption = ${cfg.encryption}
+compression-threshold = ${cfg.compression_threshold}
+
+[world]
+generator = "${cfg.generator}"
+default = "${cfg.default_world}"
+load-all = ${cfg.load_all_worlds}
+
+[resource-packs]
+enabled = ${cfg.resource_packs}
+dir = "${cfg.resource_packs_dir}"
+force = ${cfg.force_resource_packs}
+allow-client-packs = ${cfg.allow_client_packs}
 # cdn-packs format: uuid,version,url,size ; separated by ";"
-cdn-packs: "${cfg.cdn_packs}"
-default-world: "${cfg.default_world}"
-load-all-worlds: ${cfg.load_all_worlds}
-debug: ${cfg.debug}
-worlds-dir: "${cfg.worlds_dir}"
-players-dir: "${cfg.players_dir}"
-crashdumps-dir: "${cfg.crashdumps_dir}"
-ops-file: "${cfg.ops_file}"
-permissions-file: "${cfg.permissions_file}"
-player-permissions-file: "${cfg.player_permissions_file}"
-whitelist-file: "${cfg.whitelist_file}"
+cdn-packs = "${cfg.cdn_packs}"
+
+[paths]
+worlds-dir = "${cfg.worlds_dir}"
+players-dir = "${cfg.players_dir}"
+crashdumps-dir = "${cfg.crashdumps_dir}"
+ops-file = "${cfg.ops_file}"
+permissions-file = "${cfg.permissions_file}"
+player-permissions-file = "${cfg.player_permissions_file}"
+whitelist-file = "${cfg.whitelist_file}"
 '
 	os.write_file(path, content)!
 }
@@ -190,16 +190,16 @@ pub fn difficulty_name(value int) string {
 	}
 }
 
-// update_difficulty_in_file rewrites the difficulty line in a vedrock.yml shaped
-// file. Callers pass the specific Config's own config_file (not a shared
+// update_difficulty_in_file rewrites the difficulty line in a vedrock.toml
+// shaped file. Callers pass the specific Config's own config_file (not a shared
 // default), so persisting a runtime difficulty change never touches another
 // instance's settings file.
 pub fn update_difficulty_in_file(path string, new_name string) ! {
 	mut lines := os.read_lines(path)!
 	mut found := false
 	for mut line in lines {
-		if line.starts_with('difficulty:') {
-			line = 'difficulty: "${new_name}"'
+		if line.trim_space().starts_with('difficulty =') {
+			line = 'difficulty = "${new_name}"'
 			found = true
 			break
 		}

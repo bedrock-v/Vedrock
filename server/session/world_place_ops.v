@@ -1,7 +1,7 @@
 module session
 
 import protocol.version.v944.packets as packets_944
-import types
+import protocol.types
 import server.internal.network
 import server.event
 import server.world
@@ -279,6 +279,7 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 	// can never see the block exist without its tile.
 	tx.create_sign_tile(pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
+	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_swing(s)
 	tx.notify_block_changed(pos)
 	tx.maybe_open_sign_editor(mut s, pos, runtime_id)
@@ -302,6 +303,7 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 	}
 	tx.create_sign_tile(pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
+	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_swing(s)
 	tx.notify_block_changed(pos)
 	tx.maybe_open_sign_editor(mut s, pos, runtime_id)
@@ -339,6 +341,7 @@ fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPositio
 	}
 	tx.set_block(pos.x, pos.y, pos.z, parts.lower)
 	tx.set_block(above.x, above.y, above.z, parts.upper)
+	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, parts.lower)
 	tx.broadcast_swing(s)
 	tx.notify_block_changed(pos)
 	tx.notify_block_changed(above)

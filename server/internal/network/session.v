@@ -157,7 +157,8 @@ fn (mut s Session) encrypt_frame(frame []u8) []u8 {
 }
 
 fn (mut s Session) queue_locked(p protocol.Packet) {
-	s.send_queue << protocol.encode_packet_to_bytes(p)
+	raw := protocol.encode_packet_to_bytes(p)
+	s.send_queue << raw
 }
 
 fn (mut s Session) flush_locked() ! {

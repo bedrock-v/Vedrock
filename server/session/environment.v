@@ -1,8 +1,10 @@
 module session
 
 import math
-import protocol.version.v662.packets as packets_662
 import protocol.version.v662.types as types_662
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
 import server.internal.network
 import server.player
 import server.world
@@ -95,18 +97,18 @@ fn (mut s NetworkSession) send_air_supply(mut wr WorldRuntime, air i64) {
 	if !s.spawned {
 		return
 	}
-	wr.broadcast_world(&packets_662.SetActorDataPacket{
+	wr.broadcast_world(&packets_2168.SetActorDataPacket{
 		target_runtime_id: network.actor_runtime_id(s.runtime_id)
 		actor_data:        [
-			types_662.DataItem{
+			types_2168.DataItem{
 				data_item_id:   network.meta_key_air_supply
-				data_item_type: types_662.DataItemType(types_662.DataItemShort{
+				data_item_type: enums_2168.DataItemType(enums_2168.DataItemShort{
 					value: i16(air)
 				})
 			},
-			types_662.DataItem{
+			types_2168.DataItem{
 				data_item_id:   network.meta_key_air_supply_max
-				data_item_type: types_662.DataItemType(types_662.DataItemShort{
+				data_item_type: enums_2168.DataItemType(enums_2168.DataItemShort{
 					value: i16(player.max_air_supply_ticks)
 				})
 			},

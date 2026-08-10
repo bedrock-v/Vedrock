@@ -6,7 +6,7 @@ import protocol.version.v662.enums as enums_662
 import protocol.version.v944.packets as packets_944
 import protocol.version.v944.types as types_944
 import protocol.version.v975.packets as packets_975
-import types
+import protocol.types
 import server.internal.gamedata
 import server.internal.logger
 import server.player

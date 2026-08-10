@@ -6,12 +6,11 @@ import time
 import rand
 import protocol
 import protocol.version.v944.packets as packets_944
-import types
+import protocol.types
 import server.internal.network
 import server.block
 import server.entity
 import server.event
-import server.liquid
 import server.world.db
 
 // max_world_catchup_ticks limits how many missed simulation steps a
@@ -76,7 +75,7 @@ mut:
 	// Cross thread snapshot of current_tick.
 	published_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
-	liquids  &liquid.LiquidManager = unsafe { nil }
+	liquids  &block.LiquidManager = unsafe { nil }
 	events   &event.Bus            = unsafe { nil }
 	entities &entity.Manager       = unsafe { nil }
 
@@ -105,7 +104,7 @@ fn new_world_runtime(hub &Hub, w &db.World) &WorldRuntime {
 		hub:   hub
 		world: w
 	}
-	wr.liquids = liquid.new_manager(WorldLiquidHost{ wr: wr })
+	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.events = event.new_bus()
 	wr.entities = entity.new_manager(WorldEntityHost{ wr: wr })
 	spawn wr.run_jobs()
@@ -179,7 +178,7 @@ fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protoco
 	}
 }
 
-// WorldLiquidHost adapts one WorldRuntime to liquid.Host. Its methods run on
+// WorldLiquidHost adapts one WorldRuntime to block.Host. Its methods run on
 // the owning world actor and mutate world state directly without resubmitting.
 struct WorldLiquidHost {
 mut:

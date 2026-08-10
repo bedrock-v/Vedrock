@@ -3,15 +3,14 @@ module session
 import protocol
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
-import protocol.version.v662.packets as packets_662
 import protocol.version.v776.packets as packets_776
 import protocol.version.v818.types as types_818
-import protocol.version.v818.packets as packets_818
 import protocol.version.v898.packets as packets_898
 import protocol.version.v944.types as types_944
-import protocol.version.v1001.types as types_1001
 import protocol.version.v1001.packets as packets_1001
-import types
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.packets as packets_2168
+import protocol.types
 import protocol.serializer
 import nbt
 import os
@@ -34,14 +33,14 @@ fn roundtrip(p protocol.Packet) !protocol.Packet {
 }
 
 fn test_resource_packs_info_roundtrip() {
-	decoded := roundtrip(&packets_818.ResourcePacksInfoPacket{
+	decoded := roundtrip(&packets_2168.ResourcePacksInfoPacket{
 		resource_pack_required:        false
 		has_addon_packs:               false
 		has_scripts:                   false
 		force_disable_vibrant_visuals: false
 		world_template_uuid:           network.uuid_from_bytes([]u8{len: 16})
 		world_template_version:        ''
-		resource_packs:                []packets_818.ResourcePackEntry{}
+		resource_packs:                []packets_2168.ResourcePackEntry{}
 	})!
 	assert decoded.name() == 'ResourcePacksInfoPacket'
 }
@@ -60,11 +59,11 @@ fn test_resource_pack_stack_roundtrip() {
 }
 
 fn test_start_game_roundtrip() {
-	mut start := &packets_1001.StartGamePacket{
+	mut start := &packets_2168.StartGamePacket{
 		target_actor_id:               network.actor_unique_id(1)
 		target_runtime_id:             network.actor_runtime_id(1)
 		actor_game_type:               enums_662.GameType.survival
-		settings:                      types_1001.LevelSettings{
+		settings:                      types_2168.LevelSettings{
 			seed:                                         0
 			spawn_settings:                               types_662.SpawnSettings{
 				spawn_type:              enums_662.SpawnBiomeType.default
@@ -88,9 +87,9 @@ fn test_start_game_roundtrip() {
 			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.public
 			platform_broadcast_setting:                   enums_662.GamePublishSetting.public
 			commands_enabled:                             true
-			rule_data:                                    types_1001.GameRuleLegacyData{}
+			rule_data:                                    types_2168.GameRuleLegacyData{}
 			experiments:                                  types_662.Experiments{}
-			player_permissions:                           enums_662.PlayerPermissionLevel.member
+			player_permissions:                           u8(enums_662.PlayerPermissionLevel.member)
 			server_chunk_tick_range:                      4
 			base_game_version:                            types_662.BaseGameVersion{
 				value: network.selected_minecraft_version
@@ -121,7 +120,7 @@ fn test_start_game_roundtrip() {
 	start.position[2] = 0.0
 	decoded := roundtrip(start)!
 	assert decoded.name() == 'StartGamePacket'
-	if decoded is packets_1001.StartGamePacket {
+	if decoded is packets_2168.StartGamePacket {
 		assert decoded.level_name == 'Vedrock Server'
 		assert decoded.server_version == network.selected_minecraft_version
 	} else {
@@ -129,9 +128,9 @@ fn test_start_game_roundtrip() {
 	}
 }
 
-fn first_start_game_packet(transport &FakeTransport) ?packets_1001.StartGamePacket {
+fn first_start_game_packet(transport &FakeTransport) ?packets_2168.StartGamePacket {
 	for p in transport.sent {
-		if p is packets_1001.StartGamePacket {
+		if p is packets_2168.StartGamePacket {
 			return p
 		}
 	}
@@ -241,7 +240,7 @@ fn test_subchunk_height_map_reports_relative_height() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16)
-	assert map_type == packets_818.HeightMapDataType.has_data
+	assert map_type == packets_2168.HeightMapDataType.has_data
 	assert data[0][0] == 3
 	assert data[15][15] == 3
 }
@@ -251,7 +250,7 @@ fn test_subchunk_height_map_reports_all_too_low() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16 + 1)
-	assert map_type == packets_818.HeightMapDataType.all_too_low
+	assert map_type == packets_2168.HeightMapDataType.all_too_low
 	assert data[0][0] == 0
 }
 
@@ -335,11 +334,11 @@ fn test_prune_sent_chunks_keeps_only_current_radius() {
 	assert chunk_cache_key(4, 0) !in sent
 }
 
-fn test_level_chunk_packet_uses_subchunk_request_mode() {
+fn test_level_chunk_packet_sends_sections_inline() {
 	chunk := world.FlatGenerator{}.generate(0, 0)
 	packet := level_chunk_packet(world.overworld, 0, 0, chunk)
-	assert packet.sub_chunk_count == packets_662.level_chunk_limited
-	assert packet.sub_chunk_limit == u16(chunk.section_count())
+	assert packet.sub_chunk_count == u32(chunk.section_count())
+	assert packet.client_request_sub_chunk_limit == none
 	assert !packet.cache_enabled
 	assert packet.serialized_chunk_data.len > 0
 	assert packet.serialized_chunk_data[packet.serialized_chunk_data.len - 1] == 0
@@ -349,9 +348,9 @@ fn test_registry_packets_roundtrip() {
 	assert roundtrip(&packets_776.ItemComponentPacket{
 		items: []packets_776.ItemsEntry{}
 	})!.name() == 'ItemComponentPacket'
-	assert roundtrip(&packets_776.CreativeContentPacket{
-		groups:   []packets_776.CreativeItemGroup{}
-		contents: []packets_776.CreativeItemData{}
+	assert roundtrip(&packets_2168.CreativeContentPacket{
+		groups:   []packets_2168.CreativeItemGroup{}
+		contents: []packets_2168.CreativeItemData{}
 	})!.name() == 'CreativeContentPacket'
 	assert roundtrip(&packets_1001.BiomeDefinitionListPacket{
 		biomes:  []packets_1001.BiomeEntry{}
