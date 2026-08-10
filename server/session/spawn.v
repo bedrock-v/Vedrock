@@ -21,8 +21,11 @@ import server.world
 import server.world.db
 
 const generated_chunk_cache_limit = 768
-const chunk_send_batch_size = 4
-const chunk_batch_pace = 50 * time.millisecond
+// The initial spawn stream paces itself so the outbound queue is not filled
+// faster than the writer drains it. A radius 8 view is 289 columns, so the
+// pause per batch dominates how long the world takes to appear.
+const chunk_send_batch_size = 8
+const chunk_batch_pace = 10 * time.millisecond
 
 struct ChunkSendTarget {
 	x        int
