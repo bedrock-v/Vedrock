@@ -202,20 +202,11 @@ pub fn (mut s Server) start() ! {
 	s.accept_loop()
 }
 
-const console_poll_interval = 100 * time.millisecond
-
-// console_loop reads command lines from stdin and dispatches them through the
-// shared command registry as CONSOLE, mirroring the in-game chat path.
 fn (mut s Server) console_loop() {
 	mut sender := session.new_console_sender(mut s.hub, s.log)
 	for s.running.load() {
-		if !os.fd_is_pending(0) {
-			time.sleep(console_poll_interval)
-			continue
-		}
 		raw := os.get_raw_line()
 		if raw.len == 0 {
-			// stdin reached EOF (e.g. running detached); stop polling.
 			return
 		}
 		line := raw.trim_space()
