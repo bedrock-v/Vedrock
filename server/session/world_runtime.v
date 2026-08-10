@@ -21,6 +21,11 @@ const max_world_catchup_ticks = 20
 // simulation step, preventing large overdue backlogs from monopolizing a tick.
 const max_due_updates_per_tick = 64
 
+// liquid_tick_interval is how many simulation steps pass between liquid flow
+// steps. Vanilla water schedules its next update 5 ticks ahead, so the flow
+// advances one cell every 5 ticks instead of every tick.
+const liquid_tick_interval = 5
+
 // WorldLifecycle governs whether a WorldRuntime accepts new work.
 enum WorldLifecycle {
 	running  // submit()/try_submit() accept and enqueue
@@ -481,7 +486,9 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 		simulated.add(1)
 		tx.run_due_scheduled_ticks()
 		tx.run_random_ticks()
-		wr.liquids.tick()
+		if wr.current_tick % liquid_tick_interval == 0 {
+			wr.liquids.tick()
+		}
 		wr.entities.tick()
 		tx.tick_effects()
 	}

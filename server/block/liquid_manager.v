@@ -126,8 +126,9 @@ fn (mut m LiquidManager) can_flow_into(x int, y int, z int) bool {
 
 // tick drains up to max_cells_per_tick queued cells and processes each. Cells a
 // processed cell touches (neighbours it fills, or itself when it changes) are
-// re-queued for the next tick, so the flow advances one ring per tick like
-// vanilla. Runs on the owning world's actor thread.
+// re-queued for the next call, so the flow advances one ring per call. The
+// world runtime only calls this every few ticks, which is what sets the vanilla
+// flow rate. Runs on the owning world's actor thread.
 pub fn (mut m LiquidManager) tick() {
 	if m.pending.len == 0 {
 		return
