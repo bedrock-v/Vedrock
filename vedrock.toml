@@ -1,0 +1,40 @@
+# Vedrock server configuration
+
+[server]
+motd = "Vedrock Server"
+sub-motd = "A V Bedrock server"
+max-players = 20
+gamemode = "survival"
+difficulty = "normal"
+language = "en"
+debug = false
+
+[network]
+address = "0.0.0.0"
+port = 19132
+view-distance = 8
+xbox-auth = true
+encryption = false
+compression-threshold = 256
+
+[world]
+generator = "flat"
+default = "world"
+load-all = false
+
+[resource-packs]
+enabled = true
+dir = "resource_packs"
+force = false
+allow-client-packs = true
+# cdn-packs format: uuid,version,url,size ; separated by ";"
+cdn-packs = ""
+
+[paths]
+worlds-dir = "worlds"
+players-dir = "players"
+crashdumps-dir = "crashdumps"
+ops-file = "ops.txt"
+permissions-file = "permissions.yml"
+player-permissions-file = "player_permissions.yml"
+whitelist-file = "whitelist.txt"
