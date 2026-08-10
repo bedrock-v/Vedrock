@@ -3,7 +3,7 @@ module session
 import time
 import nbt
 import protocol.version.v944.packets as packets_944
-import server.types
+import protocol.types
 import server.internal.network
 import server.internal.gamedata
 import server.player

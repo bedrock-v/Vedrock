@@ -13,7 +13,7 @@ import server.internal.network
 import server.session
 import server.internal.gamedata
 import server.world
-import server.resource
+import server.resourcepack
 import server.permission
 import server.crash
 import server.player.playerdb
@@ -60,21 +60,21 @@ pub mut:
 
 // load_resource_packs builds the shared pack registry from local pack files and
 // configured CDN packs. Returns an empty registry when disabled.
-fn load_resource_packs(cfg conf.Config, log &logger.Logger) &resource.PackRegistry {
-	mut reg := &resource.PackRegistry{}
+fn load_resource_packs(cfg conf.Config, log &logger.Logger) &resourcepack.PackRegistry {
+	mut reg := &resourcepack.PackRegistry{}
 	if !cfg.resource_packs {
 		return reg
 	}
-	for name in resource.discover(cfg.resource_packs_dir) {
+	for name in resourcepack.discover(cfg.resource_packs_dir) {
 		path := os.join_path(cfg.resource_packs_dir, name)
-		if pack := resource.new_local_pack(path) {
+		if pack := resourcepack.new_local_pack(path) {
 			reg.add(pack)
 			log.info('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
 		} else {
 			log.warn('Failed to load resource pack ${name}: ${err}')
 		}
 	}
-	for pack in resource.parse_cdn_packs(cfg.cdn_packs) {
+	for pack in resourcepack.parse_cdn_packs(cfg.cdn_packs) {
 		reg.add(pack)
 		log.info('Registered CDN resource pack ${pack.uuid} v${pack.version}')
 	}

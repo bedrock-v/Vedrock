@@ -5,7 +5,7 @@ import time
 import protocol
 import protocol.version.v2168.packets as packets_2168
 import protocol.version.v2168.enums as enums_2168
-import server.types
+import protocol.types
 import server.internal.network
 import server.world
 import server.effect

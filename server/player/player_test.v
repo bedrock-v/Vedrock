@@ -1,6 +1,6 @@
 module player
 
-import server.types
+import protocol.types
 import server.internal.auth
 
 fn test_new_player_defaults() {

@@ -1,4 +1,4 @@
-module resource
+module resourcepack
 
 @[heap]
 pub struct PackRegistry {

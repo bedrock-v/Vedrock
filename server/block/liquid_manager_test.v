@@ -1,4 +1,4 @@
-module liquid
+module block
 
 import server.world
 

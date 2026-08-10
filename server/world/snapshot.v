@@ -1,4 +1,4 @@
-module arena
+module world
 
 // BlockSource reads block network ids from a world by absolute coordinates.
 // Hub satisfies it; tests use an in-memory grid.

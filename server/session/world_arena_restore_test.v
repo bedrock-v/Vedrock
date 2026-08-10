@@ -1,7 +1,6 @@
 module session
 
 import time
-import server.arena
 import server.internal.gamedata
 import server.world
 import server.world.db
@@ -60,7 +59,7 @@ fn test_arena_restore_applies_every_block_across_several_batches() {
 
 	blocks_needed := arena_restore_batch_size * 2 + 1
 	mut src := SequentialBlockSource{}
-	snap := arena.capture(mut src, arena.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
+	snap := world.capture(mut src, world.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
 	assert snap.len() == blocks_needed
 
 	hub.restore_area(snap)
@@ -85,7 +84,7 @@ fn test_arena_restore_yields_between_batches() {
 
 	blocks_needed := arena_restore_batch_size * 2 + 1
 	mut src := SequentialBlockSource{}
-	snap := arena.capture(mut src, arena.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
+	snap := world.capture(mut src, world.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
 
 	started := chan bool{cap: 1}
 	release := chan bool{cap: 1}

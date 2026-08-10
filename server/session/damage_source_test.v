@@ -1,7 +1,7 @@
 module session
 
 import time
-import server.types
+import protocol.types
 import server.effect
 import server.internal.auth
 import server.internal.gamedata

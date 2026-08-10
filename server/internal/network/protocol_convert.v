@@ -1,7 +1,7 @@
 module network
 
 import nbt
-import server.types as model
+import protocol.types as model
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.types as types_662
 import protocol.version.v944.types as types_944

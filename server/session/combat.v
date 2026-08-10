@@ -10,7 +10,7 @@ import protocol.version.v975.packets as packets_975
 import protocol.version.v975.enums as enums_975
 import protocol.version.v2168.packets as packets_2168
 import protocol.version.v2168.enums as enums_2168
-import server.types
+import protocol.types
 import server.effect
 import server.event
 import server.internal.network

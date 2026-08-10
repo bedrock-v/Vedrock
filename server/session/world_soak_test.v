@@ -1,7 +1,6 @@
 module session
 
 import time
-import server.arena
 import server.internal.gamedata
 import server.world
 import server.world.db
@@ -51,7 +50,7 @@ fn test_heavy_world_does_not_stall_quiet_world() {
 
 	blocks_needed := arena_restore_batch_size * 6 + 1
 	mut src := SoakBlockSource{}
-	snap := arena.capture(mut src, arena.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
+	snap := world.capture(mut src, world.new_box(0, 64, 0, blocks_needed - 1, 64, 0))!
 	hub.restore_area(snap)
 
 	stop := chan bool{cap: 1}

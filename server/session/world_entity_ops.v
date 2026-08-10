@@ -2,7 +2,7 @@ module session
 
 import math
 import protocol
-import server.types
+import protocol.types
 import server.entity
 import server.event
 import server.world

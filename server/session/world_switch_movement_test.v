@@ -1,6 +1,6 @@
 module session
 
-import server.types
+import protocol.types
 import server.internal.gamedata
 import server.player
 import server.internal.auth

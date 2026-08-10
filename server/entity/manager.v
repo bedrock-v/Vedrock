@@ -3,7 +3,7 @@ module entity
 import sync
 import rand
 import protocol
-import server.types
+import protocol.types
 import server.world
 import server.effect
 

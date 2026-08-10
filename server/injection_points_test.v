@@ -4,7 +4,7 @@ import os
 import encoding.base64
 import x.json2
 import server.conf
-import server.resource
+import server.resourcepack
 import server.world
 import server.session
 import server.internal.auth
@@ -75,7 +75,7 @@ fn test_resource_pack_added_after_new_is_findable() {
 	mut srv := new(settings: isolated_config('pack', 19151)) or {
 		panic('server failed to start: ${err}')
 	}
-	srv.hub.packs.add(&resource.ResourcePack{
+	srv.hub.packs.add(&resourcepack.ResourcePack{
 		uuid:    'a1b2c3d4-0000-0000-0000-000000000000'
 		version: '1.0.0'
 	})

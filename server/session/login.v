@@ -3,7 +3,7 @@ module session
 import server.internal.network
 import server.internal.auth
 import server.internal.encryption
-import server.resource
+import server.resourcepack
 import protocol.serializer
 import protocol.version.v662.packets as packets_662
 import protocol.version.v662.enums as enums_662
@@ -253,7 +253,7 @@ fn (mut s NetworkSession) send_requested_packs(pack_ids []string) ! {
 		}
 		s.transport.send(&packets_662.ResourcePackDataInfoPacket{
 			resource_name: pack.id()
-			chunk_size:    u32(resource.pack_chunk_size)
+			chunk_size:    u32(resourcepack.pack_chunk_size)
 			chunk_amount:  u32(pack.chunk_count())
 			file_size:     u64(pack.size)
 			file_hash:     pack.sha256.bytes()
@@ -274,7 +274,7 @@ fn (mut s NetworkSession) handle_resource_pack_chunk_request(p packets_662.Resou
 	s.transport.send(&packets_662.ResourcePackChunkDataPacket{
 		resource_name: pack.id()
 		chunk_id:      p.chunk
-		byte_offset:   u64(p.chunk) * u64(resource.pack_chunk_size)
+		byte_offset:   u64(p.chunk) * u64(resourcepack.pack_chunk_size)
 		chunk_data:    pack.chunk(int(p.chunk))
 	})!
 }

@@ -3,7 +3,7 @@ module session
 import math
 import protocol.version.v2168.packets as packets_2168
 import protocol.version.v2168.enums as enums_2168
-import server.types
+import protocol.types
 import server.event
 import server.internal.network
 

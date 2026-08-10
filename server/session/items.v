@@ -5,7 +5,7 @@ import protocol.version.v776.enums as enums_776
 import protocol.version.v944.types as types_944
 import protocol.version.v2168.packets as packets_2168
 import protocol.version.v2168.types as types_2168
-import server.types
+import protocol.types
 import nbt
 import server.player.playerdb
 import server.internal.network
