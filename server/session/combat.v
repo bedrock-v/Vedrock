@@ -8,7 +8,9 @@ import protocol.version.v924.packets as packets_924
 import protocol.version.v924.enums as enums_924
 import protocol.version.v975.packets as packets_975
 import protocol.version.v975.enums as enums_975
-import types
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.enums as enums_2168
+import protocol.types
 import server.effect
 import server.event
 import server.internal.network
@@ -339,10 +341,10 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 	respawn_packet.position[1] = current.position.y
 	respawn_packet.position[2] = current.position.z
 	s.deliver(respawn_packet)
-	mut move_packet := &packets_662.MovePlayerPacket{
+	mut move_packet := &packets_2168.MovePlayerPacket{
 		player_runtime_id: network.actor_runtime_id(s.runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     enums_662.PlayerPositionRespawn{}
+		position_mode:     enums_2168.PlayerPositionMode.respawn
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x

@@ -5,10 +5,13 @@ import protocol.version.v662.packets as packets_662
 import protocol.version.v712.packets as packets_712
 import protocol.version.v729.packets as packets_729
 import protocol.version.v975.packets as packets_975
+import protocol.version.v2168.packets as packets_2168
 import protocol.version.v662.types as types_662
 import protocol.version.v712.types as types_712
 import protocol.version.v975.enums as enums_975
-import types
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
+import protocol.types
 import server.internal.network
 import server.world
 import server.effect
@@ -382,10 +385,10 @@ fn math_floor(v f32) f32 {
 pub fn (e &Entity) spawn_packet() protocol.Packet {
 	if e.behaviour is ItemBehaviour {
 		item_stack := e.behaviour.stack
-		mut packet := &packets_662.AddItemActorPacket{
+		mut packet := &packets_2168.AddItemActorPacket{
 			target_actor_id:   network.actor_unique_id(e.unique_id)
 			target_runtime_id: network.actor_runtime_id(e.runtime_id)
-			item:              network.item_descriptor_v662(item_stack)
+			item:              network.item_descriptor_v2168(item_stack)
 			entity_data:       e.metadata_entries()
 			from_fishing:      false
 		}
@@ -397,7 +400,7 @@ pub fn (e &Entity) spawn_packet() protocol.Packet {
 		packet.velocity[2] = e.velocity.z
 		return packet
 	}
-	mut packet := &packets_712.AddActorPacket{
+	mut packet := &packets_2168.AddActorPacket{
 		target_actor_id:   network.actor_unique_id(e.unique_id)
 		target_runtime_id: network.actor_runtime_id(e.runtime_id)
 		actor_type:        e.identifier
@@ -460,7 +463,7 @@ fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
 }
 
-fn (e &Entity) metadata_entries() []types_662.DataItem {
+fn (e &Entity) metadata_entries() []types_2168.DataItem {
 	mut flags := i64(0)
 	if e.dimensions.has_collision {
 		flags |= entity_flag_bit(network.entity_flag_has_collision)
@@ -469,27 +472,27 @@ fn (e &Entity) metadata_entries() []types_662.DataItem {
 		flags |= entity_flag_bit(network.entity_flag_affected_by_gravity)
 	}
 	return [
-		types_662.DataItem{
+		types_2168.DataItem{
 			data_item_id:   network.meta_key_flags
-			data_item_type: types_662.DataItemType(types_662.DataItemInt64{
+			data_item_type: enums_2168.DataItemType(enums_2168.DataItemInt64{
 				value: flags
 			})
 		},
-		types_662.DataItem{
+		types_2168.DataItem{
 			data_item_id:   network.meta_key_scale
-			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
+			data_item_type: enums_2168.DataItemType(enums_2168.DataItemFloat{
 				value: f32(1.0)
 			})
 		},
-		types_662.DataItem{
+		types_2168.DataItem{
 			data_item_id:   network.meta_key_width
-			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
+			data_item_type: enums_2168.DataItemType(enums_2168.DataItemFloat{
 				value: e.dimensions.width
 			})
 		},
-		types_662.DataItem{
+		types_2168.DataItem{
 			data_item_id:   network.meta_key_height
-			data_item_type: types_662.DataItemType(types_662.DataItemFloat{
+			data_item_type: enums_2168.DataItemType(enums_2168.DataItemFloat{
 				value: e.dimensions.height
 			})
 		},

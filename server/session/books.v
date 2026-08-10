@@ -2,7 +2,7 @@ module session
 
 import protocol.version.v924.packets as packets_924
 import protocol.version.v924.enums as enums_924
-import types
+import protocol.types
 import server.item
 
 // Book edits are session local inventory work: item lookup uses shared

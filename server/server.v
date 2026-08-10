@@ -13,9 +13,10 @@ import server.internal.network
 import server.session
 import server.internal.gamedata
 import server.world
-import server.resource
+import server.resourcepack
 import server.permission
 import server.crash
+import server.event
 import server.player.playerdb
 import sync.stdatomic
 
@@ -60,21 +61,21 @@ pub mut:
 
 // load_resource_packs builds the shared pack registry from local pack files and
 // configured CDN packs. Returns an empty registry when disabled.
-fn load_resource_packs(cfg conf.Config, log &logger.Logger) &resource.PackRegistry {
-	mut reg := &resource.PackRegistry{}
+fn load_resource_packs(cfg conf.Config, log &logger.Logger) &resourcepack.PackRegistry {
+	mut reg := &resourcepack.PackRegistry{}
 	if !cfg.resource_packs {
 		return reg
 	}
-	for name in resource.discover(cfg.resource_packs_dir) {
+	for name in resourcepack.discover(cfg.resource_packs_dir) {
 		path := os.join_path(cfg.resource_packs_dir, name)
-		if pack := resource.new_local_pack(path) {
+		if pack := resourcepack.new_local_pack(path) {
 			reg.add(pack)
 			log.info('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
 		} else {
 			log.warn('Failed to load resource pack ${name}: ${err}')
 		}
 	}
-	for pack in resource.parse_cdn_packs(cfg.cdn_packs) {
+	for pack in resourcepack.parse_cdn_packs(cfg.cdn_packs) {
 		reg.add(pack)
 		log.info('Registered CDN resource pack ${pack.uuid} v${pack.version}')
 	}
@@ -355,4 +356,80 @@ pub fn (mut s Server) stop() {
 	if !isnil(s.listener) {
 		s.listener.close() or {}
 	}
+}
+
+// register_event adds handler to the server's global event bus.
+pub fn (mut s Server) register_event(handler event.Handler, priority event.Priority) {
+	s.hub.register_event(handler, priority)
+}
+
+// unregister_event removes handler from the global event bus.
+pub fn (mut s Server) unregister_event(handler event.Handler) {
+	s.hub.unregister_event(handler)
+}
+
+// WorldConfig is what load_world needs to bring a world up: its name,
+// dimension and which registered generator to use.
+//
+// dimension/generator_name only matter the first time this name is
+// created on disk. Reopening an existing world just reuses whatever
+// generator/dimension it was saved with.
+//
+// To use a custom generator, register it with Server.register_generator
+// first, then reference it by name here.
+@[params]
+pub struct WorldConfig {
+pub:
+	name           string
+	dimension      world.Dimension = world.overworld
+	generator_name string
+}
+
+// load_world returns the loaded world, loading it from storage or creating
+// it when necessary. Repeated calls for the same world return the existing
+// handle.
+//
+// The underlying world lifecycle remains owned by Hub.
+pub fn (mut s Server) load_world(config WorldConfig) !session.World {
+	if handle := s.hub.world_handle(config.name) {
+		return handle
+	}
+	factory := s.hub.world_factory or { return error('world factory not configured') }
+	if factory.exists(config.name) {
+		s.hub.load_world(config.name)!
+	} else {
+		s.hub.create_world(config.name, config.dimension, config.generator_name)!
+	}
+	return s.hub.world_handle(config.name) or {
+		error('world "${config.name}" failed to register after loading')
+	}
+}
+
+// world returns the named world's public handle or an error if no world
+// by that name is currently loaded.
+pub fn (mut s Server) world(name string) !session.World {
+	return s.hub.world_handle(name) or { error('world "${name}" is not loaded') }
+}
+
+// worlds returns a handle for every currently loaded world.
+pub fn (mut s Server) worlds() []session.World {
+	names := s.hub.list_worlds()
+	mut out := []session.World{cap: names.len}
+	for name in names {
+		if handle := s.hub.world_handle(name) {
+			out << handle
+		}
+	}
+	return out
+}
+
+// unload_world stops and releases a loaded world without deleting its
+// stored data. It refuses to unload the default world or a world that still
+// contains players; callers must move or disconnect them first.
+pub fn (mut s Server) unload_world(name string) ! {
+	s.hub.unload_world(name)!
+}
+
+pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+	s.hub.register_generator(name, factory)
 }

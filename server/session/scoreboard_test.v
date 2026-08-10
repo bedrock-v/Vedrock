@@ -2,18 +2,7 @@ module session
 
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
-import protocol.version.v662.types as types_662
-
-fn score_change_entries(action packets_662.SetScoreAction) []packets_662.ScorePacketInfoChangeEntry {
-	match action {
-		packets_662.SetScoreChange {
-			return action.entries
-		}
-		packets_662.SetScoreRemove {
-			return []packets_662.ScorePacketInfoChangeEntry{}
-		}
-	}
-}
+import protocol.version.v2168.packets as packets_2168
 
 fn test_build_sidebar_packets_sequence() {
 	packets := build_sidebar_packets('Title', ['a', 'b', 'c'])
@@ -38,9 +27,8 @@ fn test_build_sidebar_packets_sequence() {
 	}
 
 	score := packets[2]
-	if score is packets_662.SetScorePacket {
-		entries := score_change_entries(score.action)
-		assert entries.len == 3
+	if score is packets_2168.SetScorePacket {
+		assert score.score_info.len == 3
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'
 	}
@@ -49,25 +37,45 @@ fn test_build_sidebar_packets_sequence() {
 fn test_build_sidebar_packets_line_order_top_to_bottom() {
 	packets := build_sidebar_packets('T', ['top', 'mid', 'bottom'])
 	score := packets[2]
-	if score is packets_662.SetScorePacket {
-		entries := score_change_entries(score.action)
+	if score is packets_2168.SetScorePacket {
+		entries := score.score_info
 		// Ascending sort with score = index means lines[0] gets the lowest score
 		// and renders at the top, matching the slice order.
-		assert entries[0].identity_definition_type is types_662.IdentityFakePlayer
-		assert entries[0].identity_definition_type.fake_player_name == 'top'
-		assert entries[0].score_value == 0
-		assert entries[1].identity_definition_type is types_662.IdentityFakePlayer
-		assert entries[1].identity_definition_type.fake_player_name == 'mid'
-		assert entries[1].score_value == 1
-		assert entries[2].identity_definition_type is types_662.IdentityFakePlayer
-		assert entries[2].identity_definition_type.fake_player_name == 'bottom'
-		assert entries[2].score_value == 2
-		for entry in entries {
-			assert entry.objective_name == sidebar_objective
+		e0 := entries[0]
+		e1 := entries[1]
+		e2 := entries[2]
+		if e0 is packets_2168.ScoreEntryChangeFakePlayer {
+			assert e0.fake_player_name == 'top'
+			assert e0.score_value == 0
+			assert e0.objective_name == sidebar_objective
+		} else {
+			assert false, 'entry 0 is not ScoreEntryChangeFakePlayer'
+		}
+		if e1 is packets_2168.ScoreEntryChangeFakePlayer {
+			assert e1.fake_player_name == 'mid'
+			assert e1.score_value == 1
+			assert e1.objective_name == sidebar_objective
+		} else {
+			assert false, 'entry 1 is not ScoreEntryChangeFakePlayer'
+		}
+		if e2 is packets_2168.ScoreEntryChangeFakePlayer {
+			assert e2.fake_player_name == 'bottom'
+			assert e2.score_value == 2
+			assert e2.objective_name == sidebar_objective
+		} else {
+			assert false, 'entry 2 is not ScoreEntryChangeFakePlayer'
 		}
 		// Distinct scoreboard ids so the client keeps entries separate.
-		assert entries[0].id.id != entries[1].id.id
-		assert entries[1].id.id != entries[2].id.id
+		if e0 is packets_2168.ScoreEntryChangeFakePlayer {
+			if e1 is packets_2168.ScoreEntryChangeFakePlayer {
+				assert e0.scoreboard_id.id != e1.scoreboard_id.id
+			}
+		}
+		if e1 is packets_2168.ScoreEntryChangeFakePlayer {
+			if e2 is packets_2168.ScoreEntryChangeFakePlayer {
+				assert e1.scoreboard_id.id != e2.scoreboard_id.id
+			}
+		}
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'
 	}
@@ -77,9 +85,8 @@ fn test_build_sidebar_packets_empty_lines() {
 	packets := build_sidebar_packets('Empty', [])
 	assert packets.len == 3
 	score := packets[2]
-	if score is packets_662.SetScorePacket {
-		entries := score_change_entries(score.action)
-		assert entries.len == 0
+	if score is packets_2168.SetScorePacket {
+		assert score.score_info.len == 0
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'
 	}

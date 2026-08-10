@@ -2,7 +2,7 @@ module session
 
 import time
 import protocol.version.v662.packets as packets_662
-import types
+import protocol.types
 import server.entity
 import server.internal.auth
 import server.internal.gamedata

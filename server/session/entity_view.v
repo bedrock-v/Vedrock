@@ -1,6 +1,6 @@
 module session
 
-import types
+import protocol.types
 
 // nearest_player_name is the plugin.ServerView facing form of nearest_player.
 // It resolves the runtime id back to a display name rather than leaking the

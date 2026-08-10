@@ -2,13 +2,12 @@ module session
 
 import time
 import protocol.version.v662.packets as packets_662
-import protocol.version.v662.types as types_662
 import protocol.version.v898.packets as packets_898
 import protocol.version.v944.packets as packets_944
-import protocol.version.v975.packets as packets_975
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v1001.types as types_1001
-import types
+import protocol.version.v2168.packets as packets_2168
+import protocol.version.v2168.types as types_2168
+import protocol.version.v2168.enums as enums_2168
+import protocol.types
 import server.event
 import server.world
 import server.block
@@ -59,20 +58,12 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 	}
 }
 
-fn (mut s NetworkSession) handle_inventory_transaction(p packets_1001.InventoryTransactionPacket) ! {
-	match p.transaction_type {
-		.normal_transaction, .inventory_mismatch {
-			return
-		}
-		.item_use_transaction, .item_use_on_entity_transaction, .item_release_transaction {
-			s.log.debug('Dropped ${p.transaction_type} InventoryTransactionPacket; protocol ${network.selected_protocol} carries item-use actions in PlayerAuthInputPacket')
-			return
-		}
-	}
+// handle_inventory_transaction processes the standalone InventoryTransactionPacket.
+fn (mut s NetworkSession) handle_inventory_transaction(_ packets_2168.InventoryTransactionPacket) ! {
 }
 
-fn (mut s NetworkSession) handle_player_auth_input(p packets_1001.PlayerAuthInputPacket) ! {
-	on_ground := network.has_input_flag(p.input_data, network.input_flag_vertical_collision)
+fn (mut s NetworkSession) handle_player_auth_input(p packets_2168.PlayerAuthInputPacket) ! {
+	on_ground := enums_2168.PlayerAuthInputData.vertical_collision in p.input_data
 	s.update_movement(network.vec3_from_array(p.player_position), p.player_rotation[0],
 		p.player_rotation[1], p.player_head_rotation, on_ground)
 	if tx := p.item_use_transaction {
@@ -85,12 +76,11 @@ fn (mut s NetworkSession) handle_player_auth_input(p packets_1001.PlayerAuthInpu
 	}
 }
 
-fn (mut s NetworkSession) handle_item_use_transaction(tx types_1001.PackedItemUseLegacyInventoryTransaction) ! {
+fn (mut s NetworkSession) handle_item_use_transaction(tx types_2168.PackedItemUseLegacyInventoryTransaction) ! {
 	pos := network.block_pos_from_v944(tx.position)
 	match tx.action_type {
 		.place {
-			s.handle_place_click(pos, int(tx.face), network.item_stack_from_descriptor(tx.item),
-				tx.click_position[1])
+			s.handle_place_click(pos, int(tx.face), tx.click_position[1])
 		}
 		.destroy {
 			s.break_block(pos)!
@@ -101,7 +91,7 @@ fn (mut s NetworkSession) handle_item_use_transaction(tx types_1001.PackedItemUs
 	}
 }
 
-fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, packet_stack types.ItemStack, clicked_y f32) {
+fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, clicked_y f32) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -126,7 +116,7 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		s.resend_block(neighbor)
 		return
 	}
-	runtime_id := s.placement_runtime_id(packet_stack)
+	runtime_id := s.placement_runtime_id()
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
 		return
@@ -153,13 +143,10 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	}
 }
 
-fn (s &NetworkSession) placement_runtime_id(packet_stack types.ItemStack) int {
-	stack := if s.player.game_mode() == network.game_type_creative {
-		packet_stack
-	} else {
-		held, _ := s.inventory_stack_at(s.player.held_slot())
-		held
-	}
+// placement_runtime_id resolves the block to place from the server's own
+// tracked held slot stack.
+fn (s &NetworkSession) placement_runtime_id() int {
+	stack, _ := s.inventory_stack_at(s.player.held_slot())
 	if stack.count <= 0 || stack.id == 0 {
 		return 0
 	}
@@ -257,7 +244,7 @@ fn (mut s NetworkSession) handle_player_action(p packets_944.PlayerActionPacket)
 	}
 }
 
-fn (mut s NetworkSession) handle_player_block_action(action types_662.PlayerBlockActionData) ! {
+fn (mut s NetworkSession) handle_player_block_action(action types_2168.PlayerBlockActionData) ! {
 	pos := network.block_pos_from_v662(action.position)
 	match action.action_type {
 		.creative_destroy_block, .predict_destroy_block {
@@ -691,9 +678,9 @@ fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWr
 		container_id:       .inventory
 		should_select_slot: true
 	}) or {}
-	s.hub.broadcast_except(s.runtime_id, &packets_975.MobEquipmentPacket{
+	s.hub.broadcast_except(s.runtime_id, &packets_2168.MobEquipmentPacket{
 		target_runtime_id: network.actor_runtime_id(s.runtime_id)
-		item:              network.item_descriptor_v975(wrapped.item_stack)
+		item:              network.item_descriptor_v2168_v2(wrapped.item_stack)
 		slot:              i8(slot)
 		selected_slot:     i8(slot)
 		container_id:      .inventory

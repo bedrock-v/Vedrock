@@ -1,6 +1,6 @@
 module session
 
-import types
+import protocol.types
 import server.cmd
 import server.event
 import server.world

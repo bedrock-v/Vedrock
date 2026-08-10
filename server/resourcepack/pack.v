@@ -1,4 +1,4 @@
-module resource
+module resourcepack
 
 import os
 import crypto.sha256
