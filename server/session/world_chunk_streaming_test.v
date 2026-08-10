@@ -189,3 +189,37 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 		assert p !is packets_2168.LevelChunkPacket
 	}
 }
+
+fn test_chunk_columns_are_released_when_delivery_is_dropped() {
+	mut hub := new_hub(gamedata.GameData{})
+	w := db.new_world('chunk-drop', none, 'void', world.overworld)
+	hub.add_world(w)
+	mut wr := hub.world_runtime('chunk-drop') or { panic('expected chunk-drop runtime') }
+
+	started := chan bool{cap: 1}
+	release := chan bool{cap: 1}
+	release <- true
+	mut transport := &FakeTransport{}
+	mut s := chunk_stream_test_session(mut hub, mut wr, new_blocking_generator(started, release), mut
+		transport)
+
+	// A stopped runtime rejects every delivery task, which is the same outcome
+	// as a full queue: nothing reaches the client.
+	hub.close_worlds()
+	s.stream_chunks_if_moved()
+
+	deadline := time.now().add(2000 * time.millisecond)
+	for time.now() < deadline {
+		s.chunk_stream_mutex.lock()
+		remaining := s.sent_chunks.len
+		s.chunk_stream_mutex.unlock()
+		if remaining == 0 {
+			break
+		}
+		time.sleep(10 * time.millisecond)
+	}
+	s.chunk_stream_mutex.lock()
+	remaining := s.sent_chunks.len
+	s.chunk_stream_mutex.unlock()
+	assert remaining == 0, 'undelivered columns stayed claimed and would never be resent'
+}

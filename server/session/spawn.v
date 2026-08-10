@@ -364,8 +364,15 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	radius := s.view_radius
 	prune_sent_chunks(mut s.sent_chunks, cx, cz, radius)
 	targets := chunk_send_targets(cx, cz, radius, s.sent_chunks)
+	// Claim the columns before releasing the lock so a second movement event
+	// does not queue them again. Anything that fails to reach the client from
+	// here on has to be released again, or the column stays a hole until the
+	// player leaves and re-enters the view radius.
+	mut claimed := []u64{cap: targets.len}
 	for target in targets {
-		s.sent_chunks[chunk_cache_key(target.x, target.z)] = true
+		key := chunk_cache_key(target.x, target.z)
+		claimed << key
+		s.sent_chunks[key] = true
 	}
 	s.chunk_stream_mutex.unlock()
 
@@ -377,7 +384,10 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 		}
 		new_view_radius:     u32(radius * 16)
 		server_built_chunks: []types_662.ChunkPos{}
-	}) or { return }
+	}) or {
+		s.forget_sent_chunks(claimed)
+		return
+	}
 	if targets.len == 0 {
 		return
 	}
@@ -394,19 +404,34 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targets []ChunkSendTarget) {
 	dim := if isnil(binding.world) { world.overworld } else { binding.world.dimension }
 	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
+	mut batch_keys := []u64{cap: chunk_send_batch_size}
 	for target in targets {
 		mut chunk := s.generated_chunk(binding.generator, target.x, target.z)
 		apply_overrides(mut chunk, binding.world, target.x, target.z)
 		batch << level_chunk_packet(dim, target.x, target.z, chunk)
 		batch << tile_data_packets(binding.world, target.x, target.z)
-		if batch.len >= chunk_send_batch_size {
-			s.commit_chunk_batch(binding, batch.clone())
+		batch_keys << chunk_cache_key(target.x, target.z)
+		if batch_keys.len >= chunk_send_batch_size {
+			if !s.commit_chunk_batch(binding, batch.clone()) {
+				s.forget_sent_chunks(batch_keys)
+			}
 			batch.clear()
+			batch_keys.clear()
 		}
 	}
-	if batch.len > 0 {
-		s.commit_chunk_batch(binding, batch.clone())
+	if batch.len > 0 && !s.commit_chunk_batch(binding, batch.clone()) {
+		s.forget_sent_chunks(batch_keys)
 	}
+}
+
+// forget_sent_chunks releases columns claimed by stream_chunks_if_moved that
+// never reached the client, so the next movement into range retries them.
+fn (mut s NetworkSession) forget_sent_chunks(keys []u64) {
+	s.chunk_stream_mutex.lock()
+	for key in keys {
+		s.sent_chunks.delete(key)
+	}
+	s.chunk_stream_mutex.unlock()
 }
 
 // commit_chunk_batch returns generated columns to their original world.
@@ -415,12 +440,15 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 //
 // Columns that have since moved outside the player's view radius may still
 // be sent; this wastes bandwidth but does not send incorrect world data.
-fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []protocol.Packet) {
+//
+// Returns false when the batch could not be queued at all, which is the
+// caller's cue to release the columns for a later retry.
+fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []protocol.Packet) bool {
 	if isnil(binding.world_runtime) {
-		return
+		return false
 	}
 	mut wr := binding.world_runtime
-	wr.try_submit(ChunkDeliveryTask{
+	return wr.try_submit(ChunkDeliveryTask{
 		runtime_id: s.runtime_id
 		epoch:      binding.epoch
 		packets:    batch
@@ -524,7 +552,7 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 		batch << level_chunk_packet(dim, target.x, target.z, chunk)
 		batch << tile_data_packets(wld, target.x, target.z)
 		batch_keys << chunk_cache_key(target.x, target.z)
-		if batch.len >= chunk_send_batch_size {
+		if batch_keys.len >= chunk_send_batch_size {
 			s.send_batch_maybe_queued(batch)!
 			for key in batch_keys {
 				s.sent_chunks[key] = true
