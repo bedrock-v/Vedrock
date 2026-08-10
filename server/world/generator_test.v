@@ -69,6 +69,42 @@ fn test_flat_and_normal_spawn_are_standable() {
 	assert normal.block_at(0, overworld.min_y - 1, 0) == air.network_id
 }
 
+fn test_normal_generator_has_bedrock_floor_and_covered_surface() {
+	g := NormalGenerator{}
+	chunk := g.generate(0, 0)
+	for x in 0 .. 16 {
+		for z in 0 .. 16 {
+			assert chunk.block_id(x, 0, z) == bedrock.network_id
+			mut top := 0
+			for y := 127; y > 0; y-- {
+				if chunk.block_id(x, y, z) != air.network_id {
+					top = y
+					break
+				}
+			}
+			assert top > 0, 'column ${x},${z} generated no terrain'
+			assert chunk.block_id(x, top, z) != stone.network_id, 'column ${x},${z} has bare stone at the surface'
+		}
+	}
+}
+
+fn test_normal_generator_fills_columns_below_sea_level_with_water() {
+	g := NormalGenerator{}
+	chunk := g.generate(20, 11)
+	mut water_count := 0
+	for x in 0 .. 16 {
+		for z in 0 .. 16 {
+			for y in 0 .. 128 {
+				if chunk.block_id(x, y, z) == water.network_id {
+					water_count++
+					assert y <= 62
+				}
+			}
+		}
+	}
+	assert water_count > 0
+}
+
 fn test_nether_generator_has_bedrock_floor_roof_and_safe_spawn() {
 	g := NetherGenerator{}
 	chunk := g.generate(0, 0)

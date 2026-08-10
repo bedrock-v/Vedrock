@@ -3,6 +3,7 @@
 main
 # while testing example (main.v)
 vedrock
+Server
 *.exe
 *.exe~
 *.so

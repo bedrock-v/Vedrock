@@ -18,7 +18,7 @@ encryption = true
 compression-threshold = 256
 
 [world]
-generator = "flat"
+generator = "normal"
 default = "world"
 load-all = false
 

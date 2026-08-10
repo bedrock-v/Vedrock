@@ -93,6 +93,13 @@ fn value_noise3d(x f64, y f64, z f64, salt u32) f64 {
 // natural looking terrain/biome map than a single noise layer would give.
 // Returns a value in [0, 1).
 fn fbm2d(x f64, z f64, salt u32, octaves int) f64 {
+	return fbm2d_persist(x, z, salt, octaves, 0.5)
+}
+
+// fbm2d_persist is fbm2d with an explicit amplitude falloff per octave. A low
+// persistence keeps the first octave dominant, which is what wide biome maps
+// want; terrain detail wants the default 0.5.
+fn fbm2d_persist(x f64, z f64, salt u32, octaves int, persistence f64) f64 {
 	mut total := 0.0
 	mut amplitude := 1.0
 	mut frequency := 1.0
@@ -100,13 +107,17 @@ fn fbm2d(x f64, z f64, salt u32, octaves int) f64 {
 	for i in 0 .. octaves {
 		total += value_noise2d(x * frequency, z * frequency, salt + u32(i) * 7919) * amplitude
 		max_amplitude += amplitude
-		amplitude *= 0.5
+		amplitude *= persistence
 		frequency *= 2.0
 	}
 	return total / max_amplitude
 }
 
 fn fbm3d(x f64, y f64, z f64, salt u32, octaves int) f64 {
+	return fbm3d_persist(x, y, z, salt, octaves, 0.5)
+}
+
+fn fbm3d_persist(x f64, y f64, z f64, salt u32, octaves int, persistence f64) f64 {
 	mut total := 0.0
 	mut amplitude := 1.0
 	mut frequency := 1.0
@@ -114,7 +125,7 @@ fn fbm3d(x f64, y f64, z f64, salt u32, octaves int) f64 {
 	for i in 0 .. octaves {
 		total += value_noise3d(x * frequency, y * frequency, z * frequency, salt + u32(i) * 7919) * amplitude
 		max_amplitude += amplitude
-		amplitude *= 0.5
+		amplitude *= persistence
 		frequency *= 2.0
 	}
 	return total / max_amplitude

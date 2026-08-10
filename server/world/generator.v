@@ -1,10 +1,5 @@
 module world
 
-pub const flat_spawn_y = -60
-pub const void_spawn_y = 64
-pub const normal_base_y = -60
-pub const normal_height_variation = 7
-
 pub interface Generator {
 	spawn_y() int
 	uses_blocks() bool
@@ -46,87 +41,6 @@ fn safe_spawn_y(g Generator, dim Dimension, x int, z int, preferred int) int {
 	return start
 }
 
-pub struct VoidGenerator {
-	dim Dimension = overworld
-}
-
-pub fn (g VoidGenerator) spawn_y() int {
-	return void_spawn_y
-}
-
-pub fn (g VoidGenerator) uses_blocks() bool {
-	return false
-}
-
-pub fn (g VoidGenerator) generate(chunk_x int, chunk_z int) Chunk {
-	return new_chunk_dim(g.dim)
-}
-
-pub fn (g VoidGenerator) block_at(x int, y int, z int) int {
-	return air.network_id
-}
-
-pub fn (g VoidGenerator) biome_at(x int, z int) int {
-	return default_biome_for(g.dim)
-}
-
-// fill_flat_layers fills every column of c with blocks bottom up starting at
-// base_y.
-fn fill_flat_layers(mut c Chunk, base_y int, layers []Block) {
-	for x in 0 .. 16 {
-		for z in 0 .. 16 {
-			for i, b in layers {
-				c.set_block(x, base_y + i, z, b)
-			}
-		}
-	}
-}
-
-// flat_layer_at is fill_flat_layers' block_at counterpart.
-fn flat_layer_at(y int, base_y int, layers []Block) int {
-	offset := y - base_y
-	if offset < 0 || offset >= layers.len {
-		return air.network_id
-	}
-	return layers[offset].network_id
-}
-
-pub struct FlatGenerator {
-	dim Dimension = overworld
-}
-
-fn (g FlatGenerator) layers() []Block {
-	return [bedrock, dirt, dirt, grass_block]
-}
-
-pub fn (g FlatGenerator) spawn_y() int {
-	return safe_spawn_y(g, g.dim, 0, 0, g.dim.min_y + g.layers().len)
-}
-
-pub fn (g FlatGenerator) uses_blocks() bool {
-	return true
-}
-
-pub fn (g FlatGenerator) generate(chunk_x int, chunk_z int) Chunk {
-	mut c := new_chunk_dim(g.dim)
-	fill_flat_layers(mut c, g.dim.min_y, g.layers())
-	biome := default_biome_for(g.dim)
-	for x in 0 .. 16 {
-		for z in 0 .. 16 {
-			c.set_biome(x, z, biome)
-		}
-	}
-	return c
-}
-
-pub fn (g FlatGenerator) block_at(x int, y int, z int) int {
-	return flat_layer_at(y, g.dim.min_y, g.layers())
-}
-
-pub fn (g FlatGenerator) biome_at(x int, z int) int {
-	return default_biome_for(g.dim)
-}
-
 // ---- Nether ----
 //
 // The Nether generator is intentionally compact: bedrock shell, a lava sea,
@@ -140,10 +54,10 @@ const nether_density_salt = u32(419)
 const nether_detail_salt = u32(421)
 const nether_surface_salt = u32(431)
 const nether_glowstone_salt = u32(457)
-const nether_density_cell_xz = 4
-const nether_density_cell_y = 8
-const nether_density_grid_xz = 5
-const nether_density_grid_y = 17
+const density_cell_xz = 4
+const density_cell_y = 8
+const density_grid_xz = 5
+const density_grid_y = 17
 
 pub struct NetherGenerator {
 	dim Dimension = nether
@@ -208,7 +122,7 @@ fn lerp_f64(a f64, b f64, t f64) f64 {
 }
 
 fn density_grid_index(gx int, gy int, gz int) int {
-	return (gx * nether_density_grid_y + gy) * nether_density_grid_xz + gz
+	return (gx * density_grid_y + gy) * density_grid_xz + gz
 }
 
 fn (g NetherGenerator) density_at(x int, y int, z int) f64 {
@@ -220,37 +134,46 @@ fn (g NetherGenerator) density_at(x int, y int, z int) f64 {
 	return main + detail + lower + upper - middle_open
 }
 
-fn (g NetherGenerator) density_grid(base_x int, base_z int) []f64 {
-	mut grid := []f64{len: nether_density_grid_xz * nether_density_grid_y * nether_density_grid_xz}
-	for gx in 0 .. nether_density_grid_xz {
-		world_x := base_x + gx * nether_density_cell_xz
-		for gy in 0 .. nether_density_grid_y {
-			y := gy * nether_density_cell_y
-			for gz in 0 .. nether_density_grid_xz {
-				world_z := base_z + gz * nether_density_cell_xz
-				grid[density_grid_index(gx, gy, gz)] = g.density_at(world_x, y, world_z)
+// build_density_grid samples one chunk's noise on a coarse lattice. Sampling
+// every block is far too expensive, so the columns in between are recovered
+// with density_from_grid's trilinear interpolation.
+fn build_density_grid(base_x int, base_z int, sample fn (x int, y int, z int) f64) []f64 {
+	mut grid := []f64{len: density_grid_xz * density_grid_y * density_grid_xz}
+	for gx in 0 .. density_grid_xz {
+		world_x := base_x + gx * density_cell_xz
+		for gy in 0 .. density_grid_y {
+			y := gy * density_cell_y
+			for gz in 0 .. density_grid_xz {
+				world_z := base_z + gz * density_cell_xz
+				grid[density_grid_index(gx, gy, gz)] = sample(world_x, y, world_z)
 			}
 		}
 	}
 	return grid
 }
 
+fn (g NetherGenerator) density_grid(base_x int, base_z int) []f64 {
+	return build_density_grid(base_x, base_z, fn [g] (x int, y int, z int) f64 {
+		return g.density_at(x, y, z)
+	})
+}
+
 fn density_from_grid(grid []f64, local_x int, y int, local_z int) f64 {
-	mut gx := local_x / nether_density_cell_xz
-	mut gy := y / nether_density_cell_y
-	mut gz := local_z / nether_density_cell_xz
-	if gx >= nether_density_grid_xz - 1 {
-		gx = nether_density_grid_xz - 2
+	mut gx := local_x / density_cell_xz
+	mut gy := y / density_cell_y
+	mut gz := local_z / density_cell_xz
+	if gx >= density_grid_xz - 1 {
+		gx = density_grid_xz - 2
 	}
-	if gy >= nether_density_grid_y - 1 {
-		gy = nether_density_grid_y - 2
+	if gy >= density_grid_y - 1 {
+		gy = density_grid_y - 2
 	}
-	if gz >= nether_density_grid_xz - 1 {
-		gz = nether_density_grid_xz - 2
+	if gz >= density_grid_xz - 1 {
+		gz = density_grid_xz - 2
 	}
-	fx := f64(local_x - gx * nether_density_cell_xz) / f64(nether_density_cell_xz)
-	fy := f64(y - gy * nether_density_cell_y) / f64(nether_density_cell_y)
-	fz := f64(local_z - gz * nether_density_cell_xz) / f64(nether_density_cell_xz)
+	fx := f64(local_x - gx * density_cell_xz) / f64(density_cell_xz)
+	fy := f64(y - gy * density_cell_y) / f64(density_cell_y)
+	fz := f64(local_z - gz * density_cell_xz) / f64(density_cell_xz)
 	c000 := grid[density_grid_index(gx, gy, gz)]
 	c100 := grid[density_grid_index(gx + 1, gy, gz)]
 	c010 := grid[density_grid_index(gx, gy + 1, gz)]
@@ -472,295 +395,6 @@ pub fn (g EndGenerator) biome_at(x int, z int) int {
 	return biome_the_end
 }
 
-// Overworld default survival generator
-const sea_level = 62
-const ocean_threshold = 0.42
-const desert_temp_min = 0.55
-const desert_moisture_max = 0.45
-const snowy_temp_max = 0.45
-const taiga_temp_max = 0.60
-const taiga_moisture_min = 0.50
-const dirt_depth = 3
-const desert_sand_depth = 4
-const desert_sandstone_depth = 3
-const tree_trunk_height = 5
-const tree_root_margin = 1
-
-const terrain_salt = u32(11)
-const temperature_salt = u32(23)
-const moisture_salt = u32(29)
-const ocean_salt = u32(41)
-const tree_salt = u32(53)
-
-struct OreVein {
-	block  Block
-	min_y  int
-	max_y  int
-	chance f64
-	salt   u32
-}
-
-fn ore_veins() []OreVein {
-	return [
-		OreVein{coal_ore, 0, 128, 0.010, 101},
-		OreVein{iron_ore, 0, 64, 0.010, 103},
-		OreVein{redstone_ore, 0, 16, 0.014, 109},
-		OreVein{gold_ore, 0, 32, 0.002, 107},
-		OreVein{lapis_ore, 0, 32, 0.0007, 113},
-		OreVein{diamond_ore, 0, 16, 0.0017, 127},
-	]
-}
-
-fn ore_at(x int, y int, z int) ?Block {
-	for vein in ore_veins() {
-		if y < vein.min_y || y >= vein.max_y {
-			continue
-		}
-		if hash3_unit(x, y, z, vein.salt) < vein.chance {
-			return vein.block
-		}
-	}
-	return none
-}
-
-pub struct NormalGenerator {
-	dim Dimension = overworld
-}
-
-pub fn (g NormalGenerator) uses_blocks() bool {
-	return true
-}
-
-pub fn (g NormalGenerator) biome_at(x int, z int) int {
-	ocean_n := fbm2d(f64(x) / 200.0, f64(z) / 200.0, ocean_salt, 3)
-	if ocean_n < ocean_threshold {
-		return biome_ocean
-	}
-	temp := fbm2d(f64(x) / 300.0, f64(z) / 300.0, temperature_salt, 3)
-	moisture := fbm2d(f64(x) / 300.0, f64(z) / 300.0, moisture_salt, 3)
-	if temp > desert_temp_min && moisture < desert_moisture_max {
-		return biome_desert
-	}
-	if temp < snowy_temp_max && moisture > taiga_moisture_min {
-		return biome_snowy_taiga
-	}
-	if temp < taiga_temp_max && moisture > taiga_moisture_min {
-		return biome_taiga
-	}
-	return plains_biome_id
-}
-
-fn (g NormalGenerator) height_params(biome int) (int, f64) {
-	return match biome {
-		biome_desert { 64, 3.0 }
-		biome_taiga { 68, 9.0 }
-		biome_snowy_taiga { 70, 11.0 }
-		biome_ocean { 50, 5.0 }
-		else { 64, 5.0 }
-	}
-}
-
-fn (g NormalGenerator) surface_height(x int, z int, biome int) int {
-	base, amplitude := g.height_params(biome)
-	n := fbm2d(f64(x) / 90.0, f64(z) / 90.0, terrain_salt, 4)
-	return base + int((n - 0.5) * 2.0 * amplitude)
-}
-
-fn column_top_for(biome int, height int) int {
-	return match biome {
-		biome_snowy_taiga { height + 1 }
-		biome_ocean { sea_level }
-		else { height }
-	}
-}
-
-fn (g NormalGenerator) stone_or_ore(x int, y int, z int) int {
-	if ore := ore_at(x, y, z) {
-		return ore.network_id
-	}
-	return stone.network_id
-}
-
-fn (g NormalGenerator) ocean_block(y int, height int) int {
-	if y > height {
-		return water.network_id
-	}
-	if y == height {
-		return sand.network_id
-	}
-	return stone.network_id
-}
-
-fn (g NormalGenerator) desert_block(x int, y int, z int, height int) int {
-	if y > height - desert_sand_depth {
-		return sand.network_id
-	}
-	if y > height - desert_sand_depth - desert_sandstone_depth {
-		return sandstone.network_id
-	}
-	return g.stone_or_ore(x, y, z)
-}
-
-fn (g NormalGenerator) land_block(biome int, x int, y int, z int, height int) int {
-	if biome == biome_snowy_taiga && y == height + 1 {
-		return snow.network_id
-	}
-	if y == height {
-		return grass_block.network_id
-	}
-	if y > height - dirt_depth {
-		return dirt.network_id
-	}
-	return g.stone_or_ore(x, y, z)
-}
-
-fn (g NormalGenerator) terrain_block(biome int, height int, x int, y int, z int) int {
-	return match biome {
-		biome_ocean { g.ocean_block(y, height) }
-		biome_desert { g.desert_block(x, y, z, height) }
-		else { g.land_block(biome, x, y, z, height) }
-	}
-}
-
-fn tree_root_here(x int, z int, biome int) bool {
-	if biome != plains_biome_id && biome != biome_taiga && biome != biome_snowy_taiga {
-		return false
-	}
-	local_x := ((x % 16) + 16) % 16
-	local_z := ((z % 16) + 16) % 16
-	if local_x < tree_root_margin || local_x >= 16 - tree_root_margin || local_z < tree_root_margin
-		|| local_z >= 16 - tree_root_margin {
-		return false
-	}
-	chance := if biome == biome_taiga || biome == biome_snowy_taiga { 0.02 } else { 0.006 }
-	return hash3_unit(x, 0, z, tree_salt) < chance
-}
-
-fn tree_shape_block(dx int, dz int, y_rel int, log_id int, leaves_id int) ?int {
-	if y_rel < 0 || y_rel > tree_trunk_height {
-		return none
-	}
-	if dx == 0 && dz == 0 {
-		if y_rel < tree_trunk_height {
-			return log_id
-		}
-		return leaves_id
-	}
-	if y_rel == tree_trunk_height {
-		return none
-	}
-	if y_rel >= tree_trunk_height - 3 && dx >= -1 && dx <= 1 && dz >= -1 && dz <= 1 {
-		return leaves_id
-	}
-	return none
-}
-
-fn tree_blocks_for(biome int) (int, int) {
-	if biome == biome_taiga || biome == biome_snowy_taiga {
-		return spruce_log.network_id, spruce_leaves.network_id
-	}
-	return oak_log.network_id, oak_leaves.network_id
-}
-
-fn (g NormalGenerator) tree_override(x int, y int, z int) ?int {
-	for rx := x - 1; rx <= x + 1; rx++ {
-		for rz := z - 1; rz <= z + 1; rz++ {
-			root_biome := g.biome_at(rx, rz)
-			if !tree_root_here(rx, rz, root_biome) {
-				continue
-			}
-			root_height := g.surface_height(rx, rz, root_biome)
-			base_y := root_height + 1
-			log_id, leaves_id := tree_blocks_for(root_biome)
-			if block_id := tree_shape_block(x - rx, z - rz, y - base_y, log_id, leaves_id) {
-				return block_id
-			}
-		}
-	}
-	return none
-}
-
-fn (g NormalGenerator) column_block(x int, y int, z int) int {
-	biome := g.biome_at(x, z)
-	height := g.surface_height(x, z, biome)
-	top := column_top_for(biome, height)
-	if y > top {
-		return air.network_id
-	}
-	return g.terrain_block(biome, height, x, y, z)
-}
-
-pub fn (g NormalGenerator) block_at(x int, y int, z int) int {
-	if y < g.dim.min_y || y > g.dim.max_y() {
-		return air.network_id
-	}
-	if block_id := g.tree_override(x, y, z) {
-		return block_id
-	}
-	return g.column_block(x, y, z)
-}
-
-pub fn (g NormalGenerator) spawn_y() int {
-	biome := g.biome_at(0, 0)
-	return safe_spawn_y(g, g.dim, 0, 0, column_top_for(biome, g.surface_height(0, 0, biome)) + 1)
-}
-
-pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
-	mut c := new_chunk_dim(g.dim)
-	mut heights := []int{len: 256}
-	mut biomes := []int{len: 256}
-	base_x := chunk_x * 16
-	base_z := chunk_z * 16
-
-	for x in 0 .. 16 {
-		for z in 0 .. 16 {
-			world_x := base_x + x
-			world_z := base_z + z
-			biome := g.biome_at(world_x, world_z)
-			biomes[x * 16 + z] = biome
-			c.set_biome(x, z, biome)
-			height := g.surface_height(world_x, world_z, biome)
-			heights[x * 16 + z] = height
-			top := column_top_for(biome, height)
-			for y := g.dim.min_y; y <= top; y++ {
-				block_id := g.terrain_block(biome, height, world_x, y, world_z)
-				if block_id != air.network_id {
-					c.set_block(x, y, z, block_from_id(block_id))
-				}
-			}
-		}
-	}
-
-	for x in 0 .. 16 {
-		for z in 0 .. 16 {
-			biome := biomes[x * 16 + z]
-			world_x := base_x + x
-			world_z := base_z + z
-			if !tree_root_here(world_x, world_z, biome) {
-				continue
-			}
-			base_y := heights[x * 16 + z] + 1
-			log_id, leaves_id := tree_blocks_for(biome)
-			for dx in -1 .. 2 {
-				for dz in -1 .. 2 {
-					lx := x + dx
-					lz := z + dz
-					if lx < 0 || lx >= 16 || lz < 0 || lz >= 16 {
-						continue
-					}
-					for y_rel in 0 .. tree_trunk_height + 1 {
-						if block_id := tree_shape_block(dx, dz, y_rel, log_id, leaves_id) {
-							c.set_block(lx, base_y + y_rel, lz, block_from_id(block_id))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return c
-}
-
 pub fn new_generator(name string) Generator {
 	mut g := Generator(FlatGenerator{})
 	match name.to_lower() {
@@ -772,14 +406,6 @@ pub fn new_generator(name string) Generator {
 	}
 
 	return g
-}
-
-pub fn generate_flat() Chunk {
-	return FlatGenerator{}.generate(0, 0)
-}
-
-pub fn generate_void() Chunk {
-	return VoidGenerator{}.generate(0, 0)
 }
 
 // GeneratorFactory builds a fresh Generator sized for dim. Each lookup gets
