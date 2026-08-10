@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/bedrock-v/Vedrock?include_prereleases&style=flat-square)](https://github.com/bedrock-v/Vedrock/releases)
 [![License](https://img.shields.io/badge/license-GNU_Lesser_v3.0-blue?style=flat-square)](LICENSE)
 
-A lightweight Minecraft: Bedrock Edition server software written in [V](https://vlang.io/).
+A lightweight Minecraft: Bedrock Edition server software in [Vlang](https://vlang.io/).
 
 > [!NOTE]
 > Vedrock is currently in early development. APIs, project structure and behavior may change frequently.
