@@ -15,10 +15,9 @@ pub mut:
 	gamemode      string = 'survival'
 	difficulty    string = 'normal'
 	xbox_auth     bool   = true
-	// encryption negotiates Bedrock protocol encryption. Off by default - the
-	// implementation is spec-complete but not yet verified against a real client,
-	// so leaving it off keeps sessions cleartext and connectable.
-	encryption            bool
+	// encryption negotiates Bedrock protocol encryption, which real clients
+	// complete against this server, so it stays on.
+	encryption            bool   = true
 	compression_threshold int    = 256
 	generator             string = 'flat'
 	language              string = 'en'

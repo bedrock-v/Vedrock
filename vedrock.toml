@@ -14,7 +14,7 @@ address = "0.0.0.0"
 port = 19132
 view-distance = 8
 xbox-auth = true
-encryption = false
+encryption = true
 compression-threshold = 256
 
 [world]
