@@ -7,7 +7,7 @@ import protocol.version.v944.packets as packets_944
 import protocol.version.v1001.packets as packets_1001
 import protocol.version.v2168.packets as packets_2168
 import protocol.version.v2168.types as types_2168
-import types
+import server.types
 import server.event
 import server.internal.gamedata
 import server.player

@@ -2,7 +2,7 @@ module session
 
 import protocol.version.v662.packets as packets_662
 import protocol.version.v898.packets as packets_898
-import types
+import server.types
 import server.internal.network
 import server.world
 

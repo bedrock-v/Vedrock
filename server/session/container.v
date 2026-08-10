@@ -4,7 +4,7 @@ import protocol.version.v662.enums as enums_662
 import protocol.version.v685.packets as packets_685
 import protocol.version.v898.packets as packets_898
 import protocol.version.v944.packets as packets_944
-import types
+import server.types
 import server.internal.network
 
 fn (mut s NetworkSession) handle_interact(p packets_898.InteractPacket) ! {

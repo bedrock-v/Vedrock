@@ -2,7 +2,7 @@ module entity
 
 import os
 import json2
-import types
+import server.types
 import server.effect
 
 // SaveData contains the persistent state needed to recreate an entity.

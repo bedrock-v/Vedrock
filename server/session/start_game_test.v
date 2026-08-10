@@ -10,7 +10,7 @@ import protocol.version.v944.types as types_944
 import protocol.version.v1001.packets as packets_1001
 import protocol.version.v2168.types as types_2168
 import protocol.version.v2168.packets as packets_2168
-import types
+import server.types
 import protocol.serializer
 import nbt
 import os

@@ -6,7 +6,7 @@ import protocol.version
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
 import protocol.version.v2168.packets as packets_2168
-import types as model
+import server.types as model
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	mut pool := new_selected_packet_pool()

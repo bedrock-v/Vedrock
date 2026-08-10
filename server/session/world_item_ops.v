@@ -3,7 +3,7 @@ module session
 import math
 import rand
 import protocol.version.v662.packets as packets_662
-import types
+import server.types
 import server.internal.network
 import server.block
 import server.entity

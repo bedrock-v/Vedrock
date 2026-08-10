@@ -2,7 +2,7 @@ module session
 
 import server.event
 import server.world
-import types
+import server.types
 
 // WorldTransaction is the public transaction surface passed to World.exec.
 // Its operations run on the owning world thread, allowing several reads

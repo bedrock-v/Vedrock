@@ -2,7 +2,7 @@ module db
 
 import sync
 import server.world
-import types
+import server.types
 
 // BlockPersist and TilePersist are immutable records of one write already
 // applied to a World's in memory state, handed to the storage worker so the

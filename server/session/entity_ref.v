@@ -1,6 +1,6 @@
 module session
 
-import types
+import server.types
 
 // EntityRefSnapshot captures the entity state needed by EntityRef reads.
 // It is collected on the owning world thread.

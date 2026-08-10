@@ -2,7 +2,7 @@ module session
 
 import nbt
 import protocol.version.v944.packets as packets_944
-import types
+import server.types
 import server.internal.network
 import server.block
 

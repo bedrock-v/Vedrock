@@ -1,6 +1,6 @@
 module session
 
-import types
+import server.types
 
 // PlayerRef is a stale checked reference to a player. It remains valid only
 // for the world membership generation captured when it was created.

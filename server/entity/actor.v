@@ -1,6 +1,6 @@
 module entity
 
-import types
+import server.types
 
 // Dimensions describes an actor's collision box and related vertical
 // offsets. Width and height are full dimensions.

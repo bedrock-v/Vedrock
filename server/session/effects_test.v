@@ -3,7 +3,7 @@ module session
 import time
 import protocol.version.v944.types as types_944
 import protocol.version.v2168.types as types_2168
-import types
+import server.types
 import server.effect
 import server.event
 import server.internal.gamedata

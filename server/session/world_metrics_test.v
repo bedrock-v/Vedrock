@@ -11,7 +11,7 @@ import server.entity
 import server.player
 import server.world
 import server.world.db
-import types
+import server.types
 
 struct MetricsBarrierTask {
 	started chan bool
