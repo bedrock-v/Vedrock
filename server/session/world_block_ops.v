@@ -75,6 +75,16 @@ fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id 
 	tx.wr.broadcast_world(packet)
 }
 
+fn (mut tx WorldTx) broadcast_stop_cracking(x int, y int, z int) {
+	mut packet := &packets_662.LevelEventPacket{
+		event_id: network.level_event_stop_block_cracking
+	}
+	packet.position[0] = f32(x)
+	packet.position[1] = f32(y)
+	packet.position[2] = f32(z)
+	tx.wr.broadcast_world(packet)
+}
+
 // broadcast_place_sound sends the block placement sound to every session in
 // this transaction's world.
 fn (mut tx WorldTx) broadcast_place_sound(s &NetworkSession, x int, y int, z int, runtime_id int) {

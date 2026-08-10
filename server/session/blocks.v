@@ -237,6 +237,12 @@ fn (mut s NetworkSession) handle_player_action(p packets_944.PlayerActionPacket)
 		.start_destroy_block {
 			s.handle_start_break(network.block_pos_from_v944(p.block_position), int(p.face))
 		}
+		.continue_destroy_block {
+			s.handle_continue_break(network.block_pos_from_v944(p.block_position), int(p.face))
+		}
+		.abort_destroy_block {
+			s.handle_abort_break(network.block_pos_from_v944(p.block_position))
+		}
 		.respawn {
 			s.request_respawn()
 		}
@@ -253,6 +259,12 @@ fn (mut s NetworkSession) handle_player_block_action(action types_2168.PlayerBlo
 		.start_destroy_block {
 			s.handle_start_break(pos, int(action.facing))
 		}
+		.continue_destroy_block {
+			s.handle_continue_break(pos, int(action.facing))
+		}
+		.abort_destroy_block {
+			s.handle_abort_break(pos)
+		}
 		.respawn {
 			s.request_respawn()
 		}
@@ -265,7 +277,11 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		return
 	}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
-	if old_id == world.air.network_id || !s.within_place_reach(pos) {
+	if old_id == world.air.network_id {
+		s.resend_block(pos)
+		return
+	}
+	if !s.within_place_reach(pos) {
 		return
 	}
 	mut ctx := event.new_context(event.StartBreakData{
@@ -281,6 +297,9 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		return
 	}
 	s.breaking = BreakProgress{pos.x, pos.y, pos.z, old_id, s.hub.current_tick()}
+	if s.hub.blocks.breakable(old_id) {
+		s.broadcast_cracking(network.level_event_start_block_cracking, pos, 65535 / s.break_ticks(old_id))
+	}
 	if punchable := s.hub.blocks.get(old_id) {
 		if punchable is block.Punchable {
 			mut wld := s.current_world()
@@ -290,6 +309,42 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		}
 	}
 	s.broadcast_swing()
+}
+
+fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_face int) {
+	if bp := s.breaking {
+		if bp.x == pos.x && bp.y == pos.y && bp.z == pos.z {
+			return
+		}
+		s.broadcast_cracking(network.level_event_stop_block_cracking, types.BlockPosition{bp.x, bp.y, bp.z},
+			0)
+	}
+	s.handle_start_break(pos, click_face)
+}
+
+fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
+	s.breaking = none
+	s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
+}
+
+fn (s &NetworkSession) break_ticks(runtime_id int) int {
+	hardness := s.hub.blocks.hardness(runtime_id)
+	ticks := int(hardness * 1.5 * 20.0)
+	if ticks < 1 {
+		return 1
+	}
+	return ticks
+}
+
+fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
+	mut packet := &packets_662.LevelEventPacket{
+		event_id: event_id
+		data:     data
+	}
+	packet.position[0] = f32(pos.x)
+	packet.position[1] = f32(pos.y)
+	packet.position[2] = f32(pos.z)
+	s.hub.broadcast(packet)
 }
 
 // broadcast_swing sends this session's arm swing animation globally. Only
@@ -379,6 +434,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	air_id := world.air.network_id
 	if old_id == air_id {
+		s.resend_block(pos)
 		return
 	}
 	if !s.within_place_reach(pos) {
@@ -392,6 +448,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 			flags:            block_update_flags
 			layer:            0
 		})!
+		s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
 		return
 	}
 	if s.player.game_mode() != network.game_type_creative {
@@ -402,6 +459,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		}
 		if !matches {
 			s.resend_block(pos)
+			s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
 			return
 		}
 	}
@@ -493,6 +551,7 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 		}
 	}
 
+	tx.broadcast_stop_cracking(t.x, t.y, t.z)
 	tx.broadcast_destroy_particles(t.x, t.y, t.z, t.old_id)
 	tx.broadcast_swing(s)
 	tx.on_block_changed(t.x, t.y, t.z)
@@ -537,6 +596,8 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 		return
 	}
 	if t.runtime_id == 0 {
+		s.resend_block(pos)
+		s.resend_block(neighbor)
 		return
 	}
 

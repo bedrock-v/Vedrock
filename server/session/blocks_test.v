@@ -86,14 +86,14 @@ fn test_within_place_reach_survival_vs_creative() {
 		player: pl
 	}
 	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
-	near := types.BlockPosition{0, 5, 0}
+	near_pos := types.BlockPosition{0, 5, 0}
 	// Beyond survival's reach but within creative's reach.
-	far := types.BlockPosition{10, 0, 0}
-	assert s.within_place_reach(near)
-	assert !s.within_place_reach(far)
+	far_pos := types.BlockPosition{10, 0, 0}
+	assert s.within_place_reach(near_pos)
+	assert !s.within_place_reach(far_pos)
 
 	s.player.set_game_mode(network.game_type_creative)
-	assert s.within_place_reach(far)
+	assert s.within_place_reach(far_pos)
 }
 
 fn test_place_block_rejects_when_occupied() {
@@ -251,7 +251,7 @@ fn test_break_block_unbreakable_resends_without_event() {
 	}
 }
 
-fn test_break_block_air_is_noop() {
+fn test_break_block_air_resends_authoritative_state() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -268,7 +268,13 @@ fn test_break_block_air_is_noop() {
 	hub.add(s)
 
 	s.break_block(types.BlockPosition{0, 0, 0})!
-	assert transport.sent.len == 0
+	assert wait_for_sent_len(transport, 1, 5000)
+	sent := transport.sent[0]
+	if sent is packets_944.UpdateBlockPacket {
+		assert sent.block_runtime_id == wire_runtime_id(world.air.network_id)
+	} else {
+		assert false
+	}
 }
 
 fn test_break_block_rejects_out_of_reach() {
@@ -287,9 +293,9 @@ fn test_break_block_rejects_out_of_reach() {
 	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
 	hub.add(s)
 
-	far := types.BlockPosition{0, world.overworld.min_y + 1, 0}
-	s.break_block(far)!
-	assert target.block_override(far.x, far.y, far.z) or { -1 } == -1
+	far_pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	s.break_block(far_pos)!
+	assert target.block_override(far_pos.x, far_pos.y, far_pos.z) or { -1 } == -1
 }
 
 fn test_break_block_cancelled_resends_keeps_block() {

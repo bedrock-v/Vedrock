@@ -119,20 +119,20 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	}
 
 	mut far_transport := &FakeTransport{}
-	mut far := membership_test_session_with_transport(mut hub, wr_a, 'Far', mut far_transport)
-	far.spawned = true
-	hub.add(far)
-	world_call[bool](mut wr_a, fn [far] (mut tx WorldTx) bool {
-		tx.register_player(far)
+	mut far_p := membership_test_session_with_transport(mut hub, wr_a, 'Far', mut far_transport)
+	far_p.spawned = true
+	hub.add(far_p)
+	world_call[bool](mut wr_a, fn [far_p] (mut tx WorldTx) bool {
+		tx.register_player(far_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
 	mut near_transport := &FakeTransport{}
-	mut near := membership_test_session_with_transport(mut hub, wr_b, 'Near', mut near_transport)
-	near.spawned = true
-	hub.add(near)
-	world_call[bool](mut wr_b, fn [near] (mut tx WorldTx) bool {
-		tx.register_player(near)
+	mut near_p := membership_test_session_with_transport(mut hub, wr_b, 'Near', mut near_transport)
+	near_p.spawned = true
+	hub.add(near_p)
+	world_call[bool](mut wr_b, fn [near_p] (mut tx WorldTx) bool {
+		tx.register_player(near_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
@@ -146,8 +146,8 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	assert wait_for_sent_len(joining_transport, 1, 2000)
 	assert wait_for_sent_len(near_transport, 1, 2000)
 
-	assert add_player_packet_count(joining_transport, far.runtime_id) == 0
-	assert add_player_packet_count(joining_transport, near.runtime_id) == 1
+	assert add_player_packet_count(joining_transport, far_p.runtime_id) == 0
+	assert add_player_packet_count(joining_transport, near_p.runtime_id) == 1
 	assert add_player_packet_count(far_transport, joining.runtime_id) == 0
 	assert add_player_packet_count(near_transport, joining.runtime_id) == 1
 }
@@ -248,3 +248,4 @@ fn test_failed_destination_registration_disconnects_session() {
 	assert !ok
 	assert s.state == .closed
 }
+
