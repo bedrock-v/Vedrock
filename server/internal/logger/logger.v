@@ -1,5 +1,6 @@
 module logger
 
+import sync
 import time
 import term
 
@@ -37,13 +38,12 @@ fn (l &Logger) log(level Level, msg string) {
 	if int(level) < int(l.min_level) {
 		return
 	}
-	stamp := time.now().format_ss()
+	stamp := timestamp()
 	tag := level_tag(level)
+	origin := if l.prefix != '' { l.prefix } else { thread_name() }
 	if l.colored {
-		mut head := term.gray('[${stamp}]') + ' ${colorize(level, '[${tag}]')}'
-		if l.prefix != '' {
-			head += ' ' + term.cyan('[${l.prefix}]')
-		}
+		head := term.gray('[${stamp}]') + ' ' + term.cyan('[${origin}]') +
+			' ${colorize(level, '[${tag}]')}'
 		body := match level {
 			.debug { term.gray(msg) }
 			.warn { term.yellow(msg) }
@@ -53,12 +53,25 @@ fn (l &Logger) log(level Level, msg string) {
 
 		println('${head} ${body}')
 	} else {
-		mut head := '[${stamp}] [${tag}]'
-		if l.prefix != '' {
-			head += ' [${l.prefix}]'
-		}
-		println('${head} ${msg}')
+		println('[${stamp}] [${origin}] [${tag}] ${msg}')
 	}
+}
+
+// main_thread is whichever thread first built a Logger, which is the one
+// running main(). Every other thread is reported by its own id so concurrent
+// output stays attributable.
+const main_thread = sync.thread_id()
+
+fn thread_name() string {
+	id := sync.thread_id()
+	return if id == main_thread { 'Main Thread' } else { 'Thread-${id}' }
+}
+
+// The date is deliberately left out: a server log is read live, so only the
+// time of day carries information.
+fn timestamp() string {
+	now := time.now()
+	return '${now.hour:02d}.${now.minute:02d}:${now.second:02d}'
 }
 
 fn level_tag(level Level) string {
