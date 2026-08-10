@@ -101,13 +101,22 @@ fn (s &NetworkSession) custom_block_entries() []packets_2168.BlockProperty {
 fn (s &NetworkSession) creative_content() &packets_2168.CreativeContentPacket {
 	mut groups := []packets_2168.CreativeItemGroup{}
 	for group in s.hub.data.creative_groups {
+		mut icon_id := group.icon_numeric_id
+		mut icon_block_runtime_id := group.icon_block_runtime_id
+		if icon_id == 0 {
+			icon_id = s.hub.data.item_id('minecraft:stone')
+			if icon_id == 0 {
+				icon_id = 1
+			}
+			icon_block_runtime_id = 0
+		}
 		groups << packets_2168.CreativeItemGroup{
 			category: unsafe { packets_2168.CreativeItemCategory(group.category) }
 			name:     group.name
 			icon:     network.item_instance_v2168(types.ItemStack{
-				id:               group.icon_numeric_id
+				id:               icon_id
 				count:            1
-				block_runtime_id: group.icon_block_runtime_id
+				block_runtime_id: icon_block_runtime_id
 				raw_extra_data:   []u8{}
 			})
 		}

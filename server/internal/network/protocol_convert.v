@@ -8,6 +8,8 @@ import protocol.version.v944.types as types_944
 import protocol.version.v1001.packets as packets_1001
 import protocol.version.v2168.types as types_2168
 
+const shield_runtime_id_v2168 = 358
+
 pub fn actor_unique_id(value i64) types_662.ActorUniqueID {
 	return types_662.ActorUniqueID{
 		value: value
@@ -80,6 +82,7 @@ pub fn item_instance_v2168(item model.ItemStack) types_2168.NetworkItemInstanceD
 		aux_value:        u32(item.meta)
 		block_runtime_id: i32(item.block_runtime_id)
 		user_data_buffer: item.raw_extra_data
+		blocking:         item.id == shield_runtime_id_v2168
 	}
 }
 
@@ -90,6 +93,7 @@ pub fn item_descriptor_v2168(item model.ItemStack) types_2168.NetworkItemStackDe
 		aux_value:        u32(item.meta)
 		block_runtime_id: u32(item.block_runtime_id)
 		user_data_buffer: item.raw_extra_data
+		blocking:         item.id == shield_runtime_id_v2168
 	}
 }
 
@@ -114,6 +118,7 @@ pub fn item_descriptor_v2168_v2_tracked(item model.ItemStack, net_id int) types_
 		aux_value:        u32(item.meta)
 		block_runtime_id: u32(item.block_runtime_id)
 		user_data_buffer: item.raw_extra_data
+		blocking:         item.id == shield_runtime_id_v2168
 	}
 	if item.count > 0 && item.id != 0 && net_id != 0 {
 		d.net_id = i32(net_id)

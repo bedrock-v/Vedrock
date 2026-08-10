@@ -6,6 +6,7 @@ import protocol.version
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
 import protocol.version.v2168.packets as packets_2168
+import types as model
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	mut pool := new_selected_packet_pool()
@@ -58,6 +59,38 @@ fn test_selected_pool_decodes_2168_auth_input() {
 	} else {
 		assert false, 'decoded packet is not PlayerAuthInputPacket'
 	}
+}
+
+fn item_instance_extra_data_len(item model.ItemStack) !int {
+	mut w := serializer.new_writer()
+	item_instance_v2168(item).encode(mut w)
+	mut r := serializer.new_reader(w.bytes())
+	r.read_varint32()!
+	r.le_u16()!
+	r.read_varuint32()!
+	r.read_varint32()!
+	return r.read_string_bytes()!.len
+}
+
+fn item_descriptor_v2_extra_data_len(item model.ItemStack) !int {
+	mut w := serializer.new_writer()
+	item_descriptor_v2168_v2(item).encode(mut w)
+	mut r := serializer.new_reader(w.bytes())
+	r.le_i16()!
+	r.le_u16()!
+	r.read_varuint32()!
+	if r.bool()! {
+		r.read_varuint32()!
+		r.read_varint32()!
+	}
+	r.read_varuint32()!
+	return r.read_string_bytes()!.len
+}
+
+fn test_v2168_shield_writes_blocking_ticks_extra_data() {
+	assert item_instance_extra_data_len(model.ItemStack{ id: shield_runtime_id_v2168, count: 1 })! == 18
+	assert item_descriptor_v2_extra_data_len(model.ItemStack{ id: shield_runtime_id_v2168, count: 1 })! == 18
+	assert item_instance_extra_data_len(model.ItemStack{ id: 1, count: 1 })! == 10
 }
 
 fn test_multiple_packets_compressed_batch() {

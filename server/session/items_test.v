@@ -90,6 +90,38 @@ fn test_set_actor_data_flags_roundtrip() {
 	}
 }
 
+fn test_creative_content_replaces_empty_group_icons() {
+	mut hub := new_hub(gamedata.GameData{
+		creative_groups: [
+			gamedata.CreativeGroup{
+				category:        1
+				name:            ''
+				icon_numeric_id: 0
+			},
+			gamedata.CreativeGroup{
+				category:              1
+				name:                  'itemGroup.name.planks'
+				icon_numeric_id:       5
+				icon_block_runtime_id: 123
+			},
+		]
+		item_id_by_name: {
+			'minecraft:stone': 1
+		}
+	})
+	sess := &NetworkSession{
+		hub: hub
+	}
+
+	packet := sess.creative_content()
+	assert packet.groups.len == 2
+	assert packet.groups[0].icon.id == 1
+	assert packet.groups[0].icon.stack_size == 1
+	assert packet.groups[0].icon.block_runtime_id == 0
+	assert packet.groups[1].icon.id == 5
+	assert packet.groups[1].icon.block_runtime_id == 123
+}
+
 fn test_update_attributes_roundtrip() {
 	decoded := decode_packet(&packets_729.UpdateAttributesPacket{
 		target_runtime_id:       network.actor_runtime_id(4)
