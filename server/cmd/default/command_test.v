@@ -232,8 +232,8 @@ fn test_version_command() {
 	r.dispatch('/version', mut sender, base_ctx())!
 	assert sender.messages.len == 1
 	assert sender.messages[0].contains('Vedrock')
-	assert sender.messages[0].contains('1.26.30')
-	assert sender.messages[0].contains('1001')
+	assert sender.messages[0].contains(network.selected_minecraft_version)
+	assert sender.messages[0].contains(network.selected_protocol.str())
 }
 
 fn test_version_alias() {
