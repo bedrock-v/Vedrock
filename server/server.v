@@ -11,6 +11,7 @@ import server.internal.language
 import server.conf
 import server.internal.network
 import server.session
+import server.internal.buildinfo
 import server.internal.gamedata
 import server.world
 import server.resourcepack
@@ -61,28 +62,32 @@ pub mut:
 
 // load_resource_packs builds the shared pack registry from local pack files and
 // configured CDN packs. Returns an empty registry when disabled.
-fn load_resource_packs(cfg conf.Config, log &logger.Logger) &resourcepack.PackRegistry {
+fn load_resource_packs(cfg conf.Config, log &logger.Logger, lang &language.Lang) &resourcepack.PackRegistry {
 	mut reg := &resourcepack.PackRegistry{}
 	if !cfg.resource_packs {
+		log.info(lang.tf('server.resource_packs_loaded', {
+			'Count': '0'
+		}))
 		return reg
 	}
 	for name in resourcepack.discover(cfg.resource_packs_dir) {
 		path := os.join_path(cfg.resource_packs_dir, name)
 		if pack := resourcepack.new_local_pack(path) {
 			reg.add(pack)
-			log.info('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
+			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
 		} else {
 			log.warn('Failed to load resource pack ${name}: ${err}')
 		}
 	}
 	for pack in resourcepack.parse_cdn_packs(cfg.cdn_packs) {
 		reg.add(pack)
-		log.info('Registered CDN resource pack ${pack.uuid} v${pack.version}')
+		log.debug('Registered CDN resource pack ${pack.uuid} v${pack.version}')
 	}
 	reg.set_must_accept(cfg.force_resource_packs || !cfg.allow_client_packs)
-	if reg.packs.len > 0 {
-		log.info('Resource packs ready: ${reg.packs.len} pack(s), must_accept=${reg.must_accept}')
-	}
+	log.info(lang.tf('server.resource_packs_loaded', {
+		'Count': reg.packs.len.str()
+	}))
+	log.debug('Resource packs must_accept=${reg.must_accept}')
 	return reg
 }
 
@@ -112,11 +117,21 @@ pub fn new(opts Options) !&Server {
 			return error('failed to load any language, including the "en" fallback: ${err}')
 		}
 	}
+	log.info(lang.tf('server.starting', {
+		'Version': buildinfo.version
+	}))
+	log.info(lang.tf('server.loading_config', {
+		'File': cfg.config_file
+	}))
+	log.info(lang.tf('server.language_selected', {
+		'Language': cfg.language
+	}))
+	log.info(lang.t('server.license'))
 	data := gamedata.load('data') or {
 		log.warn('Failed to load game data from ./data: ${err}')
 		gamedata.GameData{}
 	}
-	log.info('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
+	log.debug('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
 	mut hub := session.new_hub(data, opts.hub_options)
 	hub.lang = lang
 	hub.difficulty = conf.difficulty_from_string(cfg.difficulty)
@@ -150,13 +165,13 @@ pub fn new(opts Options) !&Server {
 	}
 	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
 		hub.palette = palette
-		log.info('Loaded ${palette.len()} block states')
+		log.debug('Loaded ${palette.len()} block states')
 	} else {
 		log.warn('Failed to load block palette: ${err}')
 	}
+	hub.packs = load_resource_packs(cfg, log, lang)
 	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
-		cfg.generator, log)
-	hub.packs = load_resource_packs(cfg, log)
+		cfg.generator, log, lang)
 	return &Server{
 		log:        log
 		lang:       lang
@@ -168,17 +183,20 @@ pub fn new(opts Options) !&Server {
 }
 
 pub fn (mut s Server) start() ! {
-	s.log.info(s.lang.tf('server.starting', {
-		'Version':  network.selected_minecraft_version
-		'Protocol': network.selected_protocol.str()
+	s.log.info(s.lang.tf('server.supported_version', {
+		'Version': network.selected_minecraft_version
 	}))
 	mut listener := raknet.listen(s.cfg.bind_address())!
 	listener.set_pong_data(s.pong_data(0).bytes())!
 	s.listener = listener
 	s.running.store(true)
-	s.log.info('Listening on ${s.cfg.bind_address()}')
+	s.log.info(s.lang.tf('server.listening', {
+		'Address': s.cfg.bind_address()
+	}))
 	elapsed := (time.now() - s.created_at).seconds()
-	s.log.info('Started successfully! Type /help for available commands. (${elapsed:.6f}s)')
+	s.log.info(s.lang.tf('server.started', {
+		'Seconds': '${elapsed:.3f}'
+	}))
 	spawn s.tick_loop()
 	spawn s.console_loop()
 	s.accept_loop()

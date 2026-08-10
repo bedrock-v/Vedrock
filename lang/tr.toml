@@ -1,17 +1,35 @@
 [server.starting]
-other = "Minecraft Bedrock {{.Version}} (protokol {{.Protocol}}) için Vedrock başlatılıyor"
+other = "Vedrock v{{.Version}} başlatılıyor"
+
+[server.loading_config]
+other = "{{.File}} yükleniyor..."
+
+[server.language_selected]
+other = "Dil seçildi. ({{.Language}})"
+
+[server.license]
+other = "Vedrock, GNU LGPL-3.0 lisansı altında dağıtılmaktadır"
+
+[server.resource_packs_loaded]
+other = "{{.Count}} kaynak paketi yüklendi"
+
+[server.world_loading]
+other = "\"{{.Name}}\" dünyası yükleniyor"
+
+[server.world_loaded]
+other = "\"{{.Name}}\" dünyası başarıyla yüklendi"
+
+[server.supported_version]
+other = "Bu sunucu Minecraft: Bedrock Edition v{{.Version}} sürümünü destekliyor"
 
 [server.listening]
 other = "{{.Address}} adresinde dinleniyor"
 
+[server.started]
+other = "Başarıyla başlatıldı! ({{.Seconds}}sn) Komutlar için \"help\" yazın."
+
 [server.stopping]
 other = "Sunucu durduruluyor"
-
-[server.gamedata_loaded]
-other = "{{.Items}} eşya ve {{.CreativeItems}} yaratıcı envanter girdisi yüklendi"
-
-[server.world_loaded]
-other = "{{.Blocks}} kayıtlı blok değişikliği içeren dünya yüklendi"
 
 [player.join_log]
 other = "{{.Name}} oyuna katıldı"

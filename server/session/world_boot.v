@@ -1,5 +1,6 @@
 module session
 
+import server.internal.language
 import server.internal.logger
 import server.world as blockworld
 
@@ -9,7 +10,7 @@ import server.world as blockworld
 //
 // Keeping this boot time orchestration inside the session package prevents
 // raw world storage types from leaking into Server's public surface.
-pub fn (mut h Hub) load_configured_worlds(worlds_dir string, default_world string, load_all bool, generator string, log &logger.Logger) {
+pub fn (mut h Hub) load_configured_worlds(worlds_dir string, default_world string, load_all bool, generator string, log &logger.Logger, lang &language.Lang) {
 	h.set_world_config(worlds_dir, generator)
 	mut factory := h.world_factory or {
 		log.warn('No world factory configured - no worlds can be loaded')
@@ -25,9 +26,15 @@ pub fn (mut h Hub) load_configured_worlds(worlds_dir string, default_world strin
 		}
 	}
 	for name in names {
+		log.info(lang.tf('server.world_loading', {
+			'Name': name
+		}))
 		if w := factory.open(name, generator, blockworld.overworld) {
 			h.add_world(w)
-			log.info('Loaded world "${name}" (${w.block_count()} overrides)')
+			log.info(lang.tf('server.world_loaded', {
+				'Name': name
+			}))
+			log.debug('World "${name}" has ${w.block_count()} stored block changes')
 		} else {
 			log.warn('Failed to load world "${name}": ${err}')
 		}

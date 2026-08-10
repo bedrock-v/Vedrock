@@ -1,19 +1,37 @@
 # ru.toml - Russian
 
 [server.starting]
-other = "Запуск Vedrock для Minecraft Bedrock {{.Version}} (протокол {{.Protocol}})"
+other = "Запуск Vedrock v{{.Version}}"
+
+[server.loading_config]
+other = "Загрузка {{.File}}..."
+
+[server.language_selected]
+other = "Язык выбран. ({{.Language}})"
+
+[server.license]
+other = "Vedrock распространяется по лицензии GNU LGPL-3.0"
+
+[server.resource_packs_loaded]
+other = "Загружено наборов ресурсов: {{.Count}}"
+
+[server.world_loading]
+other = "Загрузка мира \"{{.Name}}\""
+
+[server.world_loaded]
+other = "Мир \"{{.Name}}\" успешно загружен"
+
+[server.supported_version]
+other = "Этот сервер поддерживает Minecraft: Bedrock Edition v{{.Version}}"
 
 [server.listening]
 other = "Прослушивание {{.Address}}"
 
+[server.started]
+other = "Успешно запущен! ({{.Seconds}}с) Введите \"help\" для списка команд."
+
 [server.stopping]
 other = "Остановка сервера"
-
-[server.gamedata_loaded]
-other = "Загружено предметов: {{.Items}}, творческих записей: {{.CreativeItems}}"
-
-[server.world_loaded]
-other = "Мир загружен, сохранённых изменений блоков: {{.Blocks}}"
 
 [player.join_log]
 other = "{{.Name}} присоединился к игре"

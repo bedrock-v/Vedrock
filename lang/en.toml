@@ -1,19 +1,37 @@
 # en.toml - English (US)
 
 [server.starting]
-other = "Starting Vedrock for Minecraft Bedrock {{.Version}} (protocol {{.Protocol}})"
+other = "Starting Vedrock v{{.Version}}"
+
+[server.loading_config]
+other = "Loading {{.File}}..."
+
+[server.language_selected]
+other = "Language selected. ({{.Language}})"
+
+[server.license]
+other = "Vedrock is distributed under GNU LGPL-3.0"
+
+[server.resource_packs_loaded]
+other = "Loaded {{.Count}} resource packs"
+
+[server.world_loading]
+other = "Loading world \"{{.Name}}\""
+
+[server.world_loaded]
+other = "World \"{{.Name}}\" loaded successfully"
+
+[server.supported_version]
+other = "This server is supporting Minecraft: Bedrock Edition v{{.Version}}"
 
 [server.listening]
 other = "Listening on {{.Address}}"
 
+[server.started]
+other = "Started successfully! ({{.Seconds}}s) Type \"help\" for available commands."
+
 [server.stopping]
 other = "Stopping server"
-
-[server.gamedata_loaded]
-other = "Loaded {{.Items}} items and {{.CreativeItems}} creative entries"
-
-[server.world_loaded]
-other = "Loaded world with {{.Blocks}} stored block changes"
 
 [player.join_log]
 other = "{{.Name}} joined the game"

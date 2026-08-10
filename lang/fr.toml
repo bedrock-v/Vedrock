@@ -1,17 +1,35 @@
 [server.starting]
-other = "Démarrage de Vedrock pour Minecraft Bedrock {{.Version}} (protocole {{.Protocol}})"
+other = "Démarrage de Vedrock v{{.Version}}"
+
+[server.loading_config]
+other = "Chargement de {{.File}}..."
+
+[server.language_selected]
+other = "Langue sélectionnée. ({{.Language}})"
+
+[server.license]
+other = "Vedrock est distribué sous licence GNU LGPL-3.0"
+
+[server.resource_packs_loaded]
+other = "{{.Count}} packs de ressources chargés"
+
+[server.world_loading]
+other = "Chargement du monde \"{{.Name}}\""
+
+[server.world_loaded]
+other = "Monde \"{{.Name}}\" chargé avec succès"
+
+[server.supported_version]
+other = "Ce serveur prend en charge Minecraft: Bedrock Edition v{{.Version}}"
 
 [server.listening]
 other = "Écoute sur {{.Address}}"
 
+[server.started]
+other = "Démarré avec succès ! ({{.Seconds}}s) Tapez \"help\" pour voir les commandes."
+
 [server.stopping]
 other = "Arrêt du serveur"
-
-[server.gamedata_loaded]
-other = "{{.Items}} objets et {{.CreativeItems}} entrées créatives chargés"
-
-[server.world_loaded]
-other = "Monde chargé avec {{.Blocks}} modifications de blocs enregistrées"
 
 [player.join_log]
 other = "{{.Name}} a rejoint la partie"
