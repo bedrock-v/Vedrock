@@ -1,7 +1,10 @@
 module session
 
+import os
+import protocol
 import protocol.version.v1001.packets as packets_1001
 import protocol.version.v1001.types as types_1001
+import server.internal.gamedata
 import server.world
 
 struct BiomeDescriptor {
@@ -85,16 +88,39 @@ const vanilla_biome_descriptors = [
 	},
 ]
 
-// biome_definition_list builds the real biome registry sent to a joining
-// client. An empty BiomeDefinitionListPacket leaves the client with no way
-// to resolve any biome id present in the chunk/biome data it is about to
-// receive.
-fn biome_definition_list() &packets_1001.BiomeDefinitionListPacket {
+// Mojang ships the biome registry as an NBT document; the client wants it as
+// a packet payload. Encoding it once at startup keeps the registry sourced
+// from the shipped data rather than a captured packet dump.
+const vanilla_biome_definitions = gamedata.load_biome_definitions(os.join_path('data',
+	'biome_definitions.nbt')) or { []u8{} }
+
+const vanilla_biome_definitions_packet = &protocol.RawPacket{
+	packet_id: 122
+	raw_name:  'BiomeDefinitionListPacket'
+	payload:   vanilla_biome_definitions.clone()
+}
+
+// biome_definition_list is the biome registry sent to a joining client. An
+// empty BiomeDefinitionListPacket leaves the client with no way to resolve
+// any biome id present in the chunk/biome data it is about to receive.
+fn biome_definition_list() protocol.Packet {
+	if vanilla_biome_definitions.len > 0 {
+		return vanilla_biome_definitions_packet
+	}
+	return generated_biome_definition_list()
+}
+
+// generated_biome_definition_list is the fallback used when the captured
+// registry is missing: it covers the ids the generators actually assign.
+fn generated_biome_definition_list() &packets_1001.BiomeDefinitionListPacket {
 	mut strings := []string{}
 	mut biomes := []packets_1001.BiomeEntry{}
 	for d in vanilla_biome_descriptors {
 		name_index := u16(strings.len)
-		strings << d.name
+		// The client matches these against its own registry, which is
+		// namespaced. A bare name resolves to nothing and leaves every biome
+		// id in the chunk data it receives next unresolvable.
+		strings << 'minecraft:${d.name}'
 		biomes << packets_1001.BiomeEntry{
 			name_index: name_index
 			definition: types_1001.BiomeDefinition{

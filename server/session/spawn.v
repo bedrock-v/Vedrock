@@ -216,13 +216,17 @@ fn (mut s NetworkSession) start_game() ! {
 	start_packet.position[2] = spawn_pos.z
 	start_packet.rotation[0] = spawn_pitch
 	start_packet.rotation[1] = spawn_yaw
+	// The client builds its collision registry from this while it reads the
+	// level, so it goes out ahead of StartGame. The server defines no custom
+	// shapes, but the packet itself is not optional.
+	s.transport.send(&packets_2168.VoxelShapesPacket{})!
 	s.transport.send(start_packet)!
-	if s.hub.custom_entities.len() > 0 {
-		s.transport.send(&packets_662.AvailableActorIdentifiersPacket{
-			actor_info_list: s.hub.custom_entities.identifiers_nbt()
-		})!
-	}
 	s.transport.send(s.item_registry())!
+	// Sent unconditionally: the client resolves its own player actor against
+	// this list, so the actor data below has nothing to attach to without it.
+	s.transport.send(&packets_662.AvailableActorIdentifiersPacket{
+		actor_info_list: s.entity_identifiers()
+	})!
 	s.transport.send(s.creative_content())!
 	s.transport.send(biome_definition_list())!
 	s.transport.send(&packets_662.SetDifficultyPacket{
@@ -538,33 +542,21 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	}
 }
 
-// level_chunk_packet sends the chunk in truncated/limited mode: only biome
-// data is inline and the client is told to request subchunks separately
-// via SubChunkRequestPacket. That request-mode signal is
-// client_request_sub_chunk_limit being present.
+// level_chunk_packet sends every section inline. Truncated mode, where only
+// biome data goes inline and the client pulls sections with
+// SubChunkRequestPacket, leaves it without the terrain it needs to spawn.
 fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &packets_2168.LevelChunkPacket {
-	highest := i32(chunk.section_count())
 	return &packets_2168.LevelChunkPacket{
 		chunk_position:                 types_662.ChunkPos{
 			x: i32(x)
 			z: i32(z)
 		}
 		dimension_id:                   dim.id
-		sub_chunk_count:                0
-		client_request_sub_chunk_limit: highest
+		sub_chunk_count:                u32(chunk.section_count())
+		client_request_sub_chunk_limit: none
 		cache_enabled:                  false
-		serialized_chunk_data:          chunk_biome_payload(dim, chunk)
+		serialized_chunk_data:          chunk.serialize()
 	}
-}
-
-fn chunk_biome_payload(dim world.Dimension, chunk world.Chunk) []u8 {
-	biome := chunk.serialize_biomes()
-	mut out := []u8{cap: biome.len * dim.subchunk_count + 1}
-	for _ in 0 .. dim.subchunk_count {
-		out << biome
-	}
-	out << 0
-	return out
 }
 
 fn chunk_cache_key(cx int, cz int) u64 {

@@ -70,7 +70,7 @@ fn default_skin(id string) types_2168.SerializedSkin {
 		cape_image_width:                0
 		cape_image_height:               0
 		cape_image_bytes:                []u8{}
-		geometry_data:                   ''
+		geometry_data:                   '{}'
 		geometry_data_engine_version:    ''
 		animation_data:                  ''
 		cape_id:                         ''
@@ -84,7 +84,7 @@ fn default_skin(id string) types_2168.SerializedSkin {
 		is_persona_cape_on_classic_skin: false
 		is_primary_user:                 true
 		overrides_player_appearance:     true
-		trusted_skin_flag:               ''
+		trusted_skin_flag:               'true'
 		profile_hash:                    ''
 	}
 }

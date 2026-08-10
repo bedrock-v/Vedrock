@@ -334,11 +334,11 @@ fn test_prune_sent_chunks_keeps_only_current_radius() {
 	assert chunk_cache_key(4, 0) !in sent
 }
 
-fn test_level_chunk_packet_uses_subchunk_request_mode() {
+fn test_level_chunk_packet_sends_sections_inline() {
 	chunk := world.FlatGenerator{}.generate(0, 0)
 	packet := level_chunk_packet(world.overworld, 0, 0, chunk)
-	assert packet.sub_chunk_count == 0
-	assert packet.client_request_sub_chunk_limit or { 0 } == i32(chunk.section_count())
+	assert packet.sub_chunk_count == u32(chunk.section_count())
+	assert packet.client_request_sub_chunk_limit == none
 	assert !packet.cache_enabled
 	assert packet.serialized_chunk_data.len > 0
 	assert packet.serialized_chunk_data[packet.serialized_chunk_data.len - 1] == 0
