@@ -315,16 +315,50 @@ fn test_effects_scale_break_progress_like_vanilla() {
 
 	s.player.add_effect_result(effect.new(effect.haste, 2, 30 * time.second))
 	hasted := s.break_progress_per_tick(dirt_id)
-	assert_break_ratio(hasted / base, 1.4)
+	assert_break_close(hasted / base, 1.4)
 
 	s.player.remove_effect(effect.haste)
 	s.player.add_effect_result(effect.new(effect.mining_fatigue, 1, 30 * time.second))
 	fatigued := s.break_progress_per_tick(dirt_id)
-	assert_break_ratio(fatigued / base, 0.3)
+	assert_break_close(fatigued / base, 0.3)
 }
 
-fn assert_break_ratio(got f32, want f32) {
+fn assert_break_close(got f32, want f32) {
 	assert got > want - 0.001 && got < want + 0.001
+}
+
+// break_seconds_for converts the tracked per tick progress back into the time
+// the block takes, which is the number the vanilla tables are written in.
+fn break_seconds_for(s &NetworkSession, runtime_id int) f32 {
+	return 1.0 / (20.0 * s.break_progress_per_tick(runtime_id))
+}
+
+// A player standing on a block must mine at full speed. The in air penalty is
+// a factor of five, so taking it from the client's ground flag made every
+// block take five times its vanilla time whenever that flag was not set.
+fn test_standing_player_mines_at_vanilla_speed() {
+	mut hub := break_test_hub()
+	target := db.new_world('ground', none, 'flat', world.overworld)
+	hub.add_world(target)
+	mut wr := hub.world_runtime('ground') or { panic('expected ground runtime') }
+	mut transport := &FakeTransport{}
+	mut s := break_test_session(mut hub, mut transport, mut wr)
+	defer {
+		hub.close_worlds()
+	}
+
+	feet_y := world.overworld.min_y + 4
+	s.player.reset_position(types.Vector3{0.5, f32(feet_y), 0.5})
+	target.set_block(0, feet_y - 1, 0, world.cobblestone.network_id)
+	assert s.supported_by_ground()
+
+	// Cobblestone by hand is 10 seconds in vanilla: hardness 2.0, no pickaxe.
+	assert_break_close(break_seconds_for(s, world.cobblestone.network_id), 10.0)
+
+	// Stepping off that block restores the in air penalty.
+	target.set_block(0, feet_y - 1, 0, world.air.network_id)
+	assert !s.supported_by_ground()
+	assert_break_close(break_seconds_for(s, world.cobblestone.network_id), 50.0)
 }
 
 struct BreakBarrierTask {

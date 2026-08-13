@@ -29,6 +29,11 @@ const haste_speed_per_level = f32(0.2)
 const in_air_break_penalty = f32(5.0)
 const submerged_break_penalty = f32(5.0)
 
+// ground_probe_depth is how far below the feet the support block is looked up.
+// It only has to clear the floating point gap between a player standing on a
+// block and that block's top face.
+const ground_probe_depth = f32(0.1)
+
 // breaking_snapshot returns a copy of the block this session is currently
 // mining. The state is written by the session thread and advanced by the
 // owning world thread, so both go through breaking_mutex.
@@ -235,7 +240,7 @@ fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
 	}
 	tool_type, harvest_level, efficiency := s.held_mining_stats()
 	mut ticks := info.break_seconds(tool_type, harvest_level, efficiency) * f32(effect.ticks_per_second)
-	if !s.player.on_ground() && s.player.game_mode() != network.game_type_creative {
+	if !s.supported_by_ground() && s.player.game_mode() != network.game_type_creative {
 		ticks *= in_air_break_penalty
 	}
 	if s.head_submerged() {
@@ -279,6 +284,21 @@ fn (s &NetworkSession) held_mining_stats() (int, int, f32) {
 		return held.block_tool_type(), held.harvest_level(), efficiency
 	}
 	return block.tool_type_none, block.harvest_level_none, efficiency
+}
+
+// supported_by_ground reports whether a block is holding the player up.
+//
+// The in air mining penalty is a factor of five, so gating it on the client's
+// own ground flag makes every block take five times as long whenever that flag
+// is not reported the way the server expects, which is the whole difference
+// between a block breaking and a block that never finishes. PocketMine-MP does
+// not take its ground state from the input flags either, so the support block
+// is looked up here instead. Liquids do not hold a player up.
+fn (s &NetworkSession) supported_by_ground() bool {
+	pos := s.current_position()
+	below := s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y - ground_probe_depth)),
+		int(math.floor(pos.z)))
+	return below != world.air.network_id && below != world.water.network_id
 }
 
 // head_submerged reports whether the player's eyes are inside water, which
