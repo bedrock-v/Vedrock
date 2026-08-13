@@ -32,6 +32,14 @@ fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRu
 	return s
 }
 
+// complete_break fast forwards the tracked break progress, standing in for
+// the world ticks a client would spend mining the block.
+fn complete_break(mut s NetworkSession) {
+	mut bp := s.breaking_snapshot() or { return }
+	bp.progress = 1.0
+	s.set_breaking(bp)
+}
+
 fn test_survival_placed_block_can_be_broken() {
 	mut hub := new_hub(gamedata.GameData{})
 	target := db.new_world('world', none, 'flat', world.overworld)
@@ -62,6 +70,7 @@ fn test_survival_placed_block_can_be_broken() {
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.cobblestone.network_id
 
 	s.handle_start_break(placed_pos, 1)
+	complete_break(mut s)
 	s.break_block(placed_pos)!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.air.network_id
@@ -117,6 +126,7 @@ fn test_survival_mined_drop_can_be_replaced_and_broken() {
 	assert placed_id == world.dirt.network_id
 
 	s.handle_start_break(placed_pos, 1)
+	complete_break(mut s)
 	s.break_block(placed_pos)!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.air.network_id
@@ -152,6 +162,7 @@ fn test_survival_placed_block_can_be_broken_with_real_palette() {
 	assert placed_id == world.cobblestone.network_id
 
 	s.handle_start_break(placed_pos, 1)
+	complete_break(mut s)
 	s.break_block(placed_pos)!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.air.network_id

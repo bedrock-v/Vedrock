@@ -272,70 +272,6 @@ fn (mut s NetworkSession) handle_player_block_action(action types_2168.PlayerBlo
 	}
 }
 
-fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
-	if s.player.is_dead() || !s.can_interact() {
-		return
-	}
-	old_id := s.block_at(pos.x, pos.y, pos.z)
-	if old_id == world.air.network_id {
-		s.resend_block(pos)
-		return
-	}
-	if !s.within_place_reach(pos) {
-		return
-	}
-	mut ctx := event.new_context(event.StartBreakData{
-		player: s
-		x:      pos.x
-		y:      pos.y
-		z:      pos.z
-		face:   click_face
-	})
-	s.hub.events.start_break(mut ctx)
-	if ctx.is_cancelled() {
-		s.resend_block(pos)
-		return
-	}
-	s.breaking = BreakProgress{pos.x, pos.y, pos.z, old_id, s.hub.current_tick()}
-	if s.hub.blocks.breakable(old_id) {
-		s.broadcast_cracking(network.level_event_start_block_cracking, pos, 65535 / s.break_ticks(old_id))
-	}
-	if punchable := s.hub.blocks.get(old_id) {
-		if punchable is block.Punchable {
-			mut wld := s.current_world()
-			if !isnil(wld) {
-				punchable.punch(pos.x, pos.y, pos.z, click_face, mut wld)
-			}
-		}
-	}
-	s.broadcast_swing()
-}
-
-fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_face int) {
-	if bp := s.breaking {
-		if bp.x == pos.x && bp.y == pos.y && bp.z == pos.z {
-			return
-		}
-		s.broadcast_cracking(network.level_event_stop_block_cracking, types.BlockPosition{bp.x, bp.y, bp.z},
-			0)
-	}
-	s.handle_start_break(pos, click_face)
-}
-
-fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
-	s.breaking = none
-	s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
-}
-
-fn (s &NetworkSession) break_ticks(runtime_id int) int {
-	hardness := s.hub.blocks.hardness(runtime_id)
-	ticks := int(hardness * 1.5 * 20.0)
-	if ticks < 1 {
-		return 1
-	}
-	return ticks
-}
-
 fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
 	mut packet := &packets_662.LevelEventPacket{
 		event_id: event_id
@@ -451,19 +387,12 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
 		return
 	}
-	if s.player.game_mode() != network.game_type_creative {
-		matches := if bp := s.breaking {
-			bp.x == pos.x && bp.y == pos.y && bp.z == pos.z && bp.block_id == old_id
-		} else {
-			false
-		}
-		if !matches {
-			s.resend_block(pos)
-			s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
-			return
-		}
+	if s.player.game_mode() != network.game_type_creative && !s.break_complete(pos, old_id) {
+		s.resend_block(pos)
+		s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
+		return
 	}
-	s.breaking = none
+	s.set_breaking(none)
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
 		return
@@ -528,7 +457,7 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 	tx.set_block(t.x, t.y, t.z, air_id)
 	tx.damage_held_item(mut s, 1)
 
-	if s.player.game_mode() != network.game_type_creative {
+	if s.player.game_mode() != network.game_type_creative && s.can_harvest(t.old_id) {
 		drop_name, drop_count := block_drop_for(mut tx.wr, t.old_id)
 		if drop_name != '' {
 			center := types.Vector3{f32(t.x) + 0.5, f32(t.y) + 0.5, f32(t.z) + 0.5}

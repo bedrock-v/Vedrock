@@ -90,6 +90,15 @@ pub fn (r &Registry) hardness(runtime_id int) f32 {
 	return 1.0
 }
 
+// break_info returns the break time inputs for a runtime id, falling back to
+// a plain hardness 1.0 no tool block for unregistered ids.
+pub fn (r &Registry) break_info(runtime_id int) BreakInfo {
+	if b := r.get(runtime_id) {
+		return break_info_for(b)
+	}
+	return BreakInfo{}
+}
+
 // len is the number of registered block classes.
 pub fn (r &Registry) len() int {
 	return r.by_name.len

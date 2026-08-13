@@ -54,8 +54,10 @@ pub const entity_flag_affected_by_gravity = 49
 
 pub const move_actor_flag_on_ground = int(1)
 pub const level_event_particles_destroy_block = int(2001)
+pub const level_event_particles_punch_block = int(2014)
 pub const level_event_start_block_cracking = int(3600)
 pub const level_event_stop_block_cracking = int(3601)
+pub const level_event_update_block_cracking = int(3602)
 
 pub fn selected_proto_version() version.ProtoVersion {
 	return version.ProtoVersion.v2168

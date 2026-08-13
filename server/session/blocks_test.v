@@ -456,7 +456,14 @@ fn test_break_block_succeeds_when_matches() {
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
-	s.breaking = BreakProgress{pos.x, pos.y, pos.z, dirt_id, 0}
+	s.breaking = BreakProgress{
+		x:            pos.x
+		y:            pos.y
+		z:            pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 
 	s.break_block(pos)!
 
@@ -471,7 +478,14 @@ fn test_break_block_rejects_mismatched_position() {
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	other_pos := types.BlockPosition{5, world.overworld.min_y + 1, 5}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
-	s.breaking = BreakProgress{other_pos.x, other_pos.y, other_pos.z, dirt_id, 0}
+	s.breaking = BreakProgress{
+		x:            other_pos.x
+		y:            other_pos.y
+		z:            other_pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 
 	s.break_block(pos)!
 	assert wait_for_sent_len(transport, 1, 5000)
@@ -652,7 +666,14 @@ fn test_spectator_cannot_place_or_break_blocks() {
 	register_test_session(mut breaker)
 	break_pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := breaker.block_at(break_pos.x, break_pos.y, break_pos.z)
-	breaker.breaking = BreakProgress{break_pos.x, break_pos.y, break_pos.z, dirt_id, 0}
+	breaker.breaking = BreakProgress{
+		x:            break_pos.x
+		y:            break_pos.y
+		z:            break_pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 	hub.set_current_tick(20)
 
 	breaker.break_block(break_pos)!

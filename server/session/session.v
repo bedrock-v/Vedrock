@@ -35,14 +35,20 @@ pub enum State {
 }
 
 // BreakProgress tracks the one block a player is currently breaking, armed by
-// handle_start_break and checked in break_block to reject a destroy action
-// that arrives before enough ticks have elapsed for the block's hardness.
+// handle_start_break and advanced once per world tick by tick_breaking. It is
+// checked in break_block to reject a destroy action that arrives before the
+// block could actually have been mined.
 struct BreakProgress {
 	x            int
 	y            int
 	z            int
 	block_id     int
 	started_tick i64
+mut:
+	face      int
+	speed     f32
+	progress  f32
+	fx_ticker int
 }
 
 // NetworkSession contains per connection transport and threading state. It remains a public type only where required
@@ -56,11 +62,14 @@ mut:
 	player    &player.Player    = unsafe { nil }
 	transport network.Transport = FakeTransport{}
 	breaking  ?BreakProgress
-	hub       &Hub  = unsafe { nil }
-	state     State = .handshake
-	cfg       conf.Config
-	world     &db.World       = unsafe { nil }
-	generator world.Generator = world.VoidGenerator{}
+	// breaking_mutex guards breaking, written by the session thread and
+	// advanced by the owning world thread once per tick.
+	breaking_mutex &sync.Mutex = sync.new_mutex()
+	hub            &Hub        = unsafe { nil }
+	state          State       = .handshake
+	cfg            conf.Config
+	world          &db.World       = unsafe { nil }
+	generator      world.Generator = world.VoidGenerator{}
 	// world_runtime is the mutation routing counterpart to world.
 	world_runtime &WorldRuntime = unsafe { nil }
 	// world_epoch increments whenever the session changes runtime. World tasks

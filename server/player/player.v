@@ -47,6 +47,7 @@ mut:
 	vy               f32
 	prev_y           f32
 	fall_distance    f32
+	grounded         bool
 }
 
 // max_air_supply_ticks is the underwater breath meter's full value.
@@ -392,6 +393,17 @@ pub fn (p &Player) movement() Movement {
 	}
 }
 
+// on_ground reports the last client reported ground state, trusted like the
+// rest of the movement snapshot.
+pub fn (p &Player) on_ground() bool {
+	mut m := p.pos_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return p.grounded
+}
+
 // position is a convenience accessor for the common case of needing just the
 // position, still going through the same lock as movement().
 pub fn (p &Player) position() types.Vector3 {
@@ -412,6 +424,7 @@ pub fn (mut p Player) apply_movement(position types.Vector3, pitch f32, yaw f32,
 		landed_distance = p.fall_distance
 		p.fall_distance = 0
 	}
+	p.grounded = on_ground
 	p.prev_y = position.y
 	p.position = position
 	p.pitch = pitch

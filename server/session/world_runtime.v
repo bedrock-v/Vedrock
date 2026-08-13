@@ -588,6 +588,7 @@ fn (mut tx WorldTx) tick_effects() {
 		if mut a is NetworkSession {
 			a.tick_effects(mut tx.wr)
 			a.tick_environmental_damage(mut tx)
+			a.tick_breaking(mut tx)
 			tx.wr.sample_outbound_depth(int(a.outbound.len))
 		}
 	}

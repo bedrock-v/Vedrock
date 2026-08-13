@@ -80,7 +80,14 @@ fn test_break_block_damages_held_item_exactly_once() {
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
-	s.breaking = BreakProgress{pos.x, pos.y, pos.z, dirt_id, 0}
+	s.breaking = BreakProgress{
+		x:            pos.x
+		y:            pos.y
+		z:            pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 	hub.set_current_tick(20)
 
 	s.break_block(pos)!
@@ -115,7 +122,14 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
-	s.breaking = BreakProgress{pos.x, pos.y, pos.z, dirt_id, 0}
+	s.breaking = BreakProgress{
+		x:            pos.x
+		y:            pos.y
+		z:            pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 	hub.set_current_tick(20)
 
 	s.break_block(pos)!
@@ -147,7 +161,14 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := breaker.block_at(pos.x, pos.y, pos.z)
-	breaker.breaking = BreakProgress{pos.x, pos.y, pos.z, dirt_id, 0}
+	breaker.breaking = BreakProgress{
+		x:            pos.x
+		y:            pos.y
+		z:            pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 	hub.set_current_tick(20)
 
 	breaker.break_block(pos)!
@@ -196,7 +217,14 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s_a.block_at(pos.x, pos.y, pos.z)
-	s_a.breaking = BreakProgress{pos.x, pos.y, pos.z, dirt_id, 0}
+	s_a.breaking = BreakProgress{
+		x:            pos.x
+		y:            pos.y
+		z:            pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 	hub.set_current_tick(20)
 
 	s_a.break_block(pos)!
@@ -249,7 +277,14 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 	// Breaking in world B must complete promptly even while A is stalled.
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s_b.block_at(pos.x, pos.y, pos.z)
-	s_b.breaking = BreakProgress{pos.x, pos.y, pos.z, dirt_id, 0}
+	s_b.breaking = BreakProgress{
+		x:            pos.x
+		y:            pos.y
+		z:            pos.z
+		block_id:     dirt_id
+		started_tick: 0
+		progress:     1.0
+	}
 	hub.set_current_tick(20)
 	s_b.break_block(pos)!
 
