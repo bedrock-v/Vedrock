@@ -75,17 +75,24 @@ fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id 
 	tx.wr.broadcast_world(packet)
 }
 
-// broadcast_crack_speed updates the crack animation speed for a block that is
-// already being mined, for every session in this transaction's world.
-fn (mut tx WorldTx) broadcast_crack_speed(pos types.BlockPosition, data int) {
+// broadcast_cracking sends one block cracking level event to every session in
+// this transaction's world. The start, update and stop events differ only in
+// their id and payload, so they all go through here.
+fn (mut tx WorldTx) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
 	mut packet := &packets_662.LevelEventPacket{
-		event_id: network.level_event_update_block_cracking
+		event_id: event_id
 		data:     data
 	}
 	packet.position[0] = f32(pos.x)
 	packet.position[1] = f32(pos.y)
 	packet.position[2] = f32(pos.z)
 	tx.wr.broadcast_world(packet)
+}
+
+// broadcast_crack_speed updates the crack animation speed for a block that is
+// already being mined, for every session in this transaction's world.
+fn (mut tx WorldTx) broadcast_crack_speed(pos types.BlockPosition, data int) {
+	tx.broadcast_cracking(network.level_event_update_block_cracking, pos, data)
 }
 
 // broadcast_punch_particle sends the periodic mining particle for the face
@@ -102,13 +109,7 @@ fn (mut tx WorldTx) broadcast_punch_particle(pos types.BlockPosition, runtime_id
 }
 
 fn (mut tx WorldTx) broadcast_stop_cracking(x int, y int, z int) {
-	mut packet := &packets_662.LevelEventPacket{
-		event_id: network.level_event_stop_block_cracking
-	}
-	packet.position[0] = f32(x)
-	packet.position[1] = f32(y)
-	packet.position[2] = f32(z)
-	tx.wr.broadcast_world(packet)
+	tx.broadcast_cracking(network.level_event_stop_block_cracking, types.BlockPosition{x, y, z}, 0)
 }
 
 // broadcast_place_sound sends the block placement sound to every session in

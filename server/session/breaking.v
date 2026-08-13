@@ -39,6 +39,66 @@ fn (mut s NetworkSession) set_breaking(progress ?BreakProgress) {
 	s.breaking_mutex.unlock()
 }
 
+// broadcast_cracking routes one block cracking level event through the world
+// runtime this session is bound to, so it reaches that world's players only.
+// The event is dropped when the session has no bound world.
+fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
+	binding := s.world_binding()
+	if isnil(binding.world_runtime) {
+		return
+	}
+	mut wr := binding.world_runtime
+	wr.submit(BlockCrackingTask{
+		session_runtime_id: s.runtime_id
+		epoch:              binding.epoch
+		event_id:           event_id
+		pos:                pos
+		data:               data
+	})
+}
+
+// BlockCrackingTask broadcasts a cracking animation on the owning world actor.
+// The session runtime id and binding epoch are captured at submission time, so
+// an event queued just before a world change is discarded instead of animating
+// a block in a world the player has already left.
+struct BlockCrackingTask {
+	session_runtime_id u64
+	epoch              i64
+	event_id           int
+	pos                types.BlockPosition
+	data               int
+}
+
+fn (t BlockCrackingTask) name() string {
+	return 'BlockCrackingTask'
+}
+
+fn (t BlockCrackingTask) run(mut tx WorldTx) {
+	tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
+	tx.broadcast_cracking(t.event_id, t.pos, t.data)
+}
+
+// StartBreakAnimationTask emits both animations a mining start produces - the
+// initial crack and the arm swing - in one pass over the world's players.
+struct StartBreakAnimationTask {
+	session_runtime_id u64
+	epoch              i64
+	pos                types.BlockPosition
+	crack_speed        int
+}
+
+fn (t StartBreakAnimationTask) name() string {
+	return 'StartBreakAnimationTask'
+}
+
+fn (t StartBreakAnimationTask) run(mut tx WorldTx) {
+	s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
+	if t.crack_speed > 0 {
+		tx.broadcast_cracking(network.level_event_start_block_cracking, t.pos, t.crack_speed)
+	}
+	tx.broadcast_swing(s)
+}
+
 fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
@@ -73,10 +133,6 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		face:         click_face
 		speed:        speed
 	})
-	if speed > 0 {
-		s.broadcast_cracking(network.level_event_start_block_cracking, pos,
-			int(break_crack_scale * speed))
-	}
 	if punchable := s.hub.blocks.get(old_id) {
 		if punchable is block.Punchable {
 			mut wld := s.current_world()
@@ -85,7 +141,17 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 			}
 		}
 	}
-	s.broadcast_swing()
+	binding := s.world_binding()
+	if isnil(binding.world_runtime) {
+		return
+	}
+	mut wr := binding.world_runtime
+	wr.submit(StartBreakAnimationTask{
+		session_runtime_id: s.runtime_id
+		epoch:              binding.epoch
+		pos:                pos
+		crack_speed:        int(break_crack_scale * speed)
+	})
 }
 
 fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_face int) {

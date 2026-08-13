@@ -1,5 +1,7 @@
 module session
 
+import time
+import protocol.version.v662.packets as packets_662
 import protocol.version.v944.packets as packets_944
 import protocol.types
 import server.event
@@ -231,6 +233,64 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 	assert handler_a.hits == 1
 	assert handler_b.hits == 0
+}
+
+fn break_sent_level_event(transport &FakeTransport) bool {
+	for p in transport.sent {
+		if p is packets_662.LevelEventPacket {
+			return true
+		}
+	}
+	return false
+}
+
+// break_wait_for_level_event blocks on the session's outbound writer until it
+// has actually sent a level event, since delivery is asynchronous.
+fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
+	mut remaining := timeout_ms * time.millisecond
+	for !break_sent_level_event(transport) {
+		waited_from := time.now()
+		select {
+			_ := <-transport.sent_notify {}
+			remaining {
+				return break_sent_level_event(transport)
+			}
+		}
+		remaining -= time.now() - waited_from
+		if remaining <= 0 {
+			return break_sent_level_event(transport)
+		}
+	}
+	return true
+}
+
+// Cracking animations are broadcast on the owning world's actor, so a player
+// mining in world A must not animate blocks for a player in world B.
+fn test_start_break_cracking_scoped_to_owning_world() {
+	mut hub := break_test_hub()
+	target := db.new_world('crack-a', none, 'flat', world.overworld)
+	hub.add_world(target)
+	hub.set_default_world('crack-a')
+	other_world := db.new_world('crack-b', none, 'flat', world.overworld)
+	hub.add_world(other_world)
+	mut wr := hub.world_runtime('crack-a') or { panic('expected crack-a runtime') }
+	mut other_wr := hub.world_runtime('crack-b') or { panic('expected crack-b runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	mut breaker_transport := &FakeTransport{}
+	mut breaker := break_test_session(mut hub, mut breaker_transport, mut wr)
+	give_held_pick(mut breaker)
+
+	mut observer_transport := &FakeTransport{}
+	break_test_session(mut hub, mut observer_transport, mut other_wr)
+
+	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	breaker.handle_start_break(pos, 1)
+
+	assert break_wait_for_level_event(breaker_transport, 5000)
+	assert !break_wait_for_level_event(observer_transport, 500)
 }
 
 struct BreakBarrierTask {

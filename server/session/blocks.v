@@ -2,7 +2,6 @@ module session
 
 import time
 import protocol.version.v662.packets as packets_662
-import protocol.version.v898.packets as packets_898
 import protocol.version.v944.packets as packets_944
 import protocol.version.v2168.packets as packets_2168
 import protocol.version.v2168.types as types_2168
@@ -270,28 +269,6 @@ fn (mut s NetworkSession) handle_player_block_action(action types_2168.PlayerBlo
 		}
 		else {}
 	}
-}
-
-fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
-	mut packet := &packets_662.LevelEventPacket{
-		event_id: event_id
-		data:     data
-	}
-	packet.position[0] = f32(pos.x)
-	packet.position[1] = f32(pos.y)
-	packet.position[2] = f32(pos.z)
-	s.hub.broadcast(packet)
-}
-
-// broadcast_swing sends this session's arm swing animation globally. Only
-// handle_start_break still uses this global form. Every block-mutating
-// swing broadcast goes through WorldTx.broadcast_swing instead, scoped to
-// the world.
-fn (mut s NetworkSession) broadcast_swing() {
-	s.hub.broadcast_except(s.runtime_id, &packets_898.AnimatePacket{
-		action:            packets_898.AnimatePacketAction.swing
-		target_runtime_id: network.actor_runtime_id(s.runtime_id)
-	})
 }
 
 // place_reach_sq returns the squared placement reach for the player's
