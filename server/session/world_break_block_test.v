@@ -361,6 +361,50 @@ fn test_standing_player_mines_at_vanilla_speed() {
 	assert_break_close(break_seconds_for(s, world.cobblestone.network_id), 50.0)
 }
 
+// tick_world_once runs one simulation step on the owning world actor, the same
+// entry point the tick loop uses.
+fn tick_world_once(mut wr WorldRuntime) {
+	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		tx.tick_effects()
+		return true
+	}) or { panic('tick rejected - world unexpectedly stopped') }
+}
+
+// The client leaves block breaking to the server, so a block has to be
+// destroyed by the server's own tracked progress reaching one. Nothing else
+// removes it: no destroy packet is sent here on purpose.
+fn test_server_finishes_the_break_without_a_client_destroy() {
+	mut hub := break_test_hub()
+	target := db.new_world('server-break', none, 'flat', world.overworld)
+	hub.add_world(target)
+	mut wr := hub.world_runtime('server-break') or { panic('expected runtime') }
+	mut transport := &FakeTransport{}
+	mut s := break_test_session(mut hub, mut transport, mut wr)
+	give_held_pick(mut s)
+	defer {
+		hub.close_worlds()
+	}
+
+	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	old_id := s.block_at(pos.x, pos.y, pos.z)
+	assert old_id != world.air.network_id
+
+	s.handle_start_break(pos, 1)
+	speed := s.break_progress_per_tick(old_id)
+	assert speed > 0
+	needed := int(1.0 / speed) + 2
+
+	for _ in 0 .. needed {
+		tick_world_once(mut wr)
+		if s.breaking_snapshot() == none {
+			break
+		}
+	}
+
+	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
+	assert s.breaking_snapshot() == none
+}
+
 struct BreakBarrierTask {
 	started chan bool
 	release chan bool

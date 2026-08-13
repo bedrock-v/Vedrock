@@ -201,7 +201,16 @@ fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 		tx.broadcast_crack_speed(pos, int(break_crack_scale * speed))
 	}
 	bp.progress += speed
-	if bp.fx_ticker % break_fx_interval_ticks == 0 && bp.progress < 1.0 {
+	// The client hands block breaking to the server (see the start game
+	// server_authoritative_block_breaking flag), so reaching full progress is
+	// what actually destroys the block. Without this the crack animation runs
+	// forever and the block is never removed.
+	if bp.progress >= 1.0 {
+		s.set_breaking(none)
+		tx.complete_block_break(mut s, pos, bp.block_id)
+		return
+	}
+	if bp.fx_ticker % break_fx_interval_ticks == 0 {
 		tx.broadcast_punch_particle(pos, bp.block_id, bp.face)
 		tx.broadcast_swing(s)
 	}

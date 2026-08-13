@@ -409,59 +409,69 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 		t.done <- true
 	}
 	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
-	pos := types.BlockPosition{t.x, t.y, t.z}
-	air_id := world.air.network_id
+	tx.complete_block_break(mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
+}
 
-	current_id := tx.block_at(t.x, t.y, t.z)
-	if current_id != t.old_id {
+// complete_block_break destroys the block and runs everything that follows
+// from it: the event, the drop, the container contents, the paired door half
+// and the effects every player in the world sees.
+//
+// Both ways a block can be destroyed end up here. A client predicted destroy
+// arrives as a PlayerBreakBlockTask, and a break the server itself finished
+// calls in from tick_breaking, which is the only path that runs when the
+// client has handed block breaking to the server.
+fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
+	air_id := world.air.network_id
+	if tx.block_at(pos.x, pos.y, pos.z) != old_id {
 		s.resend_block(pos)
-		return
+		return false
 	}
 
 	mut ctx := event.new_context(event.BlockBreakData{
 		player:   s
-		x:        t.x
-		y:        t.y
-		z:        t.z
-		block_id: t.old_id
+		x:        pos.x
+		y:        pos.y
+		z:        pos.z
+		block_id: old_id
 	})
 	tx.wr.events.block_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
-		return
+		return false
 	}
 
-	tx.set_block(t.x, t.y, t.z, air_id)
+	tx.set_block(pos.x, pos.y, pos.z, air_id)
 	tx.damage_held_item(mut s, 1)
 
-	if s.player.game_mode() != network.game_type_creative && s.can_harvest(t.old_id) {
-		drop_name, drop_count := block_drop_for(mut tx.wr, t.old_id)
+	if s.player.game_mode() != network.game_type_creative && s.can_harvest(old_id) {
+		drop_name, drop_count := block_drop_for(mut tx.wr, old_id)
 		if drop_name != '' {
-			center := types.Vector3{f32(t.x) + 0.5, f32(t.y) + 0.5, f32(t.z) + 0.5}
+			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 			spawn_dropped_item_stack(mut tx.wr, drop_name, drop_count, center)
 		}
 	}
 
-	if b := tx.wr.hub.blocks.get(t.old_id) {
+	if b := tx.wr.hub.blocks.get(old_id) {
 		if b is block.ChestBlock {
-			drop_chest_contents(mut tx.wr, mut s, t.x, t.y, t.z)
+			drop_chest_contents(mut tx.wr, mut s, pos.x, pos.y, pos.z)
 		}
 	}
 
-	if pair := tx.door_pair_pos(pos, t.old_id) {
+	if pair := tx.door_pair_pos(pos, old_id) {
 		pair_id := tx.block_at(pair.x, pair.y, pair.z)
-		if tx.door_pair_matches(t.old_id, pair_id) {
+		if tx.door_pair_matches(old_id, pair_id) {
 			tx.set_block(pair.x, pair.y, pair.z, air_id)
 			tx.on_block_changed(pair.x, pair.y, pair.z)
 			tx.recompute_neighbor_blocks(pair)
 		}
 	}
 
-	tx.broadcast_stop_cracking(t.x, t.y, t.z)
-	tx.broadcast_destroy_particles(t.x, t.y, t.z, t.old_id)
+	tx.broadcast_stop_cracking(pos.x, pos.y, pos.z)
+	tx.broadcast_destroy_particles(pos.x, pos.y, pos.z, old_id)
 	tx.broadcast_swing(s)
-	tx.on_block_changed(t.x, t.y, t.z)
+	tx.on_block_changed(pos.x, pos.y, pos.z)
 	tx.recompute_neighbor_blocks(pos)
+	return true
 }
 
 // PlayerPlaceBlockTask handles one block interaction atomically on the
