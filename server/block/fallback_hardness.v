@@ -68,8 +68,11 @@ fn fallback_hardness(name string) f32 {
 		'minecraft:chiseled_bookshelf' {
 			return 1.5
 		}
-		'minecraft:netherite_block', 'minecraft:crying_obsidian', 'minecraft:respawn_anchor' {
+		'minecraft:netherite_block', 'minecraft:respawn_anchor' {
 			return 50.0
+		}
+		'minecraft:crying_obsidian' {
+			return obsidian_hardness
 		}
 		'minecraft:reinforced_deepslate' {
 			return 55.0

@@ -43,7 +43,9 @@ fn fallback_tool(name string) (int, int) {
 			return tool_type_shovel, harvest_level_wood
 		}
 		'minecraft:web' {
-			return tool_type_shears | tool_type_sword, harvest_level_none
+			// A cobweb needs a real tool to come apart quickly: by hand it is
+			// the slow multiplier, 20 seconds rather than 6.
+			return tool_type_shears | tool_type_sword, harvest_level_wood
 		}
 		'minecraft:hay_block', 'minecraft:target', 'minecraft:dried_kelp_block',
 		'minecraft:shroomlight', 'minecraft:nether_wart_block', 'minecraft:warped_wart_block',

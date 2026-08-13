@@ -91,7 +91,7 @@ fn test_ore_and_storage_blocks_registered() {
 fn test_obsidian_is_hard_to_break() {
 	r := new_registry()
 	b := r.get_by_name('minecraft:obsidian') or { panic('missing obsidian') }
-	assert b.hardness() == 50.0
+	assert b.hardness() == obsidian_hardness
 	assert b.breakable()
 }
 

@@ -37,11 +37,30 @@ fn test_dirt_is_shovel_work() {
 	assert_seconds(info.break_seconds(tool_type_pickaxe, harvest_level_diamond, 8.0), 0.75)
 }
 
+// Obsidian is hardness 35 on Bedrock against 50 on Java, so the times here are
+// the Bedrock ones: 29.17s with an iron pickaxe, 6.5625s with a diamond one.
 fn test_obsidian_needs_a_diamond_pickaxe() {
 	info := info_for('minecraft:obsidian')
 	assert info.harvest_level == harvest_level_diamond
-	assert_seconds(info.break_seconds(tool_type_pickaxe, harvest_level_iron, 6.0), 41.666668)
-	assert_seconds(info.break_seconds(tool_type_pickaxe, harvest_level_diamond, 8.0), 9.375)
+	assert info.hardness == obsidian_hardness
+	assert_seconds(info.break_seconds(tool_type_pickaxe, harvest_level_iron, 6.0), 29.166668)
+	assert_seconds(info.break_seconds(tool_type_pickaxe, harvest_level_diamond, 8.0), 6.5625)
+}
+
+// A cobweb is hardness 4 and needs a sword or shears, so bare hands take the
+// incompatible multiplier.
+fn test_cobweb_needs_a_sword_or_shears() {
+	assert fallback_hardness('minecraft:web') == 4.0
+	tool_type, harvest_level := fallback_tool('minecraft:web')
+	assert tool_type == tool_type_shears | tool_type_sword
+	assert harvest_level == harvest_level_wood
+	info := BreakInfo{
+		hardness:      4.0
+		tool_type:     tool_type
+		harvest_level: harvest_level
+	}
+	assert_seconds(info.break_seconds(tool_type_none, harvest_level_none, 1.0), 20.0)
+	assert_seconds(info.break_seconds(tool_type_sword, harvest_level_wood, 1.0), 6.0)
 }
 
 fn test_bedrock_is_unbreakable() {
@@ -55,7 +74,7 @@ fn test_bedrock_is_unbreakable() {
 // hard blocks in a fraction of the vanilla time.
 fn test_fallback_hardness_covers_hard_blocks() {
 	assert fallback_hardness('minecraft:netherite_block') == 50.0
-	assert fallback_hardness('minecraft:crying_obsidian') == 50.0
+	assert fallback_hardness('minecraft:crying_obsidian') == obsidian_hardness
 	assert fallback_hardness('minecraft:respawn_anchor') == 50.0
 	assert fallback_hardness('minecraft:ender_chest') == 22.5
 	assert fallback_hardness('minecraft:enchanting_table') == 5.0
