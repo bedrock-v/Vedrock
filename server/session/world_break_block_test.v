@@ -4,6 +4,7 @@ import time
 import protocol.version.v662.packets as packets_662
 import protocol.version.v944.packets as packets_944
 import protocol.types
+import server.effect
 import server.event
 import server.internal.network
 import server.internal.gamedata
@@ -291,6 +292,39 @@ fn test_start_break_cracking_scoped_to_owning_world() {
 
 	assert break_wait_for_level_event(breaker_transport, 5000)
 	assert !break_wait_for_level_event(observer_transport, 500)
+}
+
+// Haste adds a flat 20% mining speed per level and mining fatigue drops the
+// speed to a fixed fraction per level. Both used to be modelled as compounding
+// curves, which made a hasted player mine far faster than vanilla.
+fn test_effects_scale_break_progress_like_vanilla() {
+	mut hub := break_test_hub()
+	target := db.new_world('effects', none, 'flat', world.overworld)
+	hub.add_world(target)
+	mut wr := hub.world_runtime('effects') or { panic('expected effects runtime') }
+	mut transport := &FakeTransport{}
+	mut s := break_test_session(mut hub, mut transport, mut wr)
+	give_held_pick(mut s)
+	defer {
+		hub.close_worlds()
+	}
+
+	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	dirt_id := s.block_at(pos.x, pos.y, pos.z)
+	base := s.break_progress_per_tick(dirt_id)
+
+	s.player.add_effect_result(effect.new(effect.haste, 2, 30 * time.second))
+	hasted := s.break_progress_per_tick(dirt_id)
+	assert_break_ratio(hasted / base, 1.4)
+
+	s.player.remove_effect(effect.haste)
+	s.player.add_effect_result(effect.new(effect.mining_fatigue, 1, 30 * time.second))
+	fatigued := s.break_progress_per_tick(dirt_id)
+	assert_break_ratio(fatigued / base, 0.3)
+}
+
+fn assert_break_ratio(got f32, want f32) {
+	assert got > want - 0.001 && got < want + 0.001
 }
 
 struct BreakBarrierTask {

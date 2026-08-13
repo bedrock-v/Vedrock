@@ -65,11 +65,52 @@ fn fallback_hardness(name string) f32 {
 		'minecraft:bell', 'minecraft:campfire', 'minecraft:soul_campfire' {
 			return 5.0
 		}
-		'minecraft:cartography_table' {
-			return 2.5
-		}
 		'minecraft:chiseled_bookshelf' {
 			return 1.5
+		}
+		'minecraft:netherite_block', 'minecraft:crying_obsidian', 'minecraft:respawn_anchor' {
+			return 50.0
+		}
+		'minecraft:reinforced_deepslate' {
+			return 55.0
+		}
+		'minecraft:ender_chest' {
+			return 22.5
+		}
+		'minecraft:enchanting_table', 'minecraft:mob_spawner', 'minecraft:spawner',
+		'minecraft:iron_bars', 'minecraft:anvil', 'minecraft:chipped_anvil',
+		'minecraft:damaged_anvil', 'minecraft:deprecated_anvil', 'minecraft:raw_iron_block',
+		'minecraft:raw_gold_block', 'minecraft:raw_copper_block' {
+			return 5.0
+		}
+		'minecraft:web' {
+			return 4.0
+		}
+		'minecraft:furnace', 'minecraft:lit_furnace', 'minecraft:blast_furnace',
+		'minecraft:lit_blast_furnace', 'minecraft:smoker', 'minecraft:lit_smoker',
+		'minecraft:dispenser', 'minecraft:dropper', 'minecraft:lodestone' {
+			return 3.5
+		}
+		'minecraft:hopper', 'minecraft:observer', 'minecraft:deepslate',
+		'minecraft:nether_gold_ore', 'minecraft:quartz_ore' {
+			return 3.0
+		}
+		'minecraft:chest', 'minecraft:trapped_chest', 'minecraft:barrel',
+		'minecraft:crafting_table', 'minecraft:cartography_table', 'minecraft:fletching_table',
+		'minecraft:smithing_table', 'minecraft:loom' {
+			return 2.5
+		}
+		'minecraft:bookshelf' {
+			return 1.5
+		}
+		'minecraft:ladder' {
+			return 0.4
+		}
+		'minecraft:sea_lantern' {
+			return 0.3
+		}
+		'minecraft:end_portal_frame' {
+			return -1.0
 		}
 		'minecraft:barrier', 'minecraft:border_block', 'minecraft:command_block',
 		'minecraft:chain_command_block', 'minecraft:repeating_command_block',
@@ -110,6 +151,7 @@ fn fallback_hardness(name string) f32 {
 		name.ends_with('_shulker_box') || name == 'minecraft:undyed_shulker_box' { 2.0 }
 		name.ends_with('_leaves') || name.contains('_leaves_') { 0.2 }
 		name.starts_with('minecraft:infested_') { 0.75 }
+		name.contains('deepslate') && name.ends_with('_ore') { 4.5 }
 		name.contains('deepslate') { 3.5 }
 		name.ends_with('_planks') || name.ends_with('_log') || name.ends_with('_wood') { 2.0 }
 		else { 1.0 }

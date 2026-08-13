@@ -50,6 +50,33 @@ fn test_bedrock_is_unbreakable() {
 	assert !info.tool_compatible(tool_type_pickaxe, harvest_level_netherite)
 }
 
+// Blocks with no modelled class take their hardness from the name fallback.
+// Before these entries existed they all landed on the generic 1.0, which broke
+// hard blocks in a fraction of the vanilla time.
+fn test_fallback_hardness_covers_hard_blocks() {
+	assert fallback_hardness('minecraft:netherite_block') == 50.0
+	assert fallback_hardness('minecraft:crying_obsidian') == 50.0
+	assert fallback_hardness('minecraft:respawn_anchor') == 50.0
+	assert fallback_hardness('minecraft:ender_chest') == 22.5
+	assert fallback_hardness('minecraft:enchanting_table') == 5.0
+	assert fallback_hardness('minecraft:web') == 4.0
+	assert fallback_hardness('minecraft:furnace') == 3.5
+	assert fallback_hardness('minecraft:hopper') == 3.0
+	assert fallback_hardness('minecraft:nether_gold_ore') == 3.0
+	assert fallback_hardness('minecraft:chest') == 2.5
+	assert fallback_hardness('minecraft:ladder') == 0.4
+	assert fallback_hardness('minecraft:end_portal_frame') < 0
+}
+
+// Deepslate ores are harder than the deepslate they sit in, so the ore rule
+// has to win over the generic deepslate family value.
+fn test_deepslate_ores_are_harder_than_deepslate() {
+	assert fallback_hardness('minecraft:deepslate_diamond_ore') == 4.5
+	assert fallback_hardness('minecraft:lit_deepslate_redstone_ore') == 4.5
+	assert fallback_hardness('minecraft:deepslate') == 3.0
+	assert fallback_hardness('minecraft:deepslate_bricks') == 3.5
+}
+
 fn test_unregistered_ids_fall_back_to_a_plain_block() {
 	r := new_registry()
 	info := r.break_info(123456789)

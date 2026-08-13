@@ -21,6 +21,14 @@ const break_progress_tolerance_ticks = f32(2.0)
 // with the block cracking level events.
 const break_crack_scale = f32(65535.0)
 
+// haste_speed_per_level is the mining speed haste adds per level.
+const haste_speed_per_level = f32(0.2)
+
+// in_air_break_penalty and submerged_break_penalty are the divisors vanilla
+// applies to mining speed off the ground and with the head in water.
+const in_air_break_penalty = f32(5.0)
+const submerged_break_penalty = f32(5.0)
+
 // breaking_snapshot returns a copy of the block this session is currently
 // mining. The state is written by the session thread and advanced by the
 // owning world thread, so both go through breaking_mutex.
@@ -228,23 +236,34 @@ fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
 	tool_type, harvest_level, efficiency := s.held_mining_stats()
 	mut ticks := info.break_seconds(tool_type, harvest_level, efficiency) * f32(effect.ticks_per_second)
 	if !s.player.on_ground() && s.player.game_mode() != network.game_type_creative {
-		ticks *= 5
+		ticks *= in_air_break_penalty
 	}
 	if s.head_submerged() {
-		ticks *= 5
+		ticks *= submerged_break_penalty
 	}
 	if ticks <= 0 {
 		return 1.0
 	}
 	mut progress := 1.0 / ticks
 	if haste := s.player.effect(effect.haste) {
-		level := f64(haste.level())
-		progress *= f32((1.0 + 0.2 * level) * math.pow(1.2, level))
+		progress *= 1.0 + haste_speed_per_level * f32(haste.level())
 	}
 	if fatigue := s.player.effect(effect.mining_fatigue) {
-		progress *= f32(math.pow(0.21, f64(fatigue.level())))
+		progress *= mining_fatigue_multiplier(fatigue.level())
 	}
 	return progress
+}
+
+// mining_fatigue_multiplier is the mining speed left at each fatigue level.
+// The drop is a fixed table rather than a curve, so the values are listed as
+// vanilla defines them instead of being derived.
+fn mining_fatigue_multiplier(level int) f32 {
+	return match level {
+		1 { f32(0.3) }
+		2 { f32(0.09) }
+		3 { f32(0.0027) }
+		else { f32(0.00081) }
+	}
 }
 
 // held_mining_stats returns the tool family, harvest level and mining
