@@ -34,6 +34,38 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
+fn sent_place_sound(transport &FakeTransport, runtime_id int) bool {
+	for p in transport.sent {
+		if p is packets_1001.LevelSoundEventPacket {
+			if p.event_name == 'place' && p.data == runtime_id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// wait_for_place_sound waits for the sound itself rather than for a packet
+// count. A placement delivers the block update first, so waiting on one packet
+// could return before the sound had been written and fail the assertion.
+fn wait_for_place_sound(transport &FakeTransport, runtime_id int, timeout_ms int) bool {
+	mut remaining := timeout_ms * time.millisecond
+	for !sent_place_sound(transport, runtime_id) {
+		waited_from := time.now()
+		select {
+			_ := <-transport.sent_notify {}
+			remaining {
+				return sent_place_sound(transport, runtime_id)
+			}
+		}
+		remaining -= time.now() - waited_from
+		if remaining <= 0 {
+			return sent_place_sound(transport, runtime_id)
+		}
+	}
+	return true
+}
+
 fn place_test_data() gamedata.GameData {
 	return gamedata.GameData{
 		item_id_by_name: {
@@ -176,16 +208,7 @@ fn test_place_block_broadcasts_place_sound() {
 	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
 		500))!
 
-	assert wait_for_sent_len(transport, 1, 5000)
-	mut heard_place_sound := false
-	for p in transport.sent {
-		if p is packets_1001.LevelSoundEventPacket {
-			if p.event_name == 'place' && p.data == world.bedrock.network_id {
-				heard_place_sound = true
-			}
-		}
-	}
-	assert heard_place_sound
+	assert wait_for_place_sound(transport, world.bedrock.network_id, 5000)
 }
 
 struct CancelBlockPlaceHandler {
