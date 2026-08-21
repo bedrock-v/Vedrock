@@ -66,7 +66,7 @@ fn (mut s NetworkSession) run_command(line string) ! {
 		memory_used_bytes: i64(gc_memory_use())
 		memory_heap_bytes: i64(gc_heap_usage().heap_size)
 	}
-	s.hub.commands.dispatch(final, mut s, ctx)!
+	s.hub.dispatch_command(final, mut s, ctx)!
 }
 
 // send_message satisfies cmd.Sender but delivery is asynchronous. Commands

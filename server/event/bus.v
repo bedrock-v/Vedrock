@@ -11,8 +11,9 @@ mut:
 }
 
 // Bus fans a dispatched Context out to every registered handler in priority
-// order. It is the single event pipe the session code talks to; plugins never
-// touch it directly, they register through the plugin Api.
+// order. It is the single event pipe the session code talks to; external code
+// registers and unregisters through Server.register_event/unregister_event,
+// never the bus directly.
 //
 // register()/unregister() are copy on write: they build an entirely new
 // handlers slice (never append/remove in place) and swap it in under mutex.

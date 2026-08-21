@@ -4,6 +4,7 @@ import os
 import rand
 import time
 import server.cmd
+import server.scheduler
 import raknet
 import protocol.version.v662.packets as packets_662
 import server.internal.logger
@@ -133,43 +134,43 @@ pub fn new(opts Options) !&Server {
 	}
 	log.debug('Loaded ${data.item_entries.len} items and ${data.creative_items.len} creative entries')
 	mut hub := session.new_hub(data, opts.hub_options)
-	hub.lang = lang
-	hub.difficulty = conf.difficulty_from_string(cfg.difficulty)
-	hub.conf_file = cfg.config_file
-	hub.ops = permission.load_ops(cfg.ops_file) or {
+	hub.set_lang(lang)
+	hub.set_initial_difficulty(conf.difficulty_from_string(cfg.difficulty))
+	hub.set_conf_file(cfg.config_file)
+	hub.set_ops(permission.load_ops(cfg.ops_file) or {
 		log.warn('Failed to load ops file: ${err}')
 		permission.OpList{}
-	}
+	})
 	perm_cfg := permission.load_permissions_config(cfg.permissions_file) or {
 		log.warn('Failed to load permissions config: ${err}')
 		permission.PermissionsConfig{}
 	}
 	for cmd_name in perm_cfg.disabled_commands {
-		hub.commands.unregister(cmd_name)
+		hub.unregister_command(cmd_name)
 		log.info('Command "${cmd_name}" disabled via ${cfg.permissions_file}')
 	}
-	hub.player_grants = permission.load_player_grants(cfg.player_permissions_file) or {
+	hub.set_player_grants(permission.load_player_grants(cfg.player_permissions_file) or {
 		log.warn('Failed to load player permissions file: ${err}')
 		permission.PlayerGrants{}
-	}
-	hub.whitelist = permission.load_whitelist(cfg.whitelist_file) or {
+	})
+	hub.set_whitelist(permission.load_whitelist(cfg.whitelist_file) or {
 		log.warn('Failed to load whitelist: ${err}')
 		permission.Whitelist{}
-	}
+	})
 	// Only override the default provider's directory, a caller who already
 	// supplied their own player_data_provider knows what they're doing.
 	if opts.hub_options.player_data_provider == none {
-		hub.player_data_provider = playerdb.FileProvider{
+		hub.set_player_data_provider(playerdb.FileProvider{
 			dir: cfg.players_dir
-		}
+		})
 	}
 	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
-		hub.palette = palette
+		hub.set_palette(palette)
 		log.debug('Loaded ${palette.len()} block states')
 	} else {
 		log.warn('Failed to load block palette: ${err}')
 	}
-	hub.packs = load_resource_packs(cfg, log, lang)
+	hub.set_packs(load_resource_packs(cfg, log, lang))
 	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
 		cfg.generator, log, lang)
 	return &Server{
@@ -234,7 +235,7 @@ fn (mut s Server) console_loop() {
 			memory_used_bytes: i64(gc_memory_use())
 			memory_heap_bytes: i64(gc_heap_usage().heap_size)
 		}
-		s.hub.commands.dispatch(line, mut sender, ctx) or {
+		s.hub.dispatch_command(line, mut sender, ctx) or {
 			s.log.error('Console command failed: ${err}')
 		}
 	}
@@ -286,7 +287,7 @@ fn (mut s Server) tick_loop() {
 		s.hub.set_current_tick(i64(tick))
 		s.hub.set_tps(tps)
 		s.hub.set_load(load)
-		s.hub.scheduler.heartbeat(i64(tick))
+		s.hub.scheduler_heartbeat(i64(tick))
 		deadline := loop_start.add(time.Duration(i64(interval) * i64(tick)))
 		sleep_for := deadline - time.now()
 		if sleep_for > 0 {
@@ -388,6 +389,36 @@ pub fn (mut s Server) unregister_event(handler event.Handler) {
 	s.hub.unregister_event(handler)
 }
 
+// register_command adds command to the server's command registry.
+pub fn (mut s Server) register_command(command cmd.Command) {
+	s.hub.register_command(command)
+}
+
+// unregister_command removes a previously registered command.
+pub fn (mut s Server) unregister_command(name string) {
+	s.hub.unregister_command(name)
+}
+
+// run_task queues task to run on the next tick.
+pub fn (mut s Server) run_task(task scheduler.Task) &scheduler.TaskHandler {
+	return s.hub.run_task(task)
+}
+
+// run_delayed queues task to run once, delay ticks from now.
+pub fn (mut s Server) run_delayed(task scheduler.Task, delay i64) &scheduler.TaskHandler {
+	return s.hub.run_delayed(task, delay)
+}
+
+// run_repeating queues task to run every period ticks, starting next tick.
+pub fn (mut s Server) run_repeating(task scheduler.Task, period i64) &scheduler.TaskHandler {
+	return s.hub.run_repeating(task, period)
+}
+
+// See: hub.cancel_task
+pub fn (mut s Server) cancel_task(id int) {
+	s.hub.cancel_task(id)
+}
+
 // WorldConfig is what load_world needs to bring a world up: its name,
 // dimension and which registered generator to use.
 //
@@ -414,12 +445,7 @@ pub fn (mut s Server) load_world(config WorldConfig) !session.World {
 	if handle := s.hub.world_handle(config.name) {
 		return handle
 	}
-	factory := s.hub.world_factory or { return error('world factory not configured') }
-	if factory.exists(config.name) {
-		s.hub.load_world(config.name)!
-	} else {
-		s.hub.create_world(config.name, config.dimension, config.generator_name)!
-	}
+	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name)!
 	return s.hub.world_handle(config.name) or {
 		error('world "${config.name}" failed to register after loading')
 	}

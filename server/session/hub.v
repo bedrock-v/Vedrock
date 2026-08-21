@@ -42,9 +42,9 @@ mut:
 	next_runtime_id u64                       = 1
 	tps_bits        &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](math.f64_bits(20.0))
 	// config_mutex guards server global mutable config: ops, whitelist and
-	// difficulty. Runtime reads/writes must use the locked accessors below;
-	// the raw fields are assigned only during boot before network threads
-	// start.
+	// difficulty. Every read or write including the one time boot load via
+	// set_ops/set_whitelist/set_difficulty, goes through the locked accessors
+	// below.
 	config_mutex &sync.Mutex               = sync.new_mutex()
 	load_bits    &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	online_count &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -59,8 +59,7 @@ mut:
 	// session_wg tracks sessions from registration until leave completes.
 	// wait_for_sessions_to_leave blocks until every session has finished
 	// leaving including saving player data and removing itself.
-	session_wg &sync.WaitGroup = sync.new_waitgroup()
-pub mut:
+	session_wg         &sync.WaitGroup = sync.new_waitgroup()
 	oidc_verifier      auth.Verifier
 	data               gamedata.GameData
 	items              item.Registry                = item.new_registry()
@@ -85,8 +84,8 @@ pub mut:
 	// Defaults to db.LevelDBFactory the first time set_world_config runs,
 	// unless HubOptions already supplied one at construction time.
 	world_factory ?db.Factory
-	packs         &resourcepack.PackRegistry   = unsafe { nil }
-	palette       &blockworld.BlockPalette = unsafe { nil }
+	packs         &resourcepack.PackRegistry = unsafe { nil }
+	palette       &blockworld.BlockPalette   = unsafe { nil }
 	ops           permission.OpList
 	player_grants permission.PlayerGrants
 	whitelist     permission.Whitelist
@@ -212,6 +211,50 @@ fn (mut h Hub) register_palette_fallbacks() {
 		}
 	}
 	h.items.register_fallbacks(item_entries)
+}
+
+// The following set_* methods are Hub's boot configuration surface. Each one
+// is called exactly once, from server.v's new(), after new_hub() returns and
+// before the listener starts accepting connections.
+
+pub fn (mut h Hub) set_lang(lang &language.Lang) {
+	h.lang = lang
+}
+
+pub fn (mut h Hub) set_initial_difficulty(value int) {
+	h.difficulty = value
+}
+
+pub fn (mut h Hub) set_conf_file(path string) {
+	h.conf_file = path
+}
+
+pub fn (mut h Hub) set_ops(ops permission.OpList) {
+	h.config_mutex.lock()
+	h.ops = ops
+	h.config_mutex.unlock()
+}
+
+pub fn (mut h Hub) set_player_grants(grants permission.PlayerGrants) {
+	h.player_grants = grants
+}
+
+pub fn (mut h Hub) set_whitelist(wl permission.Whitelist) {
+	h.config_mutex.lock()
+	h.whitelist = wl
+	h.config_mutex.unlock()
+}
+
+pub fn (mut h Hub) set_player_data_provider(provider playerdb.Provider) {
+	h.player_data_provider = provider
+}
+
+pub fn (mut h Hub) set_palette(palette &blockworld.BlockPalette) {
+	h.palette = palette
+}
+
+pub fn (mut h Hub) set_packs(packs &resourcepack.PackRegistry) {
+	h.packs = packs
 }
 
 pub fn (h &Hub) uptime_seconds() i64 {
@@ -388,14 +431,14 @@ fn (mut h Hub) players_in_world(name string) int {
 	return count
 }
 
-// register_generator adds or overrides a named world generator. Part of the
-// plugin.ServerView surface.
+// register_generator adds or overrides a named world generator, reachable
+// through Server.register_generator.
 pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Dimension) blockworld.Generator) {
 	h.generators.register(name, factory)
 }
 
-// generator_type_names lists every registered generator name. Part of the
-// plugin.ServerView surface.
+// generator_type_names lists every registered generator name, used by
+// commands that need to validate or list generator choices (e.g. /world).
 fn (mut h Hub) generator_type_names() []string {
 	return h.generators.names()
 }
@@ -459,6 +502,22 @@ pub fn (mut h Hub) load_world(name string) !string {
 	}
 	h.add_world(loaded_world)
 	return name
+}
+
+// load_or_create_world loads name from storage when it already exists there
+// or creates it fresh otherwise.
+pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, generator string) !string {
+	h.mutex.lock()
+	factory := h.world_factory or {
+		h.mutex.unlock()
+		return error('world factory not configured')
+	}
+
+	h.mutex.unlock()
+	if factory.exists(name) {
+		return h.load_world(name)
+	}
+	return h.create_world(name, dim, generator)
 }
 
 // unload_world flushes and releases a loaded world without deleting its
@@ -615,7 +674,8 @@ fn (mut h Hub) broadcast_message(text string) {
 	})
 }
 
-// online_count is the plugin.ServerView alias for count().
+// online_count is a name compatible alias for count(), used where online
+// player count reads more clearly at the call site than count() does.
 fn (mut h Hub) online_count() int {
 	return h.count()
 }
@@ -644,8 +704,8 @@ fn (mut h Hub) entity_type_names() []string {
 	return h.entity_registry.names()
 }
 
-// player_names lists the display names of every connected player. Part of the
-// plugin.ServerView surface.
+// player_names lists the display names of every connected player, used by
+// commands such as /list.
 fn (mut h Hub) player_names() []string {
 	h.mutex.lock()
 	defer { h.mutex.unlock() }
@@ -692,4 +752,51 @@ pub fn (mut h Hub) register_event(handler event.Handler, priority event.Priority
 
 pub fn (mut h Hub) unregister_event(handler event.Handler) {
 	h.events.unregister(handler)
+}
+
+// register_command adds command to the shared command registry, available
+// immediately to every connected session and the console.
+pub fn (mut h Hub) register_command(command cmd.Command) {
+	h.commands.register(command)
+}
+
+// unregister_command removes a previously registered command and any
+// aliases pointing to it by name.
+pub fn (mut h Hub) unregister_command(name string) {
+	h.commands.unregister(name)
+}
+
+// dispatch_command runs line against the shared command registry as sender.
+// The console loop and in game chat's prefix both funnel through here.
+pub fn (mut h Hub) dispatch_command(line string, mut sender cmd.Sender, ctx cmd.Context) ! {
+	h.commands.dispatch(line, mut sender, ctx)!
+}
+
+// run_task queues task to run on the next tick.
+pub fn (mut h Hub) run_task(task scheduler.Task) &scheduler.TaskHandler {
+	return h.scheduler.run_task(task)
+}
+
+// run_delayed queues task to run once, delay ticks from now.
+pub fn (mut h Hub) run_delayed(task scheduler.Task, delay i64) &scheduler.TaskHandler {
+	return h.scheduler.run_delayed(task, delay)
+}
+
+// run_repeating queues task to run every period ticks, starting next tick.
+pub fn (mut h Hub) run_repeating(task scheduler.Task, period i64) &scheduler.TaskHandler {
+	return h.scheduler.run_repeating(task, period)
+}
+
+// cancel_task stops and removes the scheduled task with the given id if it
+// is still queued. A caller holding the TaskHandler itself can call its own
+// cancel() directly instead; this is the by-id path for a caller that only
+// kept the id.
+pub fn (mut h Hub) cancel_task(id int) {
+	h.scheduler.cancel(id)
+}
+
+// scheduler_heartbeat advances the scheduler's clock and runs every task due
+// at or before tick. Called once per server tick from the tick loop.
+pub fn (mut h Hub) scheduler_heartbeat(tick i64) {
+	h.scheduler.heartbeat(tick)
 }
