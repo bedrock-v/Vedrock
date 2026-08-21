@@ -105,6 +105,10 @@ fn (mut t BlockingFakeTransport) enable_compression(threshold int) {}
 
 fn (mut t BlockingFakeTransport) enable_encryption(mut ctx encryption.Context) {}
 
+fn (t &BlockingFakeTransport) disable_encryption() bool {
+	return false
+}
+
 fn outbound_test_session(mut transport BlockingFakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{

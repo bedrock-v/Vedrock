@@ -1,7 +1,7 @@
 module network
 
 import time
-import raknet
+import nethernet
 import sync
 import protocol
 import protocol.serializer
@@ -10,8 +10,11 @@ import server.internal.encryption
 
 pub const default_compression_threshold = 256
 
+// is_connection_closed reports whether err is the peer going away rather than a
+// genuine failure. NetherNet reports it as a plain error, so the message is all
+// there is to match on.
 pub fn is_connection_closed(err IError) bool {
-	return err.code() == raknet.err_code_connection_closed
+	return err.msg().contains('connection closed')
 }
 
 // Inbound rate limits, enforced per connection over a 1s sliding window. A peer
@@ -28,7 +31,7 @@ pub const max_prelogin_packets = 64
 @[heap]
 pub struct Session {
 mut:
-	conn                &raknet.Conn = unsafe { nil }
+	conn                &nethernet.Conn = unsafe { nil }
 	pool                protocol.PacketPool
 	compression_enabled bool
 	threshold           int                 = default_compression_threshold
@@ -44,7 +47,7 @@ pub mut:
 	log &logger.Logger = unsafe { nil }
 }
 
-pub fn new_session(mut conn raknet.Conn, log &logger.Logger) &Session {
+pub fn new_session(mut conn nethernet.Conn, log &logger.Logger) &Session {
 	return &Session{
 		conn:         conn
 		pool:         new_selected_packet_pool()
@@ -123,37 +126,24 @@ pub fn (mut s Session) read() ![]protocol.Packet {
 	return packets
 }
 
-// decrypt_frame decrypts the batch body of an inbound wire frame when the
-// cipher is active. The 0xfe game-packet header stays in cleartext - only the
-// bytes after it are encrypted, matching the Bedrock framing. Called only from
-// the single read thread, so the decrypt keystream needs no extra lock.
+// decrypt_frame decrypts an inbound wire frame when the cipher is active.
+// NetherNet frames carry no cleartext header, so the whole message is
+// ciphertext. Called only from the single read thread, so the decrypt keystream
+// needs no extra lock.
 fn (mut s Session) decrypt_frame(raw []u8) ![]u8 {
 	if s.cipher == unsafe { nil } {
 		return raw
 	}
-	if raw.len == 0 || raw[0] != game_packet_header {
-		return error('invalid game packet header on encrypted frame')
-	}
-	body := unsafe { raw[1..] }
-	plain := s.cipher.decrypt(body)!
-	mut out := []u8{cap: plain.len + 1}
-	out << game_packet_header
-	out << plain
-	return out
+	return s.cipher.decrypt(raw)!
 }
 
-// encrypt_frame encrypts the batch body of an outbound frame when the cipher is
-// active, leaving the 0xfe header in cleartext. Callers must hold write_mutex.
+// encrypt_frame encrypts an outbound frame when the cipher is active. Callers
+// must hold write_mutex.
 fn (mut s Session) encrypt_frame(frame []u8) []u8 {
 	if s.cipher == unsafe { nil } {
 		return frame
 	}
-	body := frame[1..]
-	cipher := s.cipher.encrypt(body)
-	mut out := []u8{cap: cipher.len + 1}
-	out << game_packet_header
-	out << cipher
-	return out
+	return s.cipher.encrypt(frame)
 }
 
 fn (mut s Session) queue_locked(p protocol.Packet) {
@@ -205,9 +195,15 @@ pub fn (mut s Session) send_batch(packets []protocol.Packet) ! {
 }
 
 pub fn (mut s Session) remote_addr() string {
-	return s.conn.remote_addr()
+	return s.conn.remote_addr().str()
+}
+
+// disable_encryption reports that the transport already encrypts every byte, so
+// the protocol layer must not negotiate a second layer on top of it.
+pub fn (s &Session) disable_encryption() bool {
+	return s.conn.disable_encryption()
 }
 
 pub fn (mut s Session) close() {
-	s.conn.close() or {}
+	s.conn.close()
 }

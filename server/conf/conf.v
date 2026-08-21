@@ -2,21 +2,25 @@ module conf
 
 import os
 import toml
+import nethernet.discovery
 import server.internal.network
 
 pub struct Config {
 pub mut:
-	motd          string = 'Vedrock Server'
-	sub_motd      string = 'A V Bedrock server'
-	address       string = '0.0.0.0'
-	port          int    = 19132
+	motd     string = 'Vedrock Server'
+	sub_motd string = 'A V Bedrock server'
+	address  string = '0.0.0.0'
+	// port is where NetherNet LAN discovery listens. Clients broadcast to 7551,
+	// so a server on any other port is only reachable by one pointed at it.
+	port          int    = discovery.default_port
 	max_players   int    = 20
 	view_distance int    = 8
 	gamemode      string = 'survival'
 	difficulty    string = 'normal'
 	xbox_auth     bool   = true
-	// encryption negotiates Bedrock protocol encryption, which real clients
-	// complete against this server, so it stays on.
+	// encryption negotiates Bedrock protocol encryption. NetherNet already
+	// encrypts every byte over DTLS and reports so, in which case the handshake
+	// is skipped no matter what this says.
 	encryption            bool   = true
 	compression_threshold int    = 256
 	generator             string = 'flat'

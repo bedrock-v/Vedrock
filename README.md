@@ -35,7 +35,8 @@ v install
 # VPM does not currently support organization packages.
 v install --git https://github.com/bedrock-v/protocol.git
 v install --git https://github.com/bedrock-v/nbt.git
-v install --git https://github.com/bedrock-v/raknet.git
+v install --git https://github.com/bedrock-v/nethernet.git
+v install --git https://github.com/bedrock-v/webrtc-v.git
 ```
 
 You can develop a server directly inside the cloned repository or place one or more projects beneath it:

@@ -103,11 +103,11 @@ fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
 	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
 	// Negotiate protocol encryption before login_success so the rest of the
-	// session runs ciphered. Gated behind the encryption config flag (off by
-	// default until interop is verified). If the client sent no public key, or
-	// the handshake fails, we fall back to cleartext rather than dropping the
-	// player.
-	if s.cfg.encryption {
+	// session runs ciphered. Skipped when the transport already encrypts every
+	// byte (NetherNet's DTLS), and gated behind the encryption config flag. If
+	// the client sent no public key, or the handshake fails, we fall back to
+	// cleartext rather than dropping the player.
+	if s.cfg.encryption && !s.transport.disable_encryption() {
 		s.start_encryption(identity.client_public_key) or {
 			s.log.warn('Encryption handshake skipped for ${identity.display_name}: ${err}')
 		}
