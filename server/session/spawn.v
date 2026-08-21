@@ -6,6 +6,7 @@ import protocol
 import protocol.version.v662.enums as enums_662
 import protocol.version.v662.packets as packets_662
 import protocol.version.v662.types as types_662
+import protocol.version.v712.packets as packets_712
 import protocol.version.v776.packets as packets_776
 import protocol.version.v818.types as types_818
 import protocol.version.v944.types as types_944
@@ -85,6 +86,24 @@ fn safe_player_position_in_world(wld &db.World, gen world.Generator, pos types.V
 	return saved_floor_solid(saved_position_block_at(wld, gen, x, feet_y - 1, z))
 		&& saved_body_clear(saved_position_block_at(wld, gen, x, feet_y, z))
 		&& saved_body_clear(saved_position_block_at(wld, gen, x, feet_y + 1, z))
+}
+
+// jigsaw_structure_data is the jigsaw registry the client reads before
+// StartGame. The server defines no jigsaw structures, but the four lists have
+// to be there for the client to find them empty rather than missing.
+fn jigsaw_structure_data() &packets_712.JigsawStructureDataPacket {
+	mut root := nbt.new_compound()
+	for key in ['processors', 'template_pools', 'jigsaws', 'structure_sets'] {
+		root.set(key, nbt.Tag(nbt.List{
+			element_type: nbt.tag_compound
+		}))
+	}
+	return &packets_712.JigsawStructureDataPacket{
+		jigsaw_structure_data_tag: nbt.RootTag{
+			name: ''
+			tag:  nbt.Tag(root)
+		}
+	}
 }
 
 fn (mut s NetworkSession) start_game() ! {
@@ -220,10 +239,11 @@ fn (mut s NetworkSession) start_game() ! {
 	start_packet.position[2] = spawn_pos.z
 	start_packet.rotation[0] = spawn_pitch
 	start_packet.rotation[1] = spawn_yaw
+	s.transport.send(jigsaw_structure_data())!
 	// The client builds its collision registry from this while it reads the
-	// level, so it goes out ahead of StartGame. The server defines no custom
-	// shapes, but the packet itself is not optional.
-	s.transport.send(&packets_2168.VoxelShapesPacket{})!
+	// level, so it goes out ahead of StartGame. Only the vanilla shapes are
+	// sent, but the client still resolves them by the names carried here.
+	s.transport.send(s.voxel_shapes())!
 	s.transport.send(start_packet)!
 	s.transport.send(s.item_registry())!
 	// Sent unconditionally: the client resolves its own player actor against
@@ -664,7 +684,7 @@ fn subchunk_height_map(height_map []int, abs_index int) (packets_2192.HeightMapD
 	for i, y in height_map {
 		x := i / 16
 		z := i % 16
-		slot := (z << 4) | x
+		slot := z * 16 + x
 		if y > section_max_y {
 			out[slot] = 16
 			all_too_low = false

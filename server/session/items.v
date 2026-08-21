@@ -85,9 +85,50 @@ fn (s &NetworkSession) item_registry() &packets_776.ItemComponentPacket {
 	}
 }
 
+// voxel_shapes is the vanilla shape list with the names the client looks its
+// own copies up by.
+fn (s &NetworkSession) voxel_shapes() &packets_2168.VoxelShapesPacket {
+	loaded := s.hub.data.voxel_shapes
+	mut shapes := []packets_2168.VoxelShape{cap: loaded.shapes.len}
+	for shape in loaded.shapes {
+		shapes << packets_2168.VoxelShape{
+			cells:         packets_2168.VoxelCells{
+				x_size:  shape.x_size
+				y_size:  shape.y_size
+				z_size:  shape.z_size
+				storage: shape.storage
+			}
+			x_coordinates: shape.x_coordinates
+			y_coordinates: shape.y_coordinates
+			z_coordinates: shape.z_coordinates
+		}
+	}
+	mut names := []packets_2168.VoxelShapeNameEntry{cap: loaded.names.len}
+	for entry in loaded.names {
+		names << packets_2168.VoxelShapeNameEntry{
+			name: entry.name
+			id:   entry.id
+		}
+	}
+	return &packets_2168.VoxelShapesPacket{
+		shapes:   shapes
+		name_map: names
+	}
+}
+
+// custom_block_entries is every block the client has to be told about before
+// it can render or place one: the data driven vanilla blocks first, then the
+// blocks plugins registered.
 fn (s &NetworkSession) custom_block_entries() []packets_2168.BlockProperty {
 	defs := s.hub.custom_blocks.all()
-	mut out := []packets_2168.BlockProperty{cap: defs.len}
+	data_driven := s.hub.data.block_definitions
+	mut out := []packets_2168.BlockProperty{cap: data_driven.len + defs.len}
+	for def in data_driven {
+		out << packets_2168.BlockProperty{
+			block_name:       def.name
+			block_definition: def.properties
+		}
+	}
 	for def in defs {
 		entry := def.network_entry()
 		out << packets_2168.BlockProperty{
