@@ -6,9 +6,10 @@ import protocol.version.v662.types as types_662
 import protocol.version.v712.types as types_712
 import protocol.version.v800.types as types_800
 import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
-import protocol.version.v2168.enums as enums_2168
 import server.internal.network
+import protocol.version.v2192.packets as packets_2192
+import protocol.version.v2192.types as types_2192
+import protocol.version.v2192.enums as enums_2192
 
 const skin_width = u32(64)
 const skin_height = u32(64)
@@ -57,16 +58,16 @@ fn (s &NetworkSession) uuid() types_662.Uuid {
 	return network.uuid_from_bytes(parse_uuid(s.player.identity.uuid, s.runtime_id))
 }
 
-fn default_skin(id string) types_2168.SerializedSkin {
+fn default_skin(id string) types_2192.SerializedSkin {
 	pixels := []u8{len: int(skin_width * skin_height * 4), init: u8(0xff)}
-	return types_2168.SerializedSkin{
+	return types_2192.SerializedSkin{
 		skin_id:                         '${id}.Vedrock'
 		play_fab_id:                     ''
 		skin_resource_patch:             '{"geometry":{"default":"geometry.humanoid.custom"}}'
 		skin_image_width:                skin_width
 		skin_image_height:               skin_height
 		skin_image_bytes:                pixels
-		animations:                      []types_2168.SerializedSkinAnimationFrame{}
+		animations:                      []types_2192.SerializedSkinAnimationFrame{}
 		cape_image_width:                0
 		cape_image_height:               0
 		cape_image_bytes:                []u8{}
@@ -75,10 +76,10 @@ fn default_skin(id string) types_2168.SerializedSkin {
 		animation_data:                  ''
 		cape_id:                         ''
 		full_id:                         '${id}.Vedrock'
-		arm_size:                        enums_2168.ArmSizeType.wide
+		arm_size:                        enums_2192.ArmSizeType.wide
 		skin_color:                      0
-		persona_pieces:                  []types_2168.PersonaPiecesEntry{}
-		piece_tint_colors:               []types_2168.PieceTintColorsEntry{}
+		persona_pieces:                  []types_2192.PersonaPiecesEntry{}
+		piece_tint_colors:               []types_2192.PieceTintColorsEntry{}
 		is_premium_skin:                 false
 		is_persona_skin:                 false
 		is_persona_cape_on_classic_skin: false
@@ -89,11 +90,11 @@ fn default_skin(id string) types_2168.SerializedSkin {
 	}
 }
 
-fn (s &NetworkSession) player_list_add_packet() &packets_2168.PlayerListPacket {
-	return &packets_2168.PlayerListPacket{
+fn (s &NetworkSession) player_list_add_packet() &packets_2192.PlayerListPacket {
+	return &packets_2192.PlayerListPacket{
 		entries: [
-			packets_2168.PlayerListEntry(packets_2168.PlayerListAdd{
-				entry: packets_2168.AddPlayerListEntry{
+			packets_2192.PlayerListEntry(packets_2192.PlayerListAdd{
+				entry: packets_2192.AddPlayerListEntry{
 					uuid:             s.uuid()
 					target_actor_id:  network.actor_unique_id(i64(s.runtime_id))
 					player_name:      s.player.identity.display_name
@@ -116,10 +117,10 @@ fn (s &NetworkSession) player_list_add_packet() &packets_2168.PlayerListPacket {
 	}
 }
 
-fn (s &NetworkSession) player_list_remove_packet() &packets_2168.PlayerListPacket {
-	return &packets_2168.PlayerListPacket{
+fn (s &NetworkSession) player_list_remove_packet() &packets_2192.PlayerListPacket {
+	return &packets_2192.PlayerListPacket{
 		entries: [
-			packets_2168.PlayerListEntry(packets_2168.PlayerListRemove{
+			packets_2192.PlayerListEntry(packets_2192.PlayerListRemove{
 				uuid: s.uuid()
 			}),
 		]

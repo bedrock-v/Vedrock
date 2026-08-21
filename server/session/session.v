@@ -20,6 +20,7 @@ import server.entity
 import server.event
 import server.form
 import sync
+import protocol.version.v2192.packets as packets_2192
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -391,7 +392,7 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 			} else if p is packets_2168.MovePlayerPacket {
 				s.update_movement(network.vec3_from_array(p.position), p.rotation[0],
 					p.rotation[1], p.y_head_rotation, p.on_ground)
-			} else if p is packets_2168.PlayerAuthInputPacket {
+			} else if p is packets_2192.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
 			} else if p is packets_898.InteractPacket {
 				s.handle_interact(p)!
@@ -401,7 +402,7 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 				s.handle_item_stack_request(p)!
 			} else if p is packets_898.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is packets_2168.InventoryTransactionPacket {
+			} else if p is packets_2192.InventoryTransactionPacket {
 				s.handle_inventory_transaction(p)!
 			} else if p is packets_944.PlayerActionPacket {
 				s.handle_player_action(p)!

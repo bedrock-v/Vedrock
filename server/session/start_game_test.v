@@ -24,6 +24,7 @@ import server.player
 import server.player.playerdb
 import server.world
 import server.world.db
+import protocol.version.v2192.packets as packets_2192
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {
 	mut pool := network.new_selected_packet_pool()
@@ -240,7 +241,7 @@ fn test_subchunk_height_map_reports_relative_height() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16)
-	assert map_type == packets_2168.HeightMapDataType.has_data
+	assert map_type == packets_2192.HeightMapDataType.has_data
 	assert data[0][0] == 3
 	assert data[15][15] == 3
 }
@@ -250,7 +251,7 @@ fn test_subchunk_height_map_reports_all_too_low() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16 + 1)
-	assert map_type == packets_2168.HeightMapDataType.all_too_low
+	assert map_type == packets_2192.HeightMapDataType.all_too_low
 	assert data[0][0] == 0
 }
 

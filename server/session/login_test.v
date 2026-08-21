@@ -14,6 +14,7 @@ import server.internal.gamedata
 import server.internal.logger
 import server.permission
 import server.player
+import protocol.version.v2192.packets as packets_2192
 
 fn login_test_token(name string, xuid string, uuid string) string {
 	header := base64.url_encode('{"alg":"none"}'.bytes()).trim_right('=')
@@ -88,7 +89,7 @@ fn test_duplicate_login_rejected_while_first_session_is_pending_spawn() {
 	second.handle_login(packet)!
 
 	assert sent_packet[packets_2168.ResourcePacksInfoPacket](first_transport)
-	assert wait_for_sent[packets_1001.DisconnectPacket](second_transport, 5000)
+	assert wait_for_sent[packets_2192.DisconnectPacket](second_transport, 5000)
 	assert second.state == .closed
 }
 
@@ -149,6 +150,6 @@ fn test_max_players_counts_pending_logins_before_reserving_name() {
 	second.handle_login(second_packet)!
 
 	assert sent_packet[packets_2168.ResourcePacksInfoPacket](first_transport)
-	assert wait_for_sent[packets_1001.DisconnectPacket](second_transport, 5000)
+	assert wait_for_sent[packets_2192.DisconnectPacket](second_transport, 5000)
 	assert second.state == .closed
 }

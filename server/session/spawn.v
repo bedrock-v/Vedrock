@@ -19,6 +19,7 @@ import server.event
 import server.internal.network
 import server.world
 import server.world.db
+import protocol.version.v2192.packets as packets_2192
 
 const generated_chunk_cache_limit = 768
 // The initial spawn stream paces itself so the outbound queue is not filled
@@ -654,34 +655,35 @@ fn subchunk_center(pos [3]i32) types_2168.SubChunkPos {
 	}
 }
 
-fn subchunk_height_map(height_map []int, abs_index int) (packets_2168.HeightMapDataType, [16][16]i8) {
+fn subchunk_height_map(height_map []int, abs_index int) (packets_2192.HeightMapDataType, [272]i8) {
 	section_min_y := abs_index * 16
 	section_max_y := section_min_y + 15
-	mut out := [16][16]i8{}
+	mut out := [272]i8{}
 	mut all_too_high := true
 	mut all_too_low := true
 	for i, y in height_map {
 		x := i / 16
 		z := i % 16
+		slot := (z << 4) | x
 		if y > section_max_y {
-			out[x][z] = 16
+			out[slot] = 16
 			all_too_low = false
 		} else if y < section_min_y {
-			out[x][z] = -1
+			out[slot] = -1
 			all_too_high = false
 		} else {
-			out[x][z] = i8(y - section_min_y)
+			out[slot] = i8(y - section_min_y)
 			all_too_high = false
 			all_too_low = false
 		}
 	}
 	if all_too_high {
-		return packets_2168.HeightMapDataType.all_too_high, [16][16]i8{}
+		return packets_2192.HeightMapDataType.all_too_high, [272]i8{}
 	}
 	if all_too_low {
-		return packets_2168.HeightMapDataType.all_too_low, [16][16]i8{}
+		return packets_2192.HeightMapDataType.all_too_low, [272]i8{}
 	}
-	return packets_2168.HeightMapDataType.has_data, out
+	return packets_2192.HeightMapDataType.has_data, out
 }
 
 // handle_sub_chunk_request may run before outbound activation because
@@ -690,14 +692,14 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 	wld, gen := s.world_and_generator()
 	dim := if isnil(wld) { world.overworld } else { wld.dimension }
 	if p.dimension_type != dim.id {
-		mut entries := []packets_2168.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+		mut entries := []packets_2192.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 		for off in p.sub_chunk_pos_offsets {
-			entries << packets_2168.SubChunkDataEntry{
+			entries << packets_2192.SubChunkDataEntry{
 				sub_chunk_pos_offset:     off
 				sub_chunk_request_result: .wrong_dimension
 			}
 		}
-		s.send_maybe_queued(&packets_2168.SubChunkPacket{
+		s.send_maybe_queued(&packets_2192.SubChunkPacket{
 			cache_enabled:  false
 			dimension_type: p.dimension_type
 			center_pos:     subchunk_center(p.center_pos)
@@ -706,7 +708,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 		return
 	}
 
-	mut entries := []packets_2168.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+	mut entries := []packets_2192.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 	mut height_cache := map[u64][]int{}
 	mut tile_sent_columns := map[u64]bool{}
 	for off in p.sub_chunk_pos_offsets {
@@ -729,13 +731,13 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 		}
 		height_map_type, height_map_data := subchunk_height_map(height_map, abs_index)
 		terrain := chunk.serialize_subchunk(abs_index) or {
-			entries << packets_2168.SubChunkDataEntry{
+			entries << packets_2192.SubChunkDataEntry{
 				sub_chunk_pos_offset:     off
 				sub_chunk_request_result: .index_out_of_bounds
 			}
 			continue
 		}
-		entries << packets_2168.SubChunkDataEntry{
+		entries << packets_2192.SubChunkDataEntry{
 			sub_chunk_pos_offset:        off
 			sub_chunk_request_result:    .success
 			serialized_sub_chunk:        terrain
@@ -745,7 +747,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkReques
 			render_height_map_data:      height_map_data
 		}
 	}
-	s.send_maybe_queued(&packets_2168.SubChunkPacket{
+	s.send_maybe_queued(&packets_2192.SubChunkPacket{
 		cache_enabled:  false
 		dimension_type: p.dimension_type
 		center_pos:     subchunk_center(p.center_pos)
