@@ -16,6 +16,7 @@ import server.player
 import server.internal.auth
 import server.effect
 import time
+import protocol.version.v2192.packets as packets_2192
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := network.new_selected_packet_pool()
@@ -152,10 +153,10 @@ fn test_mob_effect_packet_roundtrip() {
 }
 
 fn test_player_list_add_roundtrip_with_skin() {
-	decoded := roundtrip_packet(&packets_2168.PlayerListPacket{
+	decoded := roundtrip_packet(&packets_2192.PlayerListPacket{
 		entries: [
-			packets_2168.PlayerListEntry(packets_2168.PlayerListAdd{
-				entry: packets_2168.AddPlayerListEntry{
+			packets_2192.PlayerListEntry(packets_2192.PlayerListAdd{
+				entry: packets_2192.AddPlayerListEntry{
 					uuid:            network.uuid_from_bytes(seed_uuid(5))
 					target_actor_id: network.actor_unique_id(5)
 					player_name:     'Steve'
@@ -172,10 +173,10 @@ fn test_player_list_add_roundtrip_with_skin() {
 		]
 	})!
 	assert decoded.name() == 'PlayerListPacket'
-	if decoded is packets_2168.PlayerListPacket {
+	if decoded is packets_2192.PlayerListPacket {
 		assert decoded.entries.len == 1
 		entry := decoded.entries[0]
-		if entry is packets_2168.PlayerListAdd {
+		if entry is packets_2192.PlayerListAdd {
 			assert entry.entry.player_name == 'Steve'
 			assert entry.entry.serialized_skin.skin_image_width == skin_width
 		} else {

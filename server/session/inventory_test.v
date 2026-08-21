@@ -13,6 +13,7 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import protocol.version.v2192.types as types_2192
 
 fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) packets_2168.MobEquipmentPacket {
 	return packets_2168.MobEquipmentPacket{
@@ -229,9 +230,9 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 			]
 		},
 	]
-	world_call[[]types_2168.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_2168.ItemStackResponseInfo {
+	world_call[[]types_2192.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_2192.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
-	}) or { []types_2168.ItemStackResponseInfo{} }
+	}) or { []types_2192.ItemStackResponseInfo{} }
 
 	_, net := s.inventory_stack_at(0)
 	assert net == 0

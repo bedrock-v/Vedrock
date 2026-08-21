@@ -15,6 +15,8 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
+import protocol.version.v2192.packets as packets_2192
+import protocol.version.v2192.types as types_2192
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -125,8 +127,8 @@ fn give_held_stack(mut s NetworkSession, item_id int, count int) {
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 }
 
-fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_2168.PlayerAuthInputPacket {
-	mut tx := types_2168.PackedItemUseLegacyInventoryTransaction{
+fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_2192.PlayerAuthInputPacket {
+	mut tx := types_2192.PackedItemUseLegacyInventoryTransaction{
 		action_type:      enums_662.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
 		position:         network.block_pos_v944(clicked_pos)
@@ -146,7 +148,7 @@ fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, 
 	tx.click_position[0] = 0.5
 	tx.click_position[1] = 1.0
 	tx.click_position[2] = 0.5
-	return packets_2168.PlayerAuthInputPacket{
+	return packets_2192.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }
@@ -185,7 +187,7 @@ fn test_inventory_transaction_packet_is_a_safe_no_op() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(packets_2168.InventoryTransactionPacket{})!
+	s.handle_inventory_transaction(packets_2192.InventoryTransactionPacket{})!
 
 	assert target.block_override(0, 1, 1) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())

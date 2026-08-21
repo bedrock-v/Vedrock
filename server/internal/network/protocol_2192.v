@@ -3,10 +3,10 @@ module network
 import protocol
 import protocol.version
 import protocol.version.v662.enums as enums_662
-import protocol.version.v2168
+import protocol.version.v2192
 
-pub const selected_protocol = 2168
-pub const selected_minecraft_version = '1.26.40'
+pub const selected_protocol = 2192
+pub const selected_minecraft_version = '1.26.50'
 pub const selected_player_auth_input_packet = u16(144)
 
 pub const difficulty_peaceful = int(0)
@@ -60,9 +60,9 @@ pub const level_event_stop_block_cracking = int(3601)
 pub const level_event_update_block_cracking = int(3602)
 
 pub fn selected_proto_version() version.ProtoVersion {
-	return version.ProtoVersion.v2168
+	return version.ProtoVersion.v2192
 }
 
 pub fn new_selected_packet_pool() protocol.PacketPool {
-	return v2168.new_pool()
+	return v2192.new_pool()
 }

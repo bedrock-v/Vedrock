@@ -7,10 +7,12 @@ import protocol.version.v2168.enums as enums_2168
 import protocol.types
 import server.item as itemmod
 import server.internal.network
+import protocol.version.v2192.packets as packets_2192
+import protocol.version.v2192.types as types_2192
 
 struct SlotChange {
 	container types_944.FullContainerName
-	info      types_2168.ItemStackResponseSlotInfo
+	info      types_2192.ItemStackResponseSlotInfo
 }
 
 // flat_slot maps supported window-0 container slots directly onto the
@@ -178,13 +180,12 @@ fn (mut s NetworkSession) handle_mob_equipment(p packets_2168.MobEquipmentPacket
 fn slot_change(container types_944.FullContainerName, slot i8, count int, net_id int) SlotChange {
 	return SlotChange{
 		container: container
-		info:      types_2168.ItemStackResponseSlotInfo{
-			requested_slot:        slot
-			slot:                  slot
-			amount:                i8(count)
-			has_item_stack_net_id: net_id != 0
-			item_stack_net_id:     i32(net_id)
-			custom_name:           types_2168.RedactableString{}
+		info:      types_2192.ItemStackResponseSlotInfo{
+			requested_slot:    slot
+			slot:              slot
+			amount:            i8(count)
+			item_stack_net_id: if net_id != 0 { ?i32(i32(net_id)) } else { none }
+			custom_name:       types_2168.RedactableString{}
 		}
 	}
 }
@@ -202,19 +203,19 @@ fn (mut s NetworkSession) handle_item_stack_request(p packets_2168.ItemStackRequ
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := p.requests
-	responses := world_call[[]types_2168.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_2168.ItemStackResponseInfo {
+	responses := world_call[[]types_2192.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_2192.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
-	}) or { []types_2168.ItemStackResponseInfo{} }
-	s.send_maybe_queued(&packets_2168.ItemStackResponsePacket{
+	}) or { []types_2192.ItemStackResponseInfo{} }
+	s.send_maybe_queued(&packets_2192.ItemStackResponsePacket{
 		responses: responses
 	})!
 }
 
-fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, requests []packets_2168.RequestsEntry) []types_2168.ItemStackResponseInfo {
+fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, requests []packets_2168.RequestsEntry) []types_2192.ItemStackResponseInfo {
 	mut target := tx.player_for_epoch(runtime_id, epoch) or {
-		return []types_2168.ItemStackResponseInfo{}
+		return []types_2192.ItemStackResponseInfo{}
 	}
-	mut out := []types_2168.ItemStackResponseInfo{}
+	mut out := []types_2192.ItemStackResponseInfo{}
 	for request in requests {
 		mut changes := []SlotChange{}
 		for action in request.actions {
@@ -248,7 +249,7 @@ fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, reques
 			}
 		}
 		persist_container_changes(mut tx, mut target, changes)
-		out << types_2168.ItemStackResponseInfo{
+		out << types_2192.ItemStackResponseInfo{
 			result:            enums_2168.ItemStackNetResult.success
 			has_containers:    true
 			containers:        group_changes(changes)
@@ -475,8 +476,8 @@ fn (mut s NetworkSession) replace_consumed_stack(src types_2168.ItemStackRequest
 	]
 }
 
-fn group_changes(changes []SlotChange) []types_2168.ItemStackResponseContainerInfo {
-	mut infos := []types_2168.ItemStackResponseContainerInfo{}
+fn group_changes(changes []SlotChange) []types_2192.ItemStackResponseContainerInfo {
+	mut infos := []types_2192.ItemStackResponseContainerInfo{}
 	for change in changes {
 		mut found := false
 		for mut info in infos {
@@ -487,7 +488,7 @@ fn group_changes(changes []SlotChange) []types_2168.ItemStackResponseContainerIn
 			}
 		}
 		if !found {
-			infos << types_2168.ItemStackResponseContainerInfo{
+			infos << types_2192.ItemStackResponseContainerInfo{
 				container_name: change.container
 				slots:          [change.info]
 			}

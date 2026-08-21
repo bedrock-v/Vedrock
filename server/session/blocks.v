@@ -12,6 +12,8 @@ import server.world
 import server.block
 import server.item
 import server.internal.network
+import protocol.version.v2192.packets as packets_2192
+import protocol.version.v2192.types as types_2192
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -58,10 +60,10 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 }
 
 // handle_inventory_transaction processes the standalone InventoryTransactionPacket.
-fn (mut s NetworkSession) handle_inventory_transaction(_ packets_2168.InventoryTransactionPacket) ! {
+fn (mut s NetworkSession) handle_inventory_transaction(_ packets_2192.InventoryTransactionPacket) ! {
 }
 
-fn (mut s NetworkSession) handle_player_auth_input(p packets_2168.PlayerAuthInputPacket) ! {
+fn (mut s NetworkSession) handle_player_auth_input(p packets_2192.PlayerAuthInputPacket) ! {
 	on_ground := enums_2168.PlayerAuthInputData.vertical_collision in p.input_data
 	s.update_movement(network.vec3_from_array(p.player_position), p.player_rotation[0],
 		p.player_rotation[1], p.player_head_rotation, on_ground)
@@ -75,7 +77,7 @@ fn (mut s NetworkSession) handle_player_auth_input(p packets_2168.PlayerAuthInpu
 	}
 }
 
-fn (mut s NetworkSession) handle_item_use_transaction(tx types_2168.PackedItemUseLegacyInventoryTransaction) ! {
+fn (mut s NetworkSession) handle_item_use_transaction(tx types_2192.PackedItemUseLegacyInventoryTransaction) ! {
 	pos := network.block_pos_from_v944(tx.position)
 	match tx.action_type {
 		.place {

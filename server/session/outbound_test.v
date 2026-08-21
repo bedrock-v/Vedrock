@@ -12,6 +12,7 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import protocol.version.v2192.packets as packets_2192
 
 fn text_packet(message string) &packets_924.TextPacket {
 	return &packets_924.TextPacket{
@@ -162,7 +163,7 @@ fn test_outbound_preserves_order_before_disconnect() {
 		}
 	}
 	if c := transport.sent[2] {
-		assert c is packets_1001.DisconnectPacket
+		assert c is packets_2192.DisconnectPacket
 	}
 	_ := <-s.outbound_done
 	assert s.state == .closed
@@ -417,7 +418,7 @@ fn test_disconnect_rejects_later_packet_enqueue() {
 	assert blocking_sent_text(transport, 1, 2000)
 	assert transport.sent.len == 1
 	if p := transport.sent[0] {
-		assert p is packets_1001.DisconnectPacket
+		assert p is packets_2192.DisconnectPacket
 	}
 	_ := <-s.outbound_done
 }
@@ -593,7 +594,7 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 
 	mut disconnect_count := 0
 	for p in transport.sent {
-		if p is packets_1001.DisconnectPacket {
+		if p is packets_2192.DisconnectPacket {
 			disconnect_count++
 		}
 	}
