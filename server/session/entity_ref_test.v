@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.version.v662.packets as packets_662
+
 import protocol.types
 import server.entity
 import server.internal.auth
@@ -10,6 +10,7 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import protocol.current as proto
 
 fn entity_ref_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeTransport, display_name string) &NetworkSession {
 	mut pl := player.new_player()
@@ -149,7 +150,7 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 	assert found_move
 	mut saw_move := false
 	for p in transport.sent {
-		if p is packets_662.MoveActorAbsolutePacket {
+		if p is proto.MoveActorAbsolutePacket {
 			saw_move = true
 		}
 	}

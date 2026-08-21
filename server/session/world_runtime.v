@@ -5,13 +5,13 @@ import sync.stdatomic
 import time
 import rand
 import protocol
-import protocol.version.v944.packets as packets_944
+
 import protocol.types
-import server.internal.network
 import server.block
 import server.entity
 import server.event
 import server.world.db
+import protocol.current as proto
 
 // max_world_catchup_ticks limits how many missed simulation steps a
 // WorldRuntime replays before advancing directly to the latest requested tick.
@@ -163,9 +163,9 @@ fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
 
 // update_block_packet builds the packet both WorldTx.broadcast_block and
 // WorldLiquidHost.set_block_id send, avoiding duplicating the field list.
-fn update_block_packet(x int, y int, z int, id int) &packets_944.UpdateBlockPacket {
-	return &packets_944.UpdateBlockPacket{
-		block_position:   network.block_pos_v944(types.BlockPosition{x, y, z})
+fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
+	return &proto.UpdateBlockPacket{
+		block_position:   proto.block_pos(types.BlockPosition{x, y, z})
 		block_runtime_id: u32(id)
 		flags:            block_update_flags
 		layer:            0

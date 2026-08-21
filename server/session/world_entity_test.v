@@ -1,9 +1,8 @@
 module session
 
 import time
-import protocol.version.v2168.packets as packets_2168
+
 import protocol.types
-import server.internal.network
 import server.entity
 import server.event
 import server.internal.gamedata
@@ -11,6 +10,7 @@ import server.internal.auth
 import server.player
 import server.world
 import server.world.db
+import protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -82,14 +82,14 @@ fn test_entity_spawn_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_spawn := false
 	for p in a_transport.sent {
-		if p is packets_2168.AddActorPacket {
+		if p is proto.AddActorPacket {
 			a_saw_spawn = true
 		}
 	}
 	assert a_saw_spawn
 
 	for p in b_transport.sent {
-		assert p !is packets_2168.AddActorPacket
+		assert p !is proto.AddActorPacket
 	}
 }
 
@@ -370,7 +370,7 @@ fn test_damage_entity_never_reaches_another_worlds_player() {
 	mut b_transport := &FakeTransport{}
 	entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
 	mut session_b := entity_isolation_test_session(mut hub, mut b_transport, mut wr_b, pos)
-	session_b.player.set_game_mode(network.game_type_survival)
+	session_b.player.set_game_mode(proto.game_type_survival)
 	before_health := session_b.player.health()
 
 	mut host_a := WorldEntityHost{

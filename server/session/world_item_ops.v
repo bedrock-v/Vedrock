@@ -2,11 +2,11 @@ module session
 
 import math
 import rand
-import protocol.version.v662.packets as packets_662
+
 import protocol.types
-import server.internal.network
 import server.block
 import server.entity
+import protocol.current as proto
 
 fn spawn_dropped_item_entity(mut wr WorldRuntime, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
 	if stack.count <= 0 || stack.id == 0 {
@@ -121,8 +121,8 @@ fn (mut h WorldEntityHost) collect_item(runtime_id u64, stack types.ItemStack) i
 // notify_item_taken broadcasts the pickup animation to this world's
 // viewers.
 fn (mut h WorldEntityHost) notify_item_taken(item_runtime_id u64, taker_runtime_id u64) {
-	h.wr.broadcast_world(&packets_662.TakeItemActorPacket{
-		item_runtime_id:  network.actor_runtime_id(item_runtime_id)
-		actor_runtime_id: network.actor_runtime_id(taker_runtime_id)
+	h.wr.broadcast_world(&proto.TakeItemActorPacket{
+		item_runtime_id:  proto.actor_runtime_id(item_runtime_id)
+		actor_runtime_id: proto.actor_runtime_id(taker_runtime_id)
 	})
 }

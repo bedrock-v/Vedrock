@@ -2,9 +2,7 @@ module session
 
 import time
 import protocol
-import protocol.version.v924.enums as enums_924
-import protocol.version.v924.packets as packets_924
-import protocol.version.v1001.packets as packets_1001
+
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth
@@ -12,25 +10,19 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import protocol.version.v2192.packets as packets_2192
+import protocol.current as proto
 
-fn text_packet(message string) &packets_924.TextPacket {
-	return &packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+fn text_packet(message string) &proto.TextPacket {
+	return &proto.TextPacket{
+		message_type: proto.TextRaw{
 			message: message
 		}
 	}
 }
 
-fn text_packet_message(p packets_924.TextPacket) string {
-	match p.message_type {
-		enums_924.TextRaw {
-			return p.message_type.message
-		}
-		else {
-			return ''
-		}
-	}
+fn text_packet_message(p proto.TextPacket) string {
+	raw := proto.text_raw(p.message_type) or { return '' }
+	return raw.message
 }
 
 @[heap]
@@ -149,21 +141,21 @@ fn test_outbound_preserves_order_before_disconnect() {
 	assert blocking_sent_text(transport, 3, 2000)
 	assert transport.sent.len == 3
 	if a := transport.sent[0] {
-		if a is packets_924.TextPacket {
+		if a is proto.TextPacket {
 			assert text_packet_message(a) == 'A'
 		} else {
 			assert false
 		}
 	}
 	if b := transport.sent[1] {
-		if b is packets_924.TextPacket {
+		if b is proto.TextPacket {
 			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[2] {
-		assert c is packets_2192.DisconnectPacket
+		assert c is proto.DisconnectPacket
 	}
 	_ := <-s.outbound_done
 	assert s.state == .closed
@@ -344,7 +336,7 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 
 	mut abc_start := -1
 	for i, p in transport.sent {
-		if p is packets_924.TextPacket {
+		if p is proto.TextPacket {
 			if text_packet_message(p) == 'A' {
 				abc_start = i
 			}
@@ -353,14 +345,14 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 	assert abc_start >= 0
 	assert abc_start + 2 < transport.sent.len
 	if b := transport.sent[abc_start + 1] {
-		if b is packets_924.TextPacket {
+		if b is proto.TextPacket {
 			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[abc_start + 2] {
-		if c is packets_924.TextPacket {
+		if c is proto.TextPacket {
 			assert text_packet_message(c) == 'C'
 		} else {
 			assert false
@@ -418,7 +410,7 @@ fn test_disconnect_rejects_later_packet_enqueue() {
 	assert blocking_sent_text(transport, 1, 2000)
 	assert transport.sent.len == 1
 	if p := transport.sent[0] {
-		assert p is packets_2192.DisconnectPacket
+		assert p is proto.DisconnectPacket
 	}
 	_ := <-s.outbound_done
 }
@@ -594,7 +586,7 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 
 	mut disconnect_count := 0
 	for p in transport.sent {
-		if p is packets_2192.DisconnectPacket {
+		if p is proto.DisconnectPacket {
 			disconnect_count++
 		}
 	}

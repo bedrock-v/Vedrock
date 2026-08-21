@@ -1,18 +1,13 @@
 module session
 
 import rand
-import protocol.version.v662.enums as enums_662
-import protocol.version.v944.packets as packets_944
-import protocol.version.v944.types as types_944
-import protocol.version.v944.enums as enums_944
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
+
 import protocol.types
 import server.entity
-import server.internal.network
 import server.world.db
+import protocol.current as proto
 
-const chest_dynamic_container_id = int(enums_662.ContainerID.first)
+const chest_dynamic_container_id = int(proto.ContainerID.first)
 
 fn (s &NetworkSession) open_container_position() ?types.BlockPosition {
 	mut m := s.open_container_mutex
@@ -72,32 +67,32 @@ fn (mut tx WorldTx) open_chest_container(mut s NetworkSession, pos types.BlockPo
 	}
 	s.set_open_container_position(pos)
 	stacks := tx.wr.world.container_slots(pos.x, pos.y, pos.z)
-	mut descriptors := []types_2168.NetworkItemStackDescriptorV2{cap: db.container_slot_count}
+	mut descriptors := []proto.NetworkItemStackDescriptorV2{cap: db.container_slot_count}
 	mut slot_net_ids := map[int]int{}
 	for slot, stack in stacks {
 		if stack.count > 0 && stack.id != 0 {
 			net_id := s.player.track_stack(stack)
 			slot_net_ids[slot] = net_id
-			descriptors << network.item_descriptor_v2168_v2_tracked(stack, net_id)
+			descriptors << proto.item_descriptor_v2_tracked(stack, net_id)
 		} else {
-			descriptors << network.item_descriptor_v2168_v2(stack)
+			descriptors << proto.item_descriptor_v2(stack)
 		}
 	}
 	s.set_open_container_slots(slot_net_ids)
-	s.deliver(&packets_944.ContainerOpenPacket{
-		container_id:    enums_662.ContainerID.first
-		container_type:  enums_662.ContainerType.container
-		position:        network.block_pos_v944(pos)
-		target_actor_id: network.actor_unique_id(-1)
+	s.deliver(&proto.ContainerOpenPacket{
+		container_id:    proto.ContainerID.first
+		container_type:  proto.ContainerType.container
+		position:        proto.block_pos(pos)
+		target_actor_id: proto.actor_unique_id(-1)
 	})
-	s.deliver(&packets_2168.InventoryContentPacket{
+	s.deliver(&proto.InventoryContentPacket{
 		inventory_id:        u32(chest_dynamic_container_id)
 		slots:               descriptors
-		container_name_data: types_944.FullContainerName{
-			container:  enums_944.ContainerEnumName.dynamic_container
+		container_name_data: proto.FullContainerName{
+			container:  proto.ContainerEnumName.dynamic_container
 			dynamic_id: i32(chest_dynamic_container_id)
 		}
-		storage_item:        network.item_descriptor_v2168_v2(types.ItemStack{})
+		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
 	})
 }
 

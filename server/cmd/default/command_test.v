@@ -1,15 +1,13 @@
 module default
 
 import protocol
-import protocol.version.v898.enums as enums_898
-import protocol.version.v898.packets as packets_898
-import protocol.version.v898.types as types_898
+
 import protocol.serializer
-import server.internal.network
 import server.internal.language
 import server.permission
 import server.form
 import server.cmd
+import protocol.current as proto
 
 fn full_registry() cmd.Registry {
 	mut r := cmd.new_registry()
@@ -232,8 +230,8 @@ fn test_version_command() {
 	r.dispatch('/version', mut sender, base_ctx())!
 	assert sender.messages.len == 1
 	assert sender.messages[0].contains('Vedrock')
-	assert sender.messages[0].contains(network.selected_minecraft_version)
-	assert sender.messages[0].contains(network.selected_protocol.str())
+	assert sender.messages[0].contains(proto.selected_minecraft_version)
+	assert sender.messages[0].contains(proto.selected_protocol.str())
 }
 
 fn test_version_alias() {
@@ -272,7 +270,7 @@ fn test_gamemode_command() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
-	assert sender.gamemode == network.game_type_creative
+	assert sender.gamemode == proto.game_type_creative
 	assert sender.messages[0].contains('commands.gamemode.success.self')
 }
 
@@ -350,26 +348,24 @@ fn test_resolve_missing() {
 }
 
 fn test_command_request_roundtrip() {
-	pkt := packets_898.CommandRequestPacket{
+	pkt := proto.CommandRequestPacket{
 		command:        '/version'
-		command_origin: types_898.CommandOriginData{
-			command_type: enums_898.CommandOriginType.player
+		command_origin: proto.CommandOriginData{
+			command_type: proto.CommandOriginType.player
 			request_id:   'req-1'
 		}
 		version:        '1'
 	}
 	encoded := protocol.encode_packet_to_bytes(&pkt)
-	mut pool := network.new_selected_packet_pool()
+	mut pool := proto.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'CommandRequestPacket'
-	if decoded is packets_898.CommandRequestPacket {
-		assert decoded.command == '/version'
-		assert decoded.command_origin.command_type == enums_898.CommandOriginType.player
-		assert decoded.command_origin.request_id == 'req-1'
-	} else {
-		assert false
-	}
+	mut request := proto.CommandRequestPacket{}
+	decode_into(&pkt, mut request)!
+	assert request.command == '/version'
+	assert request.command_origin.command_type == proto.CommandOriginType.player
+	assert request.command_origin.request_id == 'req-1'
 }
 
 fn test_available_commands_roundtrip() {
@@ -379,17 +375,15 @@ fn test_available_commands_roundtrip() {
 	pkt := r.available_commands(sender)
 	assert pkt.commands.len == 14
 	encoded := protocol.encode_packet_to_bytes(pkt)
-	mut pool := network.new_selected_packet_pool()
+	mut pool := proto.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
-	if decoded is packets_898.AvailableCommandsPacket {
-		assert decoded.commands.len == 14
-		assert decoded.commands[0].alias_enum == -1
-		assert decoded.commands[0].overloads.len == 1
-	} else {
-		assert false
-	}
+	mut available := proto.AvailableCommandsPacket{}
+	decode_into(pkt, mut available)!
+	assert available.commands.len == 14
+	assert available.commands[0].alias_enum == -1
+	assert available.commands[0].overloads.len == 1
 }
 
 fn test_world_list_reports_loaded_worlds() {
@@ -496,8 +490,8 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 		assert !seen[v], 'enum_values contains a duplicate: ${v}'
 		seen[v] = true
 	}
-	mut gamemode_enum := packets_898.EnumDataEntry{}
-	mut difficulty_enum := packets_898.EnumDataEntry{}
+	mut gamemode_enum := proto.EnumDataEntry{}
+	mut difficulty_enum := proto.EnumDataEntry{}
 	for e in pkt.enum_data {
 		if e.name == 'gamemode_mode' {
 			gamemode_enum = e
@@ -520,4 +514,13 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 		'spectator']
 	assert difficulty_values == ['peaceful', 'p', '0', 'easy', 'e', '1', 'normal', 'n', '2', 'hard',
 		'h', '3']
+}
+
+// decode_into reads a packet's payload back into a typed value. The pool builds
+// the type the version module declares, which an alias of it does not stand in
+// for, so the fields are read back directly instead of through a type check.
+fn decode_into[T](p protocol.Packet, mut out T) ! {
+	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
+	protocol.read_packet_header(mut r)!
+	out.decode_payload(mut r)!
 }

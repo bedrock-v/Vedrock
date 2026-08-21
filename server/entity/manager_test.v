@@ -3,12 +3,11 @@ module entity
 import os
 import time
 import protocol
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.enums as enums_2168
+
 import protocol.types
-import server.internal.network
 import server.world
 import server.effect
+import protocol.current as proto
 
 // FakeHost stands in for Hub: it hands out ids, counts broadcasts and backs a
 // small in-memory block grid so collision can be tested without a real world.
@@ -530,7 +529,7 @@ fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
 	e.health = 7
 
 	packet := e.spawn_packet()
-	if packet is packets_2168.AddActorPacket {
+	if packet is proto.AddActorPacket {
 		assert packet.attributes.len == 1
 		assert packet.attributes[0].attribute_name == 'minecraft:health'
 		assert packet.attributes[0].current_value == 7
@@ -539,15 +538,15 @@ fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
 		mut saw_width := false
 		mut saw_height := false
 		for entry in packet.actor_data {
-			if entry.data_item_id == network.meta_key_width {
-				if entry.data_item_type is enums_2168.DataItemFloat {
-					assert entry.data_item_type.value == f32(0.9)
+			if entry.data_item_id == proto.meta_key_width {
+				if value := proto.data_item_float(entry.data_item_type) {
+					assert value.value == f32(0.9)
 					saw_width = true
 				}
 			}
-			if entry.data_item_id == network.meta_key_height {
-				if entry.data_item_type is enums_2168.DataItemFloat {
-					assert entry.data_item_type.value == f32(1.4)
+			if entry.data_item_id == proto.meta_key_height {
+				if value := proto.data_item_float(entry.data_item_type) {
+					assert value.value == f32(1.4)
 					saw_height = true
 				}
 			}
@@ -926,7 +925,7 @@ fn test_item_spawn_packet_is_add_item_actor_not_add_actor() {
 	mut m := new_manager(host)
 	e := spawn_item(mut m, 5, 3, 64, types.Vector3{0, 5, 0})
 	pkt := e.spawn_packet()
-	if pkt is packets_2168.AddItemActorPacket {
+	if pkt is proto.AddItemActorPacket {
 		assert pkt.item.id == 5
 		assert pkt.item.stack_size == 3
 	} else {

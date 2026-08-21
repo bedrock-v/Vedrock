@@ -1,10 +1,7 @@
 module session
 
 import protocol
-import protocol.version.v662.packets as packets_662
-import protocol.version.v662.enums as enums_662
-import protocol.version.v662.types as types_662
-import protocol.version.v2168.packets as packets_2168
+import protocol.current as proto
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the
@@ -23,20 +20,20 @@ const sidebar_slot = 'sidebar'
 fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 	mut packets := []protocol.Packet{cap: lines.len + 2}
 	// Drop any previous board first so re-showing replaces cleanly.
-	packets << &packets_662.RemoveObjectivePacket{
+	packets << &proto.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	}
-	packets << &packets_662.SetDisplayObjectivePacket{
+	packets << &proto.SetDisplayObjectivePacket{
 		display_slot_name:      sidebar_slot
 		objective_name:         sidebar_objective
 		objective_display_name: title
 		criteria_name:          'dummy'
-		sort_order:             enums_662.ObjectiveSortOrder.ascending
+		sort_order:             proto.ObjectiveSortOrder.ascending
 	}
-	mut entries := []packets_2168.ScorePacketEntry{cap: lines.len}
+	mut entries := proto.ScorePacketEntries{}
 	for i, line in lines {
-		entries << packets_2168.ScoreEntryChangeFakePlayer{
-			scoreboard_id:    types_662.ScoreboardId{
+		entries << proto.ScoreEntryChangeFakePlayer{
+			scoreboard_id:    proto.ScoreboardId{
 				id: i64(i + 1)
 			}
 			objective_name:   sidebar_objective
@@ -44,7 +41,7 @@ fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 			fake_player_name: line
 		}
 	}
-	packets << &packets_2168.SetScorePacket{
+	packets << &proto.SetScorePacket{
 		score_info: entries
 	}
 	return packets
@@ -59,7 +56,7 @@ fn (mut s NetworkSession) show_scoreboard(title string, lines []string) {
 }
 
 fn (mut s NetworkSession) clear_scoreboard() {
-	s.deliver(&packets_662.RemoveObjectivePacket{
+	s.deliver(&proto.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	})
 }

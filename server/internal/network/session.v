@@ -7,6 +7,7 @@ import protocol
 import protocol.serializer
 import server.internal.logger
 import server.internal.encryption
+import protocol.current as proto
 
 pub const default_compression_threshold = 256
 
@@ -47,7 +48,7 @@ pub mut:
 pub fn new_session(mut conn raknet.Conn, log &logger.Logger) &Session {
 	return &Session{
 		conn:         conn
-		pool:         new_selected_packet_pool()
+		pool:         proto.new_packet_pool()
 		write_mutex:  sync.new_mutex()
 		window_start: time.now()
 		log:          log

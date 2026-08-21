@@ -1,13 +1,6 @@
 module session
 
 import time
-import server.internal.network
-import protocol.version.v662.enums as enums_662
-import protocol.version.v662.packets as packets_662
-import protocol.version.v662.types as types_662
-import protocol.version.v944.packets as packets_944
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
 import protocol.types
 import server.event
 import server.internal.gamedata
@@ -17,11 +10,10 @@ import server.world
 import server.world.db
 import server.block
 import server.item
-import protocol.version.v2192.packets as packets_2192
-import protocol.version.v2192.types as types_2192
+import protocol.current as proto
 
-fn block_pos_v662(pos types.BlockPosition) types_662.BlockPos {
-	return types_662.BlockPos{
+fn block_pos_v662(pos types.BlockPosition) proto.BlockPos {
+	return proto.BlockPos{
 		x: i32(pos.x)
 		y: i32(pos.y)
 		z: i32(pos.z)
@@ -32,14 +24,14 @@ fn wire_runtime_id(id int) u32 {
 	return u32(id)
 }
 
-fn place_auth_input_packet(block_position types.BlockPosition, block_face int, hotbar_slot int, held_item types.ItemStack, position types.Vector3, clicked_position types.Vector3, target_block_id u32) packets_2192.PlayerAuthInputPacket {
-	mut tx := types_2192.PackedItemUseLegacyInventoryTransaction{
-		action_type:      enums_662.ItemUseInventoryTransactionType.place
+fn place_auth_input_packet(block_position types.BlockPosition, block_face int, hotbar_slot int, held_item types.ItemStack, position types.Vector3, clicked_position types.Vector3, target_block_id u32) proto.PlayerAuthInputPacket {
+	mut tx := proto.PackedItemUseLegacyInventoryTransaction{
+		action_type:      proto.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
-		position:         network.block_pos_v944(block_position)
+		position:         proto.block_pos(block_position)
 		face:             block_face
 		slot:             hotbar_slot
-		item:             network.item_descriptor_v2168(held_item)
+		item:             proto.item_descriptor(held_item)
 		target_block_id:  target_block_id
 		predicted_result: .success
 	}
@@ -49,7 +41,7 @@ fn place_auth_input_packet(block_position types.BlockPosition, block_face int, h
 	tx.click_position[0] = clicked_position.x
 	tx.click_position[1] = clicked_position.y
 	tx.click_position[2] = clicked_position.z
-	return packets_2192.PlayerAuthInputPacket{
+	return proto.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }
@@ -83,7 +75,7 @@ fn make_test_player(name string, mode int) &player.Player {
 
 fn test_within_place_reach_survival_vs_creative() {
 	mut pl := player.new_player()
-	pl.set_game_mode(network.game_type_survival)
+	pl.set_game_mode(proto.game_type_survival)
 	mut s := &NetworkSession{
 		player: pl
 	}
@@ -94,7 +86,7 @@ fn test_within_place_reach_survival_vs_creative() {
 	assert s.within_place_reach(near_pos)
 	assert !s.within_place_reach(far_pos)
 
-	s.player.set_game_mode(network.game_type_creative)
+	s.player.set_game_mode(proto.game_type_creative)
 	assert s.within_place_reach(far_pos)
 }
 
@@ -129,8 +121,8 @@ fn test_place_block_rejects_when_occupied() {
 	assert !placed
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
-		assert sent.block_position == network.block_pos_v944(pos)
+	if sent is proto.UpdateBlockPacket {
+		assert sent.block_position == proto.block_pos(pos)
 	} else {
 		assert false
 	}
@@ -170,8 +162,8 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 
 	mut saw_update := false
 	for p in transport.sent {
-		if p is packets_944.UpdateBlockPacket {
-			if p.block_position == network.block_pos_v944(pos)
+		if p is proto.UpdateBlockPacket {
+			if p.block_position == proto.block_pos(pos)
 				&& p.block_runtime_id == wire_runtime_id(world.bedrock.network_id) {
 				saw_update = true
 			}
@@ -230,7 +222,7 @@ fn test_break_block_unbreakable_resends_without_event() {
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(network.game_type_survival)
+	pl.set_game_mode(proto.game_type_survival)
 	mut s := &NetworkSession{
 		player:     pl
 		runtime_id: 1
@@ -246,7 +238,7 @@ fn test_break_block_unbreakable_resends_without_event() {
 	s.break_block(pos)!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is proto.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(old_id)
 	} else {
 		assert false
@@ -272,7 +264,7 @@ fn test_break_block_air_resends_authoritative_state() {
 	s.break_block(types.BlockPosition{0, 0, 0})!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is proto.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(world.air.network_id)
 	} else {
 		assert false
@@ -285,7 +277,7 @@ fn test_break_block_rejects_out_of_reach() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:     make_test_player('Alex', network.game_type_survival)
+		player:     make_test_player('Alex', proto.game_type_survival)
 		runtime_id: 1
 		transport:  transport
 		hub:        hub
@@ -307,7 +299,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:     make_test_player('Alex', network.game_type_survival)
+		player:     make_test_player('Alex', proto.game_type_survival)
 		runtime_id: 1
 		transport:  transport
 		hub:        hub
@@ -324,7 +316,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	}
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is proto.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(old_id)
 	} else {
 		assert false
@@ -427,7 +419,7 @@ fn test_face_offset_covers_all_six_faces() {
 
 fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSession {
 	mut s := &NetworkSession{
-		player:     make_test_player('Alex', network.game_type_survival)
+		player:     make_test_player('Alex', proto.game_type_survival)
 		runtime_id: 1
 		transport:  transport
 		hub:        hub
@@ -492,7 +484,7 @@ fn test_break_block_rejects_mismatched_position() {
 	s.break_block(pos)!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is proto.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(dirt_id)
 	} else {
 		assert false
@@ -505,7 +497,7 @@ fn test_break_block_creative_bypasses_gating() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', network.game_type_creative)
+		player:        make_test_player('Alex', proto.game_type_creative)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -542,7 +534,7 @@ fn test_place_resolves_block_from_item_registry() {
 	})
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', network.game_type_creative)
+		player:        make_test_player('Alex', proto.game_type_creative)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -591,7 +583,7 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 	})
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', network.game_type_survival)
+		player:        make_test_player('Alex', proto.game_type_survival)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -629,7 +621,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 	target.set_block(0, world.overworld.min_y + 1, 0, world.dirt.network_id)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', network.game_type_spectator)
+		player:        make_test_player('Alex', proto.game_type_spectator)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -661,7 +653,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 
 	mut break_transport := &FakeTransport{}
 	mut breaker := dirt_break_test_session(mut hub, mut break_transport)
-	breaker.player.set_game_mode(network.game_type_spectator)
+	breaker.player.set_game_mode(proto.game_type_spectator)
 	breaker.world = target
 	breaker.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
 	breaker.generator = world.FlatGenerator{}
@@ -688,7 +680,7 @@ fn test_empty_hand_interact_places_nothing() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', network.game_type_creative)
+		player:        make_test_player('Alex', proto.game_type_creative)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -780,9 +772,9 @@ fn test_block_pick_request_creative_adds_new_item_when_not_held() {
 			42: 500
 		}
 	})
-	mut s := pick_request_test_session(mut hub, network.game_type_creative, pos, 42)
+	mut s := pick_request_test_session(mut hub, proto.game_type_creative, pos, 42)
 
-	s.handle_block_pick_request(packets_662.BlockPickRequestPacket{
+	s.handle_block_pick_request(proto.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
 	})!
 
@@ -798,9 +790,9 @@ fn test_block_pick_request_survival_without_existing_item_is_noop() {
 			42: 500
 		}
 	})
-	mut s := pick_request_test_session(mut hub, network.game_type_survival, pos, 42)
+	mut s := pick_request_test_session(mut hub, proto.game_type_survival, pos, 42)
 
-	s.handle_block_pick_request(packets_662.BlockPickRequestPacket{
+	s.handle_block_pick_request(proto.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
 	})!
 
@@ -814,7 +806,7 @@ fn test_block_pick_request_selects_existing_item_into_hand() {
 			42: 500
 		}
 	})
-	mut s := pick_request_test_session(mut hub, network.game_type_survival, pos, 42)
+	mut s := pick_request_test_session(mut hub, proto.game_type_survival, pos, 42)
 	existing := types.ItemStack{
 		id:               500
 		count:            1
@@ -825,7 +817,7 @@ fn test_block_pick_request_selects_existing_item_into_hand() {
 	// rather than the plain select_hotbar_slot one.
 	s.player.set_slot(give_hotbar_size, net_id)
 
-	s.handle_block_pick_request(packets_662.BlockPickRequestPacket{
+	s.handle_block_pick_request(proto.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
 	})!
 

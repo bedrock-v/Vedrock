@@ -6,9 +6,7 @@ import sync.stdatomic
 import math
 import time
 import protocol
-import protocol.version.v924.packets as packets_924
-import protocol.version.v924.enums as enums_924
-import server.internal.network
+
 import server.event
 import server.scheduler
 import server.entity
@@ -25,6 +23,7 @@ import server.permission
 import server.enchant
 import server.internal.auth
 import server.player.playerdb
+import protocol.current as proto
 
 // Hub contains the server's actor-model internals rather than its public
 // API. It remains a public type only so Server can hold a reference to it
@@ -89,7 +88,7 @@ mut:
 	ops           permission.OpList
 	player_grants permission.PlayerGrants
 	whitelist     permission.Whitelist
-	difficulty    int = network.difficulty_easy
+	difficulty    int = proto.difficulty_easy
 	// conf_file is the path to this instance's own settings file (set from
 	// conf.Config.config_file, not a shared default) so runtime difficulty
 	// changes persist back to the correct per instance file.
@@ -683,8 +682,8 @@ pub fn (mut h Hub) count() int {
 
 // broadcast_message sends a raw chat line to every connected player.
 fn (mut h Hub) broadcast_message(text string) {
-	h.broadcast(&packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+	h.broadcast(&proto.TextPacket{
+		message_type: proto.TextRaw{
 			message: text
 		}
 	})

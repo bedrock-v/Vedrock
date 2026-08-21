@@ -2,92 +2,89 @@ module session
 
 import os
 import protocol
-import protocol.version.v662.types as types_662
-import protocol.version.v729.packets as packets_729
-import protocol.version.v944.packets as packets_944
-import protocol.version.v944.types as types_944
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
-import protocol.version.v2168.enums as enums_2168
+
 import protocol.types
 import protocol.serializer
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
-import server.internal.network
 import server.player
 import server.player.playerdb
+import protocol.current as proto
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
-	mut pool := network.new_selected_packet_pool()
+	mut pool := proto.new_packet_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
 }
 
+// decode_into reads a packet's payload back into a typed value. The pool builds
+// the type the version module declares, which an alias of it does not stand in
+// for, so the fields are read back directly instead of through a type check.
+fn decode_into[T](p protocol.Packet, mut out T) ! {
+	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
+	protocol.read_packet_header(mut r)!
+	out.decode_payload(mut r)!
+}
+
 fn test_inventory_content_roundtrip() {
-	decoded := decode_packet(&packets_2168.InventoryContentPacket{
+	sent := &proto.InventoryContentPacket{
 		inventory_id:        u32(inventory_window_id)
 		slots:               [
-			network.item_descriptor_v2168_v2(types.ItemStack{ id: 1, count: 64 }),
+			proto.item_descriptor_v2(types.ItemStack{ id: 1, count: 64 }),
 		]
-		container_name_data: types_944.FullContainerName{
+		container_name_data: proto.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        network.item_descriptor_v2168_v2(types.ItemStack{})
-	})!
-	assert decoded.name() == 'InventoryContentPacket'
-	if decoded is packets_2168.InventoryContentPacket {
-		assert decoded.inventory_id == u32(inventory_window_id)
-		assert decoded.slots[0].id == 1
-	} else {
-		assert false
+		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
 	}
+	assert decode_packet(sent)!.name() == 'InventoryContentPacket'
+	mut decoded := proto.InventoryContentPacket{}
+	decode_into(sent, mut decoded)!
+	assert decoded.inventory_id == u32(inventory_window_id)
+	assert decoded.slots[0].id == 1
 }
 
 fn test_container_open_roundtrip() {
-	decoded := decode_packet(&packets_944.ContainerOpenPacket{
+	sent := &proto.ContainerOpenPacket{
 		container_id:    .inventory
 		container_type:  .inventory
-		position:        types_944.NetworkBlockPosition{
+		position:        proto.NetworkBlockPosition{
 			x: 0
 			y: 64
 			z: 0
 		}
-		target_actor_id: network.actor_unique_id(-1)
-	})!
-	assert decoded.name() == 'ContainerOpenPacket'
-	if decoded is packets_944.ContainerOpenPacket {
-		assert decoded.container_id == .inventory
-		assert decoded.target_actor_id.value == -1
-	} else {
-		assert false
+		target_actor_id: proto.actor_unique_id(-1)
 	}
+	assert decode_packet(sent)!.name() == 'ContainerOpenPacket'
+	mut decoded := proto.ContainerOpenPacket{}
+	decode_into(sent, mut decoded)!
+	assert decoded.container_id == .inventory
+	assert decoded.target_actor_id.value == -1
 }
 
 fn test_set_actor_data_flags_roundtrip() {
-	flags := entity_flag_bit(network.entity_flag_affected_by_gravity) | entity_flag_bit(network.entity_flag_has_collision)
-	decoded := decode_packet(&packets_2168.SetActorDataPacket{
-		target_runtime_id: network.actor_runtime_id(1)
+	flags := entity_flag_bit(proto.entity_flag_affected_by_gravity) | entity_flag_bit(proto.entity_flag_has_collision)
+	sent := &proto.SetActorDataPacket{
+		target_runtime_id: proto.actor_runtime_id(1)
 		actor_data:        [
-			types_2168.DataItem{
-				data_item_id:   network.meta_key_flags
-				data_item_type: enums_2168.DataItemType(enums_2168.DataItemInt64{
+			proto.DataItem{
+				data_item_id:   proto.meta_key_flags
+				data_item_type: proto.DataItemInt64{
 					value: flags
-				})
+				}
 			},
 		]
-		synced_properties: types_662.PropertySyncData{}
+		synced_properties: proto.PropertySyncData{}
 		tick:              0
-	})!
-	assert decoded.name() == 'SetActorDataPacket'
-	if decoded is packets_2168.SetActorDataPacket {
-		assert decoded.actor_data.len == 1
-		assert decoded.actor_data[0].data_item_id == network.meta_key_flags
-	} else {
-		assert false
 	}
+	assert decode_packet(sent)!.name() == 'SetActorDataPacket'
+	mut decoded := proto.SetActorDataPacket{}
+	decode_into(sent, mut decoded)!
+	assert decoded.actor_data.len == 1
+	assert decoded.actor_data[0].data_item_id == proto.meta_key_flags
 }
 
 fn test_creative_content_replaces_empty_group_icons() {
@@ -123,22 +120,20 @@ fn test_creative_content_replaces_empty_group_icons() {
 }
 
 fn test_update_attributes_roundtrip() {
-	decoded := decode_packet(&packets_729.UpdateAttributesPacket{
-		target_runtime_id:       network.actor_runtime_id(4)
+	sent := &proto.UpdateAttributesPacket{
+		target_runtime_id:       proto.actor_runtime_id(4)
 		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
 			player_attribute('minecraft:movement', 0.0, 1.0, 0.1),
 		]
 		ticks_since_sim_started: 0
-	})!
-	assert decoded.name() == 'UpdateAttributesPacket'
-	if decoded is packets_729.UpdateAttributesPacket {
-		assert decoded.attribute_list.len == 2
-		assert decoded.attribute_list[0].attribute_name == 'minecraft:health'
-		assert decoded.attribute_list[0].current_value == 20.0
-	} else {
-		assert false
 	}
+	assert decode_packet(sent)!.name() == 'UpdateAttributesPacket'
+	mut decoded := proto.UpdateAttributesPacket{}
+	decode_into(sent, mut decoded)!
+	assert decoded.attribute_list.len == 2
+	assert decoded.attribute_list[0].attribute_name == 'minecraft:health'
+	assert decoded.attribute_list[0].current_value == 20.0
 }
 
 fn test_save_data_preserves_inventory_slot_numbers() {

@@ -2,13 +2,7 @@ module session
 
 import server.internal.network
 import protocol
-import protocol.version.v662.packets as packets_662
-import protocol.version.v685.packets as packets_685
-import protocol.version.v898.packets as packets_898
-import protocol.version.v924.packets as packets_924
-import protocol.version.v944.packets as packets_944
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v2168.packets as packets_2168
+
 import protocol.types
 import server.internal.logger
 import server.conf
@@ -20,7 +14,7 @@ import server.entity
 import server.event
 import server.form
 import sync
-import protocol.version.v2192.packets as packets_2192
+import protocol.current as proto
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -346,77 +340,77 @@ fn (mut s NetworkSession) leave() {
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 	match s.state {
 		.handshake {
-			if p is packets_662.RequestNetworkSettingsPacket {
+			if p is proto.RequestNetworkSettingsPacket {
 				s.handle_request_network_settings(p)!
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state handshake')
 			}
 		}
 		.login {
-			if p is packets_662.LoginPacket {
+			if p is proto.LoginPacket {
 				s.handle_login(p)!
-			} else if p is packets_662.ClientToServerHandshakePacket {
+			} else if p is proto.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is packets_662.RequestChunkRadiusPacket {
+			} else if p is proto.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state login')
 			}
 		}
 		.resource_packs {
-			if p is packets_2168.ResourcePackClientResponsePacket {
+			if p is proto.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
-			} else if p is packets_662.ResourcePackChunkRequestPacket {
+			} else if p is proto.ResourcePackChunkRequestPacket {
 				s.handle_resource_pack_chunk_request(p)!
-			} else if p is packets_662.ClientToServerHandshakePacket {
+			} else if p is proto.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is packets_662.RequestChunkRadiusPacket {
+			} else if p is proto.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state resource_packs')
 			}
 		}
 		.play {
-			if p is packets_662.RequestChunkRadiusPacket {
+			if p is proto.RequestChunkRadiusPacket {
 				if should_stream_chunk_radius_async(s.state, s.spawned) {
 					s.handle_play_chunk_radius_async(p)
 				} else {
 					s.handle_request_chunk_radius(p)!
 				}
-			} else if p is packets_1001.SubChunkRequestPacket {
+			} else if p is proto.SubChunkRequestPacket {
 				s.handle_sub_chunk_request(p)!
-			} else if p is packets_662.SetLocalPlayerAsInitializedPacket {
+			} else if p is proto.SetLocalPlayerAsInitializedPacket {
 				s.handle_player_initialized(p)!
-			} else if p is packets_924.TextPacket {
+			} else if p is proto.TextPacket {
 				s.handle_text(p)!
-			} else if p is packets_2168.MovePlayerPacket {
-				s.update_movement(network.vec3_from_array(p.position), p.rotation[0],
+			} else if p is proto.MovePlayerPacket {
+				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0],
 					p.rotation[1], p.y_head_rotation, p.on_ground)
-			} else if p is packets_2192.PlayerAuthInputPacket {
+			} else if p is proto.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
-			} else if p is packets_898.InteractPacket {
+			} else if p is proto.InteractPacket {
 				s.handle_interact(p)!
-			} else if p is packets_685.ContainerClosePacket {
+			} else if p is proto.ContainerClosePacket {
 				s.handle_container_close(p)!
-			} else if p is packets_2168.ItemStackRequestPacket {
+			} else if p is proto.ItemStackRequestPacket {
 				s.handle_item_stack_request(p)!
-			} else if p is packets_898.CommandRequestPacket {
+			} else if p is proto.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is packets_2192.InventoryTransactionPacket {
+			} else if p is proto.InventoryTransactionPacket {
 				s.handle_inventory_transaction(p)!
-			} else if p is packets_944.PlayerActionPacket {
+			} else if p is proto.PlayerActionPacket {
 				s.handle_player_action(p)!
-			} else if p is packets_662.BlockPickRequestPacket {
+			} else if p is proto.BlockPickRequestPacket {
 				s.handle_block_pick_request(p)!
-			} else if p is packets_2168.MobEquipmentPacket {
+			} else if p is proto.MobEquipmentPacket {
 				s.handle_mob_equipment(p)!
-			} else if p is packets_662.RespawnPacket {
+			} else if p is proto.RespawnPacket {
 				s.handle_respawn(p)!
-			} else if p is packets_662.ModalFormResponsePacket {
+			} else if p is proto.ModalFormResponsePacket {
 				s.handle_modal_form_response(p)!
-			} else if p is packets_924.BookEditPacket {
+			} else if p is proto.BookEditPacket {
 				s.handle_book_edit(p)!
-			} else if p is packets_944.BlockActorDataPacket {
+			} else if p is proto.BlockActorDataPacket {
 				s.handle_block_actor_data(p)!
 			}
 		}

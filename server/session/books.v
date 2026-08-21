@@ -1,17 +1,16 @@
 module session
 
-import protocol.version.v924.packets as packets_924
-import protocol.version.v924.enums as enums_924
 import protocol.types
 import server.item
+import protocol.current as proto
 
 // Book edits are session local inventory work: item lookup uses shared
 // readonly data, and mutation goes through Player's state lock.
-fn (mut s NetworkSession) handle_book_edit(p packets_924.BookEditPacket) ! {
+fn (mut s NetworkSession) handle_book_edit(p proto.BookEditPacket) ! {
 	s.apply_book_edit(p)
 }
 
-fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
+fn (mut s NetworkSession) apply_book_edit(p proto.BookEditPacket) {
 	stack, net := s.inventory_stack_at(p.book_slot)
 	if net == 0 {
 		return
@@ -21,39 +20,40 @@ fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
 	}
 
 	mut pages := item.book_pages_from_nbt(stack.raw_extra_data)
-	match p.action {
-		enums_924.BookEditFinalize {
-			s.sign_book(p.book_slot, stack, net, p.action.title, p.action.author)
+	action := proto.book_edit_action(p.action)
+	match action {
+		proto.BookEditFinalize {
+			s.sign_book(p.book_slot, stack, net, action.title, action.author)
 			return
 		}
-		enums_924.BookEditReplacePage {
-			if p.action.page_index < 0 || p.action.page_index >= item.max_book_pages {
+		proto.BookEditReplacePage {
+			if action.page_index < 0 || action.page_index >= item.max_book_pages {
 				return
 			}
-			for pages.len <= p.action.page_index {
+			for pages.len <= action.page_index {
 				pages << ''
 			}
-			pages[p.action.page_index] = truncate_page(p.action.text)
+			pages[action.page_index] = truncate_page(action.text)
 		}
-		enums_924.BookEditAddPage {
-			if p.action.page_index < 0 || p.action.page_index > pages.len
-				|| p.action.page_index >= item.max_book_pages {
+		proto.BookEditAddPage {
+			if action.page_index < 0 || action.page_index > pages.len
+				|| action.page_index >= item.max_book_pages {
 				return
 			}
-			pages.insert(int(p.action.page_index), truncate_page(p.action.text))
+			pages.insert(action.page_index, truncate_page(action.text))
 		}
-		enums_924.BookEditDeletePage {
-			if p.action.page_index < 0 || p.action.page_index >= pages.len {
+		proto.BookEditDeletePage {
+			if action.page_index < 0 || action.page_index >= pages.len {
 				return
 			}
-			pages.delete(p.action.page_index)
+			pages.delete(action.page_index)
 		}
-		enums_924.BookEditSwapPages {
-			if p.action.page_index_a < 0 || p.action.page_index_a >= pages.len
-				|| p.action.page_index_b < 0 || p.action.page_index_b >= pages.len {
+		proto.BookEditSwapPages {
+			if action.page_index_a < 0 || action.page_index_a >= pages.len
+				|| action.page_index_b < 0 || action.page_index_b >= pages.len {
 				return
 			}
-			pages[p.action.page_index_a], pages[p.action.page_index_b] = pages[p.action.page_index_b], pages[p.action.page_index_a]
+			pages[action.page_index_a], pages[action.page_index_b] = pages[action.page_index_b], pages[action.page_index_a]
 		}
 	}
 

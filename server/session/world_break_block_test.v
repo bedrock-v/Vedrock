@@ -1,18 +1,17 @@
 module session
 
 import time
-import protocol.version.v662.packets as packets_662
-import protocol.version.v944.packets as packets_944
+
 import protocol.types
 import server.effect
 import server.event
-import server.internal.network
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
 import server.item
+import protocol.current as proto
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -40,7 +39,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(network.game_type_survival)
+	pl.set_game_mode(proto.game_type_survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
@@ -178,7 +177,7 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
-		assert p !is packets_944.UpdateBlockPacket
+		assert p !is proto.UpdateBlockPacket
 	}
 }
 
@@ -238,7 +237,7 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 fn break_sent_level_event(transport &FakeTransport) bool {
 	for p in transport.sent {
-		if p is packets_662.LevelEventPacket {
+		if p is proto.LevelEventPacket {
 			return true
 		}
 	}

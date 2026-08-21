@@ -6,8 +6,8 @@ import server.block
 import server.effect
 import server.event
 import server.item
-import server.internal.network
 import server.world
+import protocol.current as proto
 
 // break_fx_interval_ticks is how often the punch particle and the arm swing
 // repeat while a player keeps mining the same block.
@@ -150,7 +150,7 @@ fn (t StartBreakAnimationTask) name() string {
 fn (t StartBreakAnimationTask) run(mut tx WorldTx) {
 	s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
 	if t.crack_speed > 0 {
-		tx.broadcast_cracking(network.level_event_start_block_cracking, t.pos, t.crack_speed)
+		tx.broadcast_cracking(proto.level_event_start_block_cracking, t.pos, t.crack_speed)
 	}
 	tx.broadcast_swing(s)
 }
@@ -220,7 +220,7 @@ fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_f
 		if bp.x == pos.x && bp.y == pos.y && bp.z == pos.z {
 			return
 		}
-		s.broadcast_cracking(network.level_event_stop_block_cracking, types.BlockPosition{bp.x, bp.y, bp.z},
+		s.broadcast_cracking(proto.level_event_stop_block_cracking, types.BlockPosition{bp.x, bp.y, bp.z},
 			0)
 	}
 	s.handle_start_break(pos, click_face)
@@ -228,7 +228,7 @@ fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_f
 
 fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
 	s.set_breaking(none)
-	s.broadcast_cracking(network.level_event_stop_block_cracking, pos, 0)
+	s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
 }
 
 // tick_breaking advances the block this player is mining by one tick and
@@ -325,7 +325,7 @@ fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
 	}
 	tool_type, harvest_level, efficiency := s.held_mining_stats()
 	mut ticks := info.break_seconds(tool_type, harvest_level, efficiency) * f32(effect.ticks_per_second)
-	if !s.supported_by_ground() && s.player.game_mode() != network.game_type_creative {
+	if !s.supported_by_ground() && s.player.game_mode() != proto.game_type_creative {
 		ticks *= in_air_break_penalty
 	}
 	if s.head_submerged() {

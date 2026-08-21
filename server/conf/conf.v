@@ -2,7 +2,7 @@ module conf
 
 import os
 import toml
-import server.internal.network
+import protocol.current as proto
 
 pub struct Config {
 pub mut:
@@ -170,21 +170,21 @@ pub fn (c &Config) bind_address() string {
 // constant. Unknown values fall back to normal.
 pub fn difficulty_from_string(s string) int {
 	return match s.to_lower() {
-		'peaceful', 'p', '0' { network.difficulty_peaceful }
-		'easy', 'e', '1' { network.difficulty_easy }
-		'normal', 'n', '2' { network.difficulty_normal }
-		'hard', 'h', '3' { network.difficulty_hard }
-		else { network.difficulty_normal }
+		'peaceful', 'p', '0' { proto.difficulty_peaceful }
+		'easy', 'e', '1' { proto.difficulty_easy }
+		'normal', 'n', '2' { proto.difficulty_normal }
+		'hard', 'h', '3' { proto.difficulty_hard }
+		else { proto.difficulty_normal }
 	}
 }
 
 // difficulty_name returns the canonical name for a protocol difficulty constant.
 pub fn difficulty_name(value int) string {
 	return match value {
-		network.difficulty_peaceful { 'peaceful' }
-		network.difficulty_easy { 'easy' }
-		network.difficulty_normal { 'normal' }
-		network.difficulty_hard { 'hard' }
+		proto.difficulty_peaceful { 'peaceful' }
+		proto.difficulty_easy { 'easy' }
+		proto.difficulty_normal { 'normal' }
+		proto.difficulty_hard { 'hard' }
 		else { 'normal' }
 	}
 }

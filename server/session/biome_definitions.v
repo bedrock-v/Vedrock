@@ -2,10 +2,10 @@ module session
 
 import os
 import protocol
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v1001.types as types_1001
+
 import server.internal.gamedata
 import server.world
+import protocol.current as proto
 
 struct BiomeDescriptor {
 	id          int
@@ -175,18 +175,18 @@ fn biome_definition_list() protocol.Packet {
 
 // generated_biome_definition_list is the fallback used when the captured
 // registry is missing: it covers the ids the generators actually assign.
-fn generated_biome_definition_list() &packets_1001.BiomeDefinitionListPacket {
+fn generated_biome_definition_list() &proto.BiomeDefinitionListPacket {
 	mut strings := []string{}
-	mut biomes := []packets_1001.BiomeEntry{}
+	mut biomes := []proto.BiomeEntry{}
 	for d in vanilla_biome_descriptors {
 		name_index := u16(strings.len)
 		// The client matches these against its own registry, which is
 		// namespaced. A bare name resolves to nothing and leaves every biome
 		// id in the chunk data it receives next unresolvable.
 		strings << 'minecraft:${d.name}'
-		biomes << packets_1001.BiomeEntry{
+		biomes << proto.BiomeEntry{
 			name_index: name_index
-			definition: types_1001.BiomeDefinition{
+			definition: proto.BiomeDefinition{
 				id:              u16(d.id)
 				temperature:     d.temperature
 				downfall:        d.downfall
@@ -198,7 +198,7 @@ fn generated_biome_definition_list() &packets_1001.BiomeDefinitionListPacket {
 			}
 		}
 	}
-	return &packets_1001.BiomeDefinitionListPacket{
+	return &proto.BiomeDefinitionListPacket{
 		biomes:  biomes
 		strings: strings
 	}

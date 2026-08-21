@@ -5,10 +5,10 @@ import protocol.types
 import server.effect
 import server.internal.auth
 import server.internal.gamedata
-import server.internal.network
 import server.player
 import server.world
 import server.world.db
+import protocol.current as proto
 
 fn dst_test_player(name string, health f32, mode int) &player.Player {
 	mut pl := player.new_player()
@@ -28,7 +28,7 @@ fn damage_source_test_world(mut hub Hub) &WorldRuntime {
 
 fn damage_source_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32) &NetworkSession {
 	mut s := &NetworkSession{
-		player:     dst_test_player(name, health, network.game_type_survival)
+		player:     dst_test_player(name, health, proto.game_type_survival)
 		runtime_id: hub.allocate_runtime_id()
 		hub:        hub
 		transport:  &FakeTransport{}
@@ -186,7 +186,7 @@ fn test_apply_fall_damage_uses_fall_damage_source_and_creative_is_immune() {
 	victim.apply_fall_damage(mut wr, 5.0)
 	assert victim.player.health() == 18
 
-	victim.player.set_game_mode(network.game_type_creative)
+	victim.player.set_game_mode(proto.game_type_creative)
 	victim.apply_fall_damage(mut wr, 10.0)
 	assert victim.player.health() == 18
 }

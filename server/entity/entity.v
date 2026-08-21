@@ -1,20 +1,11 @@
 module entity
 
 import protocol
-import protocol.version.v662.packets as packets_662
-import protocol.version.v712.packets as packets_712
-import protocol.version.v729.packets as packets_729
-import protocol.version.v975.packets as packets_975
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v662.types as types_662
-import protocol.version.v712.types as types_712
-import protocol.version.v975.enums as enums_975
-import protocol.version.v2168.types as types_2168
-import protocol.version.v2168.enums as enums_2168
+
 import protocol.types
-import server.internal.network
 import server.world
 import server.effect
+import protocol.current as proto
 
 // gravity and drag are applied per tick to any entity that is not marked
 // no_gravity. Values are in blocks/tick, matching Bedrock's ~0.08 gravity and
@@ -111,9 +102,9 @@ pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime
 	if e.health < 0 {
 		e.health = 0
 	}
-	host.broadcast(&packets_975.ActorEventPacket{
-		target_runtime_id: network.actor_runtime_id(e.runtime_id)
-		event_id:          enums_975.ActorEvent.hurt
+	host.broadcast(&proto.ActorEventPacket{
+		target_runtime_id: proto.actor_runtime_id(e.runtime_id)
+		event_id:          proto.ActorEvent.hurt
 		data:              0
 	})
 	host.broadcast(e.health_update_packet())
@@ -385,10 +376,10 @@ fn math_floor(v f32) f32 {
 pub fn (e &Entity) spawn_packet() protocol.Packet {
 	if e.behaviour is ItemBehaviour {
 		item_stack := e.behaviour.stack
-		mut packet := &packets_2168.AddItemActorPacket{
-			target_actor_id:   network.actor_unique_id(e.unique_id)
-			target_runtime_id: network.actor_runtime_id(e.runtime_id)
-			item:              network.item_descriptor_v2168(item_stack)
+		mut packet := &proto.AddItemActorPacket{
+			target_actor_id:   proto.actor_unique_id(e.unique_id)
+			target_runtime_id: proto.actor_runtime_id(e.runtime_id)
+			item:              proto.item_descriptor(item_stack)
 			entity_data:       e.metadata_entries()
 			from_fishing:      false
 		}
@@ -400,16 +391,16 @@ pub fn (e &Entity) spawn_packet() protocol.Packet {
 		packet.velocity[2] = e.velocity.z
 		return packet
 	}
-	mut packet := &packets_2168.AddActorPacket{
-		target_actor_id:   network.actor_unique_id(e.unique_id)
-		target_runtime_id: network.actor_runtime_id(e.runtime_id)
+	mut packet := &proto.AddActorPacket{
+		target_actor_id:   proto.actor_unique_id(e.unique_id)
+		target_runtime_id: proto.actor_runtime_id(e.runtime_id)
 		actor_type:        e.identifier
 		y_head_rotation:   e.head_yaw
 		y_body_rotation:   e.yaw
 		attributes:        e.attribute_entries()
 		actor_data:        e.metadata_entries()
-		synced_properties: types_662.PropertySyncData{}
-		actor_links:       []types_712.ActorLink{}
+		synced_properties: proto.PropertySyncData{}
+		actor_links:       []proto.ActorLink{}
 	}
 	packet.position[0] = e.pos.x
 	packet.position[1] = e.pos.y
@@ -424,9 +415,9 @@ pub fn (e &Entity) spawn_packet() protocol.Packet {
 
 // attribute_entries builds the health attribute the client needs at spawn
 // time.
-fn (e &Entity) attribute_entries() []packets_712.AttributeEntry {
+fn (e &Entity) attribute_entries() proto.AttributeEntries {
 	return [
-		packets_712.AttributeEntry{
+		proto.AttributeEntry{
 			attribute_name: 'minecraft:health'
 			min_value:      0.0
 			current_value:  e.health
@@ -438,11 +429,11 @@ fn (e &Entity) attribute_entries() []packets_712.AttributeEntry {
 // health_update_packet reports the current health attribute to observers.
 // Used whenever health changes after spawn (hurt/heal) so a client watching
 // this entity's health bar actually sees the new value.
-fn (e &Entity) health_update_packet() &packets_729.UpdateAttributesPacket {
-	return &packets_729.UpdateAttributesPacket{
-		target_runtime_id:       network.actor_runtime_id(e.runtime_id)
+fn (e &Entity) health_update_packet() &proto.UpdateAttributesPacket {
+	return &proto.UpdateAttributesPacket{
+		target_runtime_id:       proto.actor_runtime_id(e.runtime_id)
 		attribute_list:          [
-			packets_729.AttributeData{
+			proto.AttributeData{
 				min_value:           0.0
 				max_value:           mob_max_health
 				current_value:       e.health
@@ -450,7 +441,7 @@ fn (e &Entity) health_update_packet() &packets_729.UpdateAttributesPacket {
 				default_max:         mob_max_health
 				default_value:       mob_max_health
 				attribute_name:      'minecraft:health'
-				attribute_modifiers: []packets_729.AttributeModifier{}
+				attribute_modifiers: []proto.AttributeModifier{}
 			},
 		]
 		ticks_since_sim_started: 0
@@ -463,66 +454,66 @@ fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
 }
 
-fn (e &Entity) metadata_entries() []types_2168.DataItem {
+fn (e &Entity) metadata_entries() []proto.DataItem {
 	mut flags := i64(0)
 	if e.dimensions.has_collision {
-		flags |= entity_flag_bit(network.entity_flag_has_collision)
+		flags |= entity_flag_bit(proto.entity_flag_has_collision)
 	}
 	if !e.no_gravity {
-		flags |= entity_flag_bit(network.entity_flag_affected_by_gravity)
+		flags |= entity_flag_bit(proto.entity_flag_affected_by_gravity)
 	}
 	return [
-		types_2168.DataItem{
-			data_item_id:   network.meta_key_flags
-			data_item_type: enums_2168.DataItemType(enums_2168.DataItemInt64{
+		proto.DataItem{
+			data_item_id:   proto.meta_key_flags
+			data_item_type: proto.DataItemInt64{
 				value: flags
-			})
+			}
 		},
-		types_2168.DataItem{
-			data_item_id:   network.meta_key_scale
-			data_item_type: enums_2168.DataItemType(enums_2168.DataItemFloat{
+		proto.DataItem{
+			data_item_id:   proto.meta_key_scale
+			data_item_type: proto.DataItemFloat{
 				value: f32(1.0)
-			})
+			}
 		},
-		types_2168.DataItem{
-			data_item_id:   network.meta_key_width
-			data_item_type: enums_2168.DataItemType(enums_2168.DataItemFloat{
+		proto.DataItem{
+			data_item_id:   proto.meta_key_width
+			data_item_type: proto.DataItemFloat{
 				value: e.dimensions.width
-			})
+			}
 		},
-		types_2168.DataItem{
-			data_item_id:   network.meta_key_height
-			data_item_type: enums_2168.DataItemType(enums_2168.DataItemFloat{
+		proto.DataItem{
+			data_item_id:   proto.meta_key_height
+			data_item_type: proto.DataItemFloat{
 				value: e.dimensions.height
-			})
+			}
 		},
 	]
 }
 
 // move_packet builds the movement update broadcast each tick the entity moves.
-pub fn (e &Entity) move_packet() &packets_662.MoveActorAbsolutePacket {
+pub fn (e &Entity) move_packet() &proto.MoveActorAbsolutePacket {
 	mut flags := 0
 	if e.on_ground {
-		flags = network.move_actor_flag_on_ground
+		flags = proto.move_actor_flag_on_ground
 	}
-	return &packets_662.MoveActorAbsolutePacket{
-		move_data: types_662.MoveActorAbsoluteData{
-			actor_runtime_id: network.actor_runtime_id(e.runtime_id)
+	return &proto.MoveActorAbsolutePacket{
+		move_data: proto.MoveActorAbsoluteData{
+			actor_runtime_id: proto.actor_runtime_id(e.runtime_id)
 			header:           i8(flags)
 			position_x:       e.pos.x
 			position_y:       e.pos.y
 			position_z:       e.pos.z
-			rotation_x:       network.rotation_byte(e.pitch)
-			rotation_y:       network.rotation_byte(e.yaw)
-			rotation_y_head:  network.rotation_byte(e.head_yaw)
+			rotation_x:       proto.rotation_byte(e.pitch)
+			rotation_y:       proto.rotation_byte(e.yaw)
+			rotation_y_head:  proto.rotation_byte(e.head_yaw)
 		}
 	}
 }
 
 // despawn_packet builds the RemoveActorPacket that removes this entity from a
 // viewer.
-pub fn (e &Entity) despawn_packet() &packets_662.RemoveActorPacket {
-	return &packets_662.RemoveActorPacket{
-		target_actor_id: network.actor_unique_id(e.unique_id)
+pub fn (e &Entity) despawn_packet() &proto.RemoveActorPacket {
+	return &proto.RemoveActorPacket{
+		target_actor_id: proto.actor_unique_id(e.unique_id)
 	}
 }
