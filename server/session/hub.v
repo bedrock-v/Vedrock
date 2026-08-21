@@ -322,6 +322,22 @@ pub fn (mut h Hub) request_tick_all(n i64) {
 	}
 }
 
+// flush_worlds durably flushes every loaded world's queued override/tile
+// writes to disk. Writes otherwise only become durable on a graceful
+// shutdown (close_worlds). Calling this periodically bounds how much a
+// crash or forced kill can lose to the flush interval instead of however
+// long the server has been running since it last shut down cleanly. Returns
+// one "world: error" message per world that failed to flush rather than
+// stopping at the first failure, so one bad store doesn't hide the rest.
+pub fn (mut h Hub) flush_worlds() []string {
+	mut errors := []string{}
+	mut r := h.world_registry
+	for mut wr in r.each_runtime() {
+		wr.world.flush() or { errors << '${wr.world.name}: ${err.msg()}' }
+	}
+	return errors
+}
+
 fn (mut h Hub) world(name string) ?&db.World {
 	wr := h.world_runtime(name) or { return none }
 	return wr.world
