@@ -28,6 +28,10 @@ pub const day_length_ticks = 24000
 // stretch logs once per this many ticks instead of spamming every tick.
 const tick_overrun_log_interval = u64(ticks_per_second) * 5
 
+// world_flush_interval_ticks bounds how much placed/broken block data an
+// ungraceful shutdown (crash, kill -9) can lose.
+const world_flush_interval_ticks = u64(ticks_per_second) * 30
+
 // Options is the framework's composition-root entry point. settings carries
 // YAML-loadable server tuning; hub_options swaps Hub subsystems such as the
 // command and entity registries. Every field left unset falls back to Vedrock's
@@ -263,6 +267,11 @@ fn (mut s Server) tick_loop() {
 			})
 			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes()) or {
 				s.log.warn('Failed to update pong data: ${err}')
+			}
+		}
+		if tick % world_flush_interval_ticks == 0 {
+			for msg in s.hub.flush_worlds() {
+				s.log.warn('World flush failed: ${msg}')
 			}
 		}
 		work := time.now() - tick_start

@@ -18,6 +18,7 @@ fn main() {
 		eprintln('Failed to start: ${err}')
 		exit(1)
 	}
+
 	os.signal_opt(.int, fn [mut srv] (_ os.Signal) {
 		srv.stop()
 		exit(0)

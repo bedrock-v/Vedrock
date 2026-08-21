@@ -52,6 +52,49 @@ fn (mut s NetworkSession) set_breaking(progress ?BreakProgress) {
 	s.breaking_mutex.unlock()
 }
 
+// breaking_identity_matches reports whether current and expected refer to the
+// same tracked break: same position and the same started_tick, which is set
+// once when a break starts and never changes afterward.
+fn breaking_identity_matches(current BreakProgress, expected BreakProgress) bool {
+	return current.x == expected.x && current.y == expected.y && current.z == expected.z
+		&& current.started_tick == expected.started_tick
+}
+
+// clear_breaking_if_current clears the tracked break only if it is still the
+// one identified by expected and reports whether it did. tick_breaking reads
+// a snapshot, does its own work, then writes back at the end; without this
+// check a session-thread start_break/continue_break/abort_break landing in
+// that window would have its new state wiped out by tick_breaking's stale
+// write instead of being left alone.
+fn (mut s NetworkSession) clear_breaking_if_current(expected BreakProgress) bool {
+	s.breaking_mutex.lock()
+	defer {
+		s.breaking_mutex.unlock()
+	}
+	current := s.breaking or { return false }
+	if !breaking_identity_matches(current, expected) {
+		return false
+	}
+	s.breaking = none
+	return true
+}
+
+// swap_breaking_if_current replaces the tracked break with updated only if it
+// is still the one identified by expected and reports whether it did. Same
+// reasoning as clear_breaking_if_current.
+fn (mut s NetworkSession) swap_breaking_if_current(expected BreakProgress, updated BreakProgress) bool {
+	s.breaking_mutex.lock()
+	defer {
+		s.breaking_mutex.unlock()
+	}
+	current := s.breaking or { return false }
+	if !breaking_identity_matches(current, expected) {
+		return false
+	}
+	s.breaking = updated
+	return true
+}
+
 // broadcast_cracking routes one block cracking level event through the world
 // runtime this session is bound to, so it reaches that world's players only.
 // The event is dropped when the session has no bound world.
@@ -114,14 +157,17 @@ fn (t StartBreakAnimationTask) run(mut tx WorldTx) {
 
 fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
 	if s.player.is_dead() || !s.can_interact() {
+		s.log.debug('BREAK-DIAG: handle_start_break(${pos.x},${pos.y},${pos.z}) dropped: dead=${s.player.is_dead()} can_interact=${s.can_interact()}')
 		return
 	}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	if old_id == world.air.network_id {
+		s.log.debug('BREAK-DIAG: handle_start_break(${pos.x},${pos.y},${pos.z}) dropped: block_at reports air')
 		s.resend_block(pos)
 		return
 	}
 	if !s.within_place_reach(pos) {
+		s.log.debug('BREAK-DIAG: handle_start_break(${pos.x},${pos.y},${pos.z}) dropped: out of reach, own_pos=${s.effective_position()}')
 		return
 	}
 	mut ctx := event.new_context(event.StartBreakData{
@@ -133,10 +179,12 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 	})
 	s.hub.events.start_break(mut ctx)
 	if ctx.is_cancelled() {
+		s.log.debug('BREAK-DIAG: handle_start_break(${pos.x},${pos.y},${pos.z}) dropped: start_break event cancelled')
 		s.resend_block(pos)
 		return
 	}
 	speed := s.break_progress_per_tick(old_id)
+	s.log.debug('BREAK-DIAG: handle_start_break(${pos.x},${pos.y},${pos.z}) tracking old_id=${old_id} speed=${speed}')
 	s.set_breaking(BreakProgress{
 		x:            pos.x
 		y:            pos.y
@@ -187,35 +235,53 @@ fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
 // keeps the client's crack animation in sync, since the client leaves the
 // break timing to the server. It runs on the owning world's thread.
 fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
-	mut bp := s.breaking_snapshot() or { return }
-	pos := types.BlockPosition{bp.x, bp.y, bp.z}
+	original := s.breaking_snapshot() or { return }
+	pos := types.BlockPosition{original.x, original.y, original.z}
+	current_id := tx.block_at(original.x, original.y, original.z)
 	if s.player.is_dead() || !s.can_interact() || !s.within_place_reach(pos)
-		|| tx.block_at(bp.x, bp.y, bp.z) != bp.block_id {
-		s.set_breaking(none)
-		tx.broadcast_stop_cracking(bp.x, bp.y, bp.z)
+		|| current_id != original.block_id {
+		s.log.debug('BREAK-DIAG: tick_breaking(${pos.x},${pos.y},${pos.z}) clearing: dead=${s.player.is_dead()} can_interact=${s.can_interact()} in_reach=${s.within_place_reach(pos)} tracked_id=${original.block_id} current_id=${current_id}')
+		if s.clear_breaking_if_current(original) {
+			tx.broadcast_stop_cracking(original.x, original.y, original.z)
+		}
 		return
 	}
+
+	mut bp := original
 	speed := s.break_progress_per_tick(bp.block_id)
-	if math.abs(speed - bp.speed) > 0.0001 {
-		bp.speed = speed
-		tx.broadcast_crack_speed(pos, int(break_crack_scale * speed))
-	}
+	speed_changed := math.abs(speed - bp.speed) > 0.0001
+	bp.speed = speed
 	bp.progress += speed
+
 	// The client hands block breaking to the server (see the start game
 	// server_authoritative_block_breaking flag), so reaching full progress is
 	// what actually destroys the block. Without this the crack animation runs
 	// forever and the block is never removed.
 	if bp.progress >= 1.0 {
-		s.set_breaking(none)
-		tx.complete_block_break(mut s, pos, bp.block_id)
+		if s.clear_breaking_if_current(original) {
+			tx.complete_block_break(mut s, pos, bp.block_id)
+		}
 		return
 	}
-	if bp.fx_ticker % break_fx_interval_ticks == 0 {
+
+	send_fx := bp.fx_ticker % break_fx_interval_ticks == 0
+	bp.fx_ticker++
+
+	if !s.swap_breaking_if_current(original, bp) {
+		// A session-thread start_break/continue_break/abort_break replaced or
+		// cleared the tracked break between the read at the top of this
+		// function and here. This tick's contribution belongs to a break that
+		// no longer exists.
+		s.log.debug('BREAK-DIAG: tick_breaking(${pos.x},${pos.y},${pos.z}) swap rejected: session-thread break state changed mid-tick')
+		return
+	}
+	if speed_changed {
+		tx.broadcast_crack_speed(pos, int(break_crack_scale * speed))
+	}
+	if send_fx {
 		tx.broadcast_punch_particle(pos, bp.block_id, bp.face)
 		tx.broadcast_swing(s)
 	}
-	bp.fx_ticker++
-	s.set_breaking(bp)
 }
 
 // break_complete reports whether the tracked progress is far enough along for
@@ -224,11 +290,21 @@ fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 // client destroys those before it ever reports a start action.
 fn (s &NetworkSession) break_complete(pos types.BlockPosition, block_id int) bool {
 	speed := s.break_progress_per_tick(block_id)
-	bp := s.breaking_snapshot() or { return speed * break_progress_tolerance_ticks >= 1.0 }
-	if bp.x != pos.x || bp.y != pos.y || bp.z != pos.z || bp.block_id != block_id {
-		return speed * break_progress_tolerance_ticks >= 1.0
+	bp := s.breaking_snapshot() or {
+		result := speed * break_progress_tolerance_ticks >= 1.0
+		s.log.debug('BREAK-DIAG: break_complete(${pos.x},${pos.y},${pos.z}) no tracked progress, tolerance check speed=${speed} -> ${result}')
+		return result
 	}
-	return bp.progress + bp.speed * break_progress_tolerance_ticks >= 1.0
+	if bp.x != pos.x || bp.y != pos.y || bp.z != pos.z || bp.block_id != block_id {
+		result := speed * break_progress_tolerance_ticks >= 1.0
+		s.log.debug('BREAK-DIAG: break_complete(${pos.x},${pos.y},${pos.z}) tracked progress is for a different block/pos (tracked=${bp.x},${bp.y},${bp.z} id=${bp.block_id} vs requested id=${block_id}), tolerance check -> ${result}')
+		return result
+	}
+	result := bp.progress + bp.speed * break_progress_tolerance_ticks >= 1.0
+	if !result {
+		s.log.debug('BREAK-DIAG: break_complete(${pos.x},${pos.y},${pos.z}) progress=${bp.progress} speed=${bp.speed} not yet complete')
+	}
+	return result
 }
 
 // can_harvest reports whether the held item is the right tool to make the
