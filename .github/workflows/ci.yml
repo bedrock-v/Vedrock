@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - stable
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Check, test and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup V
+        uses: ./actions/setup-v
+
+      - name: Check
+        run: v -check .
+
+      - name: Test
+        run: v test .
+
+      - name: Build
+        run: v -o vedrock . # or i will use main.v if it gives any error
