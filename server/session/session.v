@@ -288,9 +288,9 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 	}
 }
 
-// A read error means the connection is already gone, so handle_loop aborts
-// outbound delivery immediately instead of trying to drain it gracefully.
-// Packet handling connection errors reach the same path on the next read.
+// A read error or a is_connection_closed write error both mean the
+// connection is already gone, so handle_loop aborts outbound delivery
+// immediately instead of trying to drain it gracefully.
 pub fn (mut s NetworkSession) handle_loop() {
 	for s.state != .closed {
 		packets := s.transport.read() or {
@@ -302,6 +302,7 @@ pub fn (mut s NetworkSession) handle_loop() {
 			s.handle(p) or {
 				if network.is_connection_closed(err) {
 					s.log.info('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+					s.abort_outbound()
 				} else {
 					s.log.warn('Failed to handle ${p.name()}: ${err}')
 					s.reject_bootstrap('Internal server error')
