@@ -96,9 +96,7 @@ mut:
 	view_radius                 int
 	last_chunk_x                int
 	last_chunk_z                int
-	chunk_cache                 map[u64]world.Chunk
 	sent_chunks                 map[u64]bool
-	chunk_cache_mutex           &sync.Mutex = sync.new_mutex()
 	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
 	chunk_gen_mutex             &sync.Mutex = sync.new_mutex()
 	transfer_mutex              &sync.Mutex = sync.new_mutex()
@@ -278,9 +276,7 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		world_runtime:      spawn_runtime
 		generator:          generator
 		runtime_id:         hub.allocate_runtime_id()
-		chunk_cache:        map[u64]world.Chunk{}
 		sent_chunks:        map[u64]bool{}
-		chunk_cache_mutex:  sync.new_mutex()
 		chunk_stream_mutex: sync.new_mutex()
 		chunk_gen_mutex:    sync.new_mutex()
 		log:                log

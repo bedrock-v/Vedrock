@@ -17,6 +17,9 @@ pub:
 	memory_used_bytes i64
 	memory_heap_bytes i64
 	args              []string
+	active_chunk_generation_count i64
+	chunk_cache_entries           i64
+	chunk_cache_bytes             i64
 }
 
 pub interface Command {

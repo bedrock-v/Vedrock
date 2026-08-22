@@ -1,11 +1,26 @@
 module db
 
 import sync
+import sync.stdatomic
 import time
 import server.world
 import protocol.types
 
 const persist_shutdown_timeout = 30 * time.second
+
+// persist_high_water_count and persist_hard_ceiling_count define the
+// persistence backlog thresholds for a world.
+//
+// Reaching the high water mark reports persistence pressure but continues
+// accepting writes. Reaching the hard ceiling blocks new persistence
+// enqueues until the backlog drains. Persistence records are never dropped.
+const persist_high_water_count = 4096
+
+const persist_hard_ceiling_count = 32768
+
+// persist_ceiling_poll_interval controls how often a blocked persistence
+// enqueue rechecks whether the backlog has fallen below the hard ceiling.
+const persist_ceiling_poll_interval = 5 * time.millisecond
 
 // BlockPersist and TilePersist are immutable records of one write already
 // applied to a World's in memory state, handed to the storage worker so the
@@ -41,6 +56,13 @@ struct PersistBarrier {
 
 type PersistRecord = BlockPersist | ContainerPersist | PersistBarrier | TilePersist
 
+// QueuedPersistRecord pairs a persistence record with its enqueue time for
+// measuring backlog depth and age.
+struct QueuedPersistRecord {
+	record      PersistRecord
+	enqueued_at time.Time
+}
+
 // World is a single loaded world, its persistent store plus the in memory
 // cache of block overrides layered on top of the generated/vanilla chunks.
 //
@@ -53,10 +75,10 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store          ?Provider
-	overrides      map[string]int
-	tile_data      map[string]TileData
-	container_data map[string][]ContainerSlotItem
+	store              ?Provider
+	overrides          map[string]int
+	tile_data          map[string]TileData
+	container_data     map[string][]ContainerSlotItem
 	open_holders       map[string]u64
 	mutex              &sync.Mutex = sync.new_mutex()
 	current_tick       i64
@@ -67,10 +89,37 @@ mut:
 	// must never touch these fields.
 	store_backed    bool
 	persist_mutex   &sync.Mutex = sync.new_mutex()
-	persist_records []PersistRecord
-	persist_wakeup  chan bool = chan bool{cap: 1}
-	persist_stop    chan bool = chan bool{cap: 1}
-	persist_done    chan bool = chan bool{cap: 1}
+	persist_records []QueuedPersistRecord
+	// persist_head points to the first pending persistence record.
+	// Records before it have already been applied and are compacted
+	// periodically, avoiding repeated front deletions from the queue.
+	persist_head   int
+	persist_wakeup chan bool = chan bool{cap: 1}
+	persist_stop   chan bool = chan bool{cap: 1}
+	persist_done   chan bool = chan bool{cap: 1}
+
+	// Monotonic persistence totals used to measure enqueue and commit rates.
+	persist_enqueued_count  &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	persist_committed_count &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+
+	// Provider write latency and error state metrics.
+	// consecutive_errors resets after the next successful write.
+	persist_last_write_ns      &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	persist_longest_write_ns   &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	persist_consecutive_errors &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+
+	// Persistence backlog thresholds. Tests may override these values.
+	persist_high_water_threshold   int = persist_high_water_count
+	persist_hard_ceiling_threshold int = persist_hard_ceiling_count
+
+	// Timeout used while waiting for persistence shutdown to complete.
+	persist_shutdown_timeout_value time.Duration = persist_shutdown_timeout
+
+	// closing and closed make close() idempotent. closing prevents duplicate
+	// stop signals while shutdown is still in progress; closed is set only
+	// after the underlying store closes successfully.
+	closing bool
+	closed  bool
 pub mut:
 	generator_name string
 }
@@ -217,16 +266,24 @@ pub fn (mut w World) set_tile_text(x int, y int, z int, text string) {
 	})
 }
 
-// enqueue_persist appends an immutable record to the unbounded persist
-// queue and pings the worker. This never blocks, regardless of how far
-// behind the storage worker has fallen.
+// enqueue_persist queues an immutable persistence record and wakes the
+// storage worker. Enqueues remain non blocking until the hard backlog
+// ceiling is reached; at the ceiling, callers wait for the queue to drain.
 fn (mut w World) enqueue_persist(record PersistRecord) {
 	if !w.store_backed {
 		return
 	}
+	for w.pending_persist_count() >= w.persist_hard_ceiling_threshold {
+		time.sleep(persist_ceiling_poll_interval)
+	}
 	w.persist_mutex.lock()
-	w.persist_records << record
+	w.persist_records << QueuedPersistRecord{
+		record:      record
+		enqueued_at: time.now()
+	}
 	w.persist_mutex.unlock()
+	mut enqueued := w.persist_enqueued_count
+	enqueued.add(1)
 	select {
 		w.persist_wakeup <- true {}
 		else {}
@@ -261,18 +318,29 @@ fn (mut w World) run_persist_worker() {
 // drain_persist_records applies every record currently queued, one at a
 // time, until the queue is empty. A record removed here while still inside
 // apply_persist_record (a slow or stuck disk write) is already gone from
-// persist_records.
+// the pending count (persist_head has already advanced past it).
+//
+// Advancing persist_head is O(1); persist_records itself is only
+// compacted once that prefix reaches half the slice.
 fn (mut w World) drain_persist_records(mut store Provider) {
 	for {
 		w.persist_mutex.lock()
-		if w.persist_records.len == 0 {
+		if w.persist_head >= w.persist_records.len {
+			w.persist_records = []QueuedPersistRecord{}
+			w.persist_head = 0
 			w.persist_mutex.unlock()
 			return
 		}
-		record := w.persist_records[0]
-		w.persist_records.delete(0)
+		queued := w.persist_records[w.persist_head]
+		w.persist_head++
+		if w.persist_head >= w.persist_records.len / 2 + 1 {
+			w.persist_records = w.persist_records[w.persist_head..].clone()
+			w.persist_head = 0
+		}
 		w.persist_mutex.unlock()
-		apply_persist_record(mut w, mut store, record)
+		apply_persist_record(mut w, mut store, queued.record)
+		mut committed := w.persist_committed_count
+		committed.add(1)
 	}
 }
 
@@ -282,29 +350,59 @@ fn (mut w World) drain_persist_records(mut store Provider) {
 fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 	match record {
 		BlockPersist {
+			start := time.now()
+			mut ok := true
 			store.set_block(record.x, record.y, record.z, record.id) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
+				ok = false
 			}
+			w.record_persist_write_result(start, ok)
 		}
 		TilePersist {
+			start := time.now()
+			mut ok := true
 			store.set_tile_text(record.x, record.y, record.z, record.text) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
+				ok = false
 			}
+			w.record_persist_write_result(start, ok)
 		}
 		ContainerPersist {
+			start := time.now()
+			mut ok := true
 			store.set_container_items(record.x, record.y, record.z, record.items) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
+				ok = false
 			}
+			w.record_persist_write_result(start, ok)
 		}
 		PersistBarrier {
 			record.done <- true
 		}
+	}
+}
+
+// record_persist_write_result updates provider write latency and error
+// metrics after a persistence write. Barrier signals are not recorded.
+fn (mut w World) record_persist_write_result(start time.Time, ok bool) {
+	dur := time.since(start).nanoseconds()
+	mut last := w.persist_last_write_ns
+	last.store(dur)
+	mut longest := w.persist_longest_write_ns
+	if dur > longest.load() {
+		longest.store(dur)
+	}
+	mut errors := w.persist_consecutive_errors
+	if ok {
+		errors.store(0)
+	} else {
+		errors.add(1)
 	}
 }
 
@@ -315,6 +413,88 @@ pub fn (w &World) last_persist_error() ?string {
 		m.unlock()
 	}
 	return w.last_persist_error
+}
+
+// pending_persist_count returns the number of persistence records waiting
+// for the storage worker. It is safe to call from any thread.
+pub fn (w &World) pending_persist_count() int {
+	mut m := w.persist_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return w.persist_records.len - w.persist_head
+}
+
+// oldest_pending_persist_age returns how long the oldest pending persistence
+// record has been waiting. It returns zero when no records are pending.
+pub fn (w &World) oldest_pending_persist_age() time.Duration {
+	mut m := w.persist_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	if w.persist_head >= w.persist_records.len {
+		return time.Duration(0)
+	}
+	return time.since(w.persist_records[w.persist_head].enqueued_at)
+}
+
+// persist_high_water_threshold_value and persist_hard_ceiling_threshold_value
+// expose the configured overload policy thresholds for metrics/reporting.
+pub fn (w &World) persist_high_water_threshold_value() int {
+	return w.persist_high_water_threshold
+}
+
+pub fn (w &World) persist_hard_ceiling_threshold_value() int {
+	return w.persist_hard_ceiling_threshold
+}
+
+// persist_pressure_level classifies the current persistence backlog:
+// 0 is normal, 1 is at or above the high-water mark and 2 is at or above
+// the hard ceiling where new persistence enqueues are subject to backpressure.
+pub fn (w &World) persist_pressure_level() int {
+	pending := w.pending_persist_count()
+	if pending >= w.persist_hard_ceiling_threshold {
+		return 2
+	}
+	if pending >= w.persist_high_water_threshold {
+		return 1
+	}
+	return 0
+}
+
+// last_persist_write_duration returns the duration of the most recent
+// provider write. Barrier signals are not included.
+pub fn (w &World) last_persist_write_duration() time.Duration {
+	mut d := w.persist_last_write_ns
+	return time.Duration(d.load())
+}
+
+pub fn (w &World) longest_persist_write_duration() time.Duration {
+	mut d := w.persist_longest_write_ns
+	return time.Duration(d.load())
+}
+
+// persist_consecutive_errors returns the number of consecutive provider
+// write failures since the last successful write.
+pub fn (w &World) persist_consecutive_errors() i64 {
+	mut c := w.persist_consecutive_errors
+	return c.load()
+}
+
+// persist_enqueued_total returns the total number of persistence records
+// enqueued since this world started including writes and barriers.
+pub fn (w &World) persist_enqueued_total() i64 {
+	mut c := w.persist_enqueued_count
+	return c.load()
+}
+
+// persist_committed_total returns the total number of persistence records
+// applied since this world started including writes and barriers.
+pub fn (w &World) persist_committed_total() i64 {
+	mut c := w.persist_committed_count
+	return c.load()
 }
 
 pub fn (w &World) tile_text(x int, y int, z int) ?string {
@@ -465,18 +645,39 @@ pub fn (mut w World) flush() ! {
 	}
 }
 
-// close waits for the storage worker to apply every write already handed to
-// it, then stops it before closing the store.
+pub fn (mut w World) set_persist_shutdown_timeout(d time.Duration) {
+	w.persist_shutdown_timeout_value = d
+}
+
+// close waits for all queued persistence work to finish, stops the storage
+// worker and then closes the underlying store.
+//
+// The operation is idempotent. If a previous close attempt timed out, a
+// retry waits for the existing shutdown to complete instead of sending a
+// second stop signal.
 pub fn (mut w World) close() ! {
-	if mut store := w.store {
+	w.mutex.lock()
+	if w.closed {
+		w.mutex.unlock()
+		return
+	}
+	already_closing := w.closing
+	w.closing = true
+	w.mutex.unlock()
+
+	mut store := w.store or { return }
+	if !already_closing {
 		w.persist_stop <- true
-		select {
-			_ := <-w.persist_done {
-				store.close()!
-			}
-			persist_shutdown_timeout {
-				return error('world "${w.name}": persistence worker did not stop within ${persist_shutdown_timeout} - a disk write may still be stuck; not closing the store out from under it')
-			}
+	}
+	select {
+		_ := <-w.persist_done {
+			store.close()!
+			w.mutex.lock()
+			w.closed = true
+			w.mutex.unlock()
+		}
+		w.persist_shutdown_timeout_value {
+			return error('world "${w.name}": persistence worker did not stop within ${w.persist_shutdown_timeout_value} - a disk write may still be stuck; not closing the store out from under it')
 		}
 	}
 }
@@ -496,8 +697,8 @@ fn (mut w World) await_persist_barrier() ! {
 	})
 	select {
 		_ := <-done {}
-		persist_shutdown_timeout {
-			return error('world "${w.name}": persistence worker did not catch up within ${persist_shutdown_timeout}')
+		w.persist_shutdown_timeout_value {
+			return error('world "${w.name}": persistence worker did not catch up within ${w.persist_shutdown_timeout_value}')
 		}
 	}
 }

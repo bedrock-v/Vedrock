@@ -30,9 +30,19 @@ fn player_ref_for(s &NetworkSession) PlayerRef {
 
 // player_ref looks up the player currently connected under name and
 // returns a PlayerRef for their current world membership generation.
-fn (mut h Hub) player_ref(name string) ?PlayerRef {
+pub fn (mut h Hub) player_ref(name string) ?PlayerRef {
 	s := h.session_by_name(name) or { return none }
 	return player_ref_for(s)
+}
+
+// player_refs returns a PlayerRef for every currently connected session.
+// The lookup reads session state directly and doesn't involve a world actor.
+pub fn (mut h Hub) player_refs() []PlayerRef {
+	mut out := []PlayerRef{}
+	for mut s in h.snapshot() {
+		out << player_ref_for(s)
+	}
+	return out
 }
 
 fn (p PlayerRef) resolve() !&NetworkSession {

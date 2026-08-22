@@ -15,6 +15,7 @@ import protocol.serializer
 import nbt
 import os
 import sync
+import time
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
@@ -290,37 +291,79 @@ fn (g CountingGenerator) biome_at(x int, z int) int {
 	return world.biome_hell
 }
 
-fn test_generated_chunk_cache_reuses_chunk_columns() {
+fn test_chunk_service_reuses_chunk_columns() {
 	mut counter := &GenerateCounter{
 		mutex: sync.new_mutex()
 	}
 	gen := CountingGenerator{
 		counter: counter
 	}
-	mut s := &NetworkSession{
-		chunk_cache_mutex: sync.new_mutex()
-	}
-	_ := s.generated_chunk(gen, 4, -2)
-	_ := s.generated_chunk(gen, 4, -2)
+	mut svc := new_chunk_service(gen)
+	first := <-svc.request(4, -2)
+	second := <-svc.request(4, -2)
+	assert !first.cancelled
+	assert !second.cancelled
 	counter.mutex.lock()
 	assert counter.count == 1
 	counter.mutex.unlock()
 }
 
-fn test_generated_chunk_cache_returns_mutable_copies() {
+fn test_chunk_service_returns_mutable_copies() {
 	mut counter := &GenerateCounter{
 		mutex: sync.new_mutex()
 	}
 	gen := CountingGenerator{
 		counter: counter
 	}
-	mut s := &NetworkSession{
-		chunk_cache_mutex: sync.new_mutex()
+	mut svc := new_chunk_service(gen)
+	first := <-svc.request(4, -2)
+	mut mutable_first := first.chunk
+	mutable_first.set_block(0, 0, 0, world.air)
+	second := <-svc.request(4, -2)
+	assert second.chunk.block_id(0, 0, 0) == world.bedrock.network_id
+}
+
+fn chunk_cache_entry_bytes() i64 {
+	mut probe_counter := &GenerateCounter{
+		mutex: sync.new_mutex()
 	}
-	mut first := s.generated_chunk(gen, 4, -2)
-	first.set_block(0, 0, 0, world.air)
-	second := s.generated_chunk(gen, 4, -2)
-	assert second.block_id(0, 0, 0) == world.bedrock.network_id
+	gen := CountingGenerator{
+		counter: probe_counter
+	}
+	chunk := gen.generate(0, 0)
+	return chunk.estimated_bytes() + i64(chunk.serialize().len)
+}
+
+struct BlockingCountingGenerator {
+	started chan bool
+	release chan bool
+}
+
+fn (g BlockingCountingGenerator) spawn_y() int {
+	return 64
+}
+
+fn (g BlockingCountingGenerator) uses_blocks() bool {
+	return true
+}
+
+fn (g BlockingCountingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
+	select {
+		g.started <- true {}
+		else {}
+	}
+	_ := <-g.release
+	mut chunk := world.new_chunk_dim(world.nether)
+	chunk.set_block(0, 0, 0, world.bedrock)
+	return chunk
+}
+
+fn (g BlockingCountingGenerator) block_at(x int, y int, z int) int {
+	return world.air.network_id
+}
+
+fn (g BlockingCountingGenerator) biome_at(x int, z int) int {
+	return world.biome_hell
 }
 
 fn test_prune_sent_chunks_keeps_only_current_radius() {

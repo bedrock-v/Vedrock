@@ -123,13 +123,46 @@ fn (c WorldCommand) metrics(mut sender cmd.Sender, ctx cmd.Context) ! {
 	}
 	mut lines := []string{}
 	lines << '§6World: §a${m.name}§r'
+	if !m.actor_running {
+		lines << '§c§lACTOR STOPPED§r §7- this world is registered but rejects all work (a previous unload likely failed to close its storage handle; retry unloading it)§r'
+	}
 	lines << '§6Tick: §f${m.current_tick} (last tick §f${m.last_tick_duration_ms}ms§6, §f${m.catchup_events}§6 catch up runs, §f${m.tick_overruns}§6 overruns)§r'
 	lines << '§6Queued tasks: §f${m.queued_tasks}§6 (oldest §f${m.oldest_queued_task_age_ms}ms§6)§r'
 	lines << '§6Longest task: §f${m.longest_task_name} (§f${m.longest_task_duration_ms}ms§6)§r'
 	lines << '§6Scheduled backlog: §f${m.scheduled_backlog}§6, liquid backlog: §f${m.liquid_backlog}§r'
 	lines << '§6Entities: §f${m.entity_count}§6, players: §f${m.player_count}§r'
 	lines << '§6Outbound overflows: §f${m.outbound_overflow_count}§6, peak queue depth: §f${m.outbound_peak_depth}§r'
+	lines << '§6Persist backlog: §f${m.persist_pending_count}§6 pending (oldest §f${m.persist_oldest_pending_ms}ms§6), §f${m.persist_enqueued_total}§6 enqueued / §f${m.persist_committed_total}§6 committed total§r'
+	lines << '§6Persist pressure: ${persist_pressure_label(m.persist_pressure_level)}§6 (high water §f${m.persist_high_water_threshold}§6, ceiling §f${m.persist_hard_ceiling_threshold}§6), §f${m.persist_consecutive_errors}§6 consecutive errors§r'
+	lines << '§6Persist write time: §f${m.persist_last_write_ms}ms§6 last, §f${m.persist_longest_write_ms}ms§6 longest§r'
+	lines << '§6Chunk service: §f${m.chunk_cached_count}§6 cached (~§f${format_chunk_bytes(m.chunk_cached_bytes)}§6/§f${format_chunk_bytes(m.chunk_cache_budget_bytes)}§6 budget), §f${m.chunk_active_workers}§6/§f${m.chunk_worker_limit}§6 workers busy, §f${m.chunk_queue_depth}§6 queued§r'
+	lines << '§6Chunk requests: §f${m.chunk_requests_total}§6 total, §f${m.chunk_dedup_hits_total}§6 deduplicated, §f${m.chunk_inflight_count}§6 in flight (oldest §f${m.chunk_oldest_inflight_ms}ms§6)§r'
 	sender.send_message(lines.join('\n'))!
+}
+
+fn format_chunk_bytes(total i64) string {
+	if total < 1024 {
+		return '${total} B'
+	}
+	mut value := f64(total)
+	units := ['KiB', 'MiB', 'GiB']
+	mut unit := units[0]
+	for u in units {
+		unit = u
+		value /= 1024.0
+		if value < 1024.0 {
+			break
+		}
+	}
+	return '${value:.1f} ${unit}'
+}
+
+fn persist_pressure_label(level int) string {
+	return match level {
+		2 { '§cCRITICAL§r' }
+		1 { '§6HIGH WATER§r' }
+		else { '§anormal§r' }
+	}
 }
 
 fn (c WorldCommand) create(mut sender cmd.Sender, ctx cmd.Context) ! {

@@ -85,9 +85,11 @@ mut:
 	// Cross thread snapshot of current_tick.
 	published_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
-	liquids  &block.LiquidManager = unsafe { nil }
-	events   &event.Bus           = unsafe { nil }
-	entities &entity.Manager      = unsafe { nil }
+	liquids        &block.LiquidManager = unsafe { nil }
+	events         &event.Bus           = unsafe { nil }
+	entities       &entity.Manager      = unsafe { nil }
+	chunk_service  &WorldChunkService   = unsafe { nil }
+	task_scheduler &WorldScheduler      = unsafe { nil }
 
 	// Cross thread metric snapshots. The world thread publishes simulation
 	// values, session threads publish outbound values and other threads only
@@ -117,6 +119,8 @@ fn new_world_runtime(hub &Hub, w &db.World) &WorldRuntime {
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.events = event.new_bus()
 	wr.entities = entity.new_manager(WorldEntityHost{ wr: wr })
+	wr.chunk_service = new_chunk_service(w.make_generator(hub.build_generator(w)))
+	wr.task_scheduler = new_world_scheduler()
 	spawn wr.run_jobs()
 	return wr
 }
@@ -283,6 +287,10 @@ fn (mut wr WorldRuntime) pop_queue_time() ?time.Time {
 // in flight submitter never completes.
 fn (mut wr WorldRuntime) shutdown() {
 	wr.mutex.lock()
+	if wr.lifecycle != .running {
+		wr.mutex.unlock()
+		return
+	}
 	wr.lifecycle = .stopping
 	wr.mutex.unlock()
 	for {
@@ -297,6 +305,7 @@ fn (mut wr WorldRuntime) shutdown() {
 	}
 	wr.stop <- true
 	_ := <-wr.done
+	wr.chunk_service.shutdown()
 	wr.mutex.lock()
 	wr.lifecycle = .closed
 	wr.mutex.unlock()
@@ -483,6 +492,27 @@ pub:
 	player_count            i64
 	outbound_overflow_count i64
 	outbound_peak_depth     i64
+	persist_pending_count     int
+	persist_oldest_pending_ms i64
+	persist_enqueued_total    i64
+	persist_committed_total   i64
+	persist_pressure_level         int
+	persist_high_water_threshold   int
+	persist_hard_ceiling_threshold int
+	persist_last_write_ms          i64
+	persist_longest_write_ms       i64
+	persist_consecutive_errors     i64
+	chunk_cached_count       int
+	chunk_cached_bytes       i64
+	chunk_cache_budget_bytes i64
+	chunk_inflight_count     int
+	chunk_oldest_inflight_ms i64
+	chunk_active_workers     i64
+	chunk_worker_limit       int
+	chunk_queue_depth        i64
+	chunk_requests_total     i64
+	chunk_dedup_hits_total   i64
+	actor_running bool
 }
 
 fn (mut wr WorldRuntime) metrics() WorldMetrics {
@@ -492,6 +522,7 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 		oldest_age = time.since(wr.queue_times[0])
 	}
 	longest_task_name := wr.longest_task_name
+	actor_running := wr.lifecycle == .running
 	wr.mutex.unlock()
 
 	mut tick_runs := wr.published_tick_runs
@@ -504,25 +535,47 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 	mut outbound_overflow_count := wr.published_outbound_overflow_count
 	mut outbound_peak_depth := wr.published_outbound_peak_depth
 	mut longest_task_ns := wr.published_longest_task_ns
+	chunk_metrics := wr.chunk_service.metrics()
 
 	return WorldMetrics{
-		world_name:              wr.world.name
-		queued_tasks:            int(wr.jobs.len)
-		oldest_queued_task_age:  oldest_age
-		current_tick:            wr.tick_snapshot()
-		tick_runs:               tick_runs.load()
-		simulated_steps:         simulated_steps.load()
-		catchup_events:          catchup_events.load()
-		tick_overruns:           tick_overruns.load()
-		last_tick_duration:      time.Duration(last_tick_ns.load())
-		longest_task_duration:   time.Duration(longest_task_ns.load())
-		longest_task_name:       longest_task_name
-		scheduled_backlog:       wr.world.scheduled_backlog_count()
-		liquid_backlog:          int(liquid_backlog.load())
-		entity_count:            wr.entities.count()
-		player_count:            player_count.load()
-		outbound_overflow_count: outbound_overflow_count.load()
-		outbound_peak_depth:     outbound_peak_depth.load()
+		world_name:                     wr.world.name
+		queued_tasks:                   int(wr.jobs.len)
+		oldest_queued_task_age:         oldest_age
+		current_tick:                   wr.tick_snapshot()
+		tick_runs:                      tick_runs.load()
+		simulated_steps:                simulated_steps.load()
+		catchup_events:                 catchup_events.load()
+		tick_overruns:                  tick_overruns.load()
+		last_tick_duration:             time.Duration(last_tick_ns.load())
+		longest_task_duration:          time.Duration(longest_task_ns.load())
+		longest_task_name:              longest_task_name
+		scheduled_backlog:              wr.world.scheduled_backlog_count()
+		liquid_backlog:                 int(liquid_backlog.load())
+		entity_count:                   wr.entities.count()
+		player_count:                   player_count.load()
+		outbound_overflow_count:        outbound_overflow_count.load()
+		outbound_peak_depth:            outbound_peak_depth.load()
+		persist_pending_count:          wr.world.pending_persist_count()
+		persist_oldest_pending_ms:      wr.world.oldest_pending_persist_age().milliseconds()
+		persist_enqueued_total:         wr.world.persist_enqueued_total()
+		persist_committed_total:        wr.world.persist_committed_total()
+		persist_pressure_level:         wr.world.persist_pressure_level()
+		persist_high_water_threshold:   wr.world.persist_high_water_threshold_value()
+		persist_hard_ceiling_threshold: wr.world.persist_hard_ceiling_threshold_value()
+		persist_last_write_ms:          wr.world.last_persist_write_duration().milliseconds()
+		persist_longest_write_ms:       wr.world.longest_persist_write_duration().milliseconds()
+		persist_consecutive_errors:     wr.world.persist_consecutive_errors()
+		chunk_cached_count:             chunk_metrics.cached_chunks
+		chunk_cached_bytes:             chunk_metrics.cached_bytes_estimate
+		chunk_cache_budget_bytes:       chunk_metrics.cache_budget_bytes
+		chunk_inflight_count:           chunk_metrics.inflight_requests
+		chunk_oldest_inflight_ms:       chunk_metrics.oldest_inflight_age.milliseconds()
+		chunk_active_workers:           chunk_metrics.active_workers
+		chunk_worker_limit:             chunk_metrics.worker_limit
+		chunk_queue_depth:              chunk_metrics.queue_depth
+		chunk_requests_total:           chunk_metrics.requests_total
+		chunk_dedup_hits_total:         chunk_metrics.dedup_hits_total
+		actor_running:                  actor_running
 	}
 }
 
@@ -531,6 +584,13 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 fn (mut wr WorldRuntime) publish_player_count() {
 	mut count := wr.published_player_count
 	count.store(wr.entities.player_actor_count())
+}
+
+// player_count returns the latest published player count for this world.
+// It is thread safe and does not block on the world actor.
+pub fn (wr &WorldRuntime) player_count() i64 {
+	mut count := wr.published_player_count
+	return count.load()
 }
 
 // advance_tick owns one centralized catch-up loop - subsystems never run
@@ -564,6 +624,7 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 		}
 		wr.entities.tick()
 		tx.tick_effects()
+		wr.task_scheduler.heartbeat(mut tx, wr.current_tick)
 	}
 	if debt > max_world_catchup_ticks {
 		tx.log_tick_overrun(debt)
