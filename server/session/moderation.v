@@ -250,8 +250,9 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 
 	list_add_pkt := s.player_list_add_packet()
 	add_player_pkt := s.add_player_packet()
-	registered := world_call[bool](mut target_wr, fn [rid, s, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	self := s.self_ref()
+	registered := world_call[bool](mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
+		tx.register_player(self)
 		tx.wr.broadcast_world_except(rid, list_add_pkt)
 		tx.wr.broadcast_world_except(rid, add_player_pkt)
 		return true

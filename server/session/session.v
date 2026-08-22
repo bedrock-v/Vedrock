@@ -223,6 +223,17 @@ fn (s &NetworkSession) is_dead() bool {
 	return s.player.is_dead()
 }
 
+// self_ref returns a stable pointer to this session for closure captures.
+// V closures capture struct receivers by value which would otherwise
+// create a stale snapshot instead of preserving NetworkSession identity.
+//
+// NetworkSession is @[heap] and the returned pointer remains alive under
+// this project's default Boehm GC. See self_ref_test.v for the cross thread
+// lifetime regression test.
+fn (mut s NetworkSession) self_ref() &NetworkSession {
+	return unsafe { &s }
+}
+
 // dimensions satisfies entity.Actor. Returns the player's dimensions.
 fn (s &NetworkSession) dimensions() entity.Dimensions {
 	return entity.Dimensions{

@@ -790,7 +790,8 @@ fn (mut s NetworkSession) handle_player_initialized(_ packets_662.SetLocalPlayer
 		// Later transfers use change_world's deregister/rebind/register path.
 		list_add_pkt := s.player_list_add_packet()
 		add_player_pkt := s.add_player_packet()
-		deliver_packets := world_call[[]protocol.Packet](mut wr, fn [s, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
+		self := s.self_ref()
+		deliver_packets := world_call[[]protocol.Packet](mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
 			mut out := []protocol.Packet{}
 			for a in tx.wr.entities.player_actors() {
 				if a is NetworkSession {
@@ -798,9 +799,9 @@ fn (mut s NetworkSession) handle_player_initialized(_ packets_662.SetLocalPlayer
 					out << a.add_player_packet()
 				}
 			}
-			tx.register_player(s)
+			tx.register_player(self)
 			tx.wr.broadcast_world(list_add_pkt)
-			tx.wr.broadcast_world_except(s.runtime_id, add_player_pkt)
+			tx.wr.broadcast_world_except(self.runtime_id, add_player_pkt)
 			for e in tx.wr.entities.snapshot() {
 				out << e.spawn_packet()
 			}
