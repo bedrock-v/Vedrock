@@ -54,12 +54,14 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 	}
 }
 
-// handle_inventory_transaction processes the standalone InventoryTransactionPacket.
-// On 2192 the packet no longer carries the use item transaction: item use,
-// placement and destruction arrive through PlayerAuthInput instead, which
-// handle_item_use_transaction below already covers.
+// handle_inventory_transaction processes the standalone
+// InventoryTransactionPacket. A click on a block arrives here rather than in
+// PlayerAuthInput, which carries the same body but only for some of the ways
+// the client reports one.
 fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransactionPacket) ! {
-	s.log.debug('PLACE-DIAG: InventoryTransactionPacket type=${p.transaction_type} actions=${p.transaction.action.len}')
+	use_item := p.use_item or { return }
+	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position), int(use_item.face),
+		use_item.click_position[1])!
 }
 
 fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
@@ -77,17 +79,26 @@ fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket
 }
 
 fn (mut s NetworkSession) handle_item_use_transaction(tx proto.PackedItemUseLegacyInventoryTransaction) ! {
-	pos := proto.block_pos_from(tx.position)
-	s.log.debug('PLACE-DIAG: item use ${tx.action_type} at (${pos.x},${pos.y},${pos.z}) face=${tx.face}')
-	match tx.action_type {
+	s.handle_item_use(tx.action_type, proto.block_pos_from(tx.position), int(tx.face),
+		tx.click_position[1])!
+}
+
+// handle_item_use runs one click on a block. Both transports of the same body
+// end here, so a click means the same thing whichever the client used.
+fn (mut s NetworkSession) handle_item_use(action proto.ItemUseInventoryTransactionType, pos types.BlockPosition, face int, clicked_y f32) ! {
+	match action {
 		.place {
-			s.handle_place_click(pos, int(tx.face), tx.click_position[1])
+			s.handle_place_click(pos, face, clicked_y)
 		}
 		.destroy {
 			s.break_block(pos)!
 		}
 		.use {
 			s.use_held_item_in_air()
+		}
+		else {
+			// The alias keeps V from seeing the enum as exhaustive; a value
+			// outside the three the game defines is not a click at all.
 		}
 	}
 }
