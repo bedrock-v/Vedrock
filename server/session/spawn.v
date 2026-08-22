@@ -610,7 +610,14 @@ fn (mut s NetworkSession) clear_chunk_cache() {
 	s.chunk_cache_mutex.unlock()
 }
 
+// generated_chunk returns the column to send. A bound world caches it for the
+// whole server, so the block reads that decide what a player is mining see the
+// same terrain this sent.
 fn (mut s NetworkSession) generated_chunk(gen world.Generator, cx int, cz int) world.Chunk {
+	mut wld := s.current_world()
+	if !isnil(wld) {
+		return wld.generated_chunk(gen, cx, cz).clone()
+	}
 	key := chunk_cache_key(cx, cz)
 	s.chunk_cache_mutex.lock()
 	if chunk := s.chunk_cache[key] {

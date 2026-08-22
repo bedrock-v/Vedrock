@@ -26,11 +26,12 @@ fn (s &NetworkSession) dimension() world.Dimension {
 }
 
 fn (s &NetworkSession) block_at(x int, y int, z int) int {
-	wld, gen := s.world_and_generator()
+	mut wld, gen := s.world_and_generator()
 	if !isnil(wld) {
 		if id := wld.block_override(x, y, z) {
 			return id
 		}
+		return wld.generated_block(gen, x, y, z)
 	}
 	return gen.block_at(x, y, z)
 }

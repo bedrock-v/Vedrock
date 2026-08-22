@@ -35,6 +35,11 @@ pub fn (l &Logger) with_prefix(prefix string) &Logger {
 }
 
 fn (l &Logger) log(level Level, msg string) {
+	// A logger is optional wherever it is held as a reference, so a caller that
+	// never had one to pass writes nothing instead of taking the process down.
+	if isnil(l) {
+		return
+	}
 	if int(level) < int(l.min_level) {
 		return
 	}

@@ -8,11 +8,12 @@ import protocol.current as proto
 // stored override and falling back to generation. It always reads from the
 // WorldRuntime bound to the transaction, not from the acting session.
 fn (tx &WorldTx) block_at(x int, y int, z int) int {
-	if id := tx.wr.world.block_override(x, y, z) {
+	mut world_instance := tx.wr.world
+	if id := world_instance.block_override(x, y, z) {
 		return id
 	}
-	gen := tx.wr.world.make_generator(tx.wr.hub.build_generator(tx.wr.world))
-	return gen.block_at(x, y, z)
+	gen := world_instance.make_generator(tx.wr.hub.build_generator(world_instance))
+	return world_instance.generated_block(gen, x, y, z)
 }
 
 fn (tx &WorldTx) neighbor_ids(pos types.BlockPosition) world.NeighborBlockIDs {

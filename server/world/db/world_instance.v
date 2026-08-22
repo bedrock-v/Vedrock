@@ -54,6 +54,13 @@ mut:
 	overrides      map[string]int
 	tile_data      map[string]TileData
 	container_data map[string][]ContainerSlotItem
+	// generated is the column cache every read of unmodified terrain goes
+	// through. A generator's per block query and the chunk it builds do not
+	// have to agree - the chunk carries the populators, the query does not -
+	// so a lookup that asks the generator directly can contradict the world
+	// the client was sent.
+	generated       map[u64]world.Chunk
+	generated_mutex &sync.Mutex = sync.new_mutex()
 	open_holders       map[string]u64
 	mutex              &sync.Mutex = sync.new_mutex()
 	current_tick       i64
@@ -151,6 +158,45 @@ pub fn (mut w World) set_block(x int, y int, z int, runtime_id int) {
 		z:  z
 		id: runtime_id
 	})
+}
+
+// generated_chunk_cache_limit bounds how many generated columns a world keeps.
+// Dropping the whole cache rather than one entry keeps the bookkeeping to a
+// counter, and a dropped column is only ever regenerated.
+const generated_chunk_cache_limit = 768
+
+// generated_chunk returns the column as the generator builds it, populators
+// included, caching it so every later read of that column agrees with the one
+// the client was sent.
+pub fn (mut w World) generated_chunk(gen world.Generator, cx int, cz int) world.Chunk {
+	key := generated_chunk_key(cx, cz)
+	w.generated_mutex.lock()
+	if chunk := w.generated[key] {
+		w.generated_mutex.unlock()
+		return chunk
+	}
+	w.generated_mutex.unlock()
+
+	chunk := gen.generate(cx, cz)
+
+	w.generated_mutex.lock()
+	if w.generated.len >= generated_chunk_cache_limit {
+		w.generated.clear()
+	}
+	w.generated[key] = chunk
+	w.generated_mutex.unlock()
+	return chunk
+}
+
+// generated_block is the generated state of one position, which is what a
+// block read falls back to when nothing has overridden it.
+pub fn (mut w World) generated_block(gen world.Generator, x int, y int, z int) int {
+	chunk := w.generated_chunk(gen, x >> 4, z >> 4)
+	return chunk.block_id(x & 15, y, z & 15)
+}
+
+fn generated_chunk_key(cx int, cz int) u64 {
+	return (u64(u32(cx)) << 32) | u64(u32(cz))
 }
 
 pub fn (w &World) block_override(x int, y int, z int) ?int {

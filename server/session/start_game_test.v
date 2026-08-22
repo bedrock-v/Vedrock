@@ -24,6 +24,15 @@ fn roundtrip(p protocol.Packet) !protocol.Packet {
 	return pool.decode(mut r)!
 }
 
+// decode_into reads a packet's payload back into a typed value. The pool builds
+// the type the version module declares, which an alias of it does not stand in
+// for, so the fields are read back directly instead of through a type check.
+fn decode_into[T](p protocol.Packet, mut out T) ! {
+	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
+	protocol.read_packet_header(mut r)!
+	out.decode_payload(mut r)!
+}
+
 fn test_resource_packs_info_roundtrip() {
 	decoded := roundtrip(&proto.ResourcePacksInfoPacket{
 		resource_pack_required:        false
@@ -110,14 +119,11 @@ fn test_start_game_roundtrip() {
 	start.position[0] = 0.0
 	start.position[1] = 64.0
 	start.position[2] = 0.0
-	decoded := roundtrip(start)!
-	assert decoded.name() == 'StartGamePacket'
-	if decoded is proto.StartGamePacket {
-		assert decoded.level_name == 'Vedrock Server'
-		assert decoded.server_version == proto.selected_minecraft_version
-	} else {
-		assert false
-	}
+	assert roundtrip(start)!.name() == 'StartGamePacket'
+	mut decoded := proto.StartGamePacket{}
+	decode_into(start, mut decoded)!
+	assert decoded.level_name == 'Vedrock Server'
+	assert decoded.server_version == proto.selected_minecraft_version
 }
 
 fn first_start_game_packet(transport &FakeTransport) ?proto.StartGamePacket {
@@ -233,8 +239,9 @@ fn test_subchunk_height_map_reports_relative_height() {
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16)
 	assert map_type == proto.HeightMapDataType.has_data
-	assert data[0][0] == 3
-	assert data[15][15] == 3
+	// The map is one flat slot per column, indexed z * 16 + x.
+	assert data[0] == 3
+	assert data[15 * 16 + 15] == 3
 }
 
 fn test_subchunk_height_map_reports_all_too_low() {
@@ -243,7 +250,7 @@ fn test_subchunk_height_map_reports_all_too_low() {
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16 + 1)
 	assert map_type == proto.HeightMapDataType.all_too_low
-	assert data[0][0] == 0
+	assert data[0] == 0
 }
 
 struct CountingGenerator {
