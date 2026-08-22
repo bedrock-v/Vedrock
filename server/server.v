@@ -5,8 +5,8 @@ import rand
 import time
 import server.cmd
 import server.scheduler
-import raknet
-
+import nethernet
+import nethernet.discovery
 import server.internal.logger
 import server.internal.language
 import server.conf
@@ -22,6 +22,7 @@ import server.event
 import server.player.playerdb
 import sync.stdatomic
 import protocol.current as proto
+import webrtc.logging
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
@@ -52,10 +53,13 @@ pub:
 @[heap]
 pub struct Server {
 mut:
-	hub      &session.Hub     = unsafe { nil }
-	listener &raknet.Listener = unsafe { nil }
-	guid     i64
-	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	hub &session.Hub = unsafe { nil }
+	// signaling is the LAN discovery channel: the same socket advertises the
+	// world and carries the offers and answers that negotiate a connection.
+	signaling &discovery.Listener = unsafe { nil }
+	listener  &nethernet.Listener = unsafe { nil }
+	guid      i64
+	running   &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
 	active_conns &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -188,12 +192,53 @@ pub fn new(opts Options) !&Server {
 	}
 }
 
+// TransportLogSink forwards what the NetherNet stack logs into the server's own
+// logger, so transport diagnostics land in the same place as everything else.
+struct TransportLogSink {
+	log &logger.Logger = unsafe { nil }
+}
+
+fn (s &TransportLogSink) write(level logging.Level, scope string, msg string) {
+	line := '[${scope}] ${msg}'
+	match level {
+		.error { s.log.error(line) }
+		.warn { s.log.warn(line) }
+		.info { s.log.info(line) }
+		else { s.log.debug(line) }
+	}
+}
+
+// transport_log_level keeps the transport quiet unless the server is in debug
+// mode: ICE and DTLS negotiation is verbose enough to bury the game log.
+fn (s &Server) transport_log_level() logging.Level {
+	return if s.cfg.debug { logging.Level.debug } else { logging.Level.warn }
+}
+
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
 		'Version': proto.selected_minecraft_version
 	}))
-	mut listener := raknet.listen(s.cfg.bind_address())!
-	listener.set_pong_data(s.pong_data(0).bytes())!
+	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
+		log: s.log
+	})
+	// The server answers requests rather than making them, so it binds the
+	// discovery port and never broadcasts.
+	mut signaling := discovery.listen(s.cfg.bind_address(),
+		network_id: u64(s.guid)
+		broadcast:  false
+		logger:     net_log
+	)!
+	signaling.pong_data(s.pong_data(0).bytes())
+	mut listener := nethernet.listen(mut signaling,
+		// An offline client presents no identity assertion, so a server that is
+		// not requiring Xbox Live authentication has to accept one.
+		allow_anonymous: !s.cfg.xbox_auth
+		logger:          net_log
+	) or {
+		signaling.close()
+		return err
+	}
+	s.signaling = signaling
 	s.listener = listener
 	s.running.store(true)
 	s.log.info(s.lang.tf('server.listening', {
@@ -266,9 +311,7 @@ fn (mut s Server) tick_loop() {
 			s.hub.broadcast(&proto.SetTimePacket{
 				time: world_time
 			})
-			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes()) or {
-				s.log.warn('Failed to update pong data: ${err}')
-			}
+			s.signaling.pong_data(s.pong_data(s.hub.count()).bytes())
 		}
 		if tick % world_flush_interval_ticks == 0 {
 			for msg in s.hub.flush_worlds() {
@@ -322,10 +365,10 @@ const max_concurrent_connections = u64(1024)
 
 fn (mut s Server) accept_loop() {
 	for s.running.load() {
-		mut conn := s.listener.accept_timeout(time.second) or { continue }
+		mut conn := s.listener.accept(time.second) or { continue }
 		if s.active_conns.load() >= max_concurrent_connections {
 			s.log.warn('Rejecting connection from ${conn.remote_addr()} - at capacity (${max_concurrent_connections})')
-			conn.close() or {}
+			conn.close()
 			continue
 		}
 		s.active_conns.add(1)
@@ -340,11 +383,11 @@ fn (mut s Server) accept_loop() {
 // thread, so one misbehaving connection can never take the server down. The
 // remote address is captured up front so a failure setting up the session still
 // has something to log against.
-fn (mut s Server) handle(mut conn raknet.Conn) {
+fn (mut s Server) handle(mut conn nethernet.Conn) {
 	defer {
 		s.active_conns.sub(1)
 	}
-	addr := conn.remote_addr()
+	addr := conn.remote_addr().str()
 	mut transport := network.new_session(mut conn, s.log)
 	mut net_session := session.new(mut transport, mut s.hub, s.cfg, s.log)
 	net_session.handle_loop()
@@ -385,7 +428,10 @@ pub fn (mut s Server) stop() {
 		s.hub.close_worlds()
 	}
 	if !isnil(s.listener) {
-		s.listener.close() or {}
+		s.listener.close()
+	}
+	if !isnil(s.signaling) {
+		s.signaling.close()
 	}
 }
 

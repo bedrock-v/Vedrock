@@ -266,6 +266,10 @@ fn (mut t StallingTransport) enable_compression(threshold int) {}
 
 fn (mut t StallingTransport) enable_encryption(mut ctx encryption.Context) {}
 
+fn (t &StallingTransport) disable_encryption() bool {
+	return false
+}
+
 fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	mut hub, mut wr := metrics_test_world_runtime()
 	defer {

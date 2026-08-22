@@ -36,19 +36,20 @@ runs:
         vmod="$HOME/.vmodules"
 
         rm -rf "$deps" \
-          "$vmod/raknet" \
-          "$vmod/message" \
+          "$vmod/nethernet" \
+          "$vmod/webrtc" \
           "$vmod/nbt" \
           "$vmod/protocol"
 
         mkdir -p "$deps" "$vmod"
 
-        git clone --depth 1 https://github.com/bedrock-v/raknet "$deps/raknet"
+        git clone --depth 1 https://github.com/bedrock-v/nethernet "$deps/nethernet"
+        git clone --depth 1 https://github.com/bedrock-v/webrtc-v "$deps/webrtc"
         git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
         git clone --depth 1 https://github.com/bedrock-v/protocol "$deps/protocol"
 
-        cp -a "$deps/raknet" "$vmod/raknet"
-        cp -a "$deps/raknet/message" "$vmod/message"
+        cp -a "$deps/nethernet" "$vmod/nethernet"
+        cp -a "$deps/webrtc" "$vmod/webrtc"
         cp -a "$deps/nbt" "$vmod/nbt"
         cp -a "$deps/protocol/src" "$vmod/protocol"
 
