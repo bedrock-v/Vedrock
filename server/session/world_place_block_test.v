@@ -1,12 +1,6 @@
 module session
 
 import time
-import server.internal.network
-import protocol.version.v662.enums as enums_662
-import protocol.version.v944.packets as packets_944
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
 import protocol.types
 import server.event
 import server.internal.gamedata
@@ -15,6 +9,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
+import protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -36,7 +31,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 
 fn sent_place_sound(transport &FakeTransport, runtime_id int) bool {
 	for p in transport.sent {
-		if p is packets_1001.LevelSoundEventPacket {
+		if p is proto.LevelSoundEventPacket {
 			if p.event_name == 'place' && p.data == runtime_id {
 				return true
 			}
@@ -95,7 +90,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(network.game_type_survival)
+	pl.set_game_mode(proto.game_type_survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
@@ -125,14 +120,14 @@ fn give_held_stack(mut s NetworkSession, item_id int, count int) {
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 }
 
-fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_2168.PlayerAuthInputPacket {
-	mut tx := types_2168.PackedItemUseLegacyInventoryTransaction{
-		action_type:      enums_662.ItemUseInventoryTransactionType.place
+fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) proto.PlayerAuthInputPacket {
+	mut tx := proto.PackedItemUseLegacyInventoryTransaction{
+		action_type:      proto.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
-		position:         network.block_pos_v944(clicked_pos)
+		position:         proto.block_pos(clicked_pos)
 		face:             1
 		slot:             0
-		item:             network.item_descriptor_v2168(types.ItemStack{
+		item:             proto.item_descriptor(types.ItemStack{
 			id:               held_id
 			count:            64
 			block_runtime_id: 0
@@ -146,7 +141,7 @@ fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, 
 	tx.click_position[0] = 0.5
 	tx.click_position[1] = 1.0
 	tx.click_position[2] = 0.5
-	return packets_2168.PlayerAuthInputPacket{
+	return proto.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }
@@ -185,7 +180,7 @@ fn test_inventory_transaction_packet_is_a_safe_no_op() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(packets_2168.InventoryTransactionPacket{})!
+	s.handle_inventory_transaction(proto.InventoryTransactionPacket{})!
 
 	assert target.block_override(0, 1, 1) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -269,7 +264,7 @@ fn test_place_block_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	for p in observer_transport.sent {
-		assert p !is packets_944.UpdateBlockPacket
+		assert p !is proto.UpdateBlockPacket
 	}
 }
 
@@ -366,11 +361,11 @@ fn test_sign_tile_broadcasts_before_block_update() {
 	mut tile_index := -1
 	mut block_index := -1
 	for i, p in transport.sent {
-		if tile_index == -1 && p is packets_944.BlockActorDataPacket {
+		if tile_index == -1 && p is proto.BlockActorDataPacket {
 			tile_index = i
 		}
-		if block_index == -1 && p is packets_944.UpdateBlockPacket {
-			if p.block_position == network.block_pos_v944(types.BlockPosition{0, 1, 1}) {
+		if block_index == -1 && p is proto.UpdateBlockPacket {
+			if p.block_position == proto.block_pos(types.BlockPosition{0, 1, 1}) {
 				block_index = i
 			}
 		}
@@ -402,10 +397,10 @@ fn test_handled_interaction_does_not_consume_or_place_held_item() {
 
 	mut opened_editor := false
 	for p in transport.sent {
-		if p is packets_944.OpenSignPacket {
+		if p is proto.OpenSignPacket {
 			opened_editor = true
 		}
-		assert p !is packets_944.UpdateBlockPacket
+		assert p !is proto.UpdateBlockPacket
 	}
 	assert opened_editor
 	assert target.block_override(0, 1, 1) == none

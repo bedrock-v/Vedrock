@@ -101,7 +101,15 @@ pub const soul_sand = new_block('minecraft:soul_sand')
 pub const soul_soil = new_block('minecraft:soul_soil')
 pub const glowstone = new_block('minecraft:glowstone')
 pub const magma_block = new_block('minecraft:magma')
-pub const purpur_block = new_block('minecraft:purpur_block')
+// Purpur is a pillar in the palette even when it is not laid out as one, so it
+// only resolves with the axis it is placed on.
+pub const purpur_block = new_block_with_states('minecraft:purpur_block', [
+	BlockState{
+		key:        'pillar_axis'
+		kind:       state_kind_string
+		string_val: 'y'
+	},
+])
 pub const end_bricks = new_block('minecraft:end_bricks')
 
 pub const water = new_block_with_states('minecraft:water', [

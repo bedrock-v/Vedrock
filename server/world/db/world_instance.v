@@ -75,10 +75,10 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store              ?Provider
-	overrides          map[string]int
-	tile_data          map[string]TileData
-	container_data     map[string][]ContainerSlotItem
+	store          ?Provider
+	overrides      map[string]int
+	tile_data      map[string]TileData
+	container_data map[string][]ContainerSlotItem
 	open_holders       map[string]u64
 	mutex              &sync.Mutex = sync.new_mutex()
 	current_tick       i64

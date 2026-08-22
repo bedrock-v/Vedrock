@@ -2,21 +2,35 @@ module conf
 
 import os
 import toml
-import server.internal.network
+import protocol.current as proto
+
+// default_join_port is the port a Bedrock client tries first when it is
+// given an address with no port of its own.
+pub const default_join_port = 19132
 
 pub struct Config {
 pub mut:
-	motd          string = 'Vedrock Server'
-	sub_motd      string = 'A V Bedrock server'
-	address       string = '0.0.0.0'
-	port          int    = 19132
+	motd     string = 'Vedrock Server'
+	sub_motd string = 'A V Bedrock server'
+	address  string = '0.0.0.0'
+	// port is where a client joining by address reaches the server. LAN
+	// discovery is not configurable: a client only ever broadcasts to 7551.
+	port          int    = default_join_port
 	max_players   int    = 20
 	view_distance int    = 8
 	gamemode      string = 'survival'
 	difficulty    string = 'normal'
-	xbox_auth     bool   = true
-	// encryption negotiates Bedrock protocol encryption, which real clients
-	// complete against this server, so it stays on.
+	// xbox_auth verifies the Xbox Live chain in the client's Login packet. It
+	// says nothing about the transport: NetherNet's own identity assertion is
+	// a separate binding, and the game omits it more often than not.
+	xbox_auth bool = true
+	// require_identity rejects a NetherNet offer that carries no identity
+	// assertion. The game only sends one in some of the ways it connects, so a
+	// server that turns this on refuses the rest of them.
+	require_identity bool
+	// encryption negotiates Bedrock protocol encryption. NetherNet already
+	// encrypts every byte over DTLS and reports so, in which case the handshake
+	// is skipped no matter what this says.
 	encryption            bool   = true
 	compression_threshold int    = 256
 	generator             string = 'flat'
@@ -69,6 +83,7 @@ pub fn load_from(path string) !Config {
 	cfg.port = number(doc, 'network.port', cfg.port)
 	cfg.view_distance = number(doc, 'network.view-distance', cfg.view_distance)
 	cfg.xbox_auth = flag(doc, 'network.xbox-auth', cfg.xbox_auth)
+	cfg.require_identity = flag(doc, 'network.require-identity', cfg.require_identity)
 	cfg.encryption = flag(doc, 'network.encryption', cfg.encryption)
 	cfg.compression_threshold = number(doc, 'network.compression-threshold',
 		cfg.compression_threshold)
@@ -134,6 +149,7 @@ address = "${cfg.address}"
 port = ${cfg.port}
 view-distance = ${cfg.view_distance}
 xbox-auth = ${cfg.xbox_auth}
+require-identity = ${cfg.require_identity}
 encryption = ${cfg.encryption}
 compression-threshold = ${cfg.compression_threshold}
 
@@ -170,21 +186,21 @@ pub fn (c &Config) bind_address() string {
 // constant. Unknown values fall back to normal.
 pub fn difficulty_from_string(s string) int {
 	return match s.to_lower() {
-		'peaceful', 'p', '0' { network.difficulty_peaceful }
-		'easy', 'e', '1' { network.difficulty_easy }
-		'normal', 'n', '2' { network.difficulty_normal }
-		'hard', 'h', '3' { network.difficulty_hard }
-		else { network.difficulty_normal }
+		'peaceful', 'p', '0' { proto.difficulty_peaceful }
+		'easy', 'e', '1' { proto.difficulty_easy }
+		'normal', 'n', '2' { proto.difficulty_normal }
+		'hard', 'h', '3' { proto.difficulty_hard }
+		else { proto.difficulty_normal }
 	}
 }
 
 // difficulty_name returns the canonical name for a protocol difficulty constant.
 pub fn difficulty_name(value int) string {
 	return match value {
-		network.difficulty_peaceful { 'peaceful' }
-		network.difficulty_easy { 'easy' }
-		network.difficulty_normal { 'normal' }
-		network.difficulty_hard { 'hard' }
+		proto.difficulty_peaceful { 'peaceful' }
+		proto.difficulty_easy { 'easy' }
+		proto.difficulty_normal { 'normal' }
+		proto.difficulty_hard { 'hard' }
 		else { 'normal' }
 	}
 }

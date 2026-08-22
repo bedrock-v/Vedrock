@@ -1,11 +1,10 @@
 module entity
 
-import protocol.version.v898.packets as packets_898
-import server.internal.network
 import server.effect
+import protocol.current as proto
 
-const mob_effect_add = packets_898.MobEffectEvent.add
-const mob_effect_remove = packets_898.MobEffectEvent.remove
+const mob_effect_add = proto.MobEffectEvent.add
+const mob_effect_remove = proto.MobEffectEvent.remove
 
 // add_effect stores ef on e and syncs it to viewers.
 pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
@@ -22,8 +21,8 @@ pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
 // remove_effect strips typ from e, if present, and tells viewers.
 pub fn (mut e Entity) remove_effect(mut host Host, typ effect.Type) {
 	e.effects.remove(typ) or { return }
-	host.broadcast(&packets_898.MobEffectPacket{
-		target_runtime_id: network.actor_runtime_id(e.runtime_id)
+	host.broadcast(&proto.MobEffectPacket{
+		target_runtime_id: proto.actor_runtime_id(e.runtime_id)
 		event_id:          mob_effect_remove
 		effect_id:         typ.id
 	})
@@ -42,17 +41,17 @@ fn (mut e Entity) tick_effects(mut host Host) {
 		e.apply_effect_tick(mut host, ef)
 	}
 	for ef in result.expired {
-		host.broadcast(&packets_898.MobEffectPacket{
-			target_runtime_id: network.actor_runtime_id(e.runtime_id)
+		host.broadcast(&proto.MobEffectPacket{
+			target_runtime_id: proto.actor_runtime_id(e.runtime_id)
 			event_id:          mob_effect_remove
 			effect_id:         ef.effect_type().id
 		})
 	}
 }
 
-fn (e &Entity) mob_effect_packet(ef effect.Effect, event_id packets_898.MobEffectEvent) &packets_898.MobEffectPacket {
-	return &packets_898.MobEffectPacket{
-		target_runtime_id:     network.actor_runtime_id(e.runtime_id)
+fn (e &Entity) mob_effect_packet(ef effect.Effect, event_id proto.MobEffectEvent) &proto.MobEffectPacket {
+	return &proto.MobEffectPacket{
+		target_runtime_id:     proto.actor_runtime_id(e.runtime_id)
 		event_id:              event_id
 		effect_id:             ef.effect_type().id
 		effect_amplifier:      ef.level() - 1

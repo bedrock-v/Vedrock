@@ -1,19 +1,11 @@
 module session
 
 import math
-import protocol.version.v662.packets as packets_662
-import protocol.version.v662.enums as enums_662
-import protocol.version.v898.packets as packets_898
-import protocol.version.v924.packets as packets_924
-import protocol.version.v924.enums as enums_924
-import protocol.version.v975.packets as packets_975
-import protocol.version.v975.enums as enums_975
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.enums as enums_2168
+
 import protocol.types
 import server.effect
 import server.event
-import server.internal.network
+import protocol.current as proto
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -55,8 +47,8 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		return
 	}
 	if victim_actor is NetworkSession {
-		if !victim_actor.spawned || victim_actor.player.game_mode() == network.game_type_creative
-			|| victim_actor.player.game_mode() == network.game_type_spectator {
+		if !victim_actor.spawned || victim_actor.player.game_mode() == proto.game_type_creative
+			|| victim_actor.player.game_mode() == proto.game_type_spectator {
 			return
 		}
 	}
@@ -77,11 +69,11 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		attacker_name: attacker.player.identity.display_name
 	}, t.attacker_runtime_id, own, ctx.val.knockback_force, ctx.val.knockback_height)
 	if t.critical {
-		tx.wr.broadcast_world(&packets_898.AnimatePacket{
-			action:            packets_898.AnimatePacketAction.critical_hit
-			target_runtime_id: network.actor_runtime_id(victim_actor.runtime_id())
+		tx.wr.broadcast_world(&proto.AnimatePacket{
+			action:            proto.AnimatePacketAction.critical_hit
+			target_runtime_id: proto.actor_runtime_id(victim_actor.runtime_id())
 		})
-		tx.wr.broadcast_world(network.level_sound_event(sound_attack_strong,
+		tx.wr.broadcast_world(proto.level_sound_event(sound_attack_strong,
 			victim_actor.current_position(), -1, 'minecraft:player', victim_actor.runtime_id()))
 	}
 }
@@ -174,7 +166,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		s.replace_held_item(result.replaces_with)
 	}
 	if result.sound != '' {
-		s.hub.broadcast(network.level_sound_event(result.sound, snap.pos, -1, snap.identifier,
+		s.hub.broadcast(proto.level_sound_event(result.sound, snap.pos, -1, snap.identifier,
 			target_runtime_id))
 	}
 }
@@ -196,8 +188,8 @@ fn (mut s NetworkSession) replace_held_item(item_name string) {
 }
 
 fn (s &NetworkSession) is_critical() bool {
-	if s.player.game_mode() == network.game_type_creative
-		|| s.player.game_mode() == network.game_type_spectator {
+	if s.player.game_mode() == proto.game_type_creative
+		|| s.player.game_mode() == proto.game_type_spectator {
 		return false
 	}
 	return s.player.movement().vy < -0.08
@@ -210,8 +202,8 @@ fn (s &NetworkSession) is_critical() bool {
 // (see DamageSource, damage_source.v) and supplies the
 // death message. Effect damage doesn't go through here.
 fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source DamageSource) {
-	if s.player.is_dead() || s.player.game_mode() == network.game_type_creative
-		|| s.player.game_mode() == network.game_type_spectator {
+	if s.player.is_dead() || s.player.game_mode() == proto.game_type_creative
+		|| s.player.game_mode() == proto.game_type_spectator {
 		return
 	}
 	if source.ignored_by_fire_resistance() {
@@ -240,9 +232,9 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 	new_health := s.player.health() - ctx.val.amount
 	s.player.set_health(if new_health < 0 { f32(0) } else { new_health })
 	s.deliver(s.health_update())
-	wr.broadcast_world(&packets_975.ActorEventPacket{
-		target_runtime_id: network.actor_runtime_id(s.runtime_id)
-		event_id:          enums_975.ActorEvent.hurt
+	wr.broadcast_world(&proto.ActorEventPacket{
+		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		event_id:          proto.ActorEvent.hurt
 		data:              0
 	})
 	if s.player.health() <= 0 {
@@ -264,15 +256,15 @@ fn (mut s NetworkSession) apply_death(mut wr WorldRuntime, message_key string, p
 		return
 	}
 	s.player.set_dead(true)
-	wr.broadcast_world_except(s.runtime_id, &packets_975.ActorEventPacket{
-		target_runtime_id: network.actor_runtime_id(s.runtime_id)
-		event_id:          enums_975.ActorEvent.death
+	wr.broadcast_world_except(s.runtime_id, &proto.ActorEventPacket{
+		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		event_id:          proto.ActorEvent.death
 		data:              0
 	})
 	s.player.set_last_death(s.current_position())
-	wr.broadcast_world(&packets_924.TextPacket{
+	wr.broadcast_world(&proto.TextPacket{
 		localize:     true
-		message_type: enums_924.TextTranslate{
+		message_type: proto.TextTranslate{
 			message:        ctx.val.message_key
 			parameter_list: parameters
 		}
@@ -296,8 +288,8 @@ fn (t PlayerRespawnTask) run(mut tx WorldTx) {
 	target.apply_respawn(mut tx.wr)
 }
 
-fn (mut s NetworkSession) handle_respawn(p packets_662.RespawnPacket) ! {
-	if p.state == enums_662.PlayerRespawnState.client_ready_to_spawn {
+fn (mut s NetworkSession) handle_respawn(p proto.RespawnPacket) ! {
+	if p.state == proto.PlayerRespawnState.client_ready_to_spawn {
 		s.request_respawn()
 	}
 }
@@ -333,18 +325,18 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())
-	mut respawn_packet := &packets_662.RespawnPacket{
-		state:             enums_662.PlayerRespawnState.ready_to_spawn
-		player_runtime_id: network.actor_runtime_id(s.runtime_id)
+	mut respawn_packet := &proto.RespawnPacket{
+		state:             proto.PlayerRespawnState.ready_to_spawn
+		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
 	}
 	respawn_packet.position[0] = current.position.x
 	respawn_packet.position[1] = current.position.y
 	respawn_packet.position[2] = current.position.z
 	s.deliver(respawn_packet)
-	mut move_packet := &packets_2168.MovePlayerPacket{
-		player_runtime_id: network.actor_runtime_id(s.runtime_id)
+	mut move_packet := &proto.MovePlayerPacket{
+		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     enums_2168.PlayerPositionMode.respawn
+		position_mode:     proto.PlayerPositionMode.respawn
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x
@@ -380,8 +372,8 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 		y: height
 		z: dz / dist * force
 	}
-	mut motion_packet := &packets_662.SetActorMotionPacket{
-		target_runtime_id: network.actor_runtime_id(s.runtime_id)
+	mut motion_packet := &proto.SetActorMotionPacket{
+		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
 		server_tick:       0
 	}
 	motion_packet.motion[0] = motion.x

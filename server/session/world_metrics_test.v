@@ -2,7 +2,7 @@ module session
 
 import time
 import protocol
-import protocol.version.v924.packets as packets_924
+
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth
@@ -12,6 +12,7 @@ import server.player
 import server.world
 import server.world.db
 import protocol.types
+import protocol.current as proto
 
 struct MetricsBarrierTask {
 	started chan bool
@@ -265,6 +266,10 @@ fn (mut t StallingTransport) enable_compression(threshold int) {}
 
 fn (mut t StallingTransport) enable_encryption(mut ctx encryption.Context) {}
 
+fn (t &StallingTransport) disable_encryption() bool {
+	return false
+}
+
 fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	mut hub, mut wr := metrics_test_world_runtime()
 	defer {
@@ -297,15 +302,15 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	// Deliver one packet and wait for the writer to actually be blocked
 	// inside send() before filling the queue, so the fill loop below always
 	// lands exactly at capacity regardless of thread scheduling.
-	s.deliver(&packets_924.TextPacket{})
+	s.deliver(&proto.TextPacket{})
 	transport.wait_started()
 
 	for _ in 0 .. outbound_queue_capacity {
-		s.deliver(&packets_924.TextPacket{})
+		s.deliver(&proto.TextPacket{})
 	}
 	assert wr.metrics().outbound_overflow_count == 0
 
-	s.deliver(&packets_924.TextPacket{}) // one past capacity, this overflows
+	s.deliver(&proto.TextPacket{}) // one past capacity, this overflows
 
 	assert wr.metrics().outbound_overflow_count == 1
 	assert wr.metrics().outbound_peak_depth == 0 // no tick has sampled it yet

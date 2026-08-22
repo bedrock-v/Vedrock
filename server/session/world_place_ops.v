@@ -1,11 +1,10 @@
 module session
 
-import protocol.version.v944.packets as packets_944
 import protocol.types
-import server.internal.network
 import server.event
 import server.world
 import server.block
+import protocol.current as proto
 
 // obstructed_by_entity reports whether pos overlaps a player registered in
 // wr, including the acting player's own current or pending body position.
@@ -137,8 +136,8 @@ fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-	tx.wr.broadcast_world(&packets_944.BlockActorDataPacket{
-		block_position:  network.block_pos_v944(pos)
+	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
+		block_position:  proto.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, '')
 	})
 }
@@ -148,8 +147,8 @@ fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.Block
 	if b !is block.SignBlock {
 		return
 	}
-	s.deliver(&packets_944.OpenSignPacket{
-		pos:      network.block_pos_v944(pos)
+	s.deliver(&proto.OpenSignPacket{
+		pos:      proto.block_pos(pos)
 		is_front: true
 	})
 }
@@ -240,11 +239,11 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 	}
 	tx.set_block(pos.x, pos.y, pos.z, new_id)
 	if result.sound != '' {
-		tx.wr.broadcast_world(network.level_sound_event(result.sound, s.current_position(), -1,
+		tx.wr.broadcast_world(proto.level_sound_event(result.sound, s.current_position(), -1,
 			'minecraft:player', s.runtime_id))
 	}
 	tx.broadcast_swing(s)
-	if s.player.game_mode() != network.game_type_creative {
+	if s.player.game_mode() != proto.game_type_creative {
 		tx.consume_held_item(mut s)
 	}
 	tx.notify_block_changed(pos)

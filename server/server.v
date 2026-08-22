@@ -5,8 +5,9 @@ import rand
 import time
 import server.cmd
 import server.scheduler
-import raknet
-import protocol.version.v662.packets as packets_662
+import nethernet
+import nethernet.discovery
+import nethernet.endpoint
 import server.internal.logger
 import server.internal.language
 import server.conf
@@ -21,6 +22,8 @@ import server.crash
 import server.event
 import server.player.playerdb
 import sync.stdatomic
+import protocol.current as proto
+import webrtc.logging
 
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
@@ -55,10 +58,17 @@ pub:
 @[heap]
 pub struct Server {
 mut:
-	hub      &session.Hub     = unsafe { nil }
-	listener &raknet.Listener = unsafe { nil }
-	guid     i64
-	running  &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	hub &session.Hub = unsafe { nil }
+	// signaling is the LAN discovery channel: the same socket advertises the
+	// world and carries the offers and answers that negotiate a connection.
+	signaling &discovery.Listener = unsafe { nil }
+	listener  &nethernet.Listener = unsafe { nil }
+	// endpoint is the address join channel: a client given this server's
+	// address asks it over HTTP instead of broadcasting for it.
+	endpoint          &endpoint.EndpointHandler = unsafe { nil }
+	endpoint_listener &nethernet.Listener = unsafe { nil }
+	guid      i64
+	running   &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
 	active_conns &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -191,16 +201,82 @@ pub fn new(opts Options) !&Server {
 	}
 }
 
+// TransportLogSink forwards what the NetherNet stack logs into the server's own
+// logger, so transport diagnostics land in the same place as everything else.
+struct TransportLogSink {
+	log &logger.Logger = unsafe { nil }
+}
+
+fn (s &TransportLogSink) write(level logging.Level, scope string, msg string) {
+	line := '[${scope}] ${msg}'
+	match level {
+		.error { s.log.error(line) }
+		.warn { s.log.warn(line) }
+		.info { s.log.info(line) }
+		else { s.log.debug(line) }
+	}
+}
+
+// transport_log_level keeps the transport quiet unless the server is in debug
+// mode: ICE and DTLS negotiation is verbose enough to bury the game log.
+fn (s &Server) transport_log_level() logging.Level {
+	return if s.cfg.debug { logging.Level.debug } else { logging.Level.warn }
+}
+
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
-		'Version': network.selected_minecraft_version
+		'Version': proto.selected_minecraft_version
 	}))
-	mut listener := raknet.listen(s.cfg.bind_address())!
-	listener.set_pong_data(s.pong_data(0).bytes())!
+	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
+		log: s.log
+	})
+	// The server answers requests rather than making them, so it binds the
+	// discovery port and never broadcasts.
+	mut signaling := discovery.listen('${s.cfg.address}:${discovery.default_port}',
+		network_id: u64(s.guid)
+		broadcast:  false
+		logger:     net_log
+	)!
+	signaling.pong_data(s.pong_data(0).bytes())
+	mut listener := nethernet.listen(mut signaling,
+		// The game leaves the identity assertion out of most of its offers,
+		// including every LAN one, so refusing them is opt in. Xbox Live
+		// authentication is checked on the Login chain instead.
+		allow_anonymous: !s.cfg.require_identity
+		logger:          net_log
+	) or {
+		signaling.close()
+		return err
+	}
+	mut join_endpoint := endpoint.listen(
+		address:    s.cfg.bind_address()
+		network_id: s.guid.str()
+		logger:     net_log
+	) or {
+		listener.close()
+		signaling.close()
+		return err
+	}
+	join_endpoint.pong_data(s.pong_data(0).bytes())
+	mut endpoint_listener := nethernet.listen(mut join_endpoint,
+		allow_anonymous: !s.cfg.require_identity
+		logger:          net_log
+	) or {
+		join_endpoint.close()
+		listener.close()
+		signaling.close()
+		return err
+	}
+	s.signaling = signaling
 	s.listener = listener
+	s.endpoint = join_endpoint
+	s.endpoint_listener = endpoint_listener
 	s.running.store(true)
 	s.log.info(s.lang.tf('server.listening', {
 		'Address': s.cfg.bind_address()
+	}))
+	s.log.info(s.lang.tf('server.discovery_listening', {
+		'Address': '${s.cfg.address}:${discovery.default_port}'
 	}))
 	elapsed := (time.now() - s.created_at).seconds()
 	s.log.info(s.lang.tf('server.started', {
@@ -208,7 +284,8 @@ pub fn (mut s Server) start() ! {
 	}))
 	spawn s.tick_loop()
 	spawn s.console_loop()
-	s.accept_loop()
+	spawn s.accept_loop(mut endpoint_listener)
+	s.accept_loop(mut listener)
 }
 
 const console_poll_interval = 100 * time.millisecond
@@ -270,12 +347,12 @@ fn (mut s Server) tick_loop() {
 		tick++
 		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
-			s.hub.broadcast(&packets_662.SetTimePacket{
+			s.hub.broadcast(&proto.SetTimePacket{
 				time: world_time
 			})
-			s.listener.set_pong_data(s.pong_data(s.hub.count()).bytes()) or {
-				s.log.warn('Failed to update pong data: ${err}')
-			}
+			pong := s.pong_data(s.hub.count()).bytes()
+			s.signaling.pong_data(pong)
+			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
 			for msg in s.hub.flush_worlds() {
@@ -332,12 +409,15 @@ fn (mut s Server) tick_loop() {
 // max_concurrent_connections caps how many connection handlers run at once.
 const max_concurrent_connections = u64(1024)
 
-fn (mut s Server) accept_loop() {
+// accept_loop takes connections from one of the two channels a client can
+// arrive through. Both end in the same handler: how the connection was
+// negotiated says nothing about the session that follows.
+fn (mut s Server) accept_loop(mut listener nethernet.Listener) {
 	for s.running.load() {
-		mut conn := s.listener.accept_timeout(time.second) or { continue }
+		mut conn := listener.accept(time.second) or { continue }
 		if s.active_conns.load() >= max_concurrent_connections {
 			s.log.warn('Rejecting connection from ${conn.remote_addr()} - at capacity (${max_concurrent_connections})')
-			conn.close() or {}
+			conn.close()
 			continue
 		}
 		s.active_conns.add(1)
@@ -352,21 +432,24 @@ fn (mut s Server) accept_loop() {
 // thread, so one misbehaving connection can never take the server down. The
 // remote address is captured up front so a failure setting up the session still
 // has something to log against.
-fn (mut s Server) handle(mut conn raknet.Conn) {
+fn (mut s Server) handle(mut conn nethernet.Conn) {
 	defer {
 		s.active_conns.sub(1)
 	}
-	addr := conn.remote_addr()
+	addr := conn.remote_addr().str()
 	mut transport := network.new_session(mut conn, s.log)
 	mut net_session := session.new(mut transport, mut s.hub, s.cfg, s.log)
 	net_session.handle_loop()
 	s.log.debug('Connection handler for ${addr} finished')
 }
 
+// pong_data is the semicolon separated status string both signalling channels
+// advertise the server with. The port appears twice because the format keeps
+// one for each address family.
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
 	return
-		['MCPE', s.cfg.motd, network.selected_protocol.str(), network.selected_minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
+		['MCPE', s.cfg.motd, proto.selected_protocol.str(), proto.selected_minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
 		';'
 }
 
@@ -396,8 +479,17 @@ pub fn (mut s Server) stop() {
 		s.hub.wait_for_sessions_to_leave()
 		s.hub.close_worlds()
 	}
+	if !isnil(s.endpoint_listener) {
+		s.endpoint_listener.close()
+	}
+	if !isnil(s.endpoint) {
+		s.endpoint.close()
+	}
 	if !isnil(s.listener) {
-		s.listener.close() or {}
+		s.listener.close()
+	}
+	if !isnil(s.signaling) {
+		s.signaling.close()
 	}
 }
 

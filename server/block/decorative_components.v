@@ -35,6 +35,24 @@ fn stateless_color_block(name string, hardness f32) Block {
 	}
 }
 
+fn pane_block(name string, connections []world.BlockState) Block {
+	id := 'minecraft:${name}'
+	runtime := world.new_block_with_states(id, connections)
+	return SimpleBlock{
+		id:             id
+		block_runtime:  runtime.network_id
+		break_hardness: glass_hardness
+	}
+}
+
+fn pane_blocks(name string) []Block {
+	mut result := []Block{cap: 16}
+	for connections in all_connection_states() {
+		result << pane_block(name, connections)
+	}
+	return result
+}
+
 fn glazed_terracotta_block(color string, facing int) Block {
 	id := 'minecraft:${glazed_terracotta_block_color(color)}_glazed_terracotta'
 	runtime := world.new_block_with_states(id, [
@@ -170,6 +188,43 @@ fn wall_banner_block(facing int) Block {
 	}
 }
 
+// ShearsBlock is a block shears take apart. Wool keeps its family whatever
+// shape it is cut into, which the name based tool fallback cannot tell from
+// the name of a slab or a stair.
+pub struct ShearsBlock {
+	SimpleBlock
+}
+
+pub fn (b ShearsBlock) tool_type() int {
+	return tool_type_shears
+}
+
+pub fn (b ShearsBlock) harvest_level() int {
+	return harvest_level_none
+}
+
+fn straw_bed_block(direction string, head_piece u8, occupied u8) Block {
+	id := 'minecraft:straw_bed'
+	runtime := world.new_block_with_states(id, [
+		cardinal_direction_state(direction),
+		world.BlockState{
+			key:        'head_piece_bit'
+			kind:       world.state_kind_byte
+			byte_value: head_piece
+		},
+		world.BlockState{
+			key:        'occupied_bit'
+			kind:       world.state_kind_byte
+			byte_value: occupied
+		},
+	])
+	return SimpleBlock{
+		id:             id
+		block_runtime:  runtime.network_id
+		break_hardness: bed_hardness
+	}
+}
+
 fn bed_block(direction int, head_piece u8, occupied u8) Block {
 	id := 'minecraft:bed'
 	runtime := world.new_block_with_states(id, [
@@ -199,7 +254,7 @@ fn bed_block(direction int, head_piece u8, occupied u8) Block {
 pub fn decorative_blocks() []Block {
 	mut result := []Block{}
 	result << stateless_color_block('glass', glass_hardness)
-	result << stateless_color_block('glass_pane', glass_hardness)
+	result << pane_blocks('glass_pane')
 	result << stateless_color_block('hardened_clay', terracotta_hardness)
 	for color in dye_colors {
 		result << stateless_color_block('${color}_wool', wool_hardness)
@@ -208,7 +263,7 @@ pub fn decorative_blocks() []Block {
 		result << stateless_color_block('${color}_concrete_powder', concrete_powder_hardness)
 		result << stateless_color_block('${color}_terracotta', terracotta_hardness)
 		result << stateless_color_block('${color}_stained_glass', glass_hardness)
-		result << stateless_color_block('${color}_stained_glass_pane', glass_hardness)
+		result << pane_blocks('${color}_stained_glass_pane')
 	}
 	for color in dye_colors {
 		for facing in 0 .. 6 {
@@ -251,6 +306,44 @@ pub fn decorative_blocks() []Block {
 		for head_piece in [u8(0), 1] {
 			for occupied in [u8(0), 1] {
 				result << bed_block(direction, head_piece, occupied)
+			}
+		}
+	}
+	for direction in cardinal_directions {
+		for head_piece in [u8(0), 1] {
+			for occupied in [u8(0), 1] {
+				result << straw_bed_block(direction, head_piece, occupied)
+			}
+		}
+	}
+	result << wool_and_concrete_shapes()
+	return result
+}
+
+// wool_and_concrete_shapes is the slab and stair set the game drives from the
+// block definitions rather than implementing natively.
+fn wool_and_concrete_shapes() []Block {
+	mut result := []Block{}
+	for color in dye_colors {
+		for half in slab_halves {
+			for name in ['${color}_wool_slab', '${color}_wool_double_slab'] {
+				result << ShearsBlock{
+					SimpleBlock: slab_block(name, half, wool_hardness)
+				}
+			}
+			result << slab_block('${color}_concrete_slab', half, concrete_hardness)
+			result << slab_block('${color}_concrete_double_slab', half, concrete_hardness)
+		}
+		for corner in stair_corners {
+			for upside_down in [u8(0), 1] {
+				for direction in 0 .. 4 {
+					result << ShearsBlock{
+						SimpleBlock: stairs_block('${color}_wool_stairs', corner, upside_down,
+							direction, wool_hardness)
+					}
+					result << stairs_block('${color}_concrete_stairs', corner, upside_down,
+						direction, concrete_hardness)
+				}
 			}
 		}
 	}

@@ -4,16 +4,13 @@ import encoding.base64
 import os
 import time
 import protocol.serializer
-import server.internal.network
-import protocol.version.v662.packets as packets_662
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v1001.packets as packets_1001
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
 import server.permission
 import server.player
+import protocol.current as proto
 
 fn login_test_token(name string, xuid string, uuid string) string {
 	header := base64.url_encode('{"alg":"none"}'.bytes()).trim_right('=')
@@ -22,13 +19,13 @@ fn login_test_token(name string, xuid string, uuid string) string {
 	return '${header}.${payload}.unsigned'
 }
 
-fn login_test_packet(name string, uuid string) packets_662.LoginPacket {
+fn login_test_packet(name string, uuid string) proto.LoginPacket {
 	auth_info_json := '{"AuthenticationType":2,"Token":"${login_test_token(name, '', uuid)}"}'
 	mut w := serializer.new_writer()
 	w.le_u32(u32(auth_info_json.len))
 	w.write_raw(auth_info_json.bytes())
-	return packets_662.LoginPacket{
-		client_network_version: network.selected_protocol
+	return proto.LoginPacket{
+		client_network_version: proto.selected_protocol
 		connection_request:     w.bytes()
 	}
 }
@@ -87,19 +84,19 @@ fn test_duplicate_login_rejected_while_first_session_is_pending_spawn() {
 	first.handle_login(packet)!
 	second.handle_login(packet)!
 
-	assert sent_packet[packets_2168.ResourcePacksInfoPacket](first_transport)
-	assert wait_for_sent[packets_1001.DisconnectPacket](second_transport, 5000)
+	assert sent_packet[proto.ResourcePacksInfoPacket](first_transport)
+	assert wait_for_sent[proto.DisconnectPacket](second_transport, 5000)
 	assert second.state == .closed
 }
 
 // login_test_packet_with_xuid builds a LoginPacket claiming the given xuid.
-fn login_test_packet_with_xuid(name string, xuid string, uuid string) packets_662.LoginPacket {
+fn login_test_packet_with_xuid(name string, xuid string, uuid string) proto.LoginPacket {
 	auth_info_json := '{"AuthenticationType":2,"Token":"${login_test_token(name, xuid, uuid)}"}'
 	mut w := serializer.new_writer()
 	w.le_u32(u32(auth_info_json.len))
 	w.write_raw(auth_info_json.bytes())
-	return packets_662.LoginPacket{
-		client_network_version: network.selected_protocol
+	return proto.LoginPacket{
+		client_network_version: proto.selected_protocol
 		connection_request:     w.bytes()
 	}
 }
@@ -148,7 +145,7 @@ fn test_max_players_counts_pending_logins_before_reserving_name() {
 	first.handle_login(first_packet)!
 	second.handle_login(second_packet)!
 
-	assert sent_packet[packets_2168.ResourcePacksInfoPacket](first_transport)
-	assert wait_for_sent[packets_1001.DisconnectPacket](second_transport, 5000)
+	assert sent_packet[proto.ResourcePacksInfoPacket](first_transport)
+	assert wait_for_sent[proto.DisconnectPacket](second_transport, 5000)
 	assert second.state == .closed
 }

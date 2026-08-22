@@ -29,7 +29,8 @@ Linux/macOS, `%USERPROFILE%\.vmodules` on Windows):
 
 ```bash
 git clone https://github.com/bedrock-v/nbt      ~/.vmodules/nbt
-git clone https://github.com/bedrock-v/raknet   ~/.vmodules/raknet
+git clone https://github.com/bedrock-v/nethernet ~/.vmodules/nethernet
+git clone https://github.com/bedrock-v/webrtc-v  ~/.vmodules/webrtc
 git clone https://github.com/bedrock-v/protocol ~/.vmodules/protocol
 
 v install nepinhum.i18n

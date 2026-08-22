@@ -51,3 +51,7 @@ pub fn (mut t FakeTransport) mark_logged_in() {}
 pub fn (mut t FakeTransport) enable_compression(threshold int) {}
 
 pub fn (mut t FakeTransport) enable_encryption(mut ctx encryption.Context) {}
+
+pub fn (t &FakeTransport) disable_encryption() bool {
+	return false
+}

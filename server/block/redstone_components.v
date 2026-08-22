@@ -13,7 +13,6 @@ const plate_types = ['wooden', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak'
 	'polished_blackstone']
 const lever_directions = ['down_east_west', 'east', 'west', 'south', 'north', 'up_north_south',
 	'up_east_west', 'down_north_south']
-const cardinal_directions = ['south', 'west', 'north', 'east']
 const observer_facings = ['down', 'up', 'north', 'south', 'west', 'east']
 const torch_facings = ['unknown', 'west', 'east', 'north', 'south', 'top']
 
@@ -238,9 +237,9 @@ fn tripwire_hook_block(attached u8, direction int, powered u8) Block {
 	}
 }
 
-fn trip_wire_block(attached u8, disarmed u8, powered u8, suspended u8) Block {
+fn trip_wire_block(attached u8, disarmed u8, powered u8, suspended u8, connections []world.BlockState) Block {
 	id := 'minecraft:trip_wire'
-	runtime := world.new_block_with_states(id, [
+	mut states := [
 		world.BlockState{
 			key:        'attached_bit'
 			kind:       world.state_kind_byte
@@ -261,7 +260,9 @@ fn trip_wire_block(attached u8, disarmed u8, powered u8, suspended u8) Block {
 			kind:       world.state_kind_byte
 			byte_value: suspended
 		},
-	])
+	]
+	states << connections
+	runtime := world.new_block_with_states(id, states)
 	return SimpleBlock{
 		id:             id
 		block_runtime:  runtime.network_id
@@ -368,7 +369,10 @@ pub fn redstone_component_blocks() []Block {
 		for disarmed in [u8(0), 1] {
 			for powered in [u8(0), 1] {
 				for suspended in [u8(0), 1] {
-					result << trip_wire_block(attached, disarmed, powered, suspended)
+					for connections in all_connection_states() {
+						result << trip_wire_block(attached, disarmed, powered, suspended,
+							connections)
+					}
 				}
 			}
 		}

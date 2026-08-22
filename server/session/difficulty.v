@@ -1,7 +1,7 @@
 module session
 
-import protocol.version.v662.packets as packets_662
 import server.conf
+import protocol.current as proto
 
 // set_difficulty mutates the server global difficulty under config_mutex, then
 // broadcasts and persists outside the lock.
@@ -9,7 +9,7 @@ fn (mut h Hub) set_difficulty(value int) {
 	h.config_mutex.lock()
 	h.difficulty = value
 	h.config_mutex.unlock()
-	h.broadcast(&packets_662.SetDifficultyPacket{
+	h.broadcast(&proto.SetDifficultyPacket{
 		difficulty: u32(value)
 	})
 	conf.update_difficulty_in_file(h.conf_file, conf.difficulty_name(value)) or {

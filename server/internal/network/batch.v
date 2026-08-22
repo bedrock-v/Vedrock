@@ -3,7 +3,8 @@ module network
 import compress.deflate
 import protocol.serializer
 
-pub const game_packet_header = u8(0xfe)
+// A NetherNet message carries the batch on its own: the first byte is the
+// compression marker below, with no game packet header in front of it.
 pub const compression_flate = u8(0x00)
 pub const compression_none = u8(0xff)
 
@@ -23,12 +24,10 @@ pub fn encode_batch(packets [][]u8, compression_enabled bool, threshold int) ![]
 		bw.write_raw(pkt)
 	}
 	batch := bw.bytes()
-	mut out := []u8{}
-	out << game_packet_header
 	if !compression_enabled {
-		out << batch
-		return out
+		return batch
 	}
+	mut out := []u8{}
 	if batch.len < threshold {
 		out << compression_none
 		out << batch
@@ -47,19 +46,12 @@ pub fn decode_batch(payload []u8, compression_enabled bool) ![][]u8 {
 	if payload.len > max_compressed_batch {
 		return error('batch payload too large: ${payload.len} bytes')
 	}
-	if payload[0] != game_packet_header {
-		return error('invalid game packet header 0x${payload[0].hex()}')
-	}
-	body := unsafe { payload[1..] }
 	mut batch := []u8{}
 	if !compression_enabled {
-		batch = body.clone()
+		batch = payload.clone()
 	} else {
-		if body.len == 0 {
-			return error('missing compression algorithm byte')
-		}
-		algorithm := body[0]
-		rest := body[1..]
+		algorithm := payload[0]
+		rest := payload[1..]
 		batch = match algorithm {
 			compression_none { rest.clone() }
 			compression_flate { deflate.decompress(rest)! }

@@ -1,10 +1,8 @@
 module session
 
-import protocol.version.v662.packets as packets_662
-import protocol.version.v898.packets as packets_898
 import protocol.types
-import server.internal.network
 import server.world
+import protocol.current as proto
 
 // block_at returns this transaction's authoritative block ID, preferring a
 // stored override and falling back to generation. It always reads from the
@@ -13,8 +11,8 @@ fn (tx &WorldTx) block_at(x int, y int, z int) int {
 	if id := tx.wr.world.block_override(x, y, z) {
 		return id
 	}
-	gen := tx.wr.world.make_generator(tx.wr.hub.build_generator(tx.wr.world))
-	return gen.block_at(x, y, z)
+	mut wr := tx.wr
+	return wr.generated_block(x, y, z)
 }
 
 fn (tx &WorldTx) neighbor_ids(pos types.BlockPosition) world.NeighborBlockIDs {
@@ -56,17 +54,17 @@ fn (mut tx WorldTx) recompute_neighbor_blocks(pos types.BlockPosition) {
 // broadcast_swing sends the acting session's arm swing animation to every
 // other session in this transaction's world.
 fn (mut tx WorldTx) broadcast_swing(s &NetworkSession) {
-	tx.wr.broadcast_world_except(s.runtime_id, &packets_898.AnimatePacket{
-		action:            packets_898.AnimatePacketAction.swing
-		target_runtime_id: network.actor_runtime_id(s.runtime_id)
+	tx.wr.broadcast_world_except(s.runtime_id, &proto.AnimatePacket{
+		action:            proto.AnimatePacketAction.swing
+		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
 	})
 }
 
 // broadcast_destroy_particles sends the block break particle effect to every
 // session in this transaction's world.
 fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id int) {
-	mut packet := &packets_662.LevelEventPacket{
-		event_id: network.level_event_particles_destroy_block
+	mut packet := &proto.LevelEventPacket{
+		event_id: proto.level_event_particles_destroy_block
 		data:     runtime_id
 	}
 	packet.position[0] = f32(x) + 0.5
@@ -79,7 +77,7 @@ fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id 
 // this transaction's world. The start, update and stop events differ only in
 // their id and payload, so they all go through here.
 fn (mut tx WorldTx) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
-	mut packet := &packets_662.LevelEventPacket{
+	mut packet := &proto.LevelEventPacket{
 		event_id: event_id
 		data:     data
 	}
@@ -92,14 +90,14 @@ fn (mut tx WorldTx) broadcast_cracking(event_id int, pos types.BlockPosition, da
 // broadcast_crack_speed updates the crack animation speed for a block that is
 // already being mined, for every session in this transaction's world.
 fn (mut tx WorldTx) broadcast_crack_speed(pos types.BlockPosition, data int) {
-	tx.broadcast_cracking(network.level_event_update_block_cracking, pos, data)
+	tx.broadcast_cracking(proto.level_event_update_block_cracking, pos, data)
 }
 
 // broadcast_punch_particle sends the periodic mining particle for the face
 // being hit, to every session in this transaction's world.
 fn (mut tx WorldTx) broadcast_punch_particle(pos types.BlockPosition, runtime_id int, face int) {
-	mut packet := &packets_662.LevelEventPacket{
-		event_id: network.level_event_particles_punch_block
+	mut packet := &proto.LevelEventPacket{
+		event_id: proto.level_event_particles_punch_block
 		data:     runtime_id | int(u32(face) << 24)
 	}
 	packet.position[0] = f32(pos.x)
@@ -109,13 +107,13 @@ fn (mut tx WorldTx) broadcast_punch_particle(pos types.BlockPosition, runtime_id
 }
 
 fn (mut tx WorldTx) broadcast_stop_cracking(x int, y int, z int) {
-	tx.broadcast_cracking(network.level_event_stop_block_cracking, types.BlockPosition{x, y, z}, 0)
+	tx.broadcast_cracking(proto.level_event_stop_block_cracking, types.BlockPosition{x, y, z}, 0)
 }
 
 // broadcast_place_sound sends the block placement sound to every session in
 // this transaction's world.
 fn (mut tx WorldTx) broadcast_place_sound(s &NetworkSession, x int, y int, z int, runtime_id int) {
-	tx.wr.broadcast_world(network.level_sound_event('place', types.Vector3{
+	tx.wr.broadcast_world(proto.level_sound_event('place', types.Vector3{
 		x: f32(x) + 0.5
 		y: f32(y) + 0.5
 		z: f32(z) + 0.5

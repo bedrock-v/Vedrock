@@ -45,6 +45,27 @@ pub fn new_fern_block() FernBlock {
 	}
 }
 
+// RedShrubBlock is the class for 'minecraft:red_shrub', one of the blocks the
+// game drives from the block definitions rather than implementing natively.
+pub struct RedShrubBlock {
+	SimpleBlock
+}
+
+pub fn (b RedShrubBlock) replaceable() bool {
+	return true
+}
+
+pub fn new_red_shrub_block() RedShrubBlock {
+	id := 'minecraft:red_shrub'
+	return RedShrubBlock{
+		SimpleBlock: SimpleBlock{
+			id:             id
+			block_runtime:  world.new_block(id).network_id
+			break_hardness: replaceable_plant_hardness
+		}
+	}
+}
+
 pub fn replaceable_plant_blocks() []Block {
-	return [Block(new_short_grass_block()), new_fern_block()]
+	return [Block(new_short_grass_block()), new_fern_block(), new_red_shrub_block()]
 }

@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.version.v662.packets as packets_662
+
 import protocol.types
 import server.event
 import server.internal.gamedata
@@ -9,6 +9,7 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import protocol.current as proto
 
 fn movement_isolation_test_session(mut hub Hub, mut wr WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut s := &NetworkSession{
@@ -185,13 +186,13 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_move := false
 	for p in a_transport.sent {
-		if p is packets_662.MoveActorAbsolutePacket {
+		if p is proto.MoveActorAbsolutePacket {
 			a_saw_move = true
 		}
 	}
 	assert a_saw_move
 
 	for p in b_transport.sent {
-		assert p !is packets_662.MoveActorAbsolutePacket
+		assert p !is proto.MoveActorAbsolutePacket
 	}
 }

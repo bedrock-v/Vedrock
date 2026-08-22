@@ -1,9 +1,9 @@
 module default
 
 import server.internal.buildinfo
-import server.internal.network
 import server.permission
 import server.cmd
+import protocol.current as proto
 
 pub struct VersionCommand {}
 
@@ -32,7 +32,7 @@ pub fn (c VersionCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		'Software':  buildinfo.name
 		'Version':   buildinfo.version
 		'Hash':      buildinfo.git_hash
-		'MCVersion': network.selected_minecraft_version
-		'Protocol':  network.selected_protocol.str()
+		'MCVersion': proto.selected_minecraft_version
+		'Protocol':  proto.selected_protocol.str()
 	}))!
 }

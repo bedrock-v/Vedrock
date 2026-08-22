@@ -1,8 +1,6 @@
 module session
 
-import protocol.version.v662.enums as enums_662
-import protocol.version.v662.packets as packets_662
-import protocol.version.v2168.packets as packets_2168
+import protocol.current as proto
 
 fn test_build_sidebar_packets_sequence() {
 	packets := build_sidebar_packets('Title', ['a', 'b', 'c'])
@@ -10,24 +8,24 @@ fn test_build_sidebar_packets_sequence() {
 	assert packets.len == 3
 
 	remove := packets[0]
-	if remove is packets_662.RemoveObjectivePacket {
+	if remove is proto.RemoveObjectivePacket {
 		assert remove.objective_name == sidebar_objective
 	} else {
 		assert false, 'packet 0 is not RemoveObjectivePacket'
 	}
 
 	display := packets[1]
-	if display is packets_662.SetDisplayObjectivePacket {
+	if display is proto.SetDisplayObjectivePacket {
 		assert display.display_slot_name == sidebar_slot
 		assert display.objective_name == sidebar_objective
 		assert display.objective_display_name == 'Title'
-		assert display.sort_order == enums_662.ObjectiveSortOrder.ascending
+		assert display.sort_order == proto.ObjectiveSortOrder.ascending
 	} else {
 		assert false, 'packet 1 is not SetDisplayObjectivePacket'
 	}
 
 	score := packets[2]
-	if score is packets_2168.SetScorePacket {
+	if score is proto.SetScorePacket {
 		assert score.score_info.len == 3
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'
@@ -37,43 +35,43 @@ fn test_build_sidebar_packets_sequence() {
 fn test_build_sidebar_packets_line_order_top_to_bottom() {
 	packets := build_sidebar_packets('T', ['top', 'mid', 'bottom'])
 	score := packets[2]
-	if score is packets_2168.SetScorePacket {
+	if score is proto.SetScorePacket {
 		entries := score.score_info
 		// Ascending sort with score = index means lines[0] gets the lowest score
 		// and renders at the top, matching the slice order.
 		e0 := entries[0]
 		e1 := entries[1]
 		e2 := entries[2]
-		if e0 is packets_2168.ScoreEntryChangeFakePlayer {
-			assert e0.fake_player_name == 'top'
-			assert e0.score_value == 0
-			assert e0.objective_name == sidebar_objective
+		if entry0 := proto.score_entry_change_fake_player(e0) {
+			assert entry0.fake_player_name == 'top'
+			assert entry0.score_value == 0
+			assert entry0.objective_name == sidebar_objective
 		} else {
 			assert false, 'entry 0 is not ScoreEntryChangeFakePlayer'
 		}
-		if e1 is packets_2168.ScoreEntryChangeFakePlayer {
-			assert e1.fake_player_name == 'mid'
-			assert e1.score_value == 1
-			assert e1.objective_name == sidebar_objective
+		if entry1 := proto.score_entry_change_fake_player(e1) {
+			assert entry1.fake_player_name == 'mid'
+			assert entry1.score_value == 1
+			assert entry1.objective_name == sidebar_objective
 		} else {
 			assert false, 'entry 1 is not ScoreEntryChangeFakePlayer'
 		}
-		if e2 is packets_2168.ScoreEntryChangeFakePlayer {
-			assert e2.fake_player_name == 'bottom'
-			assert e2.score_value == 2
-			assert e2.objective_name == sidebar_objective
+		if entry2 := proto.score_entry_change_fake_player(e2) {
+			assert entry2.fake_player_name == 'bottom'
+			assert entry2.score_value == 2
+			assert entry2.objective_name == sidebar_objective
 		} else {
 			assert false, 'entry 2 is not ScoreEntryChangeFakePlayer'
 		}
 		// Distinct scoreboard ids so the client keeps entries separate.
-		if e0 is packets_2168.ScoreEntryChangeFakePlayer {
-			if e1 is packets_2168.ScoreEntryChangeFakePlayer {
-				assert e0.scoreboard_id.id != e1.scoreboard_id.id
+		if first := proto.score_entry_change_fake_player(e0) {
+			if second := proto.score_entry_change_fake_player(e1) {
+				assert first.scoreboard_id.id != second.scoreboard_id.id
 			}
 		}
-		if e1 is packets_2168.ScoreEntryChangeFakePlayer {
-			if e2 is packets_2168.ScoreEntryChangeFakePlayer {
-				assert e1.scoreboard_id.id != e2.scoreboard_id.id
+		if second := proto.score_entry_change_fake_player(e1) {
+			if third := proto.score_entry_change_fake_player(e2) {
+				assert second.scoreboard_id.id != third.scoreboard_id.id
 			}
 		}
 	} else {
@@ -85,7 +83,7 @@ fn test_build_sidebar_packets_empty_lines() {
 	packets := build_sidebar_packets('Empty', [])
 	assert packets.len == 3
 	score := packets[2]
-	if score is packets_2168.SetScorePacket {
+	if score is proto.SetScorePacket {
 		assert score.score_info.len == 0
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'

@@ -1,16 +1,7 @@
 module session
 
-import protocol.version.v662.packets as packets_662
-import protocol.version.v662.enums as enums_662
-import protocol.version.v662.types as types_662
-import protocol.version.v944.types as types_944
-import protocol.version.v712.packets as packets_712
-import protocol.version.v944.packets as packets_944
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
-import protocol.version.v2168.enums as enums_2168
 import protocol.types
-import server.internal.network
+import protocol.current as proto
 
 // op / deop
 
@@ -172,25 +163,25 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 		s.chunk_stream_mutex.unlock()
 	}
 	own := s.player.position()
-	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
+	s.send_packet(&proto.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	}) or {}
-	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   types_662.BlockPos{
+	s.send_packet(&proto.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   proto.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []types_662.ChunkPos{}
+		server_built_chunks: []proto.ChunkPos{}
 	}) or {}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
 		return
 	}
 	s.remember_chunk_window(radius)
-	s.send_packet(&packets_662.PlayStatusPacket{
-		status: enums_662.PlayStatus.player_spawn
+	s.send_packet(&proto.PlayStatusPacket{
+		status: proto.PlayStatus.player_spawn
 	}) or {}
 }
 
@@ -268,7 +259,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
-		mut change_packet := &packets_712.ChangeDimensionPacket{
+		mut change_packet := &proto.ChangeDimensionPacket{
 			dimension_id: target.dimension.id
 			respawn:      false
 		}
@@ -276,16 +267,16 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		change_packet.position[1] = y
 		change_packet.position[2] = z
 		s.deliver(change_packet)
-		s.deliver(&packets_712.StopSoundPacket{
+		s.deliver(&proto.StopSoundPacket{
 			sound_name:      ''
 			stop_all_sounds: true
 		})
-		s.deliver(&packets_662.PlayStatusPacket{
-			status: enums_662.PlayStatus.player_spawn
+		s.deliver(&proto.PlayStatusPacket{
+			status: proto.PlayStatus.player_spawn
 		})
-		s.deliver(&packets_944.PlayerActionPacket{
-			player_runtime_id: network.actor_runtime_id(s.runtime_id)
-			action:            enums_662.PlayerActionType.change_dimension_ack
+		s.deliver(&proto.PlayerActionPacket{
+			player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+			action:            proto.PlayerActionType.change_dimension_ack
 		})
 	}
 	return true
@@ -297,11 +288,11 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	s.player.reset_position(types.Vector3{x, y, z})
 	current := s.player.movement()
-	mut move_packet := &packets_2168.MovePlayerPacket{
-		player_runtime_id: network.actor_runtime_id(s.runtime_id)
+	mut move_packet := &proto.MovePlayerPacket{
+		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     enums_2168.PlayerPositionMode.teleport
-		teleport_data:     types_2168.MovePlayerTeleportData{}
+		position_mode:     proto.PlayerPositionMode.teleport
+		teleport_data:     proto.MovePlayerTeleportData{}
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x
@@ -352,17 +343,17 @@ fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
 
 fn (mut s NetworkSession) apply_clear_inventory() {
 	s.player.clear_inventory()
-	mut items := []types_2168.NetworkItemStackDescriptorV2{}
+	mut items := []proto.NetworkItemStackDescriptorV2{}
 	for _ in 0 .. inventory_slot_count {
-		items << network.item_descriptor_v2168_v2(types.ItemStack{})
+		items << proto.item_descriptor_v2(types.ItemStack{})
 	}
-	s.deliver(&packets_2168.InventoryContentPacket{
+	s.deliver(&proto.InventoryContentPacket{
 		inventory_id:        u32(inventory_window_id)
 		slots:               items
-		container_name_data: types_944.FullContainerName{
+		container_name_data: proto.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        network.item_descriptor_v2168_v2(types.ItemStack{})
+		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
 	})
 }
 

@@ -1,15 +1,7 @@
 module session
 
 import protocol
-import protocol.version.v662.enums as enums_662
-import protocol.version.v662.types as types_662
-import protocol.version.v776.packets as packets_776
-import protocol.version.v818.types as types_818
-import protocol.version.v898.packets as packets_898
-import protocol.version.v944.types as types_944
-import protocol.version.v1001.packets as packets_1001
-import protocol.version.v2168.types as types_2168
-import protocol.version.v2168.packets as packets_2168
+
 import protocol.types
 import protocol.serializer
 import nbt
@@ -20,118 +12,124 @@ import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
-import server.internal.network
 import server.player
 import server.player.playerdb
 import server.world
 import server.world.db
+import protocol.current as proto
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {
-	mut pool := network.new_selected_packet_pool()
+	mut pool := proto.new_packet_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
 }
 
+// decode_into reads a packet's payload back into a typed value. The pool builds
+// the type the version module declares, which an alias of it does not stand in
+// for, so the fields are read back directly instead of through a type check.
+fn decode_into[T](p protocol.Packet, mut out T) ! {
+	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
+	protocol.read_packet_header(mut r)!
+	out.decode_payload(mut r)!
+}
+
 fn test_resource_packs_info_roundtrip() {
-	decoded := roundtrip(&packets_2168.ResourcePacksInfoPacket{
+	decoded := roundtrip(&proto.ResourcePacksInfoPacket{
 		resource_pack_required:        false
 		has_addon_packs:               false
 		has_scripts:                   false
 		force_disable_vibrant_visuals: false
-		world_template_uuid:           network.uuid_from_bytes([]u8{len: 16})
+		world_template_uuid:           proto.uuid_from_bytes([]u8{len: 16})
 		world_template_version:        ''
-		resource_packs:                []packets_2168.ResourcePackEntry{}
+		resource_packs:                []proto.ResourcePackEntry{}
 	})!
 	assert decoded.name() == 'ResourcePacksInfoPacket'
 }
 
 fn test_resource_pack_stack_roundtrip() {
-	decoded := roundtrip(&packets_898.ResourcePackStackPacket{
+	decoded := roundtrip(&proto.ResourcePackStackPacket{
 		texture_pack_required: false
-		addon_list:            []packets_898.PackEntry{}
-		base_game_version:     types_662.BaseGameVersion{
-			value: network.selected_minecraft_version
+		addon_list:            []proto.PackEntry{}
+		base_game_version:     proto.BaseGameVersion{
+			value: proto.selected_minecraft_version
 		}
-		experiments:           types_662.Experiments{}
+		experiments:           proto.Experiments{}
 		include_editor_packs:  false
 	})!
 	assert decoded.name() == 'ResourcePackStackPacket'
 }
 
 fn test_start_game_roundtrip() {
-	mut start := &packets_2168.StartGamePacket{
-		target_actor_id:               network.actor_unique_id(1)
-		target_runtime_id:             network.actor_runtime_id(1)
-		actor_game_type:               enums_662.GameType.survival
-		settings:                      types_2168.LevelSettings{
+	mut start := &proto.StartGamePacket{
+		target_actor_id:               proto.actor_unique_id(1)
+		target_runtime_id:             proto.actor_runtime_id(1)
+		actor_game_type:               proto.GameType.survival
+		settings:                      proto.LevelSettings{
 			seed:                                         0
-			spawn_settings:                               types_662.SpawnSettings{
-				spawn_type:              enums_662.SpawnBiomeType.default
+			spawn_settings:                               proto.SpawnSettings{
+				spawn_type:              proto.SpawnBiomeType.default
 				user_defined_biome_name: ''
 				dimension:               0
 			}
-			generator_type:                               enums_662.GeneratorType.overworld
-			game_type:                                    enums_662.GameType.survival
-			game_difficulty:                              enums_662.Difficulty.normal
-			default_spawn_block_position:                 types_944.NetworkBlockPosition{
+			generator_type:                               proto.GeneratorType.overworld
+			game_type:                                    proto.GameType.survival
+			game_difficulty:                              proto.Difficulty.normal
+			default_spawn_block_position:                 proto.NetworkBlockPosition{
 				x: 0
 				y: 64
 				z: 0
 			}
 			achievements_disabled:                        true
-			editor_world_type:                            enums_662.EditorWorldType.non_editor
+			editor_world_type:                            proto.EditorWorldType.non_editor
 			day_cycle_stop_time:                          -1
-			education_edition_offer:                      enums_662.EducationEditionOffer.@none
+			education_edition_offer:                      proto.education_edition_offer_none
 			multiplayer_enabled:                          true
 			lan_broadcasting_enabled:                     true
-			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.public
-			platform_broadcast_setting:                   enums_662.GamePublishSetting.public
+			xbox_live_broadcast_setting:                  proto.GamePublishSetting.public
+			platform_broadcast_setting:                   proto.GamePublishSetting.public
 			commands_enabled:                             true
-			rule_data:                                    types_2168.GameRuleLegacyData{}
-			experiments:                                  types_662.Experiments{}
-			player_permissions:                           u8(enums_662.PlayerPermissionLevel.member)
+			rule_data:                                    proto.GameRuleLegacyData{}
+			experiments:                                  proto.Experiments{}
+			player_permissions:                           u8(proto.PlayerPermissionLevel.member)
 			server_chunk_tick_range:                      4
-			base_game_version:                            types_662.BaseGameVersion{
-				value: network.selected_minecraft_version
+			base_game_version:                            proto.BaseGameVersion{
+				value: proto.selected_minecraft_version
 			}
-			edu_shared_uri_resource:                      types_662.EduSharedUriResource{}
+			edu_shared_uri_resource:                      proto.EduSharedUriResource{}
 			override_force_experimental_gameplay:         false
-			chat_restriction_level:                       enums_662.ChatRestrictionLevel.@none
+			chat_restriction_level:                       proto.ChatRestrictionLevel.@none
 			allow_anonymous_block_drops_in_editor_worlds: false
 		}
 		level_id:                      'Vedrock'
 		level_name:                    'Vedrock Server'
-		movement_settings:             types_818.SyncedPlayerMovementSettings{
+		movement_settings:             proto.SyncedPlayerMovementSettings{
 			server_authoritative_block_breaking: true
 		}
 		multiplayer_correlation_id:    '00000000-0000-0000-0000-000000000000'
 		enable_item_stack_net_manager: true
-		server_version:                network.selected_minecraft_version
+		server_version:                proto.selected_minecraft_version
 		player_property_data:          nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
 		}
-		world_template_id:             network.uuid_from_bytes([]u8{len: 16})
+		world_template_id:             proto.uuid_from_bytes([]u8{len: 16})
 		block_network_ids_are_hashes:  true
-		network_permissions:           types_662.NetworkPermissions{}
+		network_permissions:           proto.NetworkPermissions{}
 	}
 	start.position[0] = 0.0
 	start.position[1] = 64.0
 	start.position[2] = 0.0
-	decoded := roundtrip(start)!
-	assert decoded.name() == 'StartGamePacket'
-	if decoded is packets_2168.StartGamePacket {
-		assert decoded.level_name == 'Vedrock Server'
-		assert decoded.server_version == network.selected_minecraft_version
-	} else {
-		assert false
-	}
+	assert roundtrip(start)!.name() == 'StartGamePacket'
+	mut decoded := proto.StartGamePacket{}
+	decode_into(start, mut decoded)!
+	assert decoded.level_name == 'Vedrock Server'
+	assert decoded.server_version == proto.selected_minecraft_version
 }
 
-fn first_start_game_packet(transport &FakeTransport) ?packets_2168.StartGamePacket {
+fn first_start_game_packet(transport &FakeTransport) ?proto.StartGamePacket {
 	for p in transport.sent {
-		if p is packets_2168.StartGamePacket {
+		if p is proto.StartGamePacket {
 			return p
 		}
 	}
@@ -196,7 +194,7 @@ fn test_accepts_saved_pos_supported_by_world_overr() {
 		x:        0.5
 		y:        f32(11) + player_eye_height
 		z:        0.5
-		gamemode: network.game_type_survival
+		gamemode: proto.game_type_survival
 	}) or { panic('save failed: ${err}') }
 	mut transport := &FakeTransport{}
 	mut s :=
@@ -241,9 +239,10 @@ fn test_subchunk_height_map_reports_relative_height() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16)
-	assert map_type == packets_2168.HeightMapDataType.has_data
-	assert data[0][0] == 3
-	assert data[15][15] == 3
+	assert map_type == proto.HeightMapDataType.has_data
+	// The map is one flat slot per column, indexed z * 16 + x.
+	assert data[0] == 3
+	assert data[15 * 16 + 15] == 3
 }
 
 fn test_subchunk_height_map_reports_all_too_low() {
@@ -251,8 +250,8 @@ fn test_subchunk_height_map_reports_all_too_low() {
 	chunk := flat.generate(0, 0)
 	height_map := chunk.height_map()
 	map_type, data := subchunk_height_map(height_map, world.overworld.min_y / 16 + 1)
-	assert map_type == packets_2168.HeightMapDataType.all_too_low
-	assert data[0][0] == 0
+	assert map_type == proto.HeightMapDataType.all_too_low
+	assert data[0] == 0
 }
 
 struct CountingGenerator {
@@ -388,15 +387,15 @@ fn test_level_chunk_packet_sends_sections_inline() {
 }
 
 fn test_registry_packets_roundtrip() {
-	assert roundtrip(&packets_776.ItemComponentPacket{
-		items: []packets_776.ItemsEntry{}
+	assert roundtrip(&proto.ItemComponentPacket{
+		items: []proto.ItemsEntry{}
 	})!.name() == 'ItemComponentPacket'
-	assert roundtrip(&packets_2168.CreativeContentPacket{
-		groups:   []packets_2168.CreativeItemGroup{}
-		contents: []packets_2168.CreativeItemData{}
+	assert roundtrip(&proto.CreativeContentPacket{
+		groups:   []proto.CreativeItemGroup{}
+		contents: []proto.CreativeItemData{}
 	})!.name() == 'CreativeContentPacket'
-	assert roundtrip(&packets_1001.BiomeDefinitionListPacket{
-		biomes:  []packets_1001.BiomeEntry{}
+	assert roundtrip(&proto.BiomeDefinitionListPacket{
+		biomes:  []proto.BiomeEntry{}
 		strings: []string{}
 	})!.name() == 'BiomeDefinitionListPacket'
 }

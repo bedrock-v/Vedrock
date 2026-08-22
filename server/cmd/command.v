@@ -1,7 +1,7 @@
 module cmd
 
-import protocol.version.v898.packets as packets_898
 import server.internal.language
+import protocol.current as proto
 
 pub struct Context {
 pub:
@@ -144,14 +144,14 @@ pub fn (r &Registry) names() []string {
 // here. The packet gets queued and encoded later by a writer thread, so a
 // value would leave the caller pointing at a stack variable that's gone
 // by the time the writer runs.
-pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCommandsPacket {
-	mut pkt := &packets_898.AvailableCommandsPacket{}
+pub fn (r &Registry) available_commands(sender Sender) &proto.AvailableCommandsPacket {
+	mut pkt := &proto.AvailableCommandsPacket{}
 	mut enum_value_index := map[string]u32{}
 	for name, cmd in r.commands {
 		if !visible(cmd, sender) {
 			continue
 		}
-		mut parameters := []packets_898.ParameterDataEntry{}
+		mut parameters := []proto.ParameterDataEntry{}
 		for a in cmd.arguments() {
 			values := a.enum_values()
 			type_info := if values.len > 0 {
@@ -166,7 +166,7 @@ pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCom
 					}
 					value_indices << idx
 				}
-				pkt.enum_data << packets_898.EnumDataEntry{
+				pkt.enum_data << proto.EnumDataEntry{
 					name:   '${name}_${a.name()}'
 					values: value_indices
 				}
@@ -174,22 +174,22 @@ pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCom
 			} else {
 				arg_flag_valid | a.network_type_info()
 			}
-			parameters << packets_898.ParameterDataEntry{
+			parameters << proto.ParameterDataEntry{
 				name:         a.name()
 				parse_symbol: type_info
 				is_optional:  a.optional()
 				options:      0
 			}
 		}
-		pkt.commands << packets_898.CommandsEntry{
+		pkt.commands << proto.CommandsEntry{
 			name:                        name
 			description:                 cmd.description()
 			flags:                       0
-			permission_level:            packets_898.CommandPermissionLevelString.any
+			permission_level:            proto.CommandPermissionLevelString.any
 			alias_enum:                  -1
 			chained_sub_command_indices: []i32{}
 			overloads:                   [
-				packets_898.OverloadsEntry{
+				proto.OverloadsEntry{
 					is_chaining:    false
 					parameter_data: parameters
 				},

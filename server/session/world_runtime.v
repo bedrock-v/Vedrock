@@ -5,13 +5,14 @@ import sync.stdatomic
 import time
 import rand
 import protocol
-import protocol.version.v944.packets as packets_944
+
 import protocol.types
-import server.internal.network
 import server.block
 import server.entity
 import server.event
+import server.world
 import server.world.db
+import protocol.current as proto
 
 // max_world_catchup_ticks limits how many missed simulation steps a
 // WorldRuntime replays before advancing directly to the latest requested tick.
@@ -148,6 +149,20 @@ fn (mut tx WorldTx) resubmit(task WorldTask) {
 	tx.wr.continuations << task
 }
 
+// generated_block is the generated state of one position, read through the
+// world's chunk service so it is the same column every session was sent. A
+// generator's per block query and the chunk it builds do not have to agree -
+// the chunk carries the populators, the query does not - so asking the
+// generator directly can contradict the world the client already has.
+fn (mut wr WorldRuntime) generated_block(x int, y int, z int) int {
+	mut svc := wr.chunk_service
+	result := <-svc.request(x >> 4, z >> 4)
+	if result.cancelled {
+		return world.air.network_id
+	}
+	return result.chunk.block_id(x & 15, y, z & 15)
+}
+
 fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {
 	tx.wr.world.set_block(x, y, z, id)
 	tx.broadcast_block(x, y, z, id)
@@ -167,9 +182,9 @@ fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
 
 // update_block_packet builds the packet both WorldTx.broadcast_block and
 // WorldLiquidHost.set_block_id send, avoiding duplicating the field list.
-fn update_block_packet(x int, y int, z int, id int) &packets_944.UpdateBlockPacket {
-	return &packets_944.UpdateBlockPacket{
-		block_position:   network.block_pos_v944(types.BlockPosition{x, y, z})
+fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
+	return &proto.UpdateBlockPacket{
+		block_position:   proto.block_pos(types.BlockPosition{x, y, z})
 		block_runtime_id: u32(id)
 		flags:            block_update_flags
 		layer:            0

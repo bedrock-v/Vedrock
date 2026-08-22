@@ -1,11 +1,6 @@
 module session
 
 import time
-import server.internal.network
-import protocol.version.v662.enums as enums_662
-import protocol.version.v944.types as types_944
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
 import protocol.types
 import server.internal.gamedata
 import server.internal.logger
@@ -13,14 +8,15 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import protocol.current as proto
 
-fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) packets_2168.MobEquipmentPacket {
-	return packets_2168.MobEquipmentPacket{
-		target_runtime_id: network.actor_runtime_id(runtime_id)
-		item:              network.item_descriptor_v2168_v2(stack.item_stack)
+fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) proto.MobEquipmentPacket {
+	return proto.MobEquipmentPacket{
+		target_runtime_id: proto.actor_runtime_id(runtime_id)
+		item:              proto.item_descriptor_v2(stack.item_stack)
 		slot:              i8(slot)
 		selected_slot:     i8(slot)
-		container_id:      enums_662.ContainerID.inventory
+		container_id:      proto.ContainerID.inventory
 	}
 }
 
@@ -131,13 +127,13 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_it := false
 	for p in transport_a.sent {
-		if p is packets_2168.MobEquipmentPacket {
+		if p is proto.MobEquipmentPacket {
 			a_saw_it = true
 		}
 	}
 	mut b_saw_it := false
 	for p in transport_b.sent {
-		if p is packets_2168.MobEquipmentPacket {
+		if p is proto.MobEquipmentPacket {
 			b_saw_it = true
 		}
 	}
@@ -198,28 +194,28 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 	}
 
 	mut s := mob_equipment_test_session(mut hub, mut wr, 'Alex', &FakeTransport{})
-	s.player.set_game_mode(network.game_type_survival)
+	s.player.set_game_mode(proto.game_type_survival)
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := [
-		packets_2168.RequestsEntry{
+		proto.RequestsEntry{
 			client_request_id: 1
 			actions:           [
-				types_2168.ItemStackRequestActionType(types_2168.ItemStackActionCraftCreative{
+				proto.ItemStackActionCraftCreative{
 					creative_item_network_id:   1
 					number_of_requested_crafts: 1
-				}),
-				types_2168.ItemStackActionPlace{
+				},
+				proto.ItemStackActionPlace{
 					amount:      1
-					source:      types_2168.ItemStackRequestSlotInfo{
-						container_name: types_944.FullContainerName{
+					source:      proto.ItemStackRequestSlotInfo{
+						container_name: proto.FullContainerName{
 							container: .inventory_container
 						}
 						slot:           0
 						raw_id:         0
 					}
-					destination: types_2168.ItemStackRequestSlotInfo{
-						container_name: types_944.FullContainerName{
+					destination: proto.ItemStackRequestSlotInfo{
+						container_name: proto.FullContainerName{
 							container: .hotbar_container
 						}
 						slot:           0
@@ -229,9 +225,9 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 			]
 		},
 	]
-	world_call[[]types_2168.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []types_2168.ItemStackResponseInfo {
+	world_call[[]proto.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
-	}) or { []types_2168.ItemStackResponseInfo{} }
+	}) or { []proto.ItemStackResponseInfo{} }
 
 	_, net := s.inventory_stack_at(0)
 	assert net == 0
@@ -262,14 +258,14 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 	s.player.set_slot(0, source_net)
 	s.player.set_slot(1, dest_net)
 
-	changes := s.apply_move(types_2168.ItemStackRequestSlotInfo{
-		container_name: types_944.FullContainerName{
+	changes := s.apply_move(proto.ItemStackRequestSlotInfo{
+		container_name: proto.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0
 		raw_id:         source_net
-	}, types_2168.ItemStackRequestSlotInfo{
-		container_name: types_944.FullContainerName{
+	}, proto.ItemStackRequestSlotInfo{
+		container_name: proto.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           1

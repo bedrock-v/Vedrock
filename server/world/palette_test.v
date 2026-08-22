@@ -37,20 +37,22 @@ fn test_cardinal_facing() {
 
 fn test_stairs_weirdo() {
 	p := load_test_palette() or { return }
-	stairs := -1054044407 // weirdo 0, upside 0
-	assert p.oriented(stairs, 270.0, 1, 0.5) == -1054044407 // look east -> weirdo 0
-	assert p.oriented(stairs, 90.0, 1, 0.5) == -992569584 // look west -> weirdo 1
-	assert p.oriented(stairs, 0.0, 1, 0.5) == -1176994053 // look south -> weirdo 2
-	assert p.oriented(stairs, 180.0, 1, 0.5) == -1115519230 // look north -> weirdo 3
+	stairs := -122484237 // weirdo 0, upside 0
+	assert p.oriented(stairs, 270.0, 1, 0.5) == -122484237 // look east -> weirdo 0
+	assert p.oriented(stairs, 90.0, 1, 0.5) == -61009414 // look west -> weirdo 1
+	assert p.oriented(stairs, 0.0, 1, 0.5) == 465409 // look south -> weirdo 2
+	assert p.oriented(stairs, 180.0, 1, 0.5) == 61940232 // look north -> weirdo 3
 }
 
 fn test_stairs_upside_down_from_click_height() {
 	p := load_test_palette() or { return }
 	stairs := palette_id_for_test(p, 'minecraft:oak_stairs', {
+		'minecraft:corner': 'none'
 		'upside_down_bit':  '0'
 		'weirdo_direction': '0'
 	})
 	upside := palette_id_for_test(p, 'minecraft:oak_stairs', {
+		'minecraft:corner': 'none'
 		'upside_down_bit':  '1'
 		'weirdo_direction': '0'
 	})
@@ -153,10 +155,12 @@ fn test_palette_models_common_shapes() {
 		'facing_direction': '2'
 	})
 	stairs := palette_id_for_test(p, 'minecraft:oak_stairs', {
+		'minecraft:corner': 'none'
 		'upside_down_bit':  '0'
 		'weirdo_direction': '0'
 	})
 	upside_stairs := palette_id_for_test(p, 'minecraft:oak_stairs', {
+		'minecraft:corner': 'none'
 		'upside_down_bit':  '1'
 		'weirdo_direction': '0'
 	})

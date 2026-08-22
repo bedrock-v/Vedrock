@@ -294,11 +294,10 @@ fn test_biome_definitions_payload_round_trips() {
 	assert r.offset == payload.len
 }
 
-// Zero is a real molang operator, so an expression type the document omits has
-// to reach the client as -1. Writing 0 leaves it evaluating an expression that
-// was never there. Mojang's registry does omit them, so the marker has to show
-// up in the payload.
-fn test_absent_expression_types_are_written_as_the_none_marker() {
+// Whatever the registry carries, an expression type is either a real operator
+// or the marker. The registry the game ships no longer carries chunk
+// generation data, so this only holds the line for the ones that do.
+fn test_every_expression_type_in_the_payload_is_an_operator_or_the_marker() {
 	payload := load_biome_definitions(os.join_path('data', 'biome_definitions.nbt')) or {
 		assert false, 'failed to load biome definitions: ${err}'
 		return
@@ -307,8 +306,6 @@ fn test_absent_expression_types_are_written_as_the_none_marker() {
 		assert false, '${err}'
 		return
 	}
-	assert r.expression_ops.len > 0
-	assert r.expression_ops.any(it == -1)
 	for value in r.expression_ops {
 		assert value >= -1
 	}

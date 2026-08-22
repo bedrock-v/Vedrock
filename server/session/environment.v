@@ -1,13 +1,10 @@
 module session
 
 import math
-import protocol.version.v662.types as types_662
-import protocol.version.v2168.packets as packets_2168
-import protocol.version.v2168.types as types_2168
-import protocol.version.v2168.enums as enums_2168
-import server.internal.network
+
 import server.player
 import server.world
+import protocol.current as proto
 
 // Environmental damage uses per source tick intervals to approximate repeat
 // damage. These intervals replace general invincibility frames which we
@@ -27,8 +24,8 @@ const fire_tick_interval_ticks = i64(20) // once per second while burning
 // tick_environmental_damage applies void, drowning and fire/lava damage for
 // one player during the owning world's simulation step.
 fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
-	if s.player.is_dead() || s.player.game_mode() == network.game_type_creative
-		|| s.player.game_mode() == network.game_type_spectator {
+	if s.player.is_dead() || s.player.game_mode() == proto.game_type_creative
+		|| s.player.game_mode() == proto.game_type_spectator {
 		return
 	}
 	tick := tx.wr.hub.current_tick()
@@ -97,23 +94,23 @@ fn (mut s NetworkSession) send_air_supply(mut wr WorldRuntime, air i64) {
 	if !s.spawned {
 		return
 	}
-	wr.broadcast_world(&packets_2168.SetActorDataPacket{
-		target_runtime_id: network.actor_runtime_id(s.runtime_id)
+	wr.broadcast_world(&proto.SetActorDataPacket{
+		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
 		actor_data:        [
-			types_2168.DataItem{
-				data_item_id:   network.meta_key_air_supply
-				data_item_type: enums_2168.DataItemType(enums_2168.DataItemShort{
+			proto.DataItem{
+				data_item_id:   proto.meta_key_air_supply
+				data_item_type: proto.DataItemShort{
 					value: i16(air)
-				})
+				}
 			},
-			types_2168.DataItem{
-				data_item_id:   network.meta_key_air_supply_max
-				data_item_type: enums_2168.DataItemType(enums_2168.DataItemShort{
+			proto.DataItem{
+				data_item_id:   proto.meta_key_air_supply_max
+				data_item_type: proto.DataItemShort{
 					value: i16(player.max_air_supply_ticks)
-				})
+				}
 			},
 		]
-		synced_properties: types_662.PropertySyncData{}
+		synced_properties: proto.PropertySyncData{}
 		tick:              0
 	})
 }

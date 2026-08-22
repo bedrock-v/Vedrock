@@ -1,12 +1,11 @@
 module session
 
-import protocol.version.v924.enums as enums_924
-import protocol.version.v924.packets as packets_924
 import server.event
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.internal.logger
+import protocol.current as proto
 
 struct RecordingChatHandler {
 	event.NopHandler
@@ -37,8 +36,8 @@ fn test_handle_text_dispatches_to_per_session_handler() {
 	mut per_session := &RecordingChatHandler{}
 	s.set_handler(per_session)
 
-	s.handle_text(packets_924.TextPacket{
-		message_type: enums_924.TextChat{
+	s.handle_text(proto.TextPacket{
+		message_type: proto.TextChat{
 			player_name: 'Alex'
 			message:     'hello'
 		}

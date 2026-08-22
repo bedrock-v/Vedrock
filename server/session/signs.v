@@ -1,13 +1,13 @@
 module session
 
 import nbt
-import protocol.version.v944.packets as packets_944
-import protocol.types
-import server.internal.network
-import server.block
 
-fn (mut s NetworkSession) handle_block_actor_data(p packets_944.BlockActorDataPacket) ! {
-	pos := network.block_pos_from_v944(p.block_position)
+import protocol.types
+import server.block
+import protocol.current as proto
+
+fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) ! {
+	pos := proto.block_pos_from(p.block_position)
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -59,8 +59,8 @@ fn (t SetSignTextTask) run(mut tx WorldTx) {
 		t.done <- true
 	}
 	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	tx.wr.broadcast_world(&packets_944.BlockActorDataPacket{
-		block_position:  network.block_pos_v944(types.BlockPosition{t.x, t.y, t.z})
+	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
+		block_position:  proto.block_pos(types.BlockPosition{t.x, t.y, t.z})
 		actor_data_tags: build_sign_nbt(t.x, t.y, t.z, t.text)
 	})
 }

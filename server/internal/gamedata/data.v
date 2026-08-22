@@ -31,10 +31,12 @@ pub:
 
 pub struct GameData {
 pub:
-	item_entries    []ItemEntry
-	creative_groups []CreativeGroup
-	creative_items  []CreativeItem
-	block_palette   []BlockPaletteEntry
+	item_entries      []ItemEntry
+	creative_groups   []CreativeGroup
+	creative_items    []CreativeItem
+	block_palette     []BlockPaletteEntry
+	block_definitions []BlockDefinition
+	voxel_shapes      VoxelShapes
 pub mut:
 	item_id_by_name  map[string]int
 	item_id_by_block map[int]int
@@ -137,12 +139,14 @@ pub fn load(data_dir string) !GameData {
 	}
 
 	return GameData{
-		item_entries:     entries
-		creative_groups:  groups
-		creative_items:   creative
-		block_palette:    block_palette
-		item_id_by_name:  id_by_name
-		item_id_by_block: id_by_block
+		item_entries:      entries
+		creative_groups:   groups
+		creative_items:    creative
+		block_palette:     block_palette
+		block_definitions: load_block_definitions(os.join_path(data_dir, 'block_definitions.nbt'))!
+		voxel_shapes:      load_voxel_shapes(os.join_path(data_dir, 'voxel_shapes.json'))!
+		item_id_by_name:   id_by_name
+		item_id_by_block:  id_by_block
 	}
 }
 

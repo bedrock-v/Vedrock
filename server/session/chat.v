@@ -1,16 +1,12 @@
 module session
 
-import protocol.version.v898.packets as packets_898
-import protocol.version.v924.packets as packets_924
-import protocol.version.v924.enums as enums_924
 import server.cmd
 import server.event
+import protocol.current as proto
 
-fn (mut s NetworkSession) handle_text(p packets_924.TextPacket) ! {
-	if p.message_type !is enums_924.TextChat {
-		return
-	}
-	message := p.message_type.message.trim_space()
+fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
+	chat := proto.text_chat(p.message_type) or { return }
+	message := chat.message.trim_space()
 	if message == '' {
 		return
 	}
@@ -31,15 +27,15 @@ fn (mut s NetworkSession) handle_text(p packets_924.TextPacket) ! {
 	}
 	final := ctx.val.message
 	s.log.info('<${s.player.identity.display_name}> ${final}')
-	s.hub.broadcast(&packets_924.TextPacket{
-		message_type: enums_924.TextChat{
+	s.hub.broadcast(&proto.TextPacket{
+		message_type: proto.TextChat{
 			player_name: s.player.identity.display_name
 			message:     final
 		}
 	})
 }
 
-fn (mut s NetworkSession) handle_command_request(p packets_898.CommandRequestPacket) ! {
+fn (mut s NetworkSession) handle_command_request(p proto.CommandRequestPacket) ! {
 	s.run_command(p.command)!
 }
 
@@ -77,17 +73,17 @@ fn (mut s NetworkSession) run_command(line string) ! {
 // may message another player's session, so the packet goes through deliver;
 // socket failures are handled by the outbound writer.
 fn (mut s NetworkSession) send_message(message string) ! {
-	s.deliver(&packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+	s.deliver(&proto.TextPacket{
+		message_type: proto.TextRaw{
 			message: message
 		}
 	})
 }
 
 fn (mut s NetworkSession) send_translation(message string, parameters []string) ! {
-	s.deliver(&packets_924.TextPacket{
+	s.deliver(&proto.TextPacket{
 		localize:     true
-		message_type: enums_924.TextTranslate{
+		message_type: proto.TextTranslate{
 			message:        message
 			parameter_list: parameters
 		}

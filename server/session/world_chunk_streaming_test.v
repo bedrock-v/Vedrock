@@ -2,13 +2,14 @@ module session
 
 import sync
 import time
-import protocol.version.v2168.packets as packets_2168
+
 import protocol.types
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import protocol.current as proto
 
 struct BlockingGenerator {
 	started chan bool
@@ -114,7 +115,7 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 	deadline := time.now().add(timeout_ms * time.millisecond)
 	for time.now() < deadline {
 		for p in transport.sent {
-			if p is packets_2168.LevelChunkPacket {
+			if p is proto.LevelChunkPacket {
 				return true
 			}
 		}
@@ -124,7 +125,7 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 		}
 	}
 	for p in transport.sent {
-		if p is packets_2168.LevelChunkPacket {
+		if p is proto.LevelChunkPacket {
 			return true
 		}
 	}
@@ -195,7 +196,7 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	time.sleep(300 * time.millisecond) // bounded window for a wrongly delivered batch to show up
 	for p in transport.sent {
-		assert p !is packets_2168.LevelChunkPacket
+		assert p !is proto.LevelChunkPacket
 	}
 }
 

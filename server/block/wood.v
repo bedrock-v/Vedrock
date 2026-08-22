@@ -9,12 +9,16 @@ import server.world
 // rather than one named class per combination.
 
 const pillar_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove',
-	'cherry', 'pale_oak']
+	'cherry', 'pale_oak', 'poplar']
 const planks_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove',
-	'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak']
-const leaves_wood_types = pillar_wood_types
+	'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak', 'poplar']
+const leaves_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove',
+	'cherry', 'pale_oak']
+// Poplar leaves come in three colours, and the colour is part of the name
+// rather than a state, so they sit outside the type table above.
+const poplar_leaves_names = ['orange_poplar_leaves', 'red_poplar_leaves', 'yellow_poplar_leaves']
 const sapling_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'cherry',
-	'bamboo', 'pale_oak']
+	'bamboo', 'pale_oak', 'poplar']
 
 const wood_pillar_hardness = f32(2.0)
 const planks_hardness = f32(2.0)
@@ -102,6 +106,13 @@ pub fn wood_blocks() []Block {
 		for persistent in [u8(0), 1] {
 			for update in [u8(0), 1] {
 				result << leaves_block('${t}_leaves', persistent, update, leaves_hardness)
+			}
+		}
+	}
+	for name in poplar_leaves_names {
+		for persistent in [u8(0), 1] {
+			for update in [u8(0), 1] {
+				result << leaves_block(name, persistent, update, leaves_hardness)
 			}
 		}
 	}
