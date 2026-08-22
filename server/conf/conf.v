@@ -51,6 +51,10 @@ pub mut:
 	permissions_file        string = 'permissions.yml'
 	player_permissions_file string = 'player_permissions.yml'
 	whitelist_file          string = 'whitelist.txt'
+	// identity_file stores the key the server presents in its NetherNet answers.
+	// Keeping it means a client that remembers the server still recognises it
+	// after a restart.
+	identity_file string = 'identity.key'
 	// config_file is set automatically by load_from to the path it was
 	// loaded from, so runtime settings changes (e.g. /difficulty) persist
 	// back to the same per instance file this Config actually came from.
@@ -112,6 +116,7 @@ pub fn load_from(path string) !Config {
 	cfg.player_permissions_file = text(doc, 'paths.player-permissions-file',
 		cfg.player_permissions_file)
 	cfg.whitelist_file = text(doc, 'paths.whitelist-file', cfg.whitelist_file)
+	cfg.identity_file = text(doc, 'paths.identity-file', cfg.identity_file)
 	return cfg
 }
 
@@ -174,6 +179,7 @@ ops-file = "${cfg.ops_file}"
 permissions-file = "${cfg.permissions_file}"
 player-permissions-file = "${cfg.player_permissions_file}"
 whitelist-file = "${cfg.whitelist_file}"
+identity-file = "${cfg.identity_file}"
 '
 	os.write_file(path, content)!
 }

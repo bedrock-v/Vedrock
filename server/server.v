@@ -25,6 +25,10 @@ import sync.stdatomic
 import protocol.current as proto
 import webrtc.logging
 
+// nethernet_identity_domain names the issuer of the server's identity token.
+// Bedrock Dedicated Server self-signs its own the same way.
+const nethernet_identity_domain = 'self'
+
 pub const ticks_per_second = 20
 pub const day_length_ticks = 24000
 // tick_overrun_log_interval throttles the "tick over budget" warning so a slow
@@ -230,6 +234,9 @@ pub fn (mut s Server) start() ! {
 	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
 		log: s.log
 	})
+	// Both listeners answer under the same stored key, so a client reaching the
+	// server either way sees one identity.
+	identity := network.load_identity(s.cfg.identity_file, nethernet_identity_domain)!
 	// The server answers requests rather than making them, so it binds the
 	// discovery port and never broadcasts.
 	mut signaling := discovery.listen('${s.cfg.address}:${discovery.default_port}',
@@ -243,6 +250,7 @@ pub fn (mut s Server) start() ! {
 		// including every LAN one, so refusing them is opt in. Xbox Live
 		// authentication is checked on the Login chain instead.
 		allow_anonymous: !s.cfg.require_identity
+		identity:        identity
 		logger:          net_log
 	) or {
 		signaling.close()
@@ -260,6 +268,7 @@ pub fn (mut s Server) start() ! {
 	join_endpoint.pong_data(s.pong_data(0).bytes())
 	mut endpoint_listener := nethernet.listen(mut join_endpoint,
 		allow_anonymous: !s.cfg.require_identity
+		identity:        identity
 		logger:          net_log
 	) or {
 		join_endpoint.close()
