@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup V
-        uses: ./actions/setup-v
+        uses: ./.github/actions/setup-v
 
       - name: Check
         run: v -check .
