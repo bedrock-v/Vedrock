@@ -20,7 +20,14 @@ pub mut:
 	view_distance int    = 8
 	gamemode      string = 'survival'
 	difficulty    string = 'normal'
-	xbox_auth     bool   = true
+	// xbox_auth verifies the Xbox Live chain in the client's Login packet. It
+	// says nothing about the transport: NetherNet's own identity assertion is
+	// a separate binding, and the game omits it more often than not.
+	xbox_auth bool = true
+	// require_identity rejects a NetherNet offer that carries no identity
+	// assertion. The game only sends one in some of the ways it connects, so a
+	// server that turns this on refuses the rest of them.
+	require_identity bool
 	// encryption negotiates Bedrock protocol encryption. NetherNet already
 	// encrypts every byte over DTLS and reports so, in which case the handshake
 	// is skipped no matter what this says.
@@ -76,6 +83,7 @@ pub fn load_from(path string) !Config {
 	cfg.port = number(doc, 'network.port', cfg.port)
 	cfg.view_distance = number(doc, 'network.view-distance', cfg.view_distance)
 	cfg.xbox_auth = flag(doc, 'network.xbox-auth', cfg.xbox_auth)
+	cfg.require_identity = flag(doc, 'network.require-identity', cfg.require_identity)
 	cfg.encryption = flag(doc, 'network.encryption', cfg.encryption)
 	cfg.compression_threshold = number(doc, 'network.compression-threshold',
 		cfg.compression_threshold)
@@ -141,6 +149,7 @@ address = "${cfg.address}"
 port = ${cfg.port}
 view-distance = ${cfg.view_distance}
 xbox-auth = ${cfg.xbox_auth}
+require-identity = ${cfg.require_identity}
 encryption = ${cfg.encryption}
 compression-threshold = ${cfg.compression_threshold}
 

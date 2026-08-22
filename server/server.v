@@ -235,9 +235,10 @@ pub fn (mut s Server) start() ! {
 	)!
 	signaling.pong_data(s.pong_data(0).bytes())
 	mut listener := nethernet.listen(mut signaling,
-		// An offline client presents no identity assertion, so a server that is
-		// not requiring Xbox Live authentication has to accept one.
-		allow_anonymous: !s.cfg.xbox_auth
+		// The game leaves the identity assertion out of most of its offers,
+		// including every LAN one, so refusing them is opt in. Xbox Live
+		// authentication is checked on the Login chain instead.
+		allow_anonymous: !s.cfg.require_identity
 		logger:          net_log
 	) or {
 		signaling.close()
@@ -254,7 +255,7 @@ pub fn (mut s Server) start() ! {
 	}
 	join_endpoint.pong_data(s.pong_data(0).bytes())
 	mut endpoint_listener := nethernet.listen(mut join_endpoint,
-		allow_anonymous: !s.cfg.xbox_auth
+		allow_anonymous: !s.cfg.require_identity
 		logger:          net_log
 	) or {
 		join_endpoint.close()

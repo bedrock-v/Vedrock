@@ -7,13 +7,14 @@ max-players = 20
 gamemode = "survival"
 difficulty = "normal"
 language = "en"
-debug = false
+debug = true
 
 [network]
 address = "0.0.0.0"
 port = 19132
 view-distance = 8
 xbox-auth = true
+require-identity = false
 encryption = true
 compression-threshold = 256
 
