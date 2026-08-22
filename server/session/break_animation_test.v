@@ -97,7 +97,7 @@ fn test_mining_a_generated_tree_starts_the_crack_animation() {
 		hub.close_worlds()
 	}
 
-	chunk := target.generated_chunk(gen, 0, 0)
+	chunk := s.generated_chunk(wr, 0, 0)
 	x, y, z := populated_position(gen, chunk) or {
 		assert false, 'no populated block in the first column'
 		return
@@ -131,7 +131,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 		hub.close_worlds()
 	}
 
-	chunk := target.generated_chunk(gen, 0, 0)
+	chunk := s.generated_chunk(wr, 0, 0)
 	x, y, z := populated_position(gen, chunk) or {
 		assert false, 'no populated block in the first column'
 		return

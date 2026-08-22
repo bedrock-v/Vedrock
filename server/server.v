@@ -35,6 +35,10 @@ const tick_overrun_log_interval = u64(ticks_per_second) * 5
 // ungraceful shutdown (crash, kill -9) can lose.
 const world_flush_interval_ticks = u64(ticks_per_second) * 30
 
+// persist_pressure_log_interval controls how often persistence backlog
+// warnings may be logged while pressure remains elevated.
+const persist_pressure_log_interval = u64(ticks_per_second) * 5
+
 // Options is the framework's composition-root entry point. settings carries
 // YAML-loadable server tuning; hub_options swaps Hub subsystems such as the
 // command and entity registries. Every field left unset falls back to Vedrock's
@@ -304,17 +308,21 @@ fn (mut s Server) console_loop() {
 		if line == '' {
 			continue
 		}
+		chunk_cache_entries, chunk_cache_bytes := s.hub.chunk_cache_totals()
 		ctx := cmd.Context{
-			lang:              s.lang
-			sender_name:       sender.name()
-			player_count:      s.hub.count()
-			max_players:       s.cfg.max_players
-			server_motd:       s.cfg.motd
-			uptime_seconds:    s.hub.uptime_seconds()
-			tps:               s.hub.tps()
-			load:              s.hub.load()
-			memory_used_bytes: i64(gc_memory_use())
-			memory_heap_bytes: i64(gc_heap_usage().heap_size)
+			lang:                          s.lang
+			sender_name:                   sender.name()
+			player_count:                  s.hub.count()
+			max_players:                   s.cfg.max_players
+			server_motd:                   s.cfg.motd
+			uptime_seconds:                s.hub.uptime_seconds()
+			tps:                           s.hub.tps()
+			load:                          s.hub.load()
+			memory_used_bytes:             i64(gc_memory_use())
+			memory_heap_bytes:             i64(gc_heap_usage().heap_size)
+			active_chunk_generation_count: s.hub.active_chunk_generation_count()
+			chunk_cache_entries:           i64(chunk_cache_entries)
+			chunk_cache_bytes:             chunk_cache_bytes
 		}
 		s.hub.dispatch_command(line, mut sender, ctx) or {
 			s.log.error('Console command failed: ${err}')
@@ -349,6 +357,11 @@ fn (mut s Server) tick_loop() {
 		if tick % world_flush_interval_ticks == 0 {
 			for msg in s.hub.flush_worlds() {
 				s.log.warn('World flush failed: ${msg}')
+			}
+		}
+		if tick % persist_pressure_log_interval == 0 {
+			for msg in s.hub.persist_pressure_warnings() {
+				s.log.warn(msg)
 			}
 		}
 		work := time.now() - tick_start
@@ -500,7 +513,8 @@ pub fn (mut s Server) unregister_command(name string) {
 	s.hub.unregister_command(name)
 }
 
-// run_task queues task to run on the next tick.
+// run_task schedules task to run on the server's global tick thread on the
+// next tick. Tasks must remain short, non blocking and world independent.
 pub fn (mut s Server) run_task(task scheduler.Task) &scheduler.TaskHandler {
 	return s.hub.run_task(task)
 }
@@ -552,10 +566,10 @@ pub fn (mut s Server) load_world(config WorldConfig) !session.World {
 	}
 }
 
-// world returns the named world's public handle or an error if no world
-// by that name is currently loaded.
-pub fn (mut s Server) world(name string) !session.World {
-	return s.hub.world_handle(name) or { error('world "${name}" is not loaded') }
+// world returns the named world's public handle, or none if it's not
+// currently loaded. Use load_world to load or create a world on demand.
+pub fn (mut s Server) world(name string) ?session.World {
+	return s.hub.world_handle(name)
 }
 
 // worlds returns a handle for every currently loaded world.
@@ -579,4 +593,22 @@ pub fn (mut s Server) unload_world(name string) ! {
 
 pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
 	s.hub.register_generator(name, factory)
+}
+
+// player returns the currently connected player with the given name or
+// none if no such player is connected. The returned PlayerRef is
+// stale checked and may be safely held for later use.
+pub fn (mut s Server) player(name string) ?session.PlayerRef {
+	return s.hub.player_ref(name)
+}
+
+// players returns a PlayerRef for every player currently connected to the
+// server across all loaded worlds. It doesn't require a world actor round trip.
+pub fn (mut s Server) players() []session.PlayerRef {
+	return s.hub.player_refs()
+}
+
+// player_count returns how many players are currently connected.
+pub fn (mut s Server) player_count() int {
+	return s.hub.count()
 }

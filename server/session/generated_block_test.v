@@ -36,20 +36,26 @@ fn test_block_at_sees_the_terrain_the_client_was_sent() {
 	pl.set_game_mode(proto.game_type_survival)
 
 	gen := world.new_generator('normal')
-	mut wld := db.new_world('trees', none, 'normal', world.overworld)
-	chunk := wld.generated_chunk(gen, 0, 0)
+	wld := db.new_world('trees', none, 'normal', world.overworld)
+	hub.add_world(wld)
+	mut wr := hub.world_runtime('trees') or { panic('expected world runtime') }
+	defer {
+		hub.close_worlds()
+	}
+	chunk := gen.generate(0, 0)
 	x, y, z, id := tree_position(gen, chunk) or {
 		assert false, 'no populated block in the first column'
 		return
 	}
 
 	mut s := &NetworkSession{
-		player:     pl
-		runtime_id: 1
-		transport:  transport
-		hub:        hub
-		world:      wld
-		generator:  gen
+		player:        pl
+		runtime_id:    1
+		transport:     transport
+		hub:           hub
+		world:         wld
+		world_runtime: wr
+		generator:     gen
 	}
 	hub.add(s)
 

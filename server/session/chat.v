@@ -50,17 +50,21 @@ fn (mut s NetworkSession) run_command(line string) ! {
 	}
 	final := cctx.val.command
 	s.log.info('${s.player.identity.display_name} issued command: ${final}')
+	chunk_cache_entries, chunk_cache_bytes := s.hub.chunk_cache_totals()
 	ctx := cmd.Context{
-		lang:              s.hub.lang
-		sender_name:       s.player.identity.display_name
-		player_count:      s.hub.count()
-		max_players:       s.cfg.max_players
-		server_motd:       s.cfg.motd
-		uptime_seconds:    s.hub.uptime_seconds()
-		tps:               s.hub.tps()
-		load:              s.hub.load()
-		memory_used_bytes: i64(gc_memory_use())
-		memory_heap_bytes: i64(gc_heap_usage().heap_size)
+		lang:                          s.hub.lang
+		sender_name:                   s.player.identity.display_name
+		player_count:                  s.hub.count()
+		max_players:                   s.cfg.max_players
+		server_motd:                   s.cfg.motd
+		uptime_seconds:                s.hub.uptime_seconds()
+		tps:                           s.hub.tps()
+		load:                          s.hub.load()
+		memory_used_bytes:             i64(gc_memory_use())
+		memory_heap_bytes:             i64(gc_heap_usage().heap_size)
+		active_chunk_generation_count: s.hub.active_chunk_generation_count()
+		chunk_cache_entries:           i64(chunk_cache_entries)
+		chunk_cache_bytes:             chunk_cache_bytes
 	}
 	s.hub.dispatch_command(final, mut s, ctx)!
 }

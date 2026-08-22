@@ -47,10 +47,12 @@ runs:
         git clone --depth 1 https://github.com/bedrock-v/webrtc-v "$deps/webrtc"
         git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
         git clone --depth 1 https://github.com/bedrock-v/protocol "$deps/protocol"
+        git clone --depth 1 https://github.com/vlang/leveldb "$deps/leveldb"
 
         cp -a "$deps/nethernet" "$vmod/nethernet"
         cp -a "$deps/webrtc" "$vmod/webrtc"
         cp -a "$deps/nbt" "$vmod/nbt"
         cp -a "$deps/protocol/src" "$vmod/protocol"
+        cp -a "$deps/leveldb" "$vmod/leveldb"
 
         ~/vlang/v install nepinhum.i18n

@@ -72,4 +72,25 @@ pub:
 	player_count              i64
 	outbound_overflow_count   i64
 	outbound_peak_depth       i64
+	persist_pending_count     int
+	persist_oldest_pending_ms i64
+	persist_enqueued_total    i64
+	persist_committed_total   i64
+	persist_pressure_level         int
+	persist_high_water_threshold   int
+	persist_hard_ceiling_threshold int
+	persist_last_write_ms          i64
+	persist_longest_write_ms       i64
+	persist_consecutive_errors     i64
+	chunk_cached_count       int
+	chunk_cached_bytes       i64
+	chunk_cache_budget_bytes i64
+	chunk_inflight_count     int
+	chunk_oldest_inflight_ms i64
+	chunk_active_workers     i64
+	chunk_worker_limit       int
+	chunk_queue_depth        i64
+	chunk_requests_total     i64
+	chunk_dedup_hits_total   i64
+	actor_running bool
 }

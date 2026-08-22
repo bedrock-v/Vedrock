@@ -1,5 +1,6 @@
 module session
 
+import sync
 import time
 
 import protocol.types
@@ -59,6 +60,12 @@ fn (g BlockingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
 		_ := <-g.release
 	}
 	return g.inner.generate(chunk_x, chunk_z)
+}
+
+fn register_blocking_generator(mut hub Hub, name string, gen BlockingGenerator) {
+	hub.register_generator(name, fn [gen] (dim world.Dimension) world.Generator {
+		return gen
+	})
 }
 
 fn chunk_stream_test_session(mut hub Hub, mut wr WorldRuntime, gen world.Generator, mut transport FakeTransport) &NetworkSession {
@@ -127,18 +134,19 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 
 fn test_chunk_streaming_doesnt_block_the_world_actor() {
 	mut hub := new_hub(gamedata.GameData{})
-	w := db.new_world('chunk-stream', none, 'void', world.overworld)
+	started := chan bool{cap: 1}
+	release := chan bool{cap: 1}
+	gen := new_blocking_generator(started, release)
+	register_blocking_generator(mut hub, 'blocking-chunk-stream', gen)
+	w := db.new_world('chunk-stream', none, 'blocking-chunk-stream', world.overworld)
 	hub.add_world(w)
 	mut wr := hub.world_runtime('chunk-stream') or { panic('expected chunk-stream runtime') }
 	defer {
 		hub.close_worlds()
 	}
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
 	mut transport := &FakeTransport{}
-	mut s := chunk_stream_test_session(mut hub, mut wr, new_blocking_generator(started, release), mut
-		transport)
+	mut s := chunk_stream_test_session(mut hub, mut wr, gen, mut transport)
 
 	s.stream_chunks_if_moved()
 	_ := <-started // generation is now blocked on its own thread, not the actor
@@ -151,7 +159,11 @@ fn test_chunk_streaming_doesnt_block_the_world_actor() {
 
 fn test_chunk_delivery_dropped_after_a_world_switch() {
 	mut hub := new_hub(gamedata.GameData{})
-	world_a := db.new_world('chunk-switch-a', none, 'void', world.overworld)
+	started := chan bool{cap: 1}
+	release := chan bool{cap: 1}
+	gen := new_blocking_generator(started, release)
+	register_blocking_generator(mut hub, 'blocking-chunk-switch-a', gen)
+	world_a := db.new_world('chunk-switch-a', none, 'blocking-chunk-switch-a', world.overworld)
 	hub.add_world(world_a)
 	world_b := db.new_world('chunk-switch-b', none, 'void', world.overworld)
 	hub.add_world(world_b)
@@ -161,11 +173,8 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 		hub.close_worlds()
 	}
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
 	mut transport := &FakeTransport{}
-	mut s := chunk_stream_test_session(mut hub, mut wr_a, new_blocking_generator(started, release), mut
-		transport)
+	mut s := chunk_stream_test_session(mut hub, mut wr_a, gen, mut transport)
 
 	s.stream_chunks_if_moved()
 	_ := <-started // generation for world a is now blocked on its own thread
@@ -191,18 +200,123 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 	}
 }
 
+struct ConcurrencyTracker {
+mut:
+	mutex     &sync.Mutex = sync.new_mutex()
+	in_flight int
+	peak      int
+}
+
+fn (mut t ConcurrencyTracker) enter() {
+	t.mutex.lock()
+	t.in_flight++
+	if t.in_flight > t.peak {
+		t.peak = t.in_flight
+	}
+	t.mutex.unlock()
+}
+
+fn (mut t ConcurrencyTracker) leave() {
+	t.mutex.lock()
+	t.in_flight--
+	t.mutex.unlock()
+}
+
+struct ConcurrentBlockingGenerator {
+	tracker &ConcurrencyTracker
+	release chan bool
+	inner   world.Generator = world.VoidGenerator{}
+}
+
+fn (g ConcurrentBlockingGenerator) spawn_y() int {
+	return g.inner.spawn_y()
+}
+
+fn (g ConcurrentBlockingGenerator) uses_blocks() bool {
+	return g.inner.uses_blocks()
+}
+
+fn (g ConcurrentBlockingGenerator) block_at(x int, y int, z int) int {
+	return g.inner.block_at(x, y, z)
+}
+
+fn (g ConcurrentBlockingGenerator) biome_at(x int, z int) int {
+	return g.inner.biome_at(x, z)
+}
+
+fn (g ConcurrentBlockingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
+	mut tracker := g.tracker
+	tracker.enter()
+	_ := <-g.release
+	tracker.leave()
+	return g.inner.generate(chunk_x, chunk_z)
+}
+
+fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut tracker := &ConcurrencyTracker{
+		mutex: sync.new_mutex()
+	}
+	release := chan bool{cap: 512}
+	gen := ConcurrentBlockingGenerator{
+		tracker: tracker
+		release: release
+	}
+	hub.register_generator('concurrent-blocking-stream', fn [gen] (dim world.Dimension) world.Generator {
+		return gen
+	})
+	w := db.new_world('chunk-concurrency', none, 'concurrent-blocking-stream', world.overworld)
+	hub.add_world(w)
+	mut wr := hub.world_runtime('chunk-concurrency') or {
+		panic('expected chunk-concurrency runtime')
+	}
+	defer {
+		hub.close_worlds()
+	}
+
+	mut transport := &FakeTransport{}
+	mut s := chunk_stream_test_session(mut hub, mut wr, gen, mut transport)
+
+	mut targets := []ChunkSendTarget{cap: 20}
+	for i in 0 .. 20 {
+		targets << ChunkSendTarget{
+			x: i
+			z: 0
+		}
+	}
+	chans := s.request_chunk_channels(wr, targets)
+
+	deadline := time.now().add(2000 * time.millisecond)
+	for time.now() < deadline {
+		tracker.mutex.lock()
+		reached := tracker.in_flight >= chunk_gen_worker_count
+		tracker.mutex.unlock()
+		if reached {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	tracker.mutex.lock()
+	peak := tracker.peak
+	tracker.mutex.unlock()
+	assert peak == chunk_gen_worker_count, 'expected all ${chunk_gen_worker_count} workers busy at once from one session-style request burst, got peak ${peak}'
+
+	for _ in 0 .. 20 {
+		release <- true
+	}
+	for ch in chans {
+		_ := <-ch
+	}
+}
+
 fn test_chunk_columns_are_released_when_delivery_is_dropped() {
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('chunk-drop', none, 'void', world.overworld)
 	hub.add_world(w)
 	mut wr := hub.world_runtime('chunk-drop') or { panic('expected chunk-drop runtime') }
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
-	release <- true
 	mut transport := &FakeTransport{}
-	mut s := chunk_stream_test_session(mut hub, mut wr, new_blocking_generator(started, release), mut
-		transport)
+	mut s := chunk_stream_test_session(mut hub, mut wr, world.VoidGenerator{}, mut transport)
 
 	// A stopped runtime rejects every delivery task, which is the same outcome
 	// as a full queue: nothing reaches the client.

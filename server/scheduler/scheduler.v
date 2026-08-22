@@ -6,6 +6,10 @@ import sync
 // from session threads while heartbeat() runs on the tick thread. A mutex guards
 // the task table; tasks themselves run outside the lock so a task may safely
 // schedule more work.
+//
+// See Task's own doc comment for exactly where and how run() executes.
+// synchronously on the single global tick thread, not a per-world or
+// per-task thread.
 @[heap]
 pub struct Scheduler {
 mut:

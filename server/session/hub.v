@@ -47,6 +47,7 @@ mut:
 	config_mutex &sync.Mutex               = sync.new_mutex()
 	load_bits    &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	online_count &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
+	active_chunk_generation_count &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	// current_tick_bits backs current_tick()/set_current_tick(). Written
 	// directly from server.v's tick loop while other threads still read it
 	// (blocks.v's cooldown tracking, movement.v's tick check), so it's an
@@ -337,6 +338,23 @@ pub fn (mut h Hub) flush_worlds() []string {
 	return errors
 }
 
+// persist_pressure_warnings returns a warning for each loaded world whose
+// persistence backlog has reached the high water mark. Logging is kept
+// outside db.World so the database layer remains logger independent.
+pub fn (mut h Hub) persist_pressure_warnings() []string {
+	mut out := []string{}
+	mut r := h.world_registry
+	for mut wr in r.each_runtime() {
+		level := wr.world.persist_pressure_level()
+		if level == 0 {
+			continue
+		}
+		label := if level == 2 { 'CRITICAL' } else { 'high water' }
+		out << 'world "${wr.world.name}": persistence backlog ${label} - ${wr.world.pending_persist_count()} pending records, ${wr.world.persist_consecutive_errors()} consecutive write errors'
+	}
+	return out
+}
+
 fn (mut h Hub) world(name string) ?&db.World {
 	wr := h.world_runtime(name) or { return none }
 	return wr.world
@@ -537,6 +555,10 @@ pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, g
 
 // unload_world flushes and releases a loaded world without deleting its
 // files. Refuses the default world and any world that still has players in it.
+//
+// The registry entry is removed only after the world closes successfully.
+// If closing fails, the world remains registered but inert preventing its
+// still open store from being reopened through a later load/create attempt.
 pub fn (mut h Hub) unload_world(name string) ! {
 	h.mutex.lock()
 	if name == h.default_world_name {
@@ -549,10 +571,12 @@ pub fn (mut h Hub) unload_world(name string) ! {
 	if h.players_in_world(name) > 0 {
 		return error('world "${name}" still has players in it')
 	}
-	r.remove(name)
 	wr.shutdown()
 	h.save_world_entities(mut wr)
-	wr.world.close() or { return error('failed to close world "${name}": ${err}') }
+	wr.world.close() or {
+		return error('failed to close world "${name}": ${err} - world remains registered as loaded since it could not be safely released; retry the unload once the underlying storage recovers')
+	}
+	r.remove(name)
 }
 
 // delete_world unloads the named world and removes its on-disk folder. Refuses
@@ -678,6 +702,27 @@ fn (mut h Hub) release_player_name(name string) {
 
 pub fn (mut h Hub) count() int {
 	return int(h.online_count.load())
+}
+
+// active_chunk_generation_count reports how many sessions currently have a
+// chunk generation batch in flight.
+pub fn (mut h Hub) active_chunk_generation_count() i64 {
+	return h.active_chunk_generation_count.load()
+}
+
+// chunk_cache_totals aggregates every loaded world's WorldChunkService cache
+// into one entry count and estimated byte total.
+pub fn (mut h Hub) chunk_cache_totals() (int, i64) {
+	mut entries := 0
+	mut bytes := i64(0)
+	mut r := h.world_registry
+	for mut wr in r.each_runtime() {
+		mut svc := wr.chunk_service
+		m := svc.metrics()
+		entries += m.cached_chunks
+		bytes += m.cached_bytes_estimate
+	}
+	return entries, bytes
 }
 
 // broadcast_message sends a raw chat line to every connected player.

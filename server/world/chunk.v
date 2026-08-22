@@ -28,6 +28,14 @@ pub fn new_chunk_dim(dim Dimension) Chunk {
 	}
 }
 
+pub fn (c &Chunk) estimated_bytes() i64 {
+	mut total := i64(c.biomes.len) * i64(sizeof(int))
+	for section in c.sections {
+		total += i64(section.len) * i64(sizeof(int))
+	}
+	return total
+}
+
 pub fn (c &Chunk) clone() Chunk {
 	mut sections := [][]int{len: c.sections.len}
 	for i, ids in c.sections {

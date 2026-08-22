@@ -64,3 +64,82 @@ pub fn (mut w World) set_block(x int, y int, z int, b world.Block) ! {
 		return true
 	}) or { return error('world "${w.runtime.world.name}" is shutting down') }
 }
+
+// players returns a PlayerRef for every player currently registered in this
+// world. The lookup runs through the world's actor owned player registry.
+//
+// If the world is shutting down, players returns an empty slice.
+pub fn (mut w World) players() []PlayerRef {
+	return world_call[[]PlayerRef](mut w.runtime, fn (mut tx WorldTx) []PlayerRef {
+		mut out := []PlayerRef{}
+		for mut a in tx.wr.entities.player_actors() {
+			if mut a is NetworkSession {
+				out << player_ref_for(a)
+			}
+		}
+		return out
+	}) or { []PlayerRef{} }
+}
+
+// player_count returns the current number of players in this world.
+// It is a thread safe snapshot and does not require a world actor round trip.
+pub fn (w World) player_count() i64 {
+	return w.runtime.player_count()
+}
+
+// entities returns an EntityRef for every non-player entity currently
+// registered in this world. If the world is shutting down, it returns an
+// empty slice.
+pub fn (mut w World) entities() []EntityRef {
+	return world_call[[]EntityRef](mut w.runtime, fn (mut tx WorldTx) []EntityRef {
+		mut out := []EntityRef{}
+		for e in tx.wr.entities.snapshot() {
+			out << EntityRef{
+				runtime_id: e.runtime_id()
+				world_:     World{
+					runtime: tx.wr
+				}
+			}
+		}
+		return out
+	}) or { []EntityRef{} }
+}
+
+// metrics returns a snapshot of this world's runtime metrics including
+// queue pressure, tick timing, persistence backlog and chunk generation
+// load. It is thread safe and does not block on the world actor.
+pub fn (mut w World) metrics() WorldMetrics {
+	return w.runtime.metrics()
+}
+
+// run_task schedules f to run on this world's actor thread on its next
+// simulated step.
+//
+// The callback must remain short and non blocking. A slow callback stalls
+// only this world. Scheduled callbacks are fire and forget.
+pub fn (mut w World) run_task(f fn (mut tx WorldTransaction)) &WorldTaskHandler {
+	return w.runtime.task_scheduler.add(WorldClosureTask{
+		callback: f
+	}, 0, 0, w.runtime.tick_snapshot())
+}
+
+// run_delayed queues "f" to run once, delay simulated ticks of this world
+// from now.
+pub fn (mut w World) run_delayed(f fn (mut tx WorldTransaction), delay i64) &WorldTaskHandler {
+	return w.runtime.task_scheduler.add(WorldClosureTask{
+		callback: f
+	}, delay, 0, w.runtime.tick_snapshot())
+}
+
+// run_repeating queues "f" to run every period simulated ticks of this
+// world starting on the next step.
+pub fn (mut w World) run_repeating(f fn (mut tx WorldTransaction), period i64) &WorldTaskHandler {
+	return w.runtime.task_scheduler.add(WorldClosureTask{
+		callback: f
+	}, 0, period, w.runtime.tick_snapshot())
+}
+
+// cancel_task stops a previously scheduled world task from running again.
+pub fn (mut w World) cancel_task(id int) {
+	w.runtime.task_scheduler.cancel(id)
+}

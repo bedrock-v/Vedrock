@@ -91,10 +91,9 @@ mut:
 	view_radius                 int
 	last_chunk_x                int
 	last_chunk_z                int
-	chunk_cache                 map[u64]world.Chunk
 	sent_chunks                 map[u64]bool
-	chunk_cache_mutex           &sync.Mutex = sync.new_mutex()
 	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
+	chunk_gen_mutex             &sync.Mutex = sync.new_mutex()
 	transfer_mutex              &sync.Mutex = sync.new_mutex()
 	cooldown_until              map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
@@ -217,6 +216,17 @@ fn (s &NetworkSession) is_dead() bool {
 	return s.player.is_dead()
 }
 
+// self_ref returns a stable pointer to this session for closure captures.
+// V closures capture struct receivers by value which would otherwise
+// create a stale snapshot instead of preserving NetworkSession identity.
+//
+// NetworkSession is @[heap] and the returned pointer remains alive under
+// this project's default Boehm GC. See self_ref_test.v for the cross thread
+// lifetime regression test.
+fn (mut s NetworkSession) self_ref() &NetworkSession {
+	return unsafe { &s }
+}
+
 // dimensions satisfies entity.Actor. Returns the player's dimensions.
 fn (s &NetworkSession) dimensions() entity.Dimensions {
 	return entity.Dimensions{
@@ -261,18 +271,17 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		world_runtime:      spawn_runtime
 		generator:          generator
 		runtime_id:         hub.allocate_runtime_id()
-		chunk_cache:        map[u64]world.Chunk{}
 		sent_chunks:        map[u64]bool{}
-		chunk_cache_mutex:  sync.new_mutex()
 		chunk_stream_mutex: sync.new_mutex()
+		chunk_gen_mutex:    sync.new_mutex()
 		log:                log
 		outbound_bootstrap: true
 	}
 }
 
-// A read error means the connection is already gone, so handle_loop aborts
-// outbound delivery immediately instead of trying to drain it gracefully.
-// Packet handling connection errors reach the same path on the next read.
+// A read error or a is_connection_closed write error both mean the
+// connection is already gone, so handle_loop aborts outbound delivery
+// immediately instead of trying to drain it gracefully.
 pub fn (mut s NetworkSession) handle_loop() {
 	for s.state != .closed {
 		packets := s.transport.read() or {
@@ -284,6 +293,7 @@ pub fn (mut s NetworkSession) handle_loop() {
 			s.handle(p) or {
 				if network.is_connection_closed(err) {
 					s.log.info('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+					s.abort_outbound()
 				} else {
 					s.log.warn('Failed to handle ${p.name()}: ${err}')
 					s.reject_bootstrap('Internal server error')
