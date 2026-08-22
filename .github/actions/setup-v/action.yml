@@ -46,10 +46,12 @@ runs:
         git clone --depth 1 https://github.com/bedrock-v/raknet "$deps/raknet"
         git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
         git clone --depth 1 https://github.com/bedrock-v/protocol "$deps/protocol"
+        git clone --depth 1 https://github.com/vlang/leveldb "$deps/leveldb"
 
         cp -a "$deps/raknet" "$vmod/raknet"
         cp -a "$deps/raknet/message" "$vmod/message"
         cp -a "$deps/nbt" "$vmod/nbt"
         cp -a "$deps/protocol/src" "$vmod/protocol"
+        cp -a "$deps/leveldb" "$vmod/leveldb"
 
         ~/vlang/v install nepinhum.i18n
