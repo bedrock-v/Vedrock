@@ -7,7 +7,7 @@ max-players = 20
 gamemode = "survival"
 difficulty = "normal"
 language = "en"
-debug = true
+debug = false
 
 [network]
 address = "0.0.0.0"

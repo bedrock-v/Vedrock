@@ -105,7 +105,6 @@ fn (mut s NetworkSession) handle_item_use(action proto.ItemUseInventoryTransacti
 
 fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, clicked_y f32) {
 	if s.player.is_dead() || !s.can_interact() {
-		s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) dropped: dead=${s.player.is_dead()} can_interact=${s.can_interact()}')
 		return
 	}
 	mut ictx := event.new_context(event.InteractData{
@@ -117,7 +116,6 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	})
 	s.hub.events.player_interact(mut ictx)
 	if ictx.is_cancelled() {
-		s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) dropped: player_interact event cancelled')
 		s.resend_block(block_position)
 		return
 	}
@@ -126,7 +124,6 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	neighbor := face_offset(block_position, block_face)
 	clicked_id := s.block_at(block_position.x, block_position.y, block_position.z)
 	if clicked_id == world.air.network_id || !s.within_place_reach(block_position) {
-		s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) dropped: clicked_id=${clicked_id} in_reach=${s.within_place_reach(block_position)} own_pos=${s.effective_position()}')
 		s.resend_block(block_position)
 		s.resend_block(neighbor)
 		return
@@ -134,7 +131,6 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	runtime_id := s.placement_runtime_id()
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
-		s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) dropped: no bound world_runtime')
 		return
 	}
 	mut wr := binding.world_runtime
@@ -151,15 +147,11 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		last_place_ms:      s.last_place_ms
 		is_creative:        s.player.game_mode() == proto.game_type_creative
 	}
-	s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) submitting PlayerPlaceBlockTask runtime_id=${runtime_id} face=${block_face} epoch=${binding.epoch}')
 	if wr.submit(task) {
 		placed := <-task.result
-		s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) PlayerPlaceBlockTask -> placed=${placed}')
 		if placed {
 			s.last_place_ms = now
 		}
-	} else {
-		s.log.debug('PLACE-DIAG: handle_place_click(${block_position.x},${block_position.y},${block_position.z}) submit rejected (world stopping?)')
 	}
 }
 
@@ -168,20 +160,15 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 fn (s &NetworkSession) placement_runtime_id() int {
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
 	if stack.count <= 0 || stack.id == 0 {
-		s.log.debug('PLACE-DIAG: placement_runtime_id: held slot empty (count=${stack.count} id=${stack.id}), resolved to 0')
 		return 0
 	}
 	if stack.block_runtime_id != 0 {
-		s.log.debug('PLACE-DIAG: placement_runtime_id: held stack.block_runtime_id=${stack.block_runtime_id} (item id=${stack.id} meta=${stack.meta})')
 		return stack.block_runtime_id
 	}
 	held_name := s.hub.data.item_name(stack.id)
 	if held_item := s.hub.items.get(held_name) {
-		resolved := held_item.block_runtime_id()
-		s.log.debug('PLACE-DIAG: placement_runtime_id: resolved via item registry name=${held_name} -> ${resolved}')
-		return resolved
+		return held_item.block_runtime_id()
 	}
-	s.log.debug('PLACE-DIAG: placement_runtime_id: held item name=${held_name} (id=${stack.id}) has no block_runtime_id and no registry entry, resolved to 0')
 	return 0
 }
 
@@ -368,23 +355,19 @@ fn (mut s NetworkSession) apply_consume_held_item() {
 
 fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	if s.player.is_dead() || !s.can_interact() {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) dropped: dead=${s.player.is_dead()} can_interact=${s.can_interact()}')
 		return
 	}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	air_id := world.air.network_id
 	if old_id == air_id {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) dropped: block_at reports air')
 		s.resend_block(pos)
 		return
 	}
 	if !s.within_place_reach(pos) {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) dropped: out of reach, own_pos=${s.effective_position()}')
 		s.resend_block(pos)
 		return
 	}
 	if s.player.game_mode() != proto.game_type_creative && !s.hub.blocks.breakable(old_id) {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) dropped: block id=${old_id} not breakable per hub.blocks')
 		s.send_maybe_queued(&proto.UpdateBlockPacket{
 			block_position:   proto.block_pos(pos)
 			block_runtime_id: u32(old_id)
@@ -395,7 +378,6 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		return
 	}
 	if s.player.game_mode() != proto.game_type_creative && !s.break_complete(pos, old_id) {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) dropped: break_complete rejected id=${old_id}')
 		s.resend_block(pos)
 		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
 		return
@@ -403,7 +385,6 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	s.set_breaking(none)
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) dropped: no bound world_runtime')
 		return
 	}
 	mut wr := binding.world_runtime
@@ -415,11 +396,8 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		z:                  pos.z
 		old_id:             old_id
 	}
-	s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) submitting PlayerBreakBlockTask old_id=${old_id} epoch=${binding.epoch}')
 	if wr.submit(task) {
 		_ := <-task.done
-	} else {
-		s.log.debug('BREAK-DIAG: break_block(${pos.x},${pos.y},${pos.z}) submit rejected (world stopping?)')
 	}
 }
 
@@ -444,11 +422,9 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 		t.done <- true
 	}
 	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or {
-		eprintln('BREAK-DIAG: PlayerBreakBlockTask(${t.x},${t.y},${t.z}) dropped: player_for_epoch failed, session_runtime_id=${t.session_runtime_id} epoch=${t.epoch} (stale epoch/world switch?)')
 		return
 	}
-	ok := tx.complete_block_break(mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
-	s.log.debug('BREAK-DIAG: PlayerBreakBlockTask(${t.x},${t.y},${t.z}) complete_block_break -> ${ok}')
+	tx.complete_block_break(mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
 // complete_block_break destroys the block and runs everything that follows
@@ -463,7 +439,6 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 	air_id := world.air.network_id
 	current_id := tx.block_at(pos.x, pos.y, pos.z)
 	if current_id != old_id {
-		s.log.debug('BREAK-DIAG: complete_block_break(${pos.x},${pos.y},${pos.z}) dropped: expected id=${old_id} but tx.block_at now reports ${current_id} - block changed between session-thread capture and actor execution')
 		s.resend_block(pos)
 		return false
 	}
@@ -477,7 +452,6 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 	})
 	tx.wr.events.block_break(mut ctx)
 	if ctx.is_cancelled() {
-		s.log.debug('BREAK-DIAG: complete_block_break(${pos.x},${pos.y},${pos.z}) dropped: block_break event cancelled')
 		s.resend_block(pos)
 		return false
 	}
@@ -543,7 +517,6 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 		t.result <- placed
 	}
 	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or {
-		eprintln('PLACE-DIAG: PlayerPlaceBlockTask(${t.click_pos.x},${t.click_pos.y},${t.click_pos.z}) dropped: player_for_epoch failed, session_runtime_id=${t.session_runtime_id} epoch=${t.epoch} (stale epoch/world switch?)')
 		return
 	}
 	pos := t.click_pos
@@ -551,15 +524,12 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	clicked_id := tx.block_at(pos.x, pos.y, pos.z)
 
 	if tx.interact_block(mut s, pos, clicked_id, t.click_face) {
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) short-circuited by interact_block (clicked_id=${clicked_id}) - no placement attempted')
 		return
 	}
 	if tx.use_item_on_block(mut s, pos, clicked_id) {
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) short-circuited by use_item_on_block (clicked_id=${clicked_id}) - no placement attempted')
 		return
 	}
 	if t.runtime_id == 0 {
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) dropped: runtime_id resolved to 0 at click time')
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return
@@ -571,13 +541,11 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	}
 	dim := tx.world().dimension
 	if target.y < dim.min_y || target.y > dim.max_y() {
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) dropped: target y=${target.y} out of world bounds')
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return
 	}
 	if t.now_ms - t.last_place_ms < place_cooldown_ms {
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) dropped: cooldown (${t.now_ms - t.last_place_ms}ms since last place)')
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return
@@ -585,9 +553,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 
 	if merged := tx.merged_slab(clicked_id, t.runtime_id, t.click_face, t.clicked_y, true) {
 		placed = tx.replace_block_form(mut s, pos, merged)
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) merged_slab(on clicked) -> merged=${merged} placed=${placed}')
 	} else if !tx.can_place_block_on_face(t.runtime_id, t.click_face, clicked_id) {
-		s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${pos.x},${pos.y},${pos.z}) dropped: can_place_block_on_face rejected runtime_id=${t.runtime_id} face=${t.click_face} against clicked_id=${clicked_id}')
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return
@@ -596,13 +562,10 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 		target_id := tx.block_at(target.x, target.y, target.z)
 		if merged2 := tx.merged_slab(target_id, t.runtime_id, t.click_face, t.clicked_y, false) {
 			placed = tx.replace_block_form(mut s, target, merged2)
-			s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${target.x},${target.y},${target.z}) merged_slab(on target) -> merged=${merged2} placed=${placed}')
 		} else if parts := tx.door_placement(placed_id, target, t.click_face, t.yaw) {
 			placed = tx.place_door_pair(mut s, target, parts)
-			s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${target.x},${target.y},${target.z}) place_door_pair -> placed=${placed}')
 		} else {
 			placed = tx.place_block_form(mut s, target, placed_id)
-			s.log.debug('PLACE-DIAG: PlayerPlaceBlockTask(${target.x},${target.y},${target.z}) place_block_form runtime_id=${t.runtime_id} oriented_id=${placed_id} -> placed=${placed} (post-place tx.block_at=${tx.block_at(target.x, target.y, target.z)})')
 		}
 	}
 
