@@ -100,6 +100,7 @@ mut:
 	sent_chunks                 map[u64]bool
 	chunk_cache_mutex           &sync.Mutex = sync.new_mutex()
 	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
+	chunk_gen_mutex             &sync.Mutex = sync.new_mutex()
 	transfer_mutex              &sync.Mutex = sync.new_mutex()
 	cooldown_until              map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
@@ -270,6 +271,7 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		sent_chunks:        map[u64]bool{}
 		chunk_cache_mutex:  sync.new_mutex()
 		chunk_stream_mutex: sync.new_mutex()
+		chunk_gen_mutex:    sync.new_mutex()
 		log:                log
 		outbound_bootstrap: true
 	}
