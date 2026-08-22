@@ -394,6 +394,12 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	if targets.len == 0 {
 		return
 	}
+	// Only allow one generation batch per session at a time. If one is
+	// already running, defer this batch to a later tick.
+	if !s.chunk_gen_mutex.try_lock() {
+		s.forget_sent_chunks(claimed)
+		return
+	}
 	binding := s.world_binding()
 	spawn s.generate_and_deliver_chunks(binding, targets)
 }
@@ -404,7 +410,13 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 //
 // Concurrent block edits are not version checked here because their own
 // UpdateBlockPacket broadcasts correct any stale column data afterward.
+//
+// Holds chunk_gen_mutex for its entire run, released via defer regardless
+// of how it returns.
 fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targets []ChunkSendTarget) {
+	defer {
+		s.chunk_gen_mutex.unlock()
+	}
 	dim := if isnil(binding.world) { world.overworld } else { binding.world.dimension }
 	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
