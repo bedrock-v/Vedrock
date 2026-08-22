@@ -1,8 +1,11 @@
 module db
 
 import sync
+import time
 import server.world
 import protocol.types
+
+const persist_shutdown_timeout = 30 * time.second
 
 // BlockPersist and TilePersist are immutable records of one write already
 // applied to a World's in memory state, handed to the storage worker so the
@@ -61,11 +64,13 @@ mut:
 	last_persist_error ?string
 	// Persistence worker state, only meaningful when store_backed is true.
 	// A storeless World (tests, void worlds) never starts this thread and
-	// must never send on these channels.
-	store_backed  bool
-	persist_queue chan PersistRecord = chan PersistRecord{cap: 4096}
-	persist_stop  chan bool          = chan bool{cap: 1}
-	persist_done  chan bool          = chan bool{cap: 1}
+	// must never touch these fields.
+	store_backed    bool
+	persist_mutex   &sync.Mutex = sync.new_mutex()
+	persist_records []PersistRecord
+	persist_wakeup  chan bool = chan bool{cap: 1}
+	persist_stop    chan bool = chan bool{cap: 1}
+	persist_done    chan bool = chan bool{cap: 1}
 pub mut:
 	generator_name string
 }
@@ -212,11 +217,20 @@ pub fn (mut w World) set_tile_text(x int, y int, z int, text string) {
 	})
 }
 
+// enqueue_persist appends an immutable record to the unbounded persist
+// queue and pings the worker. This never blocks, regardless of how far
+// behind the storage worker has fallen.
 fn (mut w World) enqueue_persist(record PersistRecord) {
 	if !w.store_backed {
 		return
 	}
-	w.persist_queue <- record
+	w.persist_mutex.lock()
+	w.persist_records << record
+	w.persist_mutex.unlock()
+	select {
+		w.persist_wakeup <- true {}
+		else {}
+	}
 }
 
 // run_persist_worker is the storage worker: the only thread that ever calls
@@ -225,29 +239,40 @@ fn (mut w World) enqueue_persist(record PersistRecord) {
 // is present.
 fn (mut w World) run_persist_worker() {
 	mut store := w.store or { return }
+	// Catch up on anything enqueued before this thread's first select
+	w.drain_persist_records(mut store)
 	for {
 		select {
-			record := <-w.persist_queue {
-				apply_persist_record(mut w, mut store, record)
+			_ := <-w.persist_wakeup {
+				w.drain_persist_records(mut store)
 			}
 			_ := <-w.persist_stop {
-				// The channel is never closed, so this final non blocking
-				// drain is exhaustive: shutdown only signals stop after
-				// nothing more will be enqueued (see World's own close()).
-				for {
-					select {
-						record := <-w.persist_queue {
-							apply_persist_record(mut w, mut store, record)
-						}
-						else {
-							break
-						}
-					}
-				}
+				// shutdown only signals stop after nothing more will be
+				// enqueued (see World's own close()), so one final drain
+				// is exhaustive.
+				w.drain_persist_records(mut store)
 				w.persist_done <- true
 				return
 			}
 		}
+	}
+}
+
+// drain_persist_records applies every record currently queued, one at a
+// time, until the queue is empty. A record removed here while still inside
+// apply_persist_record (a slow or stuck disk write) is already gone from
+// persist_records.
+fn (mut w World) drain_persist_records(mut store Provider) {
+	for {
+		w.persist_mutex.lock()
+		if w.persist_records.len == 0 {
+			w.persist_mutex.unlock()
+			return
+		}
+		record := w.persist_records[0]
+		w.persist_records.delete(0)
+		w.persist_mutex.unlock()
+		apply_persist_record(mut w, mut store, record)
 	}
 }
 
@@ -435,30 +460,44 @@ pub fn (w &World) make_generator(fallback world.Generator) world.Generator {
 // touch the in memory override cache.
 pub fn (mut w World) flush() ! {
 	if mut store := w.store {
-		w.await_persist_barrier()
+		w.await_persist_barrier()!
 		store.flush()!
 	}
 }
 
-// close waits for the storage worker to apply every write already handed
-// to it, then stops it before closing the store.
+// close waits for the storage worker to apply every write already handed to
+// it, then stops it before closing the store.
 pub fn (mut w World) close() ! {
 	if mut store := w.store {
 		w.persist_stop <- true
-		_ := <-w.persist_done
-		store.close()!
+		select {
+			_ := <-w.persist_done {
+				store.close()!
+			}
+			persist_shutdown_timeout {
+				return error('world "${w.name}": persistence worker did not stop within ${persist_shutdown_timeout} - a disk write may still be stuck; not closing the store out from under it')
+			}
+		}
 	}
 }
 
 // await_persist_barrier blocks until the storage worker has applied every
-// record enqueued before this call.
-fn (mut w World) await_persist_barrier() {
+// record enqueued before this call or until persist_shutdown_timeout
+// elapses. Enqueueing the barrier through the same append+wakeup path as
+// any other record keeps it correctly ordered behind whatever was already
+// queued, whether that's nothing or a large backlog.
+fn (mut w World) await_persist_barrier() ! {
 	if !w.store_backed {
 		return
 	}
 	done := chan bool{cap: 1}
-	w.persist_queue <- PersistBarrier{
+	w.enqueue_persist(PersistBarrier{
 		done: done
+	})
+	select {
+		_ := <-done {}
+		persist_shutdown_timeout {
+			return error('world "${w.name}": persistence worker did not catch up within ${persist_shutdown_timeout}')
+		}
 	}
-	_ := <-done
 }
