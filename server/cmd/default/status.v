@@ -33,6 +33,7 @@ pub fn (c StatusCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	lines << '§6Current TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
 	lines << '§6Average TPS: ${tps_color}${ctx.tps:.2f} §7(§f${ctx.load:.1f}%§7)§r'
 	lines << '§6Memory: §c${format_bytes(ctx.memory_used_bytes)}§6/§c${format_bytes(ctx.memory_heap_bytes)}§r'
+	lines << '§6Chunk cache: §c${ctx.chunk_cache_entries}§6 entries (~§c${format_bytes(ctx.chunk_cache_bytes)}§6), generation workers: §c${ctx.active_chunk_generation_count}§r'
 	lines << '§6Online players: §c${ctx.player_count}§6/§c${ctx.max_players}§r'
 	lines << '§6World: §a${ctx.server_motd}§r'
 	sender.send_message(lines.join('\n'))!

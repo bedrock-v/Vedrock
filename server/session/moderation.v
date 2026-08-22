@@ -266,7 +266,6 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		return false
 	}
 
-	s.clear_chunk_cache()
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
 		mut change_packet := &packets_712.ChangeDimensionPacket{

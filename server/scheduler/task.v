@@ -1,8 +1,11 @@
 module scheduler
 
-// Task is the unit of scheduled work. Implement run() with whatever should
-// happen when the task fires. For one-off callbacks without a dedicated struct,
-// use ClosureTask.
+// Task is scheduled work run synchronously on the server's global tick
+// thread. Implement run() with the work to perform when the task fires.
+//
+// Tasks must remain short and non-blocking: a slow task delays the global
+// tick cadence for every world. Schedule world specific work through that
+// World's scheduler instead. For simple one off callbacks, use ClosureTask.
 pub interface Task {
 	run()
 }

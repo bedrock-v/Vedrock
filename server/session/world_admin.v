@@ -129,21 +129,42 @@ fn to_world_summary(info WorldInfo) cmd.WorldSummary {
 
 fn to_world_metrics_summary(m WorldMetrics) cmd.WorldMetricsSummary {
 	return cmd.WorldMetricsSummary{
-		name:                      m.world_name
-		current_tick:              m.current_tick
-		queued_tasks:              m.queued_tasks
-		oldest_queued_task_age_ms: m.oldest_queued_task_age.milliseconds()
-		last_tick_duration_ms:     m.last_tick_duration.milliseconds()
-		longest_task_duration_ms:  m.longest_task_duration.milliseconds()
-		longest_task_name:         m.longest_task_name
-		catchup_events:            m.catchup_events
-		tick_overruns:             m.tick_overruns
-		scheduled_backlog:         m.scheduled_backlog
-		liquid_backlog:            m.liquid_backlog
-		entity_count:              m.entity_count
-		player_count:              m.player_count
-		outbound_overflow_count:   m.outbound_overflow_count
-		outbound_peak_depth:       m.outbound_peak_depth
+		name:                           m.world_name
+		current_tick:                   m.current_tick
+		queued_tasks:                   m.queued_tasks
+		oldest_queued_task_age_ms:      m.oldest_queued_task_age.milliseconds()
+		last_tick_duration_ms:          m.last_tick_duration.milliseconds()
+		longest_task_duration_ms:       m.longest_task_duration.milliseconds()
+		longest_task_name:              m.longest_task_name
+		catchup_events:                 m.catchup_events
+		tick_overruns:                  m.tick_overruns
+		scheduled_backlog:              m.scheduled_backlog
+		liquid_backlog:                 m.liquid_backlog
+		entity_count:                   m.entity_count
+		player_count:                   m.player_count
+		outbound_overflow_count:        m.outbound_overflow_count
+		outbound_peak_depth:            m.outbound_peak_depth
+		persist_pending_count:          m.persist_pending_count
+		persist_oldest_pending_ms:      m.persist_oldest_pending_ms
+		persist_enqueued_total:         m.persist_enqueued_total
+		persist_committed_total:        m.persist_committed_total
+		persist_pressure_level:         m.persist_pressure_level
+		persist_high_water_threshold:   m.persist_high_water_threshold
+		persist_hard_ceiling_threshold: m.persist_hard_ceiling_threshold
+		persist_last_write_ms:          m.persist_last_write_ms
+		persist_longest_write_ms:       m.persist_longest_write_ms
+		persist_consecutive_errors:     m.persist_consecutive_errors
+		chunk_cached_count:             m.chunk_cached_count
+		chunk_cached_bytes:             m.chunk_cached_bytes
+		chunk_cache_budget_bytes:       m.chunk_cache_budget_bytes
+		chunk_inflight_count:           m.chunk_inflight_count
+		chunk_oldest_inflight_ms:       m.chunk_oldest_inflight_ms
+		chunk_active_workers:           m.chunk_active_workers
+		chunk_worker_limit:             m.chunk_worker_limit
+		chunk_queue_depth:              m.chunk_queue_depth
+		chunk_requests_total:           m.chunk_requests_total
+		chunk_dedup_hits_total:         m.chunk_dedup_hits_total
+		actor_running:                  m.actor_running
 	}
 }
 
