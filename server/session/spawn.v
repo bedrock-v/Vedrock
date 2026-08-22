@@ -3,7 +3,6 @@ module session
 import math
 import time
 import protocol
-
 import protocol.types
 import nbt
 import server.event
@@ -899,11 +898,10 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		self := s.self_ref()
 		deliver_packets := world_call[[]protocol.Packet](mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
 			mut out := []protocol.Packet{}
-			for a in tx.wr.entities.player_actors() {
-				if a is NetworkSession {
-					out << a.player_list_add_packet()
-					out << a.add_player_packet()
-				}
+			for mut a in tx.wr.entities.player_actors() {
+				s := as_network_session(mut a) or { continue }
+				out << s.player_list_add_packet()
+				out << s.add_player_packet()
 			}
 			tx.register_player(self)
 			tx.wr.broadcast_world(list_add_pkt)

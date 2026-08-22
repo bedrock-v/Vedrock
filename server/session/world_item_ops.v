@@ -2,7 +2,6 @@ module session
 
 import math
 import rand
-
 import protocol.types
 import server.block
 import server.entity
@@ -112,10 +111,8 @@ fn (mut h WorldEntityHost) spawn_dropped_item(item_name string, count int, pos t
 
 fn (mut h WorldEntityHost) collect_item(runtime_id u64, stack types.ItemStack) int {
 	mut a := h.wr.entities.actor_by_runtime_id(runtime_id) or { return 0 }
-	if mut a is NetworkSession {
-		return a.try_collect_item(stack)
-	}
-	return 0
+	mut s := as_network_session(mut a) or { return 0 }
+	return s.try_collect_item(stack)
 }
 
 // notify_item_taken broadcasts the pickup animation to this world's

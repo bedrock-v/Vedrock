@@ -5,7 +5,6 @@ import sync.stdatomic
 import time
 import rand
 import protocol
-
 import protocol.types
 import server.block
 import server.entity
@@ -196,9 +195,8 @@ fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
 // or world_call, because the actor registry is not protected by a lock.
 fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
 	for mut a in wr.entities.player_actors() {
-		if mut a is NetworkSession {
-			a.deliver(p)
-		}
+		mut s := as_network_session(mut a) or { continue }
+		s.deliver(p)
 	}
 }
 
@@ -206,10 +204,9 @@ fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
 // given runtime ID. Call it only from this world's runtime thread.
 fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
 	for mut a in wr.entities.player_actors() {
-		if mut a is NetworkSession {
-			if a.runtime_id != except_runtime_id {
-				a.deliver(p)
-			}
+		mut s := as_network_session(mut a) or { continue }
+		if s.runtime_id != except_runtime_id {
+			s.deliver(p)
 		}
 	}
 }
@@ -490,44 +487,44 @@ fn (wr &WorldRuntime) simulated_steps_count() i64 {
 // entities, liquids or scheduled block updates.
 pub struct WorldMetrics {
 pub:
-	world_name              string
-	queued_tasks            int
-	oldest_queued_task_age  time.Duration
-	current_tick            i64
-	tick_runs               i64
-	simulated_steps         i64
-	catchup_events          i64
-	tick_overruns           i64
-	last_tick_duration      time.Duration
-	longest_task_duration   time.Duration
-	longest_task_name       string
-	scheduled_backlog       int
-	liquid_backlog          int
-	entity_count            int
-	player_count            i64
-	outbound_overflow_count i64
-	outbound_peak_depth     i64
-	persist_pending_count     int
-	persist_oldest_pending_ms i64
-	persist_enqueued_total    i64
-	persist_committed_total   i64
+	world_name                     string
+	queued_tasks                   int
+	oldest_queued_task_age         time.Duration
+	current_tick                   i64
+	tick_runs                      i64
+	simulated_steps                i64
+	catchup_events                 i64
+	tick_overruns                  i64
+	last_tick_duration             time.Duration
+	longest_task_duration          time.Duration
+	longest_task_name              string
+	scheduled_backlog              int
+	liquid_backlog                 int
+	entity_count                   int
+	player_count                   i64
+	outbound_overflow_count        i64
+	outbound_peak_depth            i64
+	persist_pending_count          int
+	persist_oldest_pending_ms      i64
+	persist_enqueued_total         i64
+	persist_committed_total        i64
 	persist_pressure_level         int
 	persist_high_water_threshold   int
 	persist_hard_ceiling_threshold int
 	persist_last_write_ms          i64
 	persist_longest_write_ms       i64
 	persist_consecutive_errors     i64
-	chunk_cached_count       int
-	chunk_cached_bytes       i64
-	chunk_cache_budget_bytes i64
-	chunk_inflight_count     int
-	chunk_oldest_inflight_ms i64
-	chunk_active_workers     i64
-	chunk_worker_limit       int
-	chunk_queue_depth        i64
-	chunk_requests_total     i64
-	chunk_dedup_hits_total   i64
-	actor_running bool
+	chunk_cached_count             int
+	chunk_cached_bytes             i64
+	chunk_cache_budget_bytes       i64
+	chunk_inflight_count           int
+	chunk_oldest_inflight_ms       i64
+	chunk_active_workers           i64
+	chunk_worker_limit             int
+	chunk_queue_depth              i64
+	chunk_requests_total           i64
+	chunk_dedup_hits_total         i64
+	actor_running                  bool
 }
 
 fn (mut wr WorldRuntime) metrics() WorldMetrics {

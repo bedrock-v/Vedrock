@@ -18,27 +18,26 @@ fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_run
 	block_min_z := f32(pos.z)
 	block_max_z := f32(pos.z) + 1
 	mut obstructed := false
-	for a in wr.entities.player_actors() {
-		if a is NetworkSession {
-			tp := if a.runtime_id == acting_runtime_id {
-				a.effective_position()
-			} else {
-				a.current_position()
-			}
-			feet_y := tp.y - player_eye_height
-			min_x := tp.x - player_half_width
-			max_x := tp.x + player_half_width
-			min_y := feet_y
-			max_y := feet_y + player_height
-			min_z := tp.z - player_half_width
-			max_z := tp.z + player_half_width
-			overlaps := min_x < block_max_x && max_x > block_min_x && min_y < block_max_y
-				&& max_y > block_min_y && min_z < block_max_z && max_z > block_min_z
-			if overlaps {
-				obstructed = true
-				if a.runtime_id != acting_runtime_id {
-					return true, false
-				}
+	for mut a in wr.entities.player_actors() {
+		s := as_network_session(mut a) or { continue }
+		tp := if s.runtime_id == acting_runtime_id {
+			s.effective_position()
+		} else {
+			s.current_position()
+		}
+		feet_y := tp.y - player_eye_height
+		min_x := tp.x - player_half_width
+		max_x := tp.x + player_half_width
+		min_y := feet_y
+		max_y := feet_y + player_height
+		min_z := tp.z - player_half_width
+		max_z := tp.z + player_half_width
+		overlaps := min_x < block_max_x && max_x > block_min_x && min_y < block_max_y
+			&& max_y > block_min_y && min_z < block_max_z && max_z > block_min_z
+		if overlaps {
+			obstructed = true
+			if s.runtime_id != acting_runtime_id {
+				return true, false
 			}
 		}
 	}
