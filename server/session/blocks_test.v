@@ -29,7 +29,7 @@ fn place_auth_input_packet(block_position types.BlockPosition, block_face int, h
 		action_type:      proto.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
 		position:         proto.block_pos(block_position)
-		face:             block_face
+		face:             u8(block_face)
 		slot:             hotbar_slot
 		item:             proto.item_descriptor(held_item)
 		target_block_id:  target_block_id
