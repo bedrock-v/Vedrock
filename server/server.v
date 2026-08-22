@@ -61,7 +61,7 @@ mut:
 	listener  &nethernet.Listener = unsafe { nil }
 	// endpoint is the address join channel: a client given this server's
 	// address asks it over HTTP instead of broadcasting for it.
-	endpoint          &endpoint.Handler   = unsafe { nil }
+	endpoint          &endpoint.EndpointHandler = unsafe { nil }
 	endpoint_listener &nethernet.Listener = unsafe { nil }
 	guid      i64
 	running   &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
@@ -243,8 +243,9 @@ pub fn (mut s Server) start() ! {
 		signaling.close()
 		return err
 	}
-	mut join_endpoint := endpoint.listen(s.cfg.bind_address(),
-		network_id: u64(s.guid)
+	mut join_endpoint := endpoint.listen(
+		address:    s.cfg.bind_address()
+		network_id: s.guid.str()
 		logger:     net_log
 	) or {
 		listener.close()
