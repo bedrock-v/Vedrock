@@ -58,7 +58,8 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 // On 2192 the packet no longer carries the use item transaction: item use,
 // placement and destruction arrive through PlayerAuthInput instead, which
 // handle_item_use_transaction below already covers.
-fn (mut s NetworkSession) handle_inventory_transaction(_ proto.InventoryTransactionPacket) ! {
+fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransactionPacket) ! {
+	s.log.debug('PLACE-DIAG: InventoryTransactionPacket type=${p.transaction_type} actions=${p.transaction.action.len}')
 }
 
 fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
@@ -77,6 +78,7 @@ fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket
 
 fn (mut s NetworkSession) handle_item_use_transaction(tx proto.PackedItemUseLegacyInventoryTransaction) ! {
 	pos := proto.block_pos_from(tx.position)
+	s.log.debug('PLACE-DIAG: item use ${tx.action_type} at (${pos.x},${pos.y},${pos.z}) face=${tx.face}')
 	match tx.action_type {
 		.place {
 			s.handle_place_click(pos, int(tx.face), tx.click_position[1])
