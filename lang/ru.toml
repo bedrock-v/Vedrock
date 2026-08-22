@@ -27,6 +27,9 @@ other = "Этот сервер поддерживает Minecraft: Bedrock Editi
 [server.listening]
 other = "Прослушивание {{.Address}}"
 
+[server.discovery_listening]
+other = "Обнаружение по локальной сети на {{.Address}}"
+
 [server.started]
 other = "Успешно запущен! ({{.Seconds}}с) Введите \"help\" для списка команд."
 

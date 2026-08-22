@@ -11,7 +11,7 @@ debug = false
 
 [network]
 address = "0.0.0.0"
-port = 7551
+port = 19132
 view-distance = 8
 xbox-auth = true
 encryption = true

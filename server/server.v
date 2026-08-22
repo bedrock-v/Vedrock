@@ -7,6 +7,7 @@ import server.cmd
 import server.scheduler
 import nethernet
 import nethernet.discovery
+import nethernet.endpoint
 import server.internal.logger
 import server.internal.language
 import server.conf
@@ -58,6 +59,10 @@ mut:
 	// world and carries the offers and answers that negotiate a connection.
 	signaling &discovery.Listener = unsafe { nil }
 	listener  &nethernet.Listener = unsafe { nil }
+	// endpoint is the address join channel: a client given this server's
+	// address asks it over HTTP instead of broadcasting for it.
+	endpoint          &endpoint.Handler   = unsafe { nil }
+	endpoint_listener &nethernet.Listener = unsafe { nil }
 	guid      i64
 	running   &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 	// active_conns bounds concurrent connection handlers so a flood of
@@ -223,7 +228,7 @@ pub fn (mut s Server) start() ! {
 	})
 	// The server answers requests rather than making them, so it binds the
 	// discovery port and never broadcasts.
-	mut signaling := discovery.listen(s.cfg.bind_address(),
+	mut signaling := discovery.listen('${s.cfg.address}:${discovery.default_port}',
 		network_id: u64(s.guid)
 		broadcast:  false
 		logger:     net_log
@@ -238,11 +243,34 @@ pub fn (mut s Server) start() ! {
 		signaling.close()
 		return err
 	}
+	mut join_endpoint := endpoint.listen(s.cfg.bind_address(),
+		network_id: u64(s.guid)
+		logger:     net_log
+	) or {
+		listener.close()
+		signaling.close()
+		return err
+	}
+	join_endpoint.pong_data(s.pong_data(0).bytes())
+	mut endpoint_listener := nethernet.listen(mut join_endpoint,
+		allow_anonymous: !s.cfg.xbox_auth
+		logger:          net_log
+	) or {
+		join_endpoint.close()
+		listener.close()
+		signaling.close()
+		return err
+	}
 	s.signaling = signaling
 	s.listener = listener
+	s.endpoint = join_endpoint
+	s.endpoint_listener = endpoint_listener
 	s.running.store(true)
 	s.log.info(s.lang.tf('server.listening', {
 		'Address': s.cfg.bind_address()
+	}))
+	s.log.info(s.lang.tf('server.discovery_listening', {
+		'Address': '${s.cfg.address}:${discovery.default_port}'
 	}))
 	elapsed := (time.now() - s.created_at).seconds()
 	s.log.info(s.lang.tf('server.started', {
@@ -250,7 +278,8 @@ pub fn (mut s Server) start() ! {
 	}))
 	spawn s.tick_loop()
 	spawn s.console_loop()
-	s.accept_loop()
+	spawn s.accept_loop(mut endpoint_listener)
+	s.accept_loop(mut listener)
 }
 
 const console_poll_interval = 100 * time.millisecond
@@ -311,7 +340,9 @@ fn (mut s Server) tick_loop() {
 			s.hub.broadcast(&proto.SetTimePacket{
 				time: world_time
 			})
-			s.signaling.pong_data(s.pong_data(s.hub.count()).bytes())
+			pong := s.pong_data(s.hub.count()).bytes()
+			s.signaling.pong_data(pong)
+			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
 			for msg in s.hub.flush_worlds() {
@@ -363,9 +394,12 @@ fn (mut s Server) tick_loop() {
 // max_concurrent_connections caps how many connection handlers run at once.
 const max_concurrent_connections = u64(1024)
 
-fn (mut s Server) accept_loop() {
+// accept_loop takes connections from one of the two channels a client can
+// arrive through. Both end in the same handler: how the connection was
+// negotiated says nothing about the session that follows.
+fn (mut s Server) accept_loop(mut listener nethernet.Listener) {
 	for s.running.load() {
-		mut conn := s.listener.accept(time.second) or { continue }
+		mut conn := listener.accept(time.second) or { continue }
 		if s.active_conns.load() >= max_concurrent_connections {
 			s.log.warn('Rejecting connection from ${conn.remote_addr()} - at capacity (${max_concurrent_connections})')
 			conn.close()
@@ -426,6 +460,12 @@ pub fn (mut s Server) stop() {
 		s.hub.disconnect_all('Server closed')
 		s.hub.wait_for_sessions_to_leave()
 		s.hub.close_worlds()
+	}
+	if !isnil(s.endpoint_listener) {
+		s.endpoint_listener.close()
+	}
+	if !isnil(s.endpoint) {
+		s.endpoint.close()
 	}
 	if !isnil(s.listener) {
 		s.listener.close()

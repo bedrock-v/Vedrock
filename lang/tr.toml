@@ -25,6 +25,9 @@ other = "Bu sunucu Minecraft: Bedrock Edition v{{.Version}} sürümünü destekl
 [server.listening]
 other = "{{.Address}} adresinde dinleniyor"
 
+[server.discovery_listening]
+other = "{{.Address}} adresinde LAN keşfi dinleniyor"
+
 [server.started]
 other = "Başarıyla başlatıldı! ({{.Seconds}}sn) Komutlar için \"help\" yazın."
 

@@ -27,6 +27,9 @@ other = "This server is supporting Minecraft: Bedrock Edition v{{.Version}}"
 [server.listening]
 other = "Listening on {{.Address}}"
 
+[server.discovery_listening]
+other = "LAN discovery on {{.Address}}"
+
 [server.started]
 other = "Started successfully! ({{.Seconds}}s) Type \"help\" for available commands."
 

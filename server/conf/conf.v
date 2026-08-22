@@ -2,17 +2,20 @@ module conf
 
 import os
 import toml
-import nethernet.discovery
 import protocol.current as proto
+
+// default_join_port is the port a Bedrock client tries first when it is
+// given an address with no port of its own.
+pub const default_join_port = 19132
 
 pub struct Config {
 pub mut:
 	motd     string = 'Vedrock Server'
 	sub_motd string = 'A V Bedrock server'
 	address  string = '0.0.0.0'
-	// port is where NetherNet LAN discovery listens. Clients broadcast to 7551,
-	// so a server on any other port is only reachable by one pointed at it.
-	port          int    = discovery.default_port
+	// port is where a client joining by address reaches the server. LAN
+	// discovery is not configurable: a client only ever broadcasts to 7551.
+	port          int    = default_join_port
 	max_players   int    = 20
 	view_distance int    = 8
 	gamemode      string = 'survival'

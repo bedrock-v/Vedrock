@@ -25,6 +25,9 @@ other = "Ce serveur prend en charge Minecraft: Bedrock Edition v{{.Version}}"
 [server.listening]
 other = "Écoute sur {{.Address}}"
 
+[server.discovery_listening]
+other = "Découverte LAN sur {{.Address}}"
+
 [server.started]
 other = "Démarré avec succès ! ({{.Seconds}}s) Tapez \"help\" pour voir les commandes."
 
