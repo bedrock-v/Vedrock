@@ -3,8 +3,8 @@ module network
 import compress.deflate
 import protocol.serializer
 
-// A NetherNet message carries the batch on its own - there is no 0xfe game
-// packet header in front of it the way RakNet framing has.
+// A NetherNet message carries the batch on its own: the first byte is the
+// compression marker below, with no game packet header in front of it.
 pub const compression_flate = u8(0x00)
 pub const compression_none = u8(0xff)
 

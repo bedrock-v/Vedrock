@@ -430,6 +430,9 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 	s.log.debug('Connection handler for ${addr} finished')
 }
 
+// pong_data is the semicolon separated status string both signalling channels
+// advertise the server with. The port appears twice because the format keeps
+// one for each address family.
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
 	return
