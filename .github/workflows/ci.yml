@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - stable
-      - dev 
- pull_request:
+      - dev
+  pull_request:
 
 permissions:
   contents: read
