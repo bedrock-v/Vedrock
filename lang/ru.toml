@@ -30,6 +30,9 @@ other = "Прослушивание {{.Address}}"
 [server.discovery_listening]
 other = "Обнаружение по локальной сети на {{.Address}}"
 
+[server.discovery_unavailable]
+other = "Обнаружение по локальной сети недоступно на {{.Address}}: {{.Error}}"
+
 [server.started]
 other = "Успешно запущен! ({{.Seconds}}с) Введите \"help\" для списка команд."
 

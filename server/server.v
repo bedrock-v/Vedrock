@@ -238,31 +238,45 @@ pub fn (mut s Server) start() ! {
 	// server either way sees one identity.
 	identity := network.load_identity(s.cfg.identity_file, nethernet_identity_domain)!
 	// The server answers requests rather than making them, so it binds the
-	// discovery port and never broadcasts.
-	mut signaling := discovery.listen('${s.cfg.address}:${discovery.default_port}',
+	// discovery port and never broadcasts. The port is fixed and shared by
+	// every server on the host, so losing it only costs LAN visibility: the
+	// address join channel below still accepts players.
+	mut signaling := &discovery.Listener(unsafe { nil })
+	mut listener := &nethernet.Listener(unsafe { nil })
+	if mut sig := discovery.listen('${s.cfg.address}:${discovery.default_port}',
 		network_id: u64(s.guid)
 		broadcast:  false
 		logger:     net_log
-	)!
-	signaling.pong_data(s.pong_data(0).bytes())
-	mut listener := nethernet.listen(mut signaling,
-		// The game leaves the identity assertion out of most of its offers,
-		// including every LAN one, so refusing them is opt in. Xbox Live
-		// authentication is checked on the Login chain instead.
-		allow_anonymous: !s.cfg.require_identity
-		identity:        identity
-		logger:          net_log
-	) or {
-		signaling.close()
-		return err
+	)
+	{
+		sig.pong_data(s.pong_data(0).bytes())
+		listener = nethernet.listen(mut sig,
+			// The game leaves the identity assertion out of most of its offers,
+			// including every LAN one, so refusing them is opt in. Xbox Live
+			// authentication is checked on the Login chain instead.
+			allow_anonymous: !s.cfg.require_identity
+			identity:        identity
+			logger:          net_log
+		) or {
+			sig.close()
+			return err
+		}
+		signaling = sig
+	} else {
+		s.log.warn(s.lang.tf('server.discovery_unavailable', {
+			'Address': '${s.cfg.address}:${discovery.default_port}'
+			'Error':   err.msg()
+		}))
 	}
 	mut join_endpoint := endpoint.listen(
 		address:    s.cfg.bind_address()
 		network_id: s.guid.str()
 		logger:     net_log
 	) or {
-		listener.close()
-		signaling.close()
+		if !isnil(listener) {
+			listener.close()
+			signaling.close()
+		}
 		return err
 	}
 	join_endpoint.pong_data(s.pong_data(0).bytes())
@@ -272,8 +286,10 @@ pub fn (mut s Server) start() ! {
 		logger:          net_log
 	) or {
 		join_endpoint.close()
-		listener.close()
-		signaling.close()
+		if !isnil(listener) {
+			listener.close()
+			signaling.close()
+		}
 		return err
 	}
 	s.signaling = signaling
@@ -284,17 +300,21 @@ pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.listening', {
 		'Address': s.cfg.bind_address()
 	}))
-	s.log.info(s.lang.tf('server.discovery_listening', {
-		'Address': '${s.cfg.address}:${discovery.default_port}'
-	}))
+	if !isnil(signaling) {
+		s.log.info(s.lang.tf('server.discovery_listening', {
+			'Address': '${s.cfg.address}:${discovery.default_port}'
+		}))
+	}
 	elapsed := (time.now() - s.created_at).seconds()
 	s.log.info(s.lang.tf('server.started', {
 		'Seconds': '${elapsed:.3f}'
 	}))
 	spawn s.tick_loop()
 	spawn s.console_loop()
-	spawn s.accept_loop(mut endpoint_listener)
-	s.accept_loop(mut listener)
+	if !isnil(listener) {
+		spawn s.accept_loop(mut listener)
+	}
+	s.accept_loop(mut endpoint_listener)
 }
 
 const console_poll_interval = 100 * time.millisecond
@@ -360,7 +380,9 @@ fn (mut s Server) tick_loop() {
 				time: world_time
 			})
 			pong := s.pong_data(s.hub.count()).bytes()
-			s.signaling.pong_data(pong)
+			if !isnil(s.signaling) {
+				s.signaling.pong_data(pong)
+			}
 			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
