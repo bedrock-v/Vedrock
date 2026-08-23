@@ -3,7 +3,7 @@ module player
 import server.internal.auth
 import server.permission
 import server.effect
-import server.item.inventory
+import server.inventory
 import server.player.playerdb
 import protocol.types
 import sync
