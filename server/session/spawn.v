@@ -721,12 +721,22 @@ fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz in
 //
 // Requesting the whole view radius up front kept every column that finished
 // early buffered in its own channel until the consuming loop reached it - the
-// entire radius, about 2MB of wire bytes, per joining player. A window this
-// size keeps every generation worker busy and holds a fraction of that.
-const chunk_pipeline_depth = 24
+// entire radius, about 2MB of wire bytes, per joining player.
+//
+// One worker per column in flight is the useful ceiling: it lets a single
+// joining player saturate the generation pool on its own, and anything beyond
+// it only buys buffering. A shorter window measurably slows a small wave, and a
+// longer one costs peak memory for no throughput.
+//
+// A function rather than a const: V does not guarantee the initialisation order
+// of consts across files, and one derived from chunk_gen_worker_count read as
+// zero.
+fn chunk_pipeline_depth() int {
+	return chunk_gen_worker_count
+}
 
 // ChunkPipeline walks a sweep's targets in order while keeping at most
-// chunk_pipeline_depth generations queued ahead of the caller.
+// chunk_pipeline_depth() generations queued ahead of the caller.
 struct ChunkPipeline {
 	targets []ChunkSendTarget
 mut:
@@ -742,7 +752,13 @@ mut:
 
 fn (mut s NetworkSession) new_chunk_pipeline(wr_in &WorldRuntime, targets []ChunkSendTarget) ChunkPipeline {
 	mut wr := unsafe { wr_in }
-	depth := if targets.len < chunk_pipeline_depth { targets.len } else { chunk_pipeline_depth }
+	mut depth := chunk_pipeline_depth()
+	if depth < 1 {
+		depth = 1
+	}
+	if targets.len < depth {
+		depth = targets.len
+	}
 	mut p := ChunkPipeline{
 		targets: targets
 		runtime: wr
