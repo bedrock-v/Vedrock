@@ -335,25 +335,37 @@ pub fn (c &Chunk) serialize() []u8 {
 // PalettedStorage, replicated across every y in a subchunk - same format as
 // serialize_section, just varying by (x, z) only, not y.
 pub fn (c &Chunk) serialize_biomes() []u8 {
-	mut palette := []int{}
-	mut lookup := map[int]u16{}
+	mut palette := []int{cap: 4}
+	for id in c.biomes {
+		if id !in palette {
+			palette << id
+		}
+	}
+	// A chunk usually sits in one biome, and that case needs no index array at
+	// all - building one first and then throwing it away cost 4096 stores and
+	// an 8kB allocation per chunk serialized.
+	if palette.len <= 1 {
+		return encode_paletted_storage([]u16{}, if palette.len == 1 {
+			palette
+		} else {
+			[plains_biome_id]
+		})
+	}
 	mut indices := []u16{len: 4096}
 	for x in 0 .. 16 {
 		for z in 0 .. 16 {
 			id := c.biomes[x * 16 + z]
-			palette_index := lookup[id] or {
-				new_index := u16(palette.len)
-				palette << id
-				lookup[id] = new_index
-				new_index
+			mut slot := u16(0)
+			for i, entry in palette {
+				if entry == id {
+					slot = u16(i)
+					break
+				}
 			}
 			for y in 0 .. 16 {
-				indices[block_index(x, y, z)] = palette_index
+				indices[block_index(x, y, z)] = slot
 			}
 		}
-	}
-	if palette.len == 1 {
-		return encode_paletted_storage([]u16{}, palette)
 	}
 	return encode_paletted_storage(indices, palette)
 }
