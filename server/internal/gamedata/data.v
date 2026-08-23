@@ -1,7 +1,6 @@
 module gamedata
 
 import os
-import compress.gzip
 import encoding.base64
 import x.json2
 
@@ -34,12 +33,22 @@ pub:
 	item_entries      []ItemEntry
 	creative_groups   []CreativeGroup
 	creative_items    []CreativeItem
-	block_palette     []BlockPaletteEntry
 	block_definitions []BlockDefinition
 	voxel_shapes      VoxelShapes
 pub mut:
 	item_id_by_name  map[string]int
 	item_id_by_block map[int]int
+	// block_palette is boot scaffolding: the full 23k entry wire palette, read
+	// once to backfill the block and item registries and never again. Callers
+	// release it with release_block_palette() once they have consumed it, so
+	// the process does not carry it for its whole life.
+	block_palette []BlockPaletteEntry
+}
+
+// release_block_palette drops the wire palette once its fallbacks have been
+// registered.
+pub fn (mut d GameData) release_block_palette() {
+	d.block_palette = []BlockPaletteEntry{}
 }
 
 fn any_str(values map[string]json2.Any, key string) string {
@@ -78,7 +87,7 @@ pub fn load(data_dir string) !GameData {
 	}
 
 	compressed := os.read_bytes(os.join_path(data_dir, 'block_palette.nbt'))!
-	block_palette := parse_block_palette(gzip.decompress(compressed)!)!
+	block_palette := parse_block_palette(gunzip(compressed)!)!
 	mut canonical_block := map[string]int{}
 	for e in block_palette {
 		if e.name !in canonical_block {

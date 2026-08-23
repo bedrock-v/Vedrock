@@ -211,6 +211,8 @@ fn (mut h Hub) register_palette_fallbacks() {
 		}
 	}
 	h.items.register_fallbacks(item_entries)
+	// Both registries have copied what they need out of it.
+	h.data.release_block_palette()
 }
 
 // The following set_* methods are Hub's boot configuration surface. Each one

@@ -43,6 +43,35 @@ const world_flush_interval_ticks = u64(ticks_per_second) * 30
 // warnings may be logged while pressure remains elevated.
 const persist_pressure_log_interval = u64(ticks_per_second) * 5
 
+// heap_release_interval_ticks bounds how long freed memory stays mapped after a
+// burst - a player leaving takes their chunk and session allocations with them.
+const heap_release_interval_ticks = u64(ticks_per_second) * 300
+
+fn C.GC_gcollect_and_unmap()
+
+// release_free_heap collects and hands blocks the collector no longer needs
+// back to the OS.
+//
+// Boehm keeps freed blocks mapped until they have been idle for several
+// collections, so without this the process keeps resident whatever its peak
+// was - and boot's peak is the block palette and item/creative JSON parses,
+// several times what any of them actually retains.
+fn release_free_heap() {
+	C.GC_gcollect_and_unmap()
+}
+
+fn C.GC_get_heap_size() usize
+
+fn C.GC_get_free_bytes() usize
+
+// heap_summary reports the collector's mapped and live sizes, for the debug log
+// that follows a heap release.
+fn heap_summary() string {
+	total := u64(C.GC_get_heap_size())
+	free := u64(C.GC_get_free_bytes())
+	return 'heap mapped=${total / 1024 / 1024}MB live=${(total - free) / 1024 / 1024}MB'
+}
+
 // Options is the framework's composition-root entry point. settings carries
 // YAML-loadable server tuning; hub_options swaps Hub subsystems such as the
 // command and entity registries. Every field left unset falls back to Vedrock's
@@ -70,9 +99,9 @@ mut:
 	// endpoint is the address join channel: a client given this server's
 	// address asks it over HTTP instead of broadcasting for it.
 	endpoint          &endpoint.EndpointHandler = unsafe { nil }
-	endpoint_listener &nethernet.Listener = unsafe { nil }
-	guid      i64
-	running   &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	endpoint_listener &nethernet.Listener       = unsafe { nil }
+	guid              i64
+	running           &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
 	active_conns &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -193,6 +222,13 @@ pub fn new(opts Options) !&Server {
 		log.warn('Failed to load block palette: ${err}')
 	}
 	hub.set_packs(load_resource_packs(cfg, log, lang))
+	// Every parse above is done and its garbage is dead, and no world thread or
+	// chunk worker exists yet. The collector scans thread stacks conservatively,
+	// so once those threads are running a dead block is far more likely to look
+	// reachable and stay mapped - releasing here is what actually returns the
+	// parse peak rather than carrying it for the process's lifetime.
+	release_free_heap()
+	log.debug('After data load ${heap_summary()}')
 	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
 		cfg.generator, log, lang)
 	return &Server{
@@ -305,6 +341,10 @@ pub fn (mut s Server) start() ! {
 			'Address': '${s.cfg.address}:${discovery.default_port}'
 		}))
 	}
+	// Boot is the process's allocation peak and none of its parse garbage is
+	// needed again, so this is the one point where returning it is free.
+	release_free_heap()
+	s.log.debug('After boot ${heap_summary()}')
 	elapsed := (time.now() - s.created_at).seconds()
 	s.log.info(s.lang.tf('server.started', {
 		'Seconds': '${elapsed:.3f}'
@@ -397,6 +437,9 @@ fn (mut s Server) tick_loop() {
 			for msg in s.hub.flush_worlds() {
 				s.log.warn('World flush failed: ${msg}')
 			}
+		}
+		if tick % heap_release_interval_ticks == 0 {
+			release_free_heap()
 		}
 		if tick % persist_pressure_log_interval == 0 {
 			for msg in s.hub.persist_pressure_warnings() {
