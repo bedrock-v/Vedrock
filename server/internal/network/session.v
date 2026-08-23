@@ -18,6 +18,20 @@ pub fn is_connection_closed(err IError) bool {
 	return err.msg().contains('connection closed')
 }
 
+// remote_endpoint renders addr as the peer's "ip:port", read from the ICE
+// candidate line the connection settled on. Addr.str() carries the network id,
+// the connection id and the full candidate line, which says nothing useful in a
+// game log. Falls back to the full form when no candidate was selected, so a
+// log line is never left without an address at all.
+pub fn remote_endpoint(addr nethernet.Addr) string {
+	fields := addr.selected_candidate.split(' ')
+	typ_index := fields.index('typ')
+	if typ_index >= 2 {
+		return '${fields[typ_index - 2]}:${fields[typ_index - 1]}'
+	}
+	return addr.str()
+}
+
 // Inbound rate limits, enforced per connection over a 1s sliding window. A peer
 // that exceeds either bound is disconnected. Bedrock clients burst on chunk
 // requests and movement but stay well under these ceilings.
@@ -196,7 +210,7 @@ pub fn (mut s Session) send_batch(packets []protocol.Packet) ! {
 }
 
 pub fn (mut s Session) remote_addr() string {
-	return s.conn.remote_addr().str()
+	return remote_endpoint(s.conn.remote_addr())
 }
 
 // disable_encryption reports that the transport already encrypts every byte, so

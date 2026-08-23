@@ -95,7 +95,7 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, identity.xuid,
 		identity.uuid)
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
-	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
+	s.log.debug('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
 	// Negotiate protocol encryption before login_success so the rest of the
 	// session runs ciphered. Skipped when the transport already encrypts every
 	// byte (NetherNet's DTLS), and gated behind the encryption config flag. If

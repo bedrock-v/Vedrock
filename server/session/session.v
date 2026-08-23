@@ -289,14 +289,16 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 pub fn (mut s NetworkSession) handle_loop() {
 	for s.state != .closed {
 		packets := s.transport.read() or {
-			s.log.info('Connection ${s.transport.remote_addr()} ended: ${err}')
+			s.log.info('Connection ${s.transport.remote_addr()} closed')
+			s.log.debug('Connection ${s.transport.remote_addr()} ended: ${err}')
 			s.abort_outbound()
 			break
 		}
 		for p in packets {
 			s.handle(p) or {
 				if network.is_connection_closed(err) {
-					s.log.info('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+					s.log.info('Connection ${s.transport.remote_addr()} closed')
+					s.log.debug('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
 					s.abort_outbound()
 				} else {
 					s.log.warn('Failed to handle ${p.name()}: ${err}')
@@ -348,7 +350,7 @@ fn (mut s NetworkSession) leave() {
 	if !ctx.is_cancelled() && ctx.val.message != '' {
 		s.hub.broadcast_message(ctx.val.message)
 	}
-	s.log.info('${s.player.identity.display_name} left the game (${s.hub.count()} online)')
+	s.log.info('${s.player.identity.display_name} left the game')
 }
 
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {

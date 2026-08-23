@@ -446,13 +446,14 @@ const max_concurrent_connections = u64(1024)
 fn (mut s Server) accept_loop(mut listener nethernet.Listener) {
 	for s.running.load() {
 		mut conn := listener.accept(time.second) or { continue }
+		peer_addr := network.remote_endpoint(conn.remote_addr())
 		if s.active_conns.load() >= max_concurrent_connections {
-			s.log.warn('Rejecting connection from ${conn.remote_addr()} - at capacity (${max_concurrent_connections})')
+			s.log.warn('Rejecting connection from ${peer_addr} - at capacity (${max_concurrent_connections})')
 			conn.close()
 			continue
 		}
 		s.active_conns.add(1)
-		s.log.info('Incoming connection from ${conn.remote_addr()}')
+		s.log.info('Incoming connection from ${peer_addr}')
 		spawn s.handle(mut conn)
 	}
 }
@@ -467,7 +468,7 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 	defer {
 		s.active_conns.sub(1)
 	}
-	addr := conn.remote_addr().str()
+	addr := network.remote_endpoint(conn.remote_addr())
 	mut transport := network.new_session(mut conn, s.log)
 	mut net_session := session.new(mut transport, mut s.hub, s.cfg, s.log)
 	net_session.handle_loop()
