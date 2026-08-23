@@ -282,3 +282,26 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 	assert got_dest.meta == 2
 	assert got_dest.count == 8
 }
+
+fn test_requested_amount_never_exceeds_what_the_slot_holds() {
+	assert requested_amount(2, 5) == 2
+	assert requested_amount(0, 5) == 5
+	assert requested_amount(9, 5) == 5
+	// A negative wire amount would otherwise leave the source stack larger
+	// than it started, duplicating items.
+	assert requested_amount(-5, 5) == 5
+}
+
+fn test_flat_slot_rejects_a_slot_outside_the_inventory() {
+	container := proto.FullContainerName{
+		container: .inventory_container
+	}
+	assert flat_slot(container, 0)? == 0
+	assert flat_slot(container, i8(inventory_slot_count - 1))? == inventory_slot_count - 1
+	if _ := flat_slot(container, i8(inventory_slot_count)) {
+		assert false, 'expected a slot past the inventory to be rejected'
+	}
+	if _ := flat_slot(container, -1) {
+		assert false, 'expected a negative slot to be rejected'
+	}
+}

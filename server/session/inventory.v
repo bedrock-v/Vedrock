@@ -13,12 +13,32 @@ struct SlotChange {
 // player's flat 0-35 inventory. Hotbar, inventory and combined containers
 // all use the same slot numbering so no offset is applied.
 //
-// Unsupported containers return none.
+// The wire slot is signed and unbounded while the inventory stores slots in a
+// map, so an out of range index would silently create a slot the player never
+// sees but that still holds items. Anything outside the real inventory is
+// rejected here, as is an unsupported container.
 fn flat_slot(container proto.FullContainerName, slot i8) ?int {
-	return match container.container {
+	flat := match container.container {
 		.hotbar_container, .combined_hotbar_and_inventory_container, .inventory_container { int(slot) }
-		else { none }
+		else { return none }
 	}
+	if flat < 0 || flat >= inventory_slot_count {
+		return none
+	}
+	return flat
+}
+
+// requested_amount turns a client supplied action amount into a server side
+// count. The wire field is signed, so a hostile client can send a negative
+// value: taken at face value it makes "remaining = count - take" larger than
+// the source stack and duplicates items. Zero, negative or oversized all mean
+// the whole stack, which is what the vanilla client sends for a full move.
+fn requested_amount(amount i8, available int) int {
+	take := int(amount)
+	if take <= 0 || take > available {
+		return available
+	}
+	return take
 }
 
 // persist_container_changes saves changes to slots in the target's open
@@ -189,10 +209,25 @@ fn stack_merge_compatible(a types.ItemStack, b types.ItemStack) bool {
 		&& a.raw_extra_data == b.raw_extra_data
 }
 
+// Every request in an ItemStackRequest packet is processed on the owning
+// world's actor thread, so one oversized packet would stall that world for
+// every player in it. The vanilla client sends a handful of actions per
+// interaction; these bounds sit far above that.
+const max_stack_requests_per_packet = 64
+const max_actions_per_stack_request = 64
+
 fn (mut s NetworkSession) handle_item_stack_request(p proto.ItemStackRequestPacket) ! {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
+	}
+	if p.requests.len > max_stack_requests_per_packet {
+		return error('item stack request carried ${p.requests.len} requests')
+	}
+	for request in p.requests {
+		if request.actions.len > max_actions_per_stack_request {
+			return error('item stack request carried ${request.actions.len} actions')
+		}
 	}
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
@@ -289,10 +324,7 @@ fn (mut s NetworkSession) resolve_source_stack(container proto.FullContainerName
 fn (mut s NetworkSession) apply_move(src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	mut moved, src_net_id, from_creative := s.resolve_source_stack(src.container_name, src.slot,
 		src.raw_id)
-	mut take := int(amount)
-	if take == 0 || take > moved.count {
-		take = moved.count
-	}
+	mut take := requested_amount(amount, moved.count)
 	dest_stack, dest_net_id := s.resolve_request_stack(dst.container_name, dst.slot, dst.raw_id)
 	max_stack := s.max_stack_size_for_numeric(moved.id)
 	can_merge := dest_stack.count > 0 && stack_merge_compatible(moved, dest_stack)
@@ -382,10 +414,7 @@ fn (mut s NetworkSession) apply_swap(src proto.ItemStackRequestSlotInfo, dst pro
 
 fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	item, net_id, from_creative := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
-	mut take := int(amount)
-	if take == 0 || take > item.count {
-		take = item.count
-	}
+	take := requested_amount(amount, item.count)
 	remaining := item.count - take
 	if net_id != 0 {
 		s.player.delete_stack(net_id)
@@ -407,10 +436,7 @@ fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amoun
 
 fn (mut s NetworkSession) apply_drop(mut wr WorldRuntime, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	item, _, _ := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
-	mut take := int(amount)
-	if take == 0 || take > item.count {
-		take = item.count
-	}
+	take := requested_amount(amount, item.count)
 	changes := s.apply_remove(src, amount)
 	if take > 0 && item.id != 0 {
 		mut dropped := item
@@ -436,10 +462,7 @@ fn (mut s NetworkSession) apply_consume(mut wr WorldRuntime, src proto.ItemStack
 }
 
 fn (mut s NetworkSession) replace_consumed_stack(src proto.ItemStackRequestSlotInfo, amount i8, stack types.ItemStack, net_id int, result itemmod.ConsumeResult) []SlotChange {
-	mut take := int(amount)
-	if take == 0 || take > stack.count {
-		take = stack.count
-	}
+	take := requested_amount(amount, stack.count)
 	remaining := stack.count - take
 	if net_id != 0 {
 		s.player.delete_stack(net_id)
