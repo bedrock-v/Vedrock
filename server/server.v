@@ -21,6 +21,7 @@ import server.permission
 import server.crash
 import server.event
 import server.player.playerdb
+import sync
 import sync.stdatomic
 import protocol.current as proto
 import webrtc.logging
@@ -102,6 +103,9 @@ mut:
 	endpoint_listener &nethernet.Listener       = unsafe { nil }
 	guid              i64
 	running           &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	// loop_wg tracks tick_loop/console_loop/both accept_loops. stop() waits
+	// on it before closing any listener.
+	loop_wg &sync.WaitGroup = sync.new_waitgroup()
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
 	active_conns &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -353,11 +357,14 @@ pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.started', {
 		'Seconds': '${elapsed:.3f}'
 	}))
+	s.loop_wg.add(2)
 	spawn s.tick_loop()
 	spawn s.console_loop()
 	if !isnil(listener) {
+		s.loop_wg.add(1)
 		spawn s.accept_loop(mut listener)
 	}
+	s.loop_wg.add(1)
 	s.accept_loop(mut endpoint_listener)
 }
 
@@ -369,6 +376,7 @@ fn (mut s Server) console_loop() {
 	logger.name_thread('Console Thread')
 	defer {
 		logger.unname_thread()
+		s.loop_wg.done()
 	}
 	mut sender := session.new_console_sender(mut s.hub, s.log)
 	for s.running.load() {
@@ -411,6 +419,7 @@ fn (mut s Server) tick_loop() {
 	logger.name_thread('Server Thread')
 	defer {
 		logger.unname_thread()
+		s.loop_wg.done()
 	}
 	interval := time.second / ticks_per_second
 	loop_start := time.now()
@@ -512,6 +521,7 @@ fn (mut s Server) accept_loop(mut listener nethernet.Listener) {
 	logger.name_thread('Network Listener')
 	defer {
 		logger.unname_thread()
+		s.loop_wg.done()
 	}
 	for s.running.load() {
 		mut conn := listener.accept(time.second) or { continue }
@@ -581,6 +591,7 @@ pub fn (mut s Server) stop() {
 	}
 	s.log.info('Stopping server')
 	s.running.store(false)
+	s.loop_wg.wait()
 	if !isnil(s.hub) {
 		s.hub.disconnect_all('Server closed')
 		s.hub.wait_for_sessions_to_leave()
