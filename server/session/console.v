@@ -3,6 +3,7 @@ module session
 import server.internal.logger
 import server.cmd
 import server.form
+import server.player.scoreboard
 
 // ConsoleSender adapts the server console to the cmd.Sender interface.
 // It has every permission and writes command output to the server log.
@@ -85,11 +86,11 @@ fn (mut c ConsoleSender) send_form(_ form.Form) ! {
 	return error('the console cannot display forms')
 }
 
-fn (mut c ConsoleSender) show_scoreboard(_ string, _ []string) {
+fn (mut c ConsoleSender) send_scoreboard(_ &scoreboard.Scoreboard) {
 	// The console has no client to render a scoreboard on.
 }
 
-fn (mut c ConsoleSender) clear_scoreboard() {}
+fn (mut c ConsoleSender) remove_scoreboard() {}
 
 // strip_formatting removes Minecraft § formatting codes so command output
 // stays readable in a terminal.

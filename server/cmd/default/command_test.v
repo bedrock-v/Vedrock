@@ -7,6 +7,9 @@ import server.internal.language
 import server.permission
 import server.form
 import server.cmd
+import server.player.bossbar
+import server.player.scoreboard
+import server.player.title
 import protocol.current as proto
 
 fn full_registry() cmd.Registry {
@@ -56,6 +59,7 @@ mut:
 	created_dim      string
 	created_gen      string
 	tp_world         string
+	bossbar_text     string
 	scoreboard_title string
 	scoreboard_lines []string
 	scoreboard_shown bool
@@ -164,13 +168,25 @@ fn (mut s RecordingSender) broadcast_title(kind int, text string) {
 	s.broadcast_titles << text
 }
 
-fn (mut s RecordingSender) show_scoreboard(title string, lines []string) {
-	s.scoreboard_title = title
-	s.scoreboard_lines = lines
+fn (mut s RecordingSender) send_scoreboard(board &scoreboard.Scoreboard) {
+	s.scoreboard_title = board.name()
+	s.scoreboard_lines = board.lines()
 	s.scoreboard_shown = true
 }
 
-fn (mut s RecordingSender) clear_scoreboard() {
+fn (mut s RecordingSender) send_title(t title.Title) {
+	s.shown_title = t.text()
+}
+
+fn (mut s RecordingSender) send_bossbar(bar bossbar.BossBar) {
+	s.bossbar_text = bar.text()
+}
+
+fn (mut s RecordingSender) remove_bossbar() {
+	s.bossbar_text = ''
+}
+
+fn (mut s RecordingSender) remove_scoreboard() {
 	s.scoreboard_shown = false
 }
 

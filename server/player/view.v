@@ -1,6 +1,9 @@
 module player
 
 import server.form
+import server.player.bossbar
+import server.player.scoreboard
+import server.player.title
 
 // View is the narrow, capability-only contract for "acts like a player":
 // identity, permission, messaging, movement, inventory, UI, etc. It exists so
@@ -22,6 +25,9 @@ mut:
 	clear_inventory()
 	give_item(id string, count int) bool
 	send_form(f form.Form) !
-	show_scoreboard(title string, lines []string)
-	clear_scoreboard()
+	send_scoreboard(board &scoreboard.Scoreboard)
+	remove_scoreboard()
+	send_title(t title.Title)
+	send_bossbar(bar bossbar.BossBar)
+	remove_bossbar()
 }
