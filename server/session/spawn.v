@@ -366,12 +366,13 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	cz := int(math.floor(f64(own.z))) >> 4
 	old_cx := s.last_chunk_x
 	old_cz := s.last_chunk_z
-	if cx == old_cx && cz == old_cz {
+	if cx == old_cx && cz == old_cz && !s.chunk_resend_pending {
 		s.chunk_stream_mutex.unlock()
 		return
 	}
 	s.last_chunk_x = cx
 	s.last_chunk_z = cz
+	s.chunk_resend_pending = false
 	radius := s.view_radius
 	prune_sent_chunks(mut s.sent_chunks, cx, cz, radius)
 	targets := chunk_send_targets(cx, cz, radius, s.sent_chunks)
@@ -454,10 +455,14 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 // forget_sent_chunks releases columns claimed by stream_chunks_if_moved that
 // never reached the client, so the next movement into range retries them.
 fn (mut s NetworkSession) forget_sent_chunks(keys []u64) {
+	if keys.len == 0 {
+		return
+	}
 	s.chunk_stream_mutex.lock()
 	for key in keys {
 		s.sent_chunks.delete(key)
 	}
+	s.chunk_resend_pending = true
 	s.chunk_stream_mutex.unlock()
 }
 
@@ -513,6 +518,7 @@ fn (mut s NetworkSession) reset_chunk_window() {
 	s.last_chunk_x = 0
 	s.last_chunk_z = 0
 	s.sent_chunks.clear()
+	s.chunk_resend_pending = false
 	s.chunk_stream_mutex.unlock()
 }
 

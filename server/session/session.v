@@ -92,6 +92,10 @@ mut:
 	last_chunk_x                int
 	last_chunk_z                int
 	sent_chunks                 map[u64]bool
+	// Set when a claimed column was released without reaching the client, so
+	// the next movement re-sweeps even if the player never crosses into
+	// another column. Guarded by chunk_stream_mutex.
+	chunk_resend_pending        bool
 	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
 	chunk_gen_mutex             &sync.Mutex = sync.new_mutex()
 	transfer_mutex              &sync.Mutex = sync.new_mutex()
