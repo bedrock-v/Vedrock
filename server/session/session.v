@@ -81,6 +81,11 @@ mut:
 	movement_mutex              &sync.Mutex = sync.new_mutex()
 	pending_movement            ?MovementSnapshot
 	movement_scheduled          bool
+	// pending_teleport_ack is the position the server last told this client
+	// to snap to (see expect_teleport_ack in movement.v). Client reported
+	// movement is discarded until a report lands within
+	// teleport_ack_tolerance of it.
+	pending_teleport_ack ?types.Vector3
 	pending_radius              int
 	give_next_slot              int
 	next_form_id                int

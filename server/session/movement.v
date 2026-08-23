@@ -28,7 +28,18 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	}
 	sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw := s.sanitize_movement(position,
 		pitch, yaw, head_yaw)
+
 	s.movement_mutex.lock()
+	if expected := s.pending_teleport_ack {
+		if vector3_distance(sanitized_position, expected) > teleport_ack_tolerance {
+			// The client hasn't converged to the last server issued position
+			// yet. Discard this report entirely rather than accept movement
+			// starting from a position the server never confirmed.
+			s.movement_mutex.unlock()
+			return
+		}
+		s.pending_teleport_ack = none
+	}
 	s.pending_movement =
 		MovementSnapshot{sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw, on_ground}
 	if s.movement_scheduled {
@@ -89,6 +100,27 @@ fn (mut s NetworkSession) sanitize_movement(position types.Vector3, pitch f32, y
 fn is_finite32(f f32) bool {
 	v := f64(f)
 	return !math.is_nan(v) && !math.is_inf(v, 0)
+}
+
+const teleport_ack_tolerance = f32(1.0)
+
+fn vector3_distance(a types.Vector3, b types.Vector3) f32 {
+	dx := a.x - b.x
+	dy := a.y - b.y
+	dz := a.z - b.z
+	return f32(math.sqrt(f64(dx * dx + dy * dy + dz * dz)))
+}
+
+// expect_teleport_ack records a position the server just unilaterally sent
+// this client (teleport, respawn, world switch with a dimension change).
+// Until a client reported position lands within teleport_ack_tolerance of
+// it, update_movement discards reported movement instead of applying it,
+// otherwise a client could keep reporting pre-teleport movement and have it
+// silently accepted, moving from a position the server never confirmed.
+fn (mut s NetworkSession) expect_teleport_ack(pos types.Vector3) {
+	s.movement_mutex.lock()
+	s.pending_teleport_ack = pos
+	s.movement_mutex.unlock()
 }
 
 // effective_position returns the latest position reported by this session,

@@ -41,11 +41,14 @@ fn test_pos_keeps_tracking_after_world_switch_roundtrip() {
 	s.world_teleport('world') or { panic('teleport back to world failed: ${err}') }
 	assert s.world_name() == 'world'
 
+	sync_pos := s.player.position()
+	s.update_movement(sync_pos, 0.0, 0.0, 0.0, false)
+
 	// Simulate a real client continuing to send PlayerAuthInputPacket
 	// continuously after the world switch.
-	mut last := types.Vector3{}
+	mut last := sync_pos
 	for i in 0 .. 200 {
-		last = types.Vector3{f32(i) * 0.1, 5.0, 0.0}
+		last = types.Vector3{sync_pos.x + f32(i) * 0.1, sync_pos.y, sync_pos.z}
 		s.update_movement(last, 0.0, 0.0, 0.0, false)
 	}
 

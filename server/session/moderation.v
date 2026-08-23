@@ -283,6 +283,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			player_runtime_id: proto.actor_runtime_id(s.runtime_id)
 			action:            proto.PlayerActionType.change_dimension_ack
 		})
+		s.expect_teleport_ack(types.Vector3{x, y, z})
 	}
 	return true
 }
@@ -306,6 +307,7 @@ fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	move_packet.rotation[0] = current.pitch
 	move_packet.rotation[1] = current.yaw
 	s.deliver(move_packet)
+	s.expect_teleport_ack(current.position)
 	mut wr := s.current_world_runtime()
 	if !isnil(wr) {
 		rid := s.runtime_id

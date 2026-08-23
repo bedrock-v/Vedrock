@@ -345,6 +345,7 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 	move_packet.rotation[0] = current.pitch
 	move_packet.rotation[1] = current.yaw
 	s.deliver(move_packet)
+	s.expect_teleport_ack(current.position)
 	// Remote clients played the death animation; respawn the actor for them.
 	wr.broadcast_world_except(s.runtime_id, s.remove_actor_packet())
 	wr.broadcast_world_except(s.runtime_id, s.add_player_packet())
