@@ -165,7 +165,7 @@ fn (s &NetworkSession) world_and_generator() (&db.World, world.Generator) {
 }
 
 // current_world returns the active world under world_mutex, so block writes
-// never race the world swap on the Hub job thread.
+// never race a concurrent world switch (see set_world_binding/change_world).
 fn (s &NetworkSession) current_world() &db.World {
 	mut m := s.world_mutex
 	m.lock()

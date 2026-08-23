@@ -6,12 +6,19 @@ import protocol.current as proto
 
 fn gamemode_from_wire(v int) player.Gamemode {
 	return match v {
-		proto.game_type_creative { .creative }
-		proto.game_type_adventure { .adventure }
-		proto.game_type_spectator, proto.game_type_survival_spectator, proto.game_type_creative_spectator {
+		proto.game_type_creative {
+			.creative
+		}
+		proto.game_type_adventure {
+			.adventure
+		}
+		proto.game_type_spectator, proto.game_type_survival_spectator,
+		proto.game_type_creative_spectator {
 			.spectator
 		}
-		else { .survival }
+		else {
+			.survival
+		}
 	}
 }
 

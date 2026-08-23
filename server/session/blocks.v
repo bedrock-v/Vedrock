@@ -1,7 +1,6 @@
 module session
 
 import time
-
 import protocol.types
 import server.event
 import server.world
@@ -68,8 +67,8 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 // the client reports one.
 fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransactionPacket) ! {
 	use_item := p.use_item or { return }
-	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position), int(use_item.face),
-		use_item.click_position[1])!
+	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position),
+		int(use_item.face), use_item.click_position[1])!
 }
 
 fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
@@ -430,9 +429,7 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.done <- true
 	}
-	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or {
-		return
-	}
+	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
 	tx.complete_block_break(mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
@@ -525,9 +522,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.result <- placed
 	}
-	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or {
-		return
-	}
+	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
 	pos := t.click_pos
 	neighbor := face_offset(pos, t.click_face)
 	clicked_id := tx.block_at(pos.x, pos.y, pos.z)

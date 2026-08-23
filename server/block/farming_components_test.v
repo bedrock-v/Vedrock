@@ -84,6 +84,16 @@ fn (mut w FakeTickWorld) set_block(x int, y int, z int, id int) {
 
 fn (mut w FakeTickWorld) schedule_tick(x int, y int, z int, delay int) {}
 
+// as_wheat_block narrows "b" and returns it, rather than calling a method on
+// it inside the same is check.
+// A known V codegen hazard when narrowing an interface value to a concrete type (see CONTRIBUTING.md).
+fn as_wheat_block(b Block) ?WheatBlock {
+	if b is WheatBlock {
+		return b
+	}
+	return none
+}
+
 fn test_wheat_growth_chains_stages_on_farmland() {
 	blocks := wheat_blocks()
 	assert blocks.len == 8
@@ -93,41 +103,41 @@ fn test_wheat_growth_chains_stages_on_farmland() {
 	assert stage0 is WheatBlock
 	assert stage0 is RandomTicker
 
-	if stage0 is WheatBlock {
-		mut w := FakeTickWorld{}
-		w.set_block(0, -1, 0, stage0.farmland_ids[0])
-		stage0.random_tick(0, 0, 0, mut w)
-		assert w.block_id(0, 0, 0) == stage1.runtime_id()
-	} else {
+	wheat := as_wheat_block(stage0) or {
 		assert false
+		return
 	}
+	mut w := FakeTickWorld{}
+	w.set_block(0, -1, 0, wheat.farmland_ids[0])
+	wheat.random_tick(0, 0, 0, mut w)
+	assert w.block_id(0, 0, 0) == stage1.runtime_id()
 }
 
 fn test_wheat_growth_noop_without_farmland() {
 	blocks := wheat_blocks()
 	stage0 := blocks[0]
-	if stage0 is WheatBlock {
-		mut w := FakeTickWorld{}
-		w.set_block(0, -1, 0, 0) // not a farmland id
-		stage0.random_tick(0, 0, 0, mut w)
-		assert w.block_id(0, 0, 0) == 0
-	} else {
+	wheat := as_wheat_block(stage0) or {
 		assert false
+		return
 	}
+	mut w := FakeTickWorld{}
+	w.set_block(0, -1, 0, 0) // not a farmland id
+	wheat.random_tick(0, 0, 0, mut w)
+	assert w.block_id(0, 0, 0) == 0
 }
 
 fn test_wheat_fully_grown_stage_never_advances() {
 	blocks := wheat_blocks()
 	stage7 := blocks[7]
-	if stage7 is WheatBlock {
-		assert stage7.next_growth_id == 0
-		mut w := FakeTickWorld{}
-		w.set_block(0, -1, 0, stage7.farmland_ids[0])
-		stage7.random_tick(0, 0, 0, mut w)
-		assert w.block_id(0, 0, 0) == 0
-	} else {
+	wheat := as_wheat_block(stage7) or {
 		assert false
+		return
 	}
+	assert wheat.next_growth_id == 0
+	mut w := FakeTickWorld{}
+	w.set_block(0, -1, 0, wheat.farmland_ids[0])
+	wheat.random_tick(0, 0, 0, mut w)
+	assert w.block_id(0, 0, 0) == 0
 }
 
 fn test_wheat_registered_via_farming_blocks_in_real_registry() {

@@ -1,7 +1,6 @@
 module session
 
 import time
-
 import protocol.types
 import server.event
 import server.internal.gamedata

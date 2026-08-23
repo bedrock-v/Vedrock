@@ -67,5 +67,6 @@ pub fn new_red_shrub_block() RedShrubBlock {
 }
 
 pub fn replaceable_plant_blocks() []Block {
-	return [Block(new_short_grass_block()), new_fern_block(), new_red_shrub_block()]
+	return [Block(new_short_grass_block()), new_fern_block(),
+		new_red_shrub_block()]
 }

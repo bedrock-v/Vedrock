@@ -658,12 +658,11 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 // separate pass would repeat that work purely for metrics.
 fn (mut tx WorldTx) tick_effects() {
 	for mut a in tx.wr.entities.player_actors() {
-		if mut a is NetworkSession {
-			a.tick_effects(mut tx.wr)
-			a.tick_environmental_damage(mut tx)
-			a.tick_breaking(mut tx)
-			tx.wr.sample_outbound_depth(int(a.outbound.len))
-		}
+		mut s := as_network_session(mut a) or { continue }
+		s.tick_effects(mut tx.wr)
+		s.tick_environmental_damage(mut tx)
+		s.tick_breaking(mut tx)
+		tx.wr.sample_outbound_depth(int(s.outbound.len))
 	}
 }
 

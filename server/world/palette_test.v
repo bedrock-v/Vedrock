@@ -12,9 +12,7 @@ fn load_test_palette() ?&BlockPalette {
 }
 
 fn palette_id_for_test(p &BlockPalette, name string, states map[string]string) int {
-	return p.id_for(name, states) or {
-		panic('missing palette state ${name} ${states}')
-	}
+	return p.id_for(name, states) or { panic('missing palette state ${name} ${states}') }
 }
 
 fn test_palette_loads() {
@@ -239,7 +237,9 @@ fn test_door_placement_builds_matching_lower_and_upper_parts() {
 	assert lower.states.get('upper_block_bit') or { '' } == '0'
 	assert upper.states.get('upper_block_bit') or { '' } == '1'
 	assert lower.states.get('open_bit') or { '' } == upper.states.get('open_bit') or { '' }
-	assert lower.states.get('minecraft:cardinal_direction') or { '' } == upper.states.get('minecraft:cardinal_direction') or { '' }
+	assert lower.states.get('minecraft:cardinal_direction') or { '' } == upper.states.get('minecraft:cardinal_direction') or {
+		''
+	}
 }
 
 fn test_wall_connections_recompute_palette_state() {

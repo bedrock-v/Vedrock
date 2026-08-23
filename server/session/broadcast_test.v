@@ -1,7 +1,6 @@
 module session
 
 import protocol
-
 import protocol.serializer
 import server.internal.gamedata
 import server.player
@@ -126,8 +125,7 @@ fn test_mob_effect_packet_roundtrip() {
 		player:     player.new_player()
 		runtime_id: 7
 	}
-	sent := s.mob_effect_packet(effect.new(effect.regeneration, 2,
-		5 * time.second), mob_effect_add)
+	sent := s.mob_effect_packet(effect.new(effect.regeneration, 2, 5 * time.second), mob_effect_add)
 	assert roundtrip_packet(sent)!.name() == 'MobEffectPacket'
 	mut decoded := proto.MobEffectPacket{}
 	decode_into(sent, mut decoded)!

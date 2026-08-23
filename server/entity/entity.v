@@ -1,7 +1,6 @@
 module entity
 
 import protocol
-
 import protocol.types
 import server.world
 import server.effect

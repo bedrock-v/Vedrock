@@ -199,7 +199,8 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 	}
 	if is_trapdoor_name(v.name) && v.states.has('direction') {
 		mut nid := p.with_state(id, 'direction', weirdo_value(look).str()) or { id }
-		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && v.states.has('upside_down_bit') {
+		if (click_face == 0 || (click_y > 0.5 && click_face != 1))
+			&& v.states.has('upside_down_bit') {
 			nid = p.with_state(nid, 'upside_down_bit', '1') or { nid }
 		}
 		return nid
@@ -209,7 +210,8 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 	}
 	if v.states.has('weirdo_direction') {
 		mut nid := p.with_state(id, 'weirdo_direction', weirdo_value(look).str()) or { id }
-		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && v.states.has('upside_down_bit') {
+		if (click_face == 0 || (click_y > 0.5 && click_face != 1))
+			&& v.states.has('upside_down_bit') {
 			nid = p.with_state(nid, 'upside_down_bit', '1') or { nid }
 		}
 		return nid

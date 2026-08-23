@@ -25,6 +25,9 @@ jobs:
       - name: Check
         run: v -check .
 
+      - name: Check for interface-narrowing codegen hazard
+        run: python3 scripts/check_interface_narrowing.py server
+
       - name: Test
         run: v test .
 

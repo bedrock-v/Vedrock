@@ -1,7 +1,6 @@
 module default
 
 import protocol
-
 import protocol.serializer
 import protocol.types
 import server.internal.language

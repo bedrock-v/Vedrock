@@ -87,6 +87,17 @@ fn (mut w FakeTickWorld) set_block(x int, y int, z int, id int) {
 
 fn (mut w FakeTickWorld) schedule_tick(x int, y int, z int, delay int) {}
 
+// as_repeater_block narrows "b" and returns it, rather than calling a method
+// on it inside the same is check.
+//
+// A known V codegen hazard when narrowing an interface value to a concrete type (see CONTRIBUTING.md).
+fn as_repeater_block(b Block) ?RepeaterBlock {
+	if b is RepeaterBlock {
+		return b
+	}
+	return none
+}
+
 fn test_repeater_is_interactable_and_cycles_delay_back_to_start() {
 	r := new_registry()
 	base := r.get_by_name('minecraft:unpowered_repeater') or { panic('missing unpowered_repeater') }
@@ -99,8 +110,8 @@ fn test_repeater_is_interactable_and_cycles_delay_back_to_start() {
 	mut ids := []int{}
 	for _ in 0 .. 4 {
 		cur := r.get(current_id) or { panic('missing repeater variant') }
-		if cur is RepeaterBlock {
-			cur.interact(0, 0, 0, 1, mut w)
+		if repeater := as_repeater_block(cur) {
+			repeater.interact(0, 0, 0, 1, mut w)
 		}
 		current_id = w.block_id(0, 0, 0)
 		ids << current_id

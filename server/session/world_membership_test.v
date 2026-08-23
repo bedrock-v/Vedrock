@@ -1,7 +1,6 @@
 module session
 
 import time
-
 import server.internal.gamedata
 import server.internal.auth
 import server.internal.logger
@@ -248,4 +247,3 @@ fn test_failed_destination_registration_disconnects_session() {
 	assert !ok
 	assert s.state == .closed
 }
-

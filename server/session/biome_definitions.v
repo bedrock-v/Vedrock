@@ -2,7 +2,6 @@ module session
 
 import os
 import protocol
-
 import server.internal.gamedata
 import server.world
 import protocol.current as proto

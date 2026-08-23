@@ -1,7 +1,6 @@
 module session
 
 import math
-
 import protocol.types
 import server.effect
 import server.event

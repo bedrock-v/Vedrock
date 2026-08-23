@@ -130,6 +130,53 @@ interface value, with no implicit pointer/value coercion doing anything "magic" 
 Use the bare type name (`if a is NetworkSession`), not a pointer form when narrowing - see
 `entity/actor.v`'s own doc comment on `Actor` for the standing rule.
 
+### Never call a method on a narrowed interface value inside the same `is` block
+
+This is the confirmed compiler bug that caused this session's original segfault (`entity.Actor`
+narrowed to `NetworkSession` in `world_player_ops.v`/`world_runtime.v`/etc., fixed via the
+`as_network_session()` helper) and, separately, a live instance found while writing the CI check
+below (`WorldTx.tick_effects()` in `world_runtime.v`, same shape, apparently missed by the original
+fix pass since it was added later): calling a method on an interface value directly inside the
+`if x is T { ... }` block that just narrowed it to a *concrete type* `T` generates broken C - the
+narrowing and the method dispatch get compiled as if they shared the wrong instantiation's layout,
+producing anything from silently wrong values to a segfault, non deterministically.
+
+The safe pattern, used everywhere in this codebase: narrow and **return** the concrete value from
+inside the block, then call methods on it from **outside** that scope.
+
+```v
+// Safe narrow, return, call outside.
+fn as_network_session(mut a entity.Actor) ?&NetworkSession {
+	if mut a is NetworkSession {
+		return a
+	}
+	return none
+}
+mut s := as_network_session(mut a) or { continue }
+s.some_method() // outside the narrowing block, fine
+```
+
+```v
+// Unsafe narrow and call in the same block. Don't do this.
+if mut a is NetworkSession {
+	a.some_method()
+}
+```
+
+**Narrowing one interface to *another* interface** (e.g. `item.Item` to `item.ConsumableItem`) is a
+different code path and was checked separately, empirically - two throwaway reproductions (a single
+target interface, and multiple concrete types against multiple target interfaces in the same
+program) both produced correct results, consistent with V not needing to extract a concrete
+payload for an interface to interface conversion the way it does for interface to struct. So this
+rule is specifically about narrowing to a *concrete type*.
+
+`scripts/check_interface_narrowing.py` (wired into CI) catches the unsafe shape automatically - it
+flags `if x is T { ... x.method(...) ... }` where `T` is a concrete type and excludes narrows to
+another declared interface. Run it locally with `python3 scripts/check_interface_narrowing.py
+server` before pushing if you've touched any interface-narrowing code; it's a heuristic (text based,
+not a real type checker), so a real hazard it doesn't catch is more likely than a false positive it
+does.
+
 ## Commit style
 
 Use a conventional-commit subject line (`feat:`, `fix:`, `docs:`, `refactor:` etc). A body is

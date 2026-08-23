@@ -133,8 +133,7 @@ fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrap
 		container_name_data: proto.FullContainerName{
 			container: .inventory_container
 		}
-		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack,
-			wrapped.stack_id)
+		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
 	})
 }
 

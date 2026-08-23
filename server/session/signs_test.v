@@ -2,7 +2,6 @@ module session
 
 import time
 import nbt
-
 import protocol.types
 import server.internal.gamedata
 import server.player
@@ -78,7 +77,8 @@ fn test_sign_editor_opens_only_for_signs() {
 	}
 	hub.add(s)
 
-	sign_id := block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	sign_id :=
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
 	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }

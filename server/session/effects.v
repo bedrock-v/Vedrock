@@ -1,7 +1,6 @@
 module session
 
 import math
-
 import server.effect
 import server.event
 import protocol.current as proto

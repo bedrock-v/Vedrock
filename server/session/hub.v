@@ -24,10 +24,13 @@ import server.internal.auth
 import server.player.playerdb
 import protocol.current as proto
 
-// Hub contains the server's actor-model internals rather than its public
-// API. It remains a public type only so Server can hold a reference to it
-// across package boundaries; the field itself and most Hub methods stay
-// private.
+// Hub holds the server's internal, directly synchronized state (sessions,
+// world registry, config, shared registries) rather than its public API. It
+// runs no actor of its own. Gameplay work happens on each WorldRuntime's
+// own actor instead, Hub is just a mutex/atomic guarded registry and
+// service object. It remains a public type only so Server can hold a
+// reference to it across package boundaries; the field itself and most Hub
+// methods stay private.
 //
 // Users should access these capabilities through Server, World,
 // PlayerRef, EntityRef and WorldTransaction instead.

@@ -1,7 +1,6 @@
 module session
 
 import rand
-
 import protocol.types
 import server.entity
 import server.world.db

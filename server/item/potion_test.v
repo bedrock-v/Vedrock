@@ -19,11 +19,15 @@ fn test_registered_potion_is_consumable_and_returns_bottle() {
 
 	assert it.max_stack_size() == 1
 	assert it is PotionItem
-	if it is PotionItem {
-		result := it.consume_result(21)
-		assert result.effects.len == 1
-		assert result.effects[0].effect_type() == effect.instant_health
-		assert result.replacement_id == 'minecraft:glass_bottle'
-		assert result.replacement_count == 1
+
+	potion := if it is PotionItem {
+		it
+	} else {
+		panic('expected PotionItem')
 	}
+	result := potion.consume_result(21)
+	assert result.effects.len == 1
+	assert result.effects[0].effect_type() == effect.instant_health
+	assert result.replacement_id == 'minecraft:glass_bottle'
+	assert result.replacement_count == 1
 }

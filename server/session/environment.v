@@ -1,7 +1,6 @@
 module session
 
 import math
-
 import server.player
 import server.world
 import protocol.current as proto

@@ -344,9 +344,7 @@ fn mining_fatigue_multiplier(level int) f32 {
 // efficiency one.
 fn (s &NetworkSession) held_mining_stats() (int, int, f32) {
 	_, name := s.held_stack_and_name()
-	held := item.get(name) or {
-		return block.tool_type_none, block.harvest_level_none, f32(1.0)
-	}
+	held := item.get(name) or { return block.tool_type_none, block.harvest_level_none, f32(1.0) }
 	efficiency := held.mining_speed()
 	if held is item.MiningTool {
 		return held.block_tool_type(), held.harvest_level(), efficiency

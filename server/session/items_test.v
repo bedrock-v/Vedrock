@@ -2,7 +2,6 @@ module session
 
 import os
 import protocol
-
 import protocol.types
 import protocol.serializer
 import server.conf

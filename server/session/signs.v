@@ -2,7 +2,6 @@ module session
 
 import encoding.utf8
 import nbt
-
 import protocol.types
 import server.block
 import protocol.current as proto

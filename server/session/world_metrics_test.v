@@ -2,7 +2,6 @@ module session
 
 import time
 import protocol
-
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth

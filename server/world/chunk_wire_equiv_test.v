@@ -36,7 +36,8 @@ fn (mut c WireCursor) u8() u8 {
 }
 
 fn (mut c WireCursor) u32_le() u32 {
-	v := u32(c.data[c.pos]) | (u32(c.data[c.pos + 1]) << 8) | (u32(c.data[c.pos + 2]) << 16) | (u32(c.data[c.pos + 3]) << 24)
+	v := u32(c.data[c.pos]) | (u32(c.data[c.pos + 1]) << 8) | (u32(c.data[c.pos + 2]) << 16) | (u32(c.data[
+		c.pos + 3]) << 24)
 	c.pos += 4
 	return v
 }

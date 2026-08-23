@@ -3,7 +3,6 @@ module entity
 import os
 import time
 import protocol
-
 import protocol.types
 import server.world
 import server.effect

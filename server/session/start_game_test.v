@@ -1,7 +1,6 @@
 module session
 
 import protocol
-
 import protocol.types
 import protocol.serializer
 import nbt

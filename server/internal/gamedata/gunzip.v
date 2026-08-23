@@ -32,8 +32,7 @@ pub fn gunzip(data []u8) ![]u8 {
 	mut sink := GunzipSink{
 		out: []u8{cap: int(size)}
 	}
-	written := gzip.decompress_with_callback(data, deflate.ChunkCallback(gunzip_chunk),
-		&sink)!
+	written := gzip.decompress_with_callback(data, deflate.ChunkCallback(gunzip_chunk), &sink)!
 	if written != sink.out.len {
 		return error('gzip stream reported ${written} bytes but delivered ${sink.out.len}')
 	}
