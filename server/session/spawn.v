@@ -444,11 +444,11 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 		active_gen.sub(1)
 	}
 	dim := if isnil(binding.world) { world.overworld } else { binding.world.dimension }
-	chans := s.request_chunk_channels(binding.world_runtime, targets)
+	mut pipeline := s.new_chunk_pipeline(binding.world_runtime, targets)
 	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
-	for i, target in targets {
-		result := resolve_chunk_result(chans[i])
+	for {
+		target, result := pipeline.next_result() or { break }
 		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, binding.world,
 			dim, target.x, target.z)
 		batch << tile_data_packets(binding.world, target.x, target.z)
@@ -611,11 +611,11 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	dim := if isnil(wld) { world.overworld } else { wld.dimension }
 	prune_sent_chunks(mut s.sent_chunks, cx, cz, radius)
 	targets := chunk_send_targets(cx, cz, radius, s.sent_chunks)
-	chans := s.request_chunk_channels(binding.world_runtime, targets)
+	mut pipeline := s.new_chunk_pipeline(binding.world_runtime, targets)
 	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
-	for i, target in targets {
-		result := resolve_chunk_result(chans[i])
+	for {
+		target, result := pipeline.next_result() or { break }
 		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, wld, dim,
 			target.x, target.z)
 		batch << tile_data_packets(wld, target.x, target.z)
@@ -702,8 +702,8 @@ fn (mut s NetworkSession) generated_chunk(wr &WorldRuntime, cx int, cz int) worl
 // service and includes its cached serialized bytes and section count.
 //
 // This call blocks until that column is ready. For a view radius sweep, use
-// request_chunk_channels/resolve_chunk_result so multiple columns can be
-// resolved concurrently instead of serializing the sweep one column at a time.
+// ChunkPipeline so several columns are generated concurrently instead of
+// resolving the sweep one column at a time.
 fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz int) ChunkResult {
 	if isnil(wr) {
 		return empty_chunk_result()
@@ -716,32 +716,79 @@ fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz in
 	return result
 }
 
-// request_chunk_channels submits all target chunk requests up front and
-// returns their result channels without waiting for generation.
+// chunk_pipeline_depth bounds how many of a sweep's columns are in flight at
+// once.
 //
-// This preserves the chunk service's worker concurrency across a radius
-// sweep. Requesting and awaiting each column sequentially would serialize
-// the sweep one chunk at a time.
-fn (mut s NetworkSession) request_chunk_channels(wr &WorldRuntime, targets []ChunkSendTarget) []chan ChunkResult {
-	mut chans := []chan ChunkResult{cap: targets.len}
-	if isnil(wr) {
-		for _ in targets {
-			ch := chan ChunkResult{cap: 1}
-			ch <- empty_chunk_result()
-			chans << ch
-		}
-		return chans
-	}
-	mut svc := wr.chunk_service
-	for target in targets {
-		chans << svc.request(target.x, target.z)
-	}
-	return chans
+// Requesting the whole view radius up front kept every column that finished
+// early buffered in its own channel until the consuming loop reached it - the
+// entire radius, about 2MB of wire bytes, per joining player. A window this
+// size keeps every generation worker busy and holds a fraction of that.
+const chunk_pipeline_depth = 24
+
+// ChunkPipeline walks a sweep's targets in order while keeping at most
+// chunk_pipeline_depth generations queued ahead of the caller.
+struct ChunkPipeline {
+	targets []ChunkSendTarget
+mut:
+	runtime &WorldRuntime = unsafe { nil }
+	// pending is a ring of in flight requests: head is the next to resolve,
+	// count is how many are queued.
+	pending []chan ChunkResult
+	head    int
+	count   int
+	next    int
+	taken   int
 }
 
-// resolve_chunk_result drains one channel from request_chunk_channels,
-// normalizing a cancelled result the same way generated_chunk_result does
-// for a single request.
+fn (mut s NetworkSession) new_chunk_pipeline(wr_in &WorldRuntime, targets []ChunkSendTarget) ChunkPipeline {
+	mut wr := unsafe { wr_in }
+	depth := if targets.len < chunk_pipeline_depth { targets.len } else { chunk_pipeline_depth }
+	mut p := ChunkPipeline{
+		targets: targets
+		runtime: wr
+		pending: []chan ChunkResult{len: if depth > 0 { depth } else { 1 }}
+	}
+	for p.count < depth {
+		p.submit_next()
+	}
+	return p
+}
+
+fn (mut p ChunkPipeline) submit_next() {
+	if p.next >= p.targets.len || p.count >= p.pending.len {
+		return
+	}
+	target := p.targets[p.next]
+	slot := (p.head + p.count) % p.pending.len
+	if isnil(p.runtime) {
+		ch := chan ChunkResult{cap: 1}
+		ch <- empty_chunk_result()
+		p.pending[slot] = ch
+	} else {
+		mut svc := p.runtime.chunk_service
+		p.pending[slot] = svc.request(target.x, target.z)
+	}
+	p.next++
+	p.count++
+}
+
+// next_result returns the next target and its resolved column, in sweep order,
+// and tops the window back up. none once every target has been returned.
+fn (mut p ChunkPipeline) next_result() ?(ChunkSendTarget, ChunkResult) {
+	if p.taken >= p.targets.len {
+		return none
+	}
+	target := p.targets[p.taken]
+	ch := p.pending[p.head]
+	p.head = (p.head + 1) % p.pending.len
+	p.count--
+	p.taken++
+	p.submit_next()
+	return target, resolve_chunk_result(ch)
+}
+
+// resolve_chunk_result drains one channel, normalizing a cancelled result the
+// same way generated_chunk_result does for a single request.
 fn resolve_chunk_result(ch chan ChunkResult) ChunkResult {
 	result := <-ch
 	if result.cancelled {
