@@ -3,6 +3,7 @@ module player
 import server.internal.auth
 import server.permission
 import server.effect
+import server.item.inventory
 import server.player.playerdb
 import protocol.types
 import sync
@@ -29,9 +30,7 @@ mut:
 	dead             bool
 	held_item        types.ItemStackWrapper
 	held_slot        int
-	inv_stacks       map[int]types.ItemStack
-	inv_slots        map[int]int
-	inv_next_id      int = 1
+	inv              inventory.Inventory
 	pending_creative ?types.ItemStack
 	loaded_items     []playerdb.InvItem
 	effects          effect.Manager
@@ -55,9 +54,8 @@ pub const max_air_supply_ticks = i64(300)
 
 pub fn new_player() &Player {
 	return &Player{
-		inv_stacks: map[int]types.ItemStack{}
-		inv_slots:  map[int]int{}
-		effects:    effect.new_manager()
+		inv:     inventory.new()
+		effects: effect.new_manager()
 	}
 }
 
@@ -172,92 +170,45 @@ pub fn (mut p Player) set_held(slot int, item types.ItemStackWrapper) {
 }
 
 pub fn (p &Player) inv_stack(net_id int) ?types.ItemStack {
-	mut m := p.state_mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	return p.inv_stacks[net_id] or { return none }
+	return p.inv.stack(net_id)
 }
 
 pub fn (mut p Player) put_stack(net_id int, stack types.ItemStack) {
-	p.state_mutex.lock()
-	p.inv_stacks[net_id] = stack
-	p.state_mutex.unlock()
+	p.inv.put_stack(net_id, stack)
 }
 
 pub fn (mut p Player) delete_stack(net_id int) {
-	p.state_mutex.lock()
-	p.inv_stacks.delete(net_id)
-	p.state_mutex.unlock()
+	p.inv.delete_stack(net_id)
 }
 
 pub fn (p &Player) inv_slot(slot int) ?int {
-	mut m := p.state_mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	return p.inv_slots[slot] or { return none }
+	return p.inv.slot(slot)
 }
 
 pub fn (p &Player) has_slot(slot int) bool {
-	mut m := p.state_mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	return slot in p.inv_slots
+	return p.inv.has_slot(slot)
 }
 
 pub fn (mut p Player) set_slot(slot int, net_id int) {
-	p.state_mutex.lock()
-	p.inv_slots[slot] = net_id
-	p.state_mutex.unlock()
+	p.inv.set_slot(slot, net_id)
 }
 
 pub fn (mut p Player) delete_slot(slot int) {
-	p.state_mutex.lock()
-	p.inv_slots.delete(slot)
-	p.state_mutex.unlock()
+	p.inv.delete_slot(slot)
 }
 
 // snapshot_slot_stacks returns a cloned map of inventory slot to item stack.
-// The network-id indirection is resolved while holding state_mutex so callers
-// get a consistent slot layout.
 pub fn (p &Player) snapshot_slot_stacks() map[int]types.ItemStack {
-	mut m := p.state_mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	mut out := map[int]types.ItemStack{}
-	for slot, net_id in p.inv_slots {
-		if stack := p.inv_stacks[net_id] {
-			out[slot] = stack
-		}
-	}
-	return out
+	return p.inv.snapshot_slot_stacks()
 }
 
 // track_stack assigns stack a new network ID, stores it and returns that ID.
-// It is the only method that reads or advances inv_next_id.
 pub fn (mut p Player) track_stack(stack types.ItemStack) int {
-	p.state_mutex.lock()
-	defer {
-		p.state_mutex.unlock()
-	}
-	id := p.inv_next_id
-	p.inv_next_id++
-	p.inv_stacks[id] = stack
-	return id
+	return p.inv.track_stack(stack)
 }
 
 pub fn (mut p Player) clear_inventory() {
-	p.state_mutex.lock()
-	p.inv_stacks = map[int]types.ItemStack{}
-	p.inv_slots = map[int]int{}
-	p.state_mutex.unlock()
+	p.inv.clear()
 }
 
 pub fn (p &Player) pending_creative() ?types.ItemStack {

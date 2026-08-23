@@ -8,8 +8,7 @@ fn test_new_player_defaults() {
 	assert p.health == 20.0
 	assert p.game_mode == 0
 	assert p.dead == false
-	assert p.inv_stacks.len == 0
-	assert p.inv_slots.len == 0
+	assert p.snapshot_slot_stacks().len == 0
 }
 
 fn test_player_field_mutation_through_pointer() {
@@ -17,11 +16,12 @@ fn test_player_field_mutation_through_pointer() {
 	p.health = 12.5
 	p.game_mode = 1
 	p.dead = true
-	p.inv_stacks[0] = types.ItemStack{}
+	net_id := p.track_stack(types.ItemStack{})
+	p.set_slot(0, net_id)
 	assert p.health == 12.5
 	assert p.game_mode == 1
 	assert p.dead == true
-	assert p.inv_stacks.len == 1
+	assert p.snapshot_slot_stacks().len == 1
 }
 
 fn test_name_and_has_permission() {
@@ -46,6 +46,7 @@ fn test_probe_heap_field_on_plain_literal() {
 	}
 	h.player.health = 7.0
 	assert h.player.health == 7.0
-	h.player.inv_stacks[5] = types.ItemStack{}
-	assert h.player.inv_stacks[5].count == 0
+	net_id := h.player.track_stack(types.ItemStack{})
+	h.player.set_slot(5, net_id)
+	assert h.player.snapshot_slot_stacks()[5].count == 0
 }
