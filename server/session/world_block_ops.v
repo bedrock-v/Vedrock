@@ -2,6 +2,8 @@ module session
 
 import protocol.types
 import server.world
+import server.world.particle
+import server.world.sound
 import protocol.current as proto
 
 // block_at returns this transaction's authoritative block ID, preferring a
@@ -63,14 +65,13 @@ fn (mut tx WorldTx) broadcast_swing(s &NetworkSession) {
 // broadcast_destroy_particles sends the block break particle effect to every
 // session in this transaction's world.
 fn (mut tx WorldTx) broadcast_destroy_particles(x int, y int, z int, runtime_id int) {
-	mut packet := &proto.LevelEventPacket{
-		event_id: proto.level_event_particles_destroy_block
-		data:     runtime_id
-	}
-	packet.position[0] = f32(x) + 0.5
-	packet.position[1] = f32(y) + 0.5
-	packet.position[2] = f32(z) + 0.5
-	tx.wr.broadcast_world(packet)
+	tx.add_particle(types.Vector3{
+		x: f32(x) + 0.5
+		y: f32(y) + 0.5
+		z: f32(z) + 0.5
+	}, particle.BlockBreak{
+		block_runtime_id: runtime_id
+	})
 }
 
 // broadcast_cracking sends one block cracking level event to every session in
@@ -96,14 +97,14 @@ fn (mut tx WorldTx) broadcast_crack_speed(pos types.BlockPosition, data int) {
 // broadcast_punch_particle sends the periodic mining particle for the face
 // being hit, to every session in this transaction's world.
 fn (mut tx WorldTx) broadcast_punch_particle(pos types.BlockPosition, runtime_id int, face int) {
-	mut packet := &proto.LevelEventPacket{
-		event_id: proto.level_event_particles_punch_block
-		data:     runtime_id | int(u32(face) << 24)
-	}
-	packet.position[0] = f32(pos.x)
-	packet.position[1] = f32(pos.y)
-	packet.position[2] = f32(pos.z)
-	tx.wr.broadcast_world(packet)
+	tx.add_particle(types.Vector3{
+		x: f32(pos.x)
+		y: f32(pos.y)
+		z: f32(pos.z)
+	}, particle.PunchBlock{
+		block_runtime_id: runtime_id
+		face:             face
+	})
 }
 
 fn (mut tx WorldTx) broadcast_stop_cracking(x int, y int, z int) {
@@ -113,11 +114,14 @@ fn (mut tx WorldTx) broadcast_stop_cracking(x int, y int, z int) {
 // broadcast_place_sound sends the block placement sound to every session in
 // this transaction's world.
 fn (mut tx WorldTx) broadcast_place_sound(s &NetworkSession, x int, y int, z int, runtime_id int) {
-	tx.wr.broadcast_world(proto.level_sound_event('place', types.Vector3{
+	snd := sound.BlockPlace{
+		block_runtime_id: runtime_id
+	}
+	tx.wr.broadcast_world(proto.level_sound_event(snd.event_name(), types.Vector3{
 		x: f32(x) + 0.5
 		y: f32(y) + 0.5
 		z: f32(z) + 0.5
-	}, i32(runtime_id), 'minecraft:player', s.runtime_id))
+	}, snd.data(), 'minecraft:player', s.runtime_id))
 }
 
 // notify_block_changed re-evaluates liquid flow and connected block state
