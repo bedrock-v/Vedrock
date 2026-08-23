@@ -4,6 +4,8 @@
 # Required repo secrets:
 #   - CROWDIN_PROJECT_ID
 #   - CROWDIN_PERSONAL_TOKEN
+#   - VEDROCK_BOT_APP_ID
+#   - VEDROCK_BOT_PRIVATE_KEY
 name: Crowdin download
 
 on:
@@ -25,8 +27,17 @@ jobs:
     name: Download translations
     runs-on: ubuntu-latest
     steps:
+      - name: Generate bot token
+        uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.VEDROCK_BOT_APP_ID }}
+          private-key: ${{ secrets.VEDROCK_BOT_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Download translations from Crowdin
         uses: crowdin/github-action@v2
@@ -43,4 +54,4 @@ jobs:
         env:
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
