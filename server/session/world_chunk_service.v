@@ -4,6 +4,7 @@ import sync
 import sync.stdatomic
 import time
 import server.world
+import server.internal.logger
 
 // Max chunks generated at once per world, no matter how many sessions ask.
 const chunk_gen_worker_count = 4
@@ -157,6 +158,10 @@ pub fn (mut svc WorldChunkService) request(cx int, cz int) chan ChunkResult {
 }
 
 fn (mut svc WorldChunkService) run_worker() {
+	logger.name_thread('Chunk Worker')
+	defer {
+		logger.unname_thread()
+	}
 	mut active := svc.published_active_workers
 	mut depth := svc.published_queue_depth
 	for {

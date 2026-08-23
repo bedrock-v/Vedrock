@@ -2,6 +2,7 @@ module session
 
 import protocol
 import protocol.current as proto
+import server.internal.logger
 
 // Maximum number of packets a session may have waiting to be sent.
 // A full queue aborts the session instead of blocking the caller or
@@ -260,6 +261,10 @@ fn (mut s NetworkSession) reject_bootstrap(message string) {
 // writes away from the calling thread. An abort may interrupt the queue
 // immediately including while the writer is idle.
 fn (mut s NetworkSession) run_outbound_writer() {
+	logger.name_thread('Outbound/${s.transport.remote_addr()}')
+	defer {
+		logger.unname_thread()
+	}
 	defer {
 		select {
 			s.writer_exited <- true {}

@@ -95,11 +95,11 @@ mut:
 	// Set when a claimed column was released without reaching the client, so
 	// the next movement re-sweeps even if the player never crosses into
 	// another column. Guarded by chunk_stream_mutex.
-	chunk_resend_pending        bool
-	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
-	chunk_gen_mutex             &sync.Mutex = sync.new_mutex()
-	transfer_mutex              &sync.Mutex = sync.new_mutex()
-	cooldown_until              map[string]i64
+	chunk_resend_pending bool
+	chunk_stream_mutex   &sync.Mutex = sync.new_mutex()
+	chunk_gen_mutex      &sync.Mutex = sync.new_mutex()
+	transfer_mutex       &sync.Mutex = sync.new_mutex()
+	cooldown_until       map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
 	// are managed in outbound.v.
 	outbound      chan OutboundMessage = chan OutboundMessage{cap: outbound_queue_capacity}

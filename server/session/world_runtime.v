@@ -11,6 +11,7 @@ import server.entity
 import server.event
 import server.world
 import server.world.db
+import server.internal.logger
 import protocol.current as proto
 
 // max_world_catchup_ticks limits how many missed simulation steps a
@@ -326,6 +327,10 @@ fn (mut wr WorldRuntime) shutdown() {
 // run_jobs owns this world's actor loop. It serializes world tasks, tick
 // processing and shutdown on a single thread.
 fn (mut wr WorldRuntime) run_jobs() {
+	logger.name_thread('World Thread/${wr.world.name}')
+	defer {
+		logger.unname_thread()
+	}
 	mut tx := &WorldTx{
 		wr: wr
 	}

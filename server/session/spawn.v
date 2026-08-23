@@ -8,6 +8,7 @@ import nbt
 import server.event
 import server.world
 import server.world.db
+import server.internal.logger
 import protocol.current as proto
 
 // The initial spawn stream paces itself so the outbound queue is not filled
@@ -286,6 +287,10 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p proto.RequestChunkRadius
 }
 
 fn (mut s NetworkSession) stream_spawn_chunks_background(radius int) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	s.chunk_stream_mutex.lock()
 	defer {
 		s.chunk_stream_mutex.unlock()
@@ -307,6 +312,10 @@ fn (mut s NetworkSession) handle_play_chunk_radius_async(p proto.RequestChunkRad
 }
 
 fn (mut s NetworkSession) handle_play_chunk_radius_background(p proto.RequestChunkRadiusPacket) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	s.handle_play_chunk_radius(p) or {
 		s.log.warn('Failed to stream requested chunks to ${s.player.identity.display_name}: ${err}')
 	}
@@ -425,6 +434,10 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 // Holds chunk_gen_mutex for its entire run, released via defer regardless
 // of how it returns.
 fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targets []ChunkSendTarget) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	defer {
 		s.chunk_gen_mutex.unlock()
 		mut active_gen := s.hub.active_chunk_generation_count
@@ -955,7 +968,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	inventory_packet := s.restore_inventory()
 	s.send_packet(inventory_packet)!
 	s.refresh_available_commands()
-	s.log.info('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
+	s.log.debug('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }
 
 // refresh_available_commands rebuilds and resends the client's command

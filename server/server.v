@@ -322,6 +322,10 @@ const console_poll_interval = 100 * time.millisecond
 // console_loop reads command lines from stdin and dispatches them through the
 // shared command registry as CONSOLE, mirroring the in-game chat path.
 fn (mut s Server) console_loop() {
+	logger.name_thread('Console Thread')
+	defer {
+		logger.unname_thread()
+	}
 	mut sender := session.new_console_sender(mut s.hub, s.log)
 	for s.running.load() {
 		if !os.fd_is_pending(0) {
@@ -360,6 +364,10 @@ fn (mut s Server) console_loop() {
 }
 
 fn (mut s Server) tick_loop() {
+	logger.name_thread('Server Thread')
+	defer {
+		logger.unname_thread()
+	}
 	interval := time.second / ticks_per_second
 	loop_start := time.now()
 	mut tick := u64(0)
@@ -454,6 +462,10 @@ const max_concurrent_connections = u64(1024)
 // arrive through. Both end in the same handler: how the connection was
 // negotiated says nothing about the session that follows.
 fn (mut s Server) accept_loop(mut listener nethernet.Listener) {
+	logger.name_thread('Network Listener')
+	defer {
+		logger.unname_thread()
+	}
 	for s.running.load() {
 		mut conn := listener.accept(time.second) or { continue }
 		peer_addr := network.remote_endpoint(conn.remote_addr())
@@ -479,6 +491,12 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 		s.active_conns.sub(1)
 	}
 	addr := network.remote_endpoint(conn.remote_addr())
+	// Renamed to the player's display name once login resolves one, so a
+	// session's lines are attributable before and after it has an identity.
+	logger.name_thread('Connection/${addr}')
+	defer {
+		logger.unname_thread()
+	}
 	mut transport := network.new_session(mut conn, s.log)
 	mut net_session := session.new(mut transport, mut s.hub, s.cfg, s.log)
 	net_session.handle_loop()

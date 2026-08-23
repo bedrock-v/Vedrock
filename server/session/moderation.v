@@ -2,6 +2,7 @@ module session
 
 import protocol.types
 import protocol.current as proto
+import server.internal.logger
 
 // op / deop
 
@@ -158,6 +159,10 @@ fn (mut s NetworkSession) request_teleport(x f32, y f32, z f32, world_name strin
 // directly which would let this thread's writes interleave with the
 // writer's on the wire.
 fn (mut s NetworkSession) reload_chunks(radius int) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	s.chunk_stream_mutex.lock()
 	defer {
 		s.chunk_stream_mutex.unlock()
