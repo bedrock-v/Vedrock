@@ -530,6 +530,19 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 	s.send_needed_chunks(cx, cz, radius)!
 }
 
+// chunk_in_view reports whether the column (dx, dz) columns away from the
+// player falls inside the view the client was told to keep.
+//
+// NetworkChunkPublisherUpdate publishes new_view_radius in blocks, and the
+// client culls every column further away than that. A square sweep's corners
+// sit radius * sqrt(2) columns out, so the client would drop them while the
+// session still recorded them as sent - leaving a column that never renders
+// and is never retried. Sweeping the circle the client actually keeps is what
+// makes the two agree.
+fn chunk_in_view(dx int, dz int, radius int) bool {
+	return dx * dx + dz * dz <= radius * radius
+}
+
 fn chunk_send_targets(cx int, cz int, radius int, sent map[u64]bool) []ChunkSendTarget {
 	mut targets := []ChunkSendTarget{cap: (radius * 2 + 1) * (radius * 2 + 1)}
 	span := radius * 2 + 1
@@ -541,6 +554,9 @@ fn chunk_send_targets(cx int, cz int, radius int, sent map[u64]bool) []ChunkSend
 			}
 			dx := x - cx
 			dz := z - cz
+			if !chunk_in_view(dx, dz, radius) {
+				continue
+			}
 			targets << ChunkSendTarget{
 				x:        x
 				z:        z
@@ -558,6 +574,9 @@ fn prune_sent_chunks(mut sent map[u64]bool, cx int, cz int, radius int) {
 	mut keep := map[u64]bool{}
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
+			if !chunk_in_view(x - cx, z - cz, radius) {
+				continue
+			}
 			key := chunk_cache_key(x, z)
 			if key in sent {
 				keep[key] = true
