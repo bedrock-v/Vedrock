@@ -263,7 +263,7 @@ fn (mut s NetworkSession) save_player_data() {
 		z:              current.position.z
 		yaw:            current.yaw
 		pitch:          current.pitch
-		gamemode:       s.player.game_mode()
+		gamemode:       gamemode_to_wire(s.player.game_mode())
 		items:          items
 		has_last_death: s.player.has_last_death()
 		last_death_x:   s.player.last_death_pos().x

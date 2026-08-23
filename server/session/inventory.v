@@ -269,7 +269,7 @@ fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, reques
 					changes << target.apply_consume(mut tx.wr, action.source, action.amount)
 				}
 				proto.CraftCreativeAction {
-					if target.player.game_mode() == proto.game_type_creative {
+					if target.player.game_mode() == .creative {
 						target.set_pending_creative(int(action.creative_item_network_id))
 					} else {
 						target.player.set_pending_creative(none)
@@ -306,24 +306,35 @@ fn (mut s NetworkSession) set_pending_creative(entry_id int) {
 	})
 }
 
+// SourceStack is a resolved request source slot: its stack, net id and
+// whether it came from the pending creative fallback (see
+// resolve_source_stack) rather than a tracked slot.
+struct SourceStack {
+	stack         types.ItemStack
+	net_id        int
+	from_creative bool
+}
+
 // resolve_source_stack resolves a request source stack, falling back to the
 // pending creative item for created output slots that are not tracked.
 //
 // This fallback applies to every action that may use that slot as a source,
 // preventing creative swaps and moves from resolving it as empty.
-fn (mut s NetworkSession) resolve_source_stack(container proto.FullContainerName, slot i8, raw_id int) (types.ItemStack, int, bool) {
+fn (mut s NetworkSession) resolve_source_stack(container proto.FullContainerName, slot i8, raw_id int) SourceStack {
 	stack, net_id := s.resolve_request_stack(container, slot, raw_id)
 	if stack.count == 0 {
 		if pending := s.player.pending_creative() {
-			return pending, 0, true
+			return SourceStack{pending, 0, true}
 		}
 	}
-	return stack, net_id, false
+	return SourceStack{stack, net_id, false}
 }
 
 fn (mut s NetworkSession) apply_move(src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
-	mut moved, src_net_id, from_creative := s.resolve_source_stack(src.container_name, src.slot,
-		src.raw_id)
+	resolved := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
+	mut moved := resolved.stack
+	src_net_id := resolved.net_id
+	from_creative := resolved.from_creative
 	mut take := requested_amount(amount, moved.count)
 	dest_stack, dest_net_id := s.resolve_request_stack(dst.container_name, dst.slot, dst.raw_id)
 	max_stack := s.max_stack_size_for_numeric(moved.id)
@@ -383,10 +394,10 @@ fn (mut s NetworkSession) apply_move(src proto.ItemStackRequestSlotInfo, dst pro
 }
 
 fn (mut s NetworkSession) apply_swap(src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo) []SlotChange {
-	a, src_net_id, a_from_creative := s.resolve_source_stack(src.container_name, src.slot,
-		src.raw_id)
-	b, dst_net_id, b_from_creative := s.resolve_source_stack(dst.container_name, dst.slot,
-		dst.raw_id)
+	resolved_a := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
+	a, src_net_id, a_from_creative := resolved_a.stack, resolved_a.net_id, resolved_a.from_creative
+	resolved_b := s.resolve_source_stack(dst.container_name, dst.slot, dst.raw_id)
+	b, dst_net_id, b_from_creative := resolved_b.stack, resolved_b.net_id, resolved_b.from_creative
 	if src_net_id != 0 {
 		s.player.delete_stack(src_net_id)
 	}
@@ -413,7 +424,8 @@ fn (mut s NetworkSession) apply_swap(src proto.ItemStackRequestSlotInfo, dst pro
 }
 
 fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
-	item, net_id, from_creative := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
+	resolved := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
+	item, net_id, from_creative := resolved.stack, resolved.net_id, resolved.from_creative
 	take := requested_amount(amount, item.count)
 	remaining := item.count - take
 	if net_id != 0 {
@@ -435,7 +447,7 @@ fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amoun
 }
 
 fn (mut s NetworkSession) apply_drop(mut wr WorldRuntime, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
-	item, _, _ := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
+	item := s.resolve_source_stack(src.container_name, src.slot, src.raw_id).stack
 	take := requested_amount(amount, item.count)
 	changes := s.apply_remove(src, amount)
 	if take > 0 && item.id != 0 {

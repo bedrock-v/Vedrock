@@ -6,7 +6,7 @@ import server.internal.auth
 fn test_new_player_defaults() {
 	p := new_player()
 	assert p.health == 20.0
-	assert p.game_mode == 0
+	assert p.game_mode == .survival
 	assert p.dead == false
 	assert p.snapshot_slot_stacks().len == 0
 }
@@ -14,12 +14,12 @@ fn test_new_player_defaults() {
 fn test_player_field_mutation_through_pointer() {
 	mut p := new_player()
 	p.health = 12.5
-	p.game_mode = 1
+	p.game_mode = .creative
 	p.dead = true
 	net_id := p.track_stack(types.ItemStack{})
 	p.set_slot(0, net_id)
 	assert p.health == 12.5
-	assert p.game_mode == 1
+	assert p.game_mode == .creative
 	assert p.dead == true
 	assert p.snapshot_slot_stacks().len == 1
 }

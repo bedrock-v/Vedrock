@@ -48,8 +48,7 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		return
 	}
 	if victim_actor is NetworkSession {
-		if !victim_actor.spawned || victim_actor.player.game_mode() == proto.game_type_creative
-			|| victim_actor.player.game_mode() == proto.game_type_spectator {
+		if !victim_actor.spawned || !victim_actor.player.game_mode().allows_taking_damage() {
 			return
 		}
 	}
@@ -189,8 +188,7 @@ fn (mut s NetworkSession) replace_held_item(item_name string) {
 }
 
 fn (s &NetworkSession) is_critical() bool {
-	if s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator {
+	if !s.player.game_mode().allows_taking_damage() {
 		return false
 	}
 	return s.player.movement().vy < -0.08
@@ -203,8 +201,7 @@ fn (s &NetworkSession) is_critical() bool {
 // (see DamageSource, damage_source.v) and supplies the
 // death message. Effect damage doesn't go through here.
 fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source DamageSource) {
-	if s.player.is_dead() || s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator {
+	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
 	if source.ignored_by_fire_resistance() {

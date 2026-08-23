@@ -2,7 +2,7 @@ module default
 
 import server.permission
 import server.cmd
-import protocol.current as proto
+import server.player
 
 pub struct GamemodeCommand {}
 
@@ -72,21 +72,21 @@ pub fn (c GamemodeCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	])!
 }
 
-fn parse_gamemode(arg string) ?int {
+fn parse_gamemode(arg string) ?player.Gamemode {
 	return match arg.to_lower() {
-		'survival', 's', '0' { proto.game_type_survival }
-		'creative', 'c', '1' { proto.game_type_creative }
-		'adventure', 'a', '2' { proto.game_type_adventure }
-		'spectator' { proto.game_type_spectator }
+		'survival', 's', '0' { player.Gamemode.survival }
+		'creative', 'c', '1' { player.Gamemode.creative }
+		'adventure', 'a', '2' { player.Gamemode.adventure }
+		'spectator' { player.Gamemode.spectator }
 		else { none }
 	}
 }
 
-fn gamemode_translation_key(mode int) string {
+fn gamemode_translation_key(mode player.Gamemode) string {
 	return match mode {
-		proto.game_type_survival { 'gameMode.survival' }
-		proto.game_type_adventure { 'gameMode.adventure' }
-		proto.game_type_spectator { 'gameMode.spectator' }
-		else { 'gameMode.creative' }
+		.survival { 'gameMode.survival' }
+		.adventure { 'gameMode.adventure' }
+		.spectator { 'gameMode.spectator' }
+		.creative { 'gameMode.creative' }
 	}
 }

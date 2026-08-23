@@ -194,7 +194,7 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 	}
 
 	mut s := mob_equipment_test_session(mut hub, mut wr, 'Alex', &FakeTransport{})
-	s.player.set_game_mode(proto.game_type_survival)
+	s.player.set_game_mode(.survival)
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := [

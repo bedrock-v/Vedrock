@@ -152,7 +152,7 @@ fn (s &NetworkSession) add_player_packet() &proto.AddPlayerPacket {
 		platform_chat_id:  ''
 		y_head_rotation:   current.head_yaw
 		carried_item:      proto.item_descriptor(s.player.held_item().item_stack)
-		player_game_type:  proto.game_type(s.player.game_mode())
+		player_game_type:  proto.game_type(gamemode_to_wire(s.player.game_mode()))
 		entity_data:       visible_name_metadata(s.player.identity.display_name)
 		synced_properties: proto.PropertySyncData{}
 		abilities_data:    s.build_abilities()

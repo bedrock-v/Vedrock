@@ -7,11 +7,20 @@ import server.block
 import server.item
 import protocol.current as proto
 
+// ObstructionResult is obstructed_by_entity's answer: whether pos is
+// obstructed at all and whether the only body overlapping it is the acting
+// player's own (which placement/break logic treats differently than a
+// stranger's).
+struct ObstructionResult {
+	obstructed bool
+	self_only  bool
+}
+
 // obstructed_by_entity reports whether pos overlaps a player registered in
 // wr, including the acting player's own current or pending body position.
 // Actor only: reads the world's actor registry directly, so must only be
 // called from within a WorldTx operation.
-fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) (bool, bool) {
+fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
 	block_min_x := f32(pos.x)
 	block_max_x := f32(pos.x) + 1
 	block_min_y := f32(pos.y)
@@ -38,11 +47,11 @@ fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_run
 		if overlaps {
 			obstructed = true
 			if s.runtime_id != acting_runtime_id {
-				return true, false
+				return ObstructionResult{true, false}
 			}
 		}
 	}
-	return obstructed, true
+	return ObstructionResult{obstructed, true}
 }
 
 // is_replaceable reports whether block_id is silently overwritten by a
@@ -243,7 +252,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 			'minecraft:player', s.runtime_id))
 	}
 	tx.broadcast_swing(s)
-	if s.player.game_mode() != proto.game_type_creative {
+	if s.player.game_mode() != .creative {
 		tx.consume_held_item(mut s)
 	}
 	tx.notify_block_changed(pos)
@@ -255,9 +264,9 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 // cancellable block_place event, then commits.
 fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
 	occupied := tx.block_at(pos.x, pos.y, pos.z) != world.air.network_id
-	obstructed, self_only := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
-	if occupied || obstructed {
-		if occupied || !self_only {
+	obstruction := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
+	if occupied || obstruction.obstructed {
+		if occupied || !obstruction.self_only {
 			s.resend_block(pos)
 		}
 		return false
@@ -314,13 +323,13 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 // before either half is written.
 fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
 	above := face_offset(pos, 1)
-	obstructed_lower, lower_self := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
-	obstructed_upper, upper_self := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
-	if obstructed_lower || obstructed_upper {
-		if !lower_self {
+	lower := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
+	upper := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
+	if lower.obstructed || upper.obstructed {
+		if !lower.self_only {
 			s.resend_block(pos)
 		}
-		if !upper_self {
+		if !upper.self_only {
 			s.resend_block(above)
 		}
 		return false

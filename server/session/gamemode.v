@@ -1,14 +1,35 @@
 module session
 
 import server.event
+import server.player
 import protocol.current as proto
 
-fn gamemode_id(name string) int {
+fn gamemode_from_wire(v int) player.Gamemode {
+	return match v {
+		proto.game_type_creative { .creative }
+		proto.game_type_adventure { .adventure }
+		proto.game_type_spectator, proto.game_type_survival_spectator, proto.game_type_creative_spectator {
+			.spectator
+		}
+		else { .survival }
+	}
+}
+
+fn gamemode_to_wire(g player.Gamemode) int {
+	return match g {
+		.survival { proto.game_type_survival }
+		.creative { proto.game_type_creative }
+		.adventure { proto.game_type_adventure }
+		.spectator { proto.game_type_spectator }
+	}
+}
+
+fn gamemode_from_name(name string) player.Gamemode {
 	return match name.to_lower() {
-		'survival' { proto.game_type_survival }
-		'adventure' { proto.game_type_adventure }
-		'spectator' { proto.game_type_spectator }
-		else { proto.game_type_creative }
+		'survival' { .survival }
+		'adventure' { .adventure }
+		'spectator' { .spectator }
+		else { .creative }
 	}
 }
 
@@ -19,7 +40,7 @@ fn gamemode_id(name string) int {
 struct PlayerSetGamemodeTask {
 	runtime_id u64
 	epoch      i64
-	mode       int
+	mode       player.Gamemode
 }
 
 fn (t PlayerSetGamemodeTask) name() string {
@@ -31,7 +52,7 @@ fn (t PlayerSetGamemodeTask) run(mut tx WorldTx) {
 	s.apply_gamemode(mut tx.wr.events, t.mode)
 }
 
-fn (mut s NetworkSession) set_gamemode(mode int) {
+fn (mut s NetworkSession) set_gamemode(mode player.Gamemode) {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
@@ -45,7 +66,7 @@ fn (mut s NetworkSession) set_gamemode(mode int) {
 
 // apply_gamemode is the actual mutation, run exclusively on the owning
 // world's actor via PlayerSetGamemodeTask above.
-fn (mut s NetworkSession) apply_gamemode(mut events event.Bus, mode int) {
+fn (mut s NetworkSession) apply_gamemode(mut events event.Bus, mode player.Gamemode) {
 	mut ctx := event.new_context(event.GameModeChangeData{
 		player: s
 		mode:   mode
@@ -56,7 +77,7 @@ fn (mut s NetworkSession) apply_gamemode(mut events event.Bus, mode int) {
 	}
 	s.player.set_game_mode(ctx.val.mode)
 	s.deliver(&proto.SetPlayerGameTypePacket{
-		player_game_type: proto.game_type(s.player.game_mode())
+		player_game_type: proto.game_type(gamemode_to_wire(s.player.game_mode()))
 	})
 	s.deliver(&proto.UpdateAbilitiesPacket{
 		data: s.build_abilities()

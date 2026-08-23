@@ -95,7 +95,7 @@ fn jigsaw_structure_data() &proto.JigsawStructureDataPacket {
 }
 
 fn (mut s NetworkSession) start_game() ! {
-	s.player.set_game_mode(gamemode_id(s.cfg.gamemode))
+	s.player.set_game_mode(gamemode_from_name(s.cfg.gamemode))
 	spawn_y := s.generator.spawn_y()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	generator_type := if dimension_id == world.nether.id {
@@ -116,7 +116,7 @@ fn (mut s NetworkSession) start_game() ! {
 		spawn_pitch = data.pitch
 		spawn_yaw = data.yaw
 		s.player.set_loaded_items(data.items)
-		s.player.set_game_mode(data.gamemode)
+		s.player.set_game_mode(gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
 		}
@@ -131,7 +131,7 @@ fn (mut s NetworkSession) start_game() ! {
 	mut start_packet := &proto.StartGamePacket{
 		target_actor_id:                       proto.actor_unique_id(i64(s.runtime_id))
 		target_runtime_id:                     proto.actor_runtime_id(s.runtime_id)
-		actor_game_type:                       proto.game_type(s.player.game_mode())
+		actor_game_type:                       proto.game_type(gamemode_to_wire(s.player.game_mode()))
 		settings:                              proto.LevelSettings{
 			seed:                                         0
 			spawn_settings:                               proto.SpawnSettings{
@@ -140,7 +140,7 @@ fn (mut s NetworkSession) start_game() ! {
 				dimension:               i32(dimension_id)
 			}
 			generator_type:                               generator_type
-			game_type:                                    proto.game_type(s.player.game_mode())
+			game_type:                                    proto.game_type(gamemode_to_wire(s.player.game_mode()))
 			is_hardcore_enabled:                          false
 			game_difficulty:                              unsafe { proto.Difficulty(s.hub.difficulty_value()) }
 			default_spawn_block_position:                 proto.NetworkBlockPosition{

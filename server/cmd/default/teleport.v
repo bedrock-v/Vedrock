@@ -53,12 +53,12 @@ pub fn (c TeleportCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 				}))!
 				return
 			}
-			x, y, z := dest.position()
-			sender.teleport(x, y, z)
+			pos := dest.position()
+			sender.teleport(pos.x, pos.y, pos.z)
 			sender.send_message(ctx.lang.tf('cmd.teleport.moved', {
-				'X': '${x:.1f}'
-				'Y': '${y:.1f}'
-				'Z': '${z:.1f}'
+				'X': '${pos.x:.1f}'
+				'Y': '${pos.y:.1f}'
+				'Z': '${pos.z:.1f}'
 			}))!
 		}
 		3 {
@@ -104,13 +104,13 @@ pub fn (c TeleportCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 				}))!
 				return
 			}
-			x, y, z := dest.position()
-			target.teleport(x, y, z)
+			pos := dest.position()
+			target.teleport(pos.x, pos.y, pos.z)
 			sender.send_message(ctx.lang.tf('cmd.teleport.moved_other', {
 				'Name': target.name()
-				'X':    '${x:.1f}'
-				'Y':    '${y:.1f}'
-				'Z':    '${z:.1f}'
+				'X':    '${pos.x:.1f}'
+				'Y':    '${pos.y:.1f}'
+				'Z':    '${pos.z:.1f}'
 			}))!
 		}
 		4 {

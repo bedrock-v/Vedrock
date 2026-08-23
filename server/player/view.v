@@ -1,5 +1,6 @@
 module player
 
+import protocol.types
 import server.form
 import server.player.bossbar
 import server.player.scoreboard
@@ -17,10 +18,10 @@ pub interface View {
 mut:
 	send_message(message string) !
 	send_translation(key string, parameters []string) !
-	set_gamemode(mode int)
+	set_gamemode(mode Gamemode)
 	kill()
 	disconnect(message string)
-	position() (f32, f32, f32)
+	position() types.Vector3
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool

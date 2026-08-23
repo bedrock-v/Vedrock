@@ -127,7 +127,7 @@ fn test_player_ref_operations_fail_after_world_switch() {
 	if _ := p.give_item('minecraft:air', 1) {
 		assert false
 	}
-	if _ := p.set_gamemode(1) {
+	if _ := p.set_gamemode(.creative) {
 		assert false
 	}
 }

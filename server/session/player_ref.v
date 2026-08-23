@@ -1,6 +1,7 @@
 module session
 
 import protocol.types
+import server.player
 
 // PlayerRef is a stale checked reference to a player. It remains valid only
 // for the world membership generation captured when it was created.
@@ -64,8 +65,7 @@ pub fn (p PlayerRef) world() World {
 
 pub fn (p PlayerRef) position() !types.Vector3 {
 	mut s := p.resolve()!
-	x, y, z := s.position()
-	return types.Vector3{x, y, z}
+	return s.position()
 }
 
 pub fn (p PlayerRef) send_message(message string) ! {
@@ -90,7 +90,13 @@ pub fn (p PlayerRef) give_item(id string, count int) ! {
 	}
 }
 
-pub fn (p PlayerRef) set_gamemode(mode int) ! {
+// game_mode returns the player's current game mode.
+pub fn (p PlayerRef) game_mode() !player.Gamemode {
+	mut s := p.resolve()!
+	return s.player.game_mode()
+}
+
+pub fn (p PlayerRef) set_gamemode(mode player.Gamemode) ! {
 	mut s := p.resolve()!
 	s.set_gamemode(mode)
 }

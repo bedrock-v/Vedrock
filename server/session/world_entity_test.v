@@ -370,7 +370,7 @@ fn test_damage_entity_never_reaches_another_worlds_player() {
 	mut b_transport := &FakeTransport{}
 	entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
 	mut session_b := entity_isolation_test_session(mut hub, mut b_transport, mut wr_b, pos)
-	session_b.player.set_game_mode(proto.game_type_survival)
+	session_b.player.set_game_mode(.survival)
 	before_health := session_b.player.health()
 
 	mut host_a := WorldEntityHost{

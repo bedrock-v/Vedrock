@@ -80,7 +80,22 @@ pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	}
 }
 
-pub fn (e EntityRef) damage(amount f32, fatal bool, source_runtime_id u64) ! {
+// AttackerRef identifies who or what dealt damage to an entity.
+// A player, another entity or (via none) nothing attributable, e.g. environmental
+// damage. EntityRef.damage takes this instead of a raw runtime id so a
+// caller never needs to know entities and players share an id space
+// internally.
+pub type AttackerRef = EntityRef | PlayerRef
+
+fn (a AttackerRef) runtime_id() u64 {
+	return match a {
+		EntityRef { a.runtime_id }
+		PlayerRef { a.runtime_id }
+	}
+}
+
+pub fn (e EntityRef) damage(amount f32, fatal bool, source ?AttackerRef) ! {
+	source_runtime_id := if s := source { s.runtime_id() } else { u64(0) }
 	mut w := e.world_
 	applied := world_call[bool](mut w.runtime, fn [e, amount, fatal, source_runtime_id] (mut tx WorldTx) bool {
 		tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }

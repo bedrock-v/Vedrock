@@ -5,7 +5,6 @@ import server.internal.gamedata
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
 
 // tree_position finds a block the generator only produces while building a
 // whole column - a tree, in practice. Its per block query answers air there, so
@@ -33,7 +32,7 @@ fn test_block_at_sees_the_terrain_the_client_was_sent() {
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 
 	gen := world.new_generator('normal')
 	wld := db.new_world('trees', none, 'normal', world.overworld)

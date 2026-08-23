@@ -308,7 +308,7 @@ fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
 	}
 	tool_type, harvest_level, efficiency := s.held_mining_stats()
 	mut ticks := info.break_seconds(tool_type, harvest_level, efficiency) * f32(effect.ticks_per_second)
-	if !s.supported_by_ground() && s.player.game_mode() != proto.game_type_creative {
+	if !s.supported_by_ground() && s.player.game_mode() != .creative {
 		ticks *= in_air_break_penalty
 	}
 	if s.head_submerged() {

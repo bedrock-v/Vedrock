@@ -1,8 +1,10 @@
 module session
 
+import protocol.types
 import server.internal.logger
 import server.cmd
 import server.form
+import server.player
 import server.player.scoreboard
 
 // ConsoleSender adapts the server console to the cmd.Sender interface.
@@ -48,7 +50,7 @@ fn (mut c ConsoleSender) send_translation(key string, parameters []string) ! {
 	c.log.info('${key} [${parameters.join(', ')}]')
 }
 
-fn (mut c ConsoleSender) set_gamemode(_ int) {
+fn (mut c ConsoleSender) set_gamemode(_ player.Gamemode) {
 	// The console is not an in-world player; nothing to update.
 }
 
@@ -66,8 +68,8 @@ fn (mut c ConsoleSender) kill() {}
 
 fn (mut c ConsoleSender) disconnect(_ string) {}
 
-fn (mut c ConsoleSender) position() (f32, f32, f32) {
-	return 0.0, 0.0, 0.0
+fn (mut c ConsoleSender) position() types.Vector3 {
+	return types.Vector3{}
 }
 
 fn (mut c ConsoleSender) teleport(_ f32, _ f32, _ f32) {}

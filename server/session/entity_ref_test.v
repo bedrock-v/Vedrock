@@ -169,13 +169,41 @@ fn test_entity_ref_damage_kills_when_fatal() {
 	}, types.Vector3{})
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
-	ref.damage(100, true, 0)!
+	ref.damage(100, true, none)!
 
 	dead := world_call[bool](mut wr, fn [e] (mut tx WorldTx) bool {
 		target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		return target.is_dead()
 	}) or { panic('read rejected - world unexpectedly stopped') }
 	assert dead
+}
+
+fn test_entity_ref_damage_with_player_sets_attacker_as_target() {
+	mut hub, mut wr := entity_ref_test_world()
+	defer {
+		hub.close_worlds()
+	}
+	mut handle := hub.world_handle('entity-ref-test') or { panic('expected handle') }
+	mut transport := &FakeTransport{}
+	mut attacker := entity_ref_test_session(mut hub, mut wr, mut transport, 'Attacker')
+	attacker.player.reset_position(types.Vector3{10, 5, 0})
+
+	mut zombie := wr.entities.spawn(entity.HostileBehaviour{
+		network_id: 'minecraft:zombie'
+	}, types.Vector3{0, 5, 0})
+	zombie.floor_y = 5
+	zombie.no_gravity = true
+
+	player_ref := hub.player_ref('Attacker') or { panic('expected player ref') }
+	ref := handle.entity_ref(zombie.runtime_id) or { panic('expected entity ref') }
+	ref.damage(5, false, player_ref)!
+
+	moved_toward_attacker := world_call[bool](mut wr, fn [zombie] (mut tx WorldTx) bool {
+		tx.wr.entities.tick()
+		target := tx.wr.entities.by_runtime_id(zombie.runtime_id) or { return false }
+		return target.velocity.x > 0
+	}) or { panic('tick rejected - world unexpectedly stopped') }
+	assert moved_toward_attacker
 }
 
 fn test_entity_ref_close_removes_the_entity() {

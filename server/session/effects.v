@@ -234,8 +234,7 @@ fn (mut s NetworkSession) heal(amount f32) {
 // apply_death so all deaths share one path. Effect damage has no attacker, so
 // it does not dispatch player_hurt.
 fn (mut s NetworkSession) apply_damage_from_effect(mut wr WorldRuntime, amount f32, fatal bool) {
-	if s.player.is_dead() || amount <= 0 || s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator {
+	if s.player.is_dead() || amount <= 0 || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
 	if !fatal && s.player.health() - amount < 1 {

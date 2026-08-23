@@ -25,7 +25,7 @@ mut:
 	// covered by their own mutexes. State accessors must hold this lock because
 	// player state may now be accessed from multiple actor threads.
 	state_mutex      &sync.Mutex = sync.new_mutex()
-	game_mode        int
+	game_mode        Gamemode
 	health           f32 = 20.0
 	dead             bool
 	held_item        types.ItemStackWrapper
@@ -67,7 +67,7 @@ pub fn (p &Player) has_permission(name string) bool {
 	return p.perm.has_permission(name)
 }
 
-pub fn (p &Player) game_mode() int {
+pub fn (p &Player) game_mode() Gamemode {
 	mut m := p.state_mutex
 	m.lock()
 	defer {
@@ -76,7 +76,7 @@ pub fn (p &Player) game_mode() int {
 	return p.game_mode
 }
 
-pub fn (mut p Player) set_game_mode(mode int) {
+pub fn (mut p Player) set_game_mode(mode Gamemode) {
 	p.state_mutex.lock()
 	p.game_mode = mode
 	p.state_mutex.unlock()

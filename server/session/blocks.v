@@ -47,9 +47,7 @@ fn (s &NetworkSession) block_at(x int, y int, z int) int {
 }
 
 fn (s &NetworkSession) can_interact() bool {
-	return s.player.game_mode() != proto.game_type_spectator
-		&& s.player.game_mode() != proto.game_type_survival_spectator
-		&& s.player.game_mode() != proto.game_type_creative_spectator
+	return s.player.game_mode() != .spectator
 }
 
 fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
@@ -158,7 +156,7 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		yaw:                s.player.movement().yaw
 		now_ms:             now
 		last_place_ms:      s.last_place_ms
-		is_creative:        s.player.game_mode() == proto.game_type_creative
+		is_creative:        s.player.game_mode() == .creative
 	}
 	if wr.submit(task) {
 		placed := <-task.result
@@ -196,8 +194,7 @@ fn (s &NetworkSession) held_stack_and_name() (types.ItemStack, string) {
 // currently held item, removing it if it breaks. Creative mode tools never
 // take durability damage.
 fn (mut s NetworkSession) damage_held_item(amount int) {
-	if s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_creative_spectator {
+	if s.player.game_mode() == .creative {
 		return
 	}
 	stack, net := s.inventory_stack_at(s.player.held_slot())
@@ -300,8 +297,7 @@ fn (mut s NetworkSession) handle_player_block_action(action proto.PlayerBlockAct
 // place_reach_sq returns the squared placement reach for the player's
 // current gamemode.
 fn (s &NetworkSession) place_reach_sq() f32 {
-	if s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_creative_spectator {
+	if s.player.game_mode() == .creative {
 		return creative_place_reach_sq
 	}
 	return survival_place_reach_sq
@@ -380,7 +376,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.resend_block(pos)
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative && !block.breakable(old_id) {
+	if s.player.game_mode() != .creative && !block.breakable(old_id) {
 		s.send_maybe_queued(&proto.UpdateBlockPacket{
 			block_position:   proto.block_pos(pos)
 			block_runtime_id: u32(old_id)
@@ -390,7 +386,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative && !s.break_complete(pos, old_id) {
+	if s.player.game_mode() != .creative && !s.break_complete(pos, old_id) {
 		s.resend_block(pos)
 		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
 		return
@@ -472,7 +468,7 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 	tx.set_block(pos.x, pos.y, pos.z, air_id)
 	tx.damage_held_item(mut s, 1)
 
-	if s.player.game_mode() != proto.game_type_creative && s.can_harvest(old_id) {
+	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
 		drop_name, drop_count := block_drop_for(mut tx.wr, old_id)
 		if drop_name != '' {
 			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
@@ -613,7 +609,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p proto.BlockPickRequestPacke
 		}
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative {
+	if s.player.game_mode() != .creative {
 		return
 	}
 

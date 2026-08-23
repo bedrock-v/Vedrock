@@ -127,9 +127,8 @@ fn (mut s NetworkSession) kill() {
 
 // teleport
 
-fn (mut s NetworkSession) position() (f32, f32, f32) {
-	p := s.current_position()
-	return p.x, p.y, p.z
+fn (mut s NetworkSession) position() types.Vector3 {
+	return s.current_position()
 }
 
 // place_water targets the default world through Hub's block API.

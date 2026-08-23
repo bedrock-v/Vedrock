@@ -24,8 +24,7 @@ const fire_tick_interval_ticks = i64(20) // once per second while burning
 // tick_environmental_damage applies void, drowning and fire/lava damage for
 // one player during the owning world's simulation step.
 fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
-	if s.player.is_dead() || s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator {
+	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
 	tick := tx.wr.hub.current_tick()

@@ -3,10 +3,12 @@ module default
 import protocol
 
 import protocol.serializer
+import protocol.types
 import server.internal.language
 import server.permission
 import server.form
 import server.cmd
+import server.player
 import server.player.bossbar
 import server.player.scoreboard
 import server.player.title
@@ -33,7 +35,7 @@ struct RecordingSender {
 mut:
 	messages         []string
 	broadcasts       []string
-	gamemode         int = -1
+	gamemode         ?player.Gamemode
 	perm             permission.Permissible
 	peers            map[string]cmd.Sender
 	sender_name      string = 'Steve'
@@ -73,7 +75,7 @@ fn (mut s RecordingSender) send_translation(key string, parameters []string) ! {
 	s.messages << '${key} ${parameters}'
 }
 
-fn (mut s RecordingSender) set_gamemode(mode int) {
+fn (mut s RecordingSender) set_gamemode(mode player.Gamemode) {
 	s.gamemode = mode
 }
 
@@ -106,8 +108,8 @@ fn (mut s RecordingSender) kill() {
 	s.killed = true
 }
 
-fn (mut s RecordingSender) position() (f32, f32, f32) {
-	return s.pos_x, s.pos_y, s.pos_z
+fn (mut s RecordingSender) position() types.Vector3 {
+	return types.Vector3{s.pos_x, s.pos_y, s.pos_z}
 }
 
 fn (mut s RecordingSender) place_water(x int, y int, z int) {}
@@ -286,7 +288,7 @@ fn test_gamemode_command() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
-	assert sender.gamemode == proto.game_type_creative
+	assert (sender.gamemode or { panic('gamemode was never set') }) == .creative
 	assert sender.messages[0].contains('commands.gamemode.success.self')
 }
 
@@ -295,7 +297,7 @@ fn test_gamemode_command_usage_is_not_a_client_translation_key() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode', mut sender, base_ctx())!
-	assert sender.gamemode == -1
+	assert sender.gamemode == none
 	assert sender.messages[0].contains('Usage')
 	assert !sender.messages[0].contains('commands.gamemode.usage')
 }
@@ -304,7 +306,7 @@ fn test_gamemode_command_denied_without_op() {
 	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
-	assert sender.gamemode == -1
+	assert sender.gamemode == none
 	assert sender.messages[0].contains('permission')
 }
 

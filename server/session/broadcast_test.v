@@ -105,7 +105,7 @@ fn test_update_abilities_roundtrip() {
 		player:     player.new_player()
 		runtime_id: 7
 	}
-	s.player.set_game_mode(proto.game_type_creative)
+	s.player.set_game_mode(.creative)
 	sent := &proto.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	}

@@ -19,7 +19,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunti
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
