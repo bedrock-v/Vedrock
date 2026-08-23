@@ -97,14 +97,18 @@ fn (mut s NetworkSession) try_enqueue(msg OutboundMessage, is_disconnect bool) !
 		s.outbound_closing = true
 	}
 	s.ensure_outbound_writer()
+	ticket := s.hold_outbound(msg)
 	mut result := EnqueueResult.queue_full
 	select {
-		s.outbound <- msg {
+		s.outbound <- ticket {
 			result = .enqueued
 		}
 		else {
 			result = .queue_full
 		}
+	}
+	if result != .enqueued {
+		s.take_outbound(ticket)
 	}
 	s.close_mutex.unlock()
 	if result == .queue_full {
@@ -115,6 +119,36 @@ fn (mut s NetworkSession) try_enqueue(msg OutboundMessage, is_disconnect bool) !
 		s.log.warn('outbound queue full (capacity ${outbound_queue_capacity}) for ${s.player.name()}, aborting session')
 	}
 	return result
+}
+
+// hold_outbound parks msg under a fresh ticket for the writer to collect.
+fn (mut s NetworkSession) hold_outbound(msg OutboundMessage) u64 {
+	s.outbound_pending_mutex.lock()
+	s.outbound_next_ticket++
+	ticket := s.outbound_next_ticket
+	s.outbound_pending[ticket] = msg
+	s.outbound_pending_mutex.unlock()
+	return ticket
+}
+
+// take_outbound removes and returns a parked message. none when the ticket was
+// already collected, or dropped because it never made it onto the queue.
+fn (mut s NetworkSession) take_outbound(ticket u64) ?OutboundMessage {
+	s.outbound_pending_mutex.lock()
+	defer {
+		s.outbound_pending_mutex.unlock()
+	}
+	msg := s.outbound_pending[ticket] or { return none }
+	s.outbound_pending.delete(ticket)
+	return msg
+}
+
+// discard_outbound drops every parked message, so a closed session stops
+// holding packets its writer will never collect.
+fn (mut s NetworkSession) discard_outbound() {
+	s.outbound_pending_mutex.lock()
+	s.outbound_pending = map[u64]OutboundMessage{}
+	s.outbound_pending_mutex.unlock()
 }
 
 // deliver queues a packet for the session's writer. If the queue is full,
@@ -226,6 +260,8 @@ fn (mut s NetworkSession) close_outbound_once() {
 		s.outbound_abort <- true {}
 		else {}
 	}
+	// Anything still parked is never going to be written now.
+	s.discard_outbound()
 	s.outbound_done <- true
 }
 
@@ -273,7 +309,8 @@ fn (mut s NetworkSession) run_outbound_writer() {
 	}
 	for {
 		select {
-			msg := <-s.outbound {
+			ticket := <-s.outbound {
+				msg := s.take_outbound(ticket) or { continue }
 				match msg {
 					OutboundPacket {
 						s.transport.send(msg.packet) or {

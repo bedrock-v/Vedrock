@@ -2,7 +2,6 @@ module session
 
 import server.internal.network
 import protocol
-
 import protocol.types
 import server.internal.logger
 import server.conf
@@ -102,8 +101,17 @@ mut:
 	cooldown_until       map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
 	// are managed in outbound.v.
-	outbound      chan OutboundMessage = chan OutboundMessage{cap: outbound_queue_capacity}
-	outbound_done chan bool            = chan bool{cap: 1}
+	// The queue carries ticket ids, not packets. A V channel keeps whatever was
+	// written into a slot until that slot is written again, so sending payloads
+	// through it left a session pinning its last outbound_queue_capacity
+	// messages - megabytes of already-delivered chunk data - for as long as it
+	// stayed connected. Tickets are a fixed 8 bytes; outbound_pending holds the
+	// payload only until the writer takes it.
+	outbound               chan u64 = chan u64{cap: outbound_queue_capacity}
+	outbound_pending       map[u64]OutboundMessage
+	outbound_pending_mutex &sync.Mutex = sync.new_mutex()
+	outbound_next_ticket   u64
+	outbound_done          chan bool = chan bool{cap: 1}
 	// outbound_abort wakes an idle writer with nothing queued, so
 	// close_outbound_once can always make it exit, not just when it's
 	// mid send. See outbound.v.
@@ -400,8 +408,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 			} else if p is proto.TextPacket {
 				s.handle_text(p)!
 			} else if p is proto.MovePlayerPacket {
-				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0],
-					p.rotation[1], p.y_head_rotation, p.on_ground)
+				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1],
+					p.y_head_rotation, p.on_ground)
 			} else if p is proto.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
 			} else if p is proto.InteractPacket {
