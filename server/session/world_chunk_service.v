@@ -1,5 +1,6 @@
 module session
 
+import runtime
 import sync
 import sync.stdatomic
 import time
@@ -7,7 +8,28 @@ import server.world
 import server.internal.logger
 
 // Max chunks generated at once per world, no matter how many sessions ask.
-const chunk_gen_worker_count = 4
+//
+// Generation is CPU bound and runs off the world actor, so the pool is sized to
+// the machine. A fixed four workers left most of a sixteen core host idle
+// during a join wave and capped chunk throughput well below what the machine
+// could do.
+const chunk_gen_worker_count = chunk_gen_workers()
+
+// Upper bound on the pool. Each world owns one, so an unbounded pool on a large
+// host would multiply threads by the number of loaded worlds for no gain -
+// generation saturates well before that.
+const max_chunk_gen_workers = 16
+
+fn chunk_gen_workers() int {
+	cpus := runtime.nr_cpus()
+	if cpus < 2 {
+		return 2
+	}
+	if cpus > max_chunk_gen_workers {
+		return max_chunk_gen_workers
+	}
+	return cpus
+}
 
 // Requests waiting for a free worker before request() blocks the caller.
 const chunk_gen_queue_capacity = 256
