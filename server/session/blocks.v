@@ -16,6 +16,12 @@ const place_cooldown_ms = i64(100)
 const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
 
+// max_block_actions_per_input bounds the block actions one PlayerAuthInput may
+// carry. Each action can start or finish a break and reaches the owning world's
+// actor thread, so an unbounded list is work a single packet can force on every
+// player in that world. The vanilla client sends a couple per tick.
+const max_block_actions_per_input = 64
+
 // dimension returns the player's current world's dimension.
 fn (s &NetworkSession) dimension() world.Dimension {
 	wld := s.current_world()
@@ -76,6 +82,9 @@ fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket
 		s.handle_item_use_transaction(tx)!
 	}
 	if actions := p.player_block_actions {
+		if actions.len > max_block_actions_per_input {
+			return error('player auth input carried ${actions.len} block actions')
+		}
 		for action in actions {
 			s.handle_player_block_action(action)!
 		}
