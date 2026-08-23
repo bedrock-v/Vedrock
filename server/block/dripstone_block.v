@@ -16,3 +16,11 @@ pub fn new_dripstone_block() DripstoneBlock {
 		}
 	}
 }
+
+// new_dripstone_block_item is the item form of 'minecraft:dripstone_block'.
+pub fn new_dripstone_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:dripstone_block'
+		block_runtime: world.dripstone_block.network_id
+	}
+}

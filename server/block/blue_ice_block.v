@@ -16,3 +16,11 @@ pub fn new_blue_ice() BlueIceBlock {
 		}
 	}
 }
+
+// new_blue_ice_item is the item form of 'minecraft:blue_ice'.
+pub fn new_blue_ice_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:blue_ice'
+		block_runtime: world.blue_ice.network_id
+	}
+}

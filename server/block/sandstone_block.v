@@ -16,3 +16,11 @@ pub fn new_sandstone() SandstoneBlock {
 		}
 	}
 }
+
+// new_sandstone_item is the item form of 'minecraft:sandstone'.
+pub fn new_sandstone_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:sandstone'
+		block_runtime: world.sandstone.network_id
+	}
+}

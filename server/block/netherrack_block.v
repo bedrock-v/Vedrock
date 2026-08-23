@@ -16,3 +16,11 @@ pub fn new_netherrack() NetherrackBlock {
 		}
 	}
 }
+
+// new_netherrack_item is the item form of 'minecraft:netherrack'.
+pub fn new_netherrack_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:netherrack'
+		block_runtime: world.netherrack.network_id
+	}
+}

@@ -16,3 +16,11 @@ pub fn new_calcite() CalciteBlock {
 		}
 	}
 }
+
+// new_calcite_item is the item form of 'minecraft:calcite'.
+pub fn new_calcite_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:calcite'
+		block_runtime: world.calcite.network_id
+	}
+}

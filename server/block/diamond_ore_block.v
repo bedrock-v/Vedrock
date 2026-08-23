@@ -16,3 +16,11 @@ pub fn new_diamond_ore() DiamondOreBlock {
 		}
 	}
 }
+
+// new_diamond_ore_item is the item form of 'minecraft:diamond_ore'.
+pub fn new_diamond_ore_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:diamond_ore'
+		block_runtime: world.diamond_ore.network_id
+	}
+}

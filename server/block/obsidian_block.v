@@ -21,3 +21,11 @@ pub fn new_obsidian() ObsidianBlock {
 		}
 	}
 }
+
+// new_obsidian_item is the item form of 'minecraft:obsidian'.
+pub fn new_obsidian_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:obsidian'
+		block_runtime: world.obsidian.network_id
+	}
+}

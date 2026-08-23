@@ -16,3 +16,11 @@ pub fn new_clay() ClayBlock {
 		}
 	}
 }
+
+// new_clay_item is the item form of 'minecraft:clay'.
+pub fn new_clay_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:clay'
+		block_runtime: world.clay.network_id
+	}
+}

@@ -16,3 +16,11 @@ pub fn new_end_stone() EndStoneBlock {
 		}
 	}
 }
+
+// new_end_stone_item is the item form of 'minecraft:end_stone'.
+pub fn new_end_stone_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:end_stone'
+		block_runtime: world.end_stone.network_id
+	}
+}

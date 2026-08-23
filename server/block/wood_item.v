@@ -1,14 +1,6 @@
-module item
+module block
 
 import server.world
-
-const pillar_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove',
-	'cherry', 'pale_oak']
-const planks_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove',
-	'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak']
-const leaves_wood_types = pillar_wood_types
-const sapling_wood_types = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'cherry',
-	'bamboo', 'pale_oak']
 
 fn upright_pillar_item(name string) BlockItem {
 	id := 'minecraft:${name}'
@@ -68,23 +60,23 @@ fn simple_wood_item(name string) BlockItem {
 	}
 }
 
-pub fn wood_items() []Item {
-	mut result := []Item{}
+pub fn wood_items() []BlockItem {
+	mut result := []BlockItem{}
 	for t in pillar_wood_types {
 		for shape in ['log', 'wood'] {
 			for prefix in ['', 'stripped_'] {
-				result << Item(upright_pillar_item('${prefix}${t}_${shape}'))
+				result << upright_pillar_item('${prefix}${t}_${shape}')
 			}
 		}
 	}
 	for t in planks_wood_types {
-		result << Item(simple_wood_item('${t}_planks'))
+		result << simple_wood_item('${t}_planks')
 	}
 	for t in leaves_wood_types {
-		result << Item(persistent_leaves_item('${t}_leaves'))
+		result << persistent_leaves_item('${t}_leaves')
 	}
 	for t in sapling_wood_types {
-		result << Item(unripe_sapling_item('${t}_sapling'))
+		result << unripe_sapling_item('${t}_sapling')
 	}
 	return result
 }

@@ -16,3 +16,11 @@ pub fn new_sand() SandBlock {
 		}
 	}
 }
+
+// new_sand_item is the item form of 'minecraft:sand'.
+pub fn new_sand_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:sand'
+		block_runtime: world.sand.network_id
+	}
+}

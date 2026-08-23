@@ -1,11 +1,8 @@
-module item
+module block
 
 import server.world
 
-// Item side of the container family (see server/block/container_components.v).
-
-const shulker_colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray',
-	'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black']
+// Item side of the container family (see container_components.v).
 
 fn cardinal_container_item(name string) BlockItem {
 	id := 'minecraft:${name}'
@@ -50,9 +47,9 @@ fn simple_container_item(name string) BlockItem {
 	}
 }
 
-pub fn container_items() []Item {
-	mut result := []Item{}
-	result << Item(cardinal_container_item('chest'))
+pub fn container_items() []BlockItem {
+	mut result := []BlockItem{}
+	result << cardinal_container_item('chest')
 	result << cardinal_container_item('trapped_chest')
 	result << cardinal_container_item('furnace')
 	result << cardinal_container_item('blast_furnace')

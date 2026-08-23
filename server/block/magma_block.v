@@ -16,3 +16,11 @@ pub fn new_magma_block() MagmaBlock {
 		}
 	}
 }
+
+// new_magma_block_item is the item form of 'minecraft:magma'.
+pub fn new_magma_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:magma'
+		block_runtime: world.magma_block.network_id
+	}
+}

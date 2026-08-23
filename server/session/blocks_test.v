@@ -518,7 +518,7 @@ fn test_place_resolves_block_from_item_registry() {
 	hub.add_world(target)
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	item.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:oak_sign'
 		block_runtime: sign_id
 	})
@@ -567,7 +567,7 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 	hub.add_world(target)
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	item.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:oak_sign'
 		block_runtime: sign_id
 	})
@@ -601,7 +601,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 			'minecraft:test_block': 500
 		}
 	})
-	item.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.bedrock.network_id
 	})

@@ -16,3 +16,11 @@ pub fn new_polished_granite() PolishedGraniteBlock {
 		}
 	}
 }
+
+// new_polished_granite_item is the item form of 'minecraft:polished_granite'.
+pub fn new_polished_granite_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:polished_granite'
+		block_runtime: world.polished_granite.network_id
+	}
+}

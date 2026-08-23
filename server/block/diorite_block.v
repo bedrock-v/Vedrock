@@ -16,3 +16,11 @@ pub fn new_diorite() DioriteBlock {
 		}
 	}
 }
+
+// new_diorite_item is the item form of 'minecraft:diorite'.
+pub fn new_diorite_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:diorite'
+		block_runtime: world.diorite.network_id
+	}
+}

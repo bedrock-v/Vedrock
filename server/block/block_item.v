@@ -1,8 +1,9 @@
-module item
+module block
 
-// BlockItem is the base class for items that place a block when used against
-// a face. It carries the block runtime id the session should set in the
-// world. Concrete block items embed it, one class per block item.
+// BlockItem is the class for items that place a block when used against a
+// face. It carries the block runtime id the session should set in the world.
+// Every block file builds its own item form from it (see item_registry.v),
+// and the item registry seeds itself from that list.
 pub struct BlockItem {
 pub:
 	id            string

@@ -16,3 +16,11 @@ pub fn new_andesite() AndesiteBlock {
 		}
 	}
 }
+
+// new_andesite_item is the item form of 'minecraft:andesite'.
+pub fn new_andesite_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:andesite'
+		block_runtime: world.andesite.network_id
+	}
+}

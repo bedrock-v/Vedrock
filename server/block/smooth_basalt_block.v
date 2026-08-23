@@ -16,3 +16,11 @@ pub fn new_smooth_basalt() SmoothBasaltBlock {
 		}
 	}
 }
+
+// new_smooth_basalt_item is the item form of 'minecraft:smooth_basalt'.
+pub fn new_smooth_basalt_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:smooth_basalt'
+		block_runtime: world.smooth_basalt.network_id
+	}
+}

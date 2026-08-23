@@ -8,6 +8,7 @@ import server.player
 import server.world
 import server.world.db
 import server.item
+import server.block
 import protocol.current as proto
 
 // A break that never starts shows the player no crack animation and no
@@ -117,7 +118,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 			'minecraft:test_block': 500
 		}
 	})
-	item.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.stone.network_id
 	})

@@ -16,3 +16,11 @@ pub fn new_mossy_cobblestone() MossyCobblestoneBlock {
 		}
 	}
 }
+
+// new_mossy_cobblestone_item is the item form of 'minecraft:mossy_cobblestone'.
+pub fn new_mossy_cobblestone_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:mossy_cobblestone'
+		block_runtime: world.mossy_cobblestone.network_id
+	}
+}

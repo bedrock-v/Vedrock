@@ -73,13 +73,13 @@ fn place_test_data() gamedata.GameData {
 
 fn place_test_hub() &Hub {
 	mut hub := new_hub(place_test_data())
-	item.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.bedrock.network_id
 	})
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	item.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:test_sign'
 		block_runtime: sign_id
 	})

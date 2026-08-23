@@ -16,3 +16,11 @@ pub fn new_emerald_ore() EmeraldOreBlock {
 		}
 	}
 }
+
+// new_emerald_ore_item is the item form of 'minecraft:emerald_ore'.
+pub fn new_emerald_ore_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:emerald_ore'
+		block_runtime: world.emerald_ore.network_id
+	}
+}

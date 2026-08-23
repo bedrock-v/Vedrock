@@ -16,3 +16,11 @@ pub fn new_tuff() TuffBlock {
 		}
 	}
 }
+
+// new_tuff_item is the item form of 'minecraft:tuff'.
+pub fn new_tuff_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:tuff'
+		block_runtime: world.tuff.network_id
+	}
+}

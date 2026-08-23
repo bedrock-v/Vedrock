@@ -16,3 +16,11 @@ pub fn new_glowstone() GlowstoneBlock {
 		}
 	}
 }
+
+// new_glowstone_item is the item form of 'minecraft:glowstone'.
+pub fn new_glowstone_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:glowstone'
+		block_runtime: world.glowstone.network_id
+	}
+}

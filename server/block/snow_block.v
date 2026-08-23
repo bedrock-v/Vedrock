@@ -16,3 +16,11 @@ pub fn new_snow() SnowBlock {
 		}
 	}
 }
+
+// new_snow_item is the item form of 'minecraft:snow'.
+pub fn new_snow_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:snow'
+		block_runtime: world.snow.network_id
+	}
+}

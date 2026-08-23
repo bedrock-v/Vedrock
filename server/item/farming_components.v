@@ -1,37 +1,7 @@
 module item
 
-import server.world
-
-// Item side of the farming family (see server/block/farming_components.v).
-
-fn seed_item(id string, crop_name string) BlockItem {
-	runtime := world.new_block_with_states('minecraft:${crop_name}', [
-		world.BlockState{
-			key:       'growth'
-			kind:      world.state_kind_int
-			int_value: 0
-		},
-	])
-	return BlockItem{
-		id:            id
-		block_runtime: runtime.network_id
-	}
-}
-
-fn composter_item() BlockItem {
-	id := 'minecraft:composter'
-	runtime := world.new_block_with_states(id, [
-		world.BlockState{
-			key:       'composter_fill_level'
-			kind:      world.state_kind_int
-			int_value: 0
-		},
-	])
-	return BlockItem{
-		id:            id
-		block_runtime: runtime.network_id
-	}
-}
+// Non-block items of the farming family; the block items live in
+// server/block/farming_components_item.v.
 
 const bone_mealable_crops = ['minecraft:wheat', 'minecraft:carrots', 'minecraft:potatoes',
 	'minecraft:beetroot']
@@ -123,10 +93,7 @@ pub fn new_poisonous_potato() PoisonousPotatoItem {
 
 pub fn farming_items() []Item {
 	mut result := []Item{}
-	result << Item(seed_item('minecraft:wheat_seeds', 'wheat'))
-	result << seed_item('minecraft:beetroot_seeds', 'beetroot')
-	result << composter_item()
-	result << new_bone_meal_item()
+	result << Item(new_bone_meal_item())
 	result << new_wheat()
 	result << new_cookie()
 	result << new_golden_carrot()

@@ -1,16 +1,8 @@
-module item
+module block
 
 import server.world
 
-// Item side of the decorative-components (see server/block/decorative_components.v).
-
-const dye_colors = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray',
-	'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black']
-const sign_wood_types = planks_wood_types
-
-fn glazed_terracotta_block_color(color string) string {
-	return if color == 'light_gray' { 'silver' } else { color }
-}
+// Item side of the decorative-components family (see decorative_components.v).
 
 fn simple_color_item(name string) BlockItem {
 	id := 'minecraft:${name}'
@@ -55,18 +47,8 @@ fn candle_item(name string) BlockItem {
 	}
 }
 
-fn sign_block_name(wood_type string) string {
-	prefix := match wood_type {
-		'oak' { '' }
-		'dark_oak' { 'darkoak_' }
-		else { '${wood_type}_' }
-	}
-
-	return 'minecraft:${prefix}standing_sign'
-}
-
 fn sign_item(wood_type string) BlockItem {
-	runtime := world.new_block_with_states(sign_block_name(wood_type), [
+	runtime := world.new_block_with_states(sign_block_name(wood_type, 'standing_sign'), [
 		world.BlockState{
 			key:       'ground_sign_direction'
 			kind:      world.state_kind_int
@@ -121,9 +103,9 @@ fn bed_item() BlockItem {
 	}
 }
 
-pub fn decorative_items() []Item {
-	mut result := []Item{}
-	result << Item(simple_color_item('glass'))
+pub fn decorative_items() []BlockItem {
+	mut result := []BlockItem{}
+	result << simple_color_item('glass')
 	result << simple_color_item('glass_pane')
 	result << simple_color_item('hardened_clay')
 	for color in dye_colors {

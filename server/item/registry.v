@@ -1,5 +1,7 @@
 module item
 
+import server.block
+
 // Registry maps namespaced item ids to their concrete Item class. The session
 // layer holds one Registry and queries it for per-item behaviour (stack size,
 // attack damage, ...) instead of hard-coding numeric ids.
@@ -34,7 +36,7 @@ pub fn (mut r Registry) register_fallbacks(entries []FallbackEntry) {
 			continue
 		}
 		if e.block_runtime != 0 {
-			r.items[e.id] = BlockItem{
+			r.items[e.id] = block.BlockItem{
 				id:            e.id
 				block_runtime: e.block_runtime
 				stack_max:     fallback_stack_size(e.id)
@@ -178,10 +180,6 @@ fn default_items() []Item {
 	items << new_potion_item()
 	items << new_carrot()
 	items << new_cooked_chicken()
-	items << new_stone_item()
-	items << new_dirt_item()
-	items << new_grass_block_item()
-	items << new_bedrock_item()
 	items << new_stick()
 	items << new_goat_horn_item()
 	items << new_bucket_item()
@@ -235,62 +233,15 @@ fn default_items() []Item {
 	items << new_coal()
 	items << new_diamond()
 	items << new_emerald()
-	items << new_redstone()
 	items << new_lapis_lazuli()
-	items << new_coal_ore_item()
-	items << new_iron_ore_item()
-	items << new_gold_ore_item()
-	items << new_diamond_ore_item()
-	items << new_emerald_ore_item()
-	items << new_copper_ore_item()
-	items << new_redstone_ore_item()
-	items << new_lapis_ore_item()
-	items << new_coal_block_item()
-	items << new_iron_block_item()
-	items << new_gold_block_item()
-	items << new_diamond_block_item()
-	items << new_emerald_block_item()
-	items << new_copper_block_item()
-	items << new_redstone_block_item()
-	items << new_lapis_block_item()
 
-	items << new_cobblestone_item()
-	items << new_sand_item()
-	items << new_red_sand_item()
-	items << new_gravel_item()
-	items << new_sandstone_item()
-	items << new_andesite_item()
-	items << new_polished_andesite_item()
-	items << new_diorite_item()
-	items << new_polished_diorite_item()
-	items << new_granite_item()
-	items << new_polished_granite_item()
-	items << new_netherrack_item()
-	items << new_end_stone_item()
-	items << new_obsidian_item()
-	items << new_ice_item()
-	items << new_snow_item()
-	items << new_clay_item()
-	items << new_mossy_cobblestone_item()
-	items << new_packed_ice_item()
-	items << new_blue_ice_item()
-	items << new_cobbled_deepslate_item()
-	items << new_tuff_item()
-	items << new_calcite_item()
-	items << new_smooth_basalt_item()
-	items << new_dripstone_block_item()
-	items << new_soul_sand_item()
-	items << new_soul_soil_item()
-	items << new_glowstone_item()
-	items << new_magma_block_item()
-	items << new_purpur_block_item()
-	items << new_end_bricks_item()
-	items << wood_items()
-	items << redstone_component_items()
-	items << container_items()
 	items << farming_items()
 	items << combat_progression_items()
-	items << decorative_items()
+
+	block_items := block.default_block_items()
+	for i in 0 .. block_items.len {
+		items << Item(block_items[i])
+	}
 
 	return items
 }

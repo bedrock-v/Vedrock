@@ -16,3 +16,11 @@ pub fn new_grass_block() GrassBlock {
 		}
 	}
 }
+
+// new_grass_block_item is the item form of 'minecraft:grass_block'.
+pub fn new_grass_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:grass_block'
+		block_runtime: world.grass_block.network_id
+	}
+}

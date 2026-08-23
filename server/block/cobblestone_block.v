@@ -16,3 +16,11 @@ pub fn new_cobblestone() CobblestoneBlock {
 		}
 	}
 }
+
+// new_cobblestone_item is the item form of 'minecraft:cobblestone'.
+pub fn new_cobblestone_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:cobblestone'
+		block_runtime: world.cobblestone.network_id
+	}
+}

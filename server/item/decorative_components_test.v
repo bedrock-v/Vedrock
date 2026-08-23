@@ -1,8 +1,10 @@
 module item
 
+import server.block
+
 fn test_color_family_items_registered() {
 	r := new_registry()
-	for color in dye_colors {
+	for color in block.dye_colors {
 		for suffix in ['wool', 'carpet', 'concrete', 'concrete_powder', 'terracotta', 'stained_glass',
 			'stained_glass_pane'] {
 			id := 'minecraft:${color}_${suffix}'

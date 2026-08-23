@@ -1,14 +1,8 @@
-module item
+module block
 
 import server.world
 
-// Item side of the redstone component family (see server/block/redstone_components.v).
-
-const button_types = ['wooden', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'crimson',
-	'warped', 'mangrove', 'cherry', 'bamboo', 'pale_oak', 'stone', 'polished_blackstone']
-const plate_types = ['wooden', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'crimson', 'warped',
-	'mangrove', 'cherry', 'bamboo', 'pale_oak', 'stone', 'light_weighted', 'heavy_weighted',
-	'polished_blackstone']
+// Item side of the redstone component family (see redstone_components.v).
 
 fn redstone_wire_item() BlockItem {
 	id := 'minecraft:redstone'
@@ -221,9 +215,10 @@ fn plate_item(name string) BlockItem {
 	}
 }
 
-pub fn redstone_component_items() []Item {
-	mut result := []Item{}
-	result << Item(redstone_torch_item())
+pub fn redstone_component_items() []BlockItem {
+	mut result := []BlockItem{}
+	result << redstone_wire_item()
+	result << redstone_torch_item()
 	result << redstone_lamp_item()
 	result << repeater_item()
 	result << comparator_item()

@@ -15,3 +15,11 @@ pub fn new_bedrock_block() BedrockBlock {
 		}
 	}
 }
+
+// new_bedrock_item is the item form of 'minecraft:bedrock'.
+pub fn new_bedrock_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:bedrock'
+		block_runtime: world.bedrock.network_id
+	}
+}
