@@ -9,7 +9,6 @@ import protocol.types
 import server.block
 import server.entity
 import server.event
-import server.world
 import server.world.db
 import server.internal.logger
 import protocol.current as proto
@@ -156,11 +155,7 @@ fn (mut tx WorldTx) resubmit(task WorldTask) {
 // generator directly can contradict the world the client already has.
 fn (mut wr WorldRuntime) generated_block(x int, y int, z int) int {
 	mut svc := wr.chunk_service
-	result := <-svc.request(x >> 4, z >> 4)
-	if result.cancelled {
-		return world.air.network_id
-	}
-	return result.chunk.block_id(x & 15, y, z & 15)
+	return svc.block_at(x, y, z)
 }
 
 fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {

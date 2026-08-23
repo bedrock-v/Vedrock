@@ -449,7 +449,8 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
 	for i, target in targets {
 		result := resolve_chunk_result(chans[i])
-		batch << chunk_delivery_packet_from_result(result, binding.world, dim, target.x, target.z)
+		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, binding.world,
+			dim, target.x, target.z)
 		batch << tile_data_packets(binding.world, target.x, target.z)
 		batch_keys << chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
@@ -615,7 +616,8 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
 	for i, target in targets {
 		result := resolve_chunk_result(chans[i])
-		batch << chunk_delivery_packet_from_result(result, wld, dim, target.x, target.z)
+		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, wld, dim,
+			target.x, target.z)
 		batch << tile_data_packets(wld, target.x, target.z)
 		batch_keys << chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
@@ -680,16 +682,20 @@ fn chunk_cache_key(cx int, cz int) u64 {
 fn empty_chunk_result() ChunkResult {
 	empty := world.new_chunk()
 	return ChunkResult{
-		chunk:         empty
 		serialized:    empty.serialize()
 		section_count: empty.section_count()
 	}
 }
 
-// generated_chunk resolves (cx, cz) through the world's shared chunk service
-// rather than generating or caching the chunk per session.
+// generated_chunk resolves (cx, cz)'s decoded column through the world's shared
+// chunk service rather than generating it per session. The copy is private to
+// the caller, which is what lets it apply overrides.
 fn (mut s NetworkSession) generated_chunk(wr &WorldRuntime, cx int, cz int) world.Chunk {
-	return s.generated_chunk_result(wr, cx, cz).chunk
+	if isnil(wr) {
+		return world.new_chunk()
+	}
+	mut svc := wr.chunk_service
+	return svc.decoded_clone(cx, cz) or { world.new_chunk() }
 }
 
 // generated_chunk_result resolves one chunk through the world's shared chunk
@@ -750,12 +756,12 @@ fn resolve_chunk_result(ch chan ChunkResult) ChunkResult {
 // If the chunk has no block overrides, it reuses the cached serialized
 // bytes. Otherwise it applies the current overrides and serializes a fresh
 // chunk so preoverride bytes are never sent for modified terrain.
-fn chunk_delivery_packet_from_result(result ChunkResult, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
+fn (mut s NetworkSession) chunk_delivery_packet_from_result(result ChunkResult, wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	overrides := if isnil(wld) { []db.BlockOverride{} } else { wld.overrides_in_chunk(cx, cz) }
 	if overrides.len == 0 {
 		return level_chunk_packet_from_bytes(dim, cx, cz, result.section_count, result.serialized)
 	}
-	mut chunk := result.chunk
+	mut chunk := s.generated_chunk(wr, cx, cz)
 	apply_overrides_list(mut chunk, overrides)
 	return level_chunk_packet(dim, cx, cz, chunk)
 }
@@ -766,7 +772,7 @@ fn chunk_delivery_packet_from_result(result ChunkResult, wld &db.World, dim worl
 // multiple columns can be resolved concurrently by the chunk worker pool.
 fn (mut s NetworkSession) chunk_delivery_packet(wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	result := s.generated_chunk_result(wr, cx, cz)
-	return chunk_delivery_packet_from_result(result, wld, dim, cx, cz)
+	return s.chunk_delivery_packet_from_result(result, wr, wld, dim, cx, cz)
 }
 
 fn apply_overrides_list(mut chunk world.Chunk, overrides []db.BlockOverride) {

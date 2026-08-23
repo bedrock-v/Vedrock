@@ -12,19 +12,27 @@ const chunk_gen_worker_count = 4
 // Requests waiting for a free worker before request() blocks the caller.
 const chunk_gen_queue_capacity = 256
 
-// Cache limit in bytes. Chunk size varies a lot (empty
-// void column vs fully terrainfilled), so a flat entry count limit
-// wouldn't actually bound memory.
-const chunk_service_cache_budget_bytes = i64(128) * 1024 * 1024
+// Cache limit in bytes, counting the wire bytes the cache actually holds.
+// Chunk size varies a lot (empty void column vs fully terrainfilled), so a flat
+// entry count limit wouldn't actually bound memory. A radius 8 view is 200-odd
+// columns at ~10kB each, so this holds a couple of players' worth of view and
+// a miss only costs one regeneration.
+const chunk_service_cache_budget_bytes = i64(4) * 1024 * 1024
 
-// ChunkResult is what request() delivers: a chunk or cancelled if the
-// service shut down before generation ran.
+// Decoded columns kept for block queries and override rebuilds. A decoded
+// column costs an order of magnitude more than its wire form, so only the few
+// a player is actually interacting with are worth keeping - block queries are
+// spatially local, and everything else reads the wire bytes.
+const chunk_decoded_cache_size = 24
+
+// ChunkResult is what request() delivers: a column's wire bytes, or cancelled
+// if the service shut down before generation ran.
 //
-// serialized/section_count are the chunk's wire format bytes, computed
-// once at generation time.
+// serialized is computed once at generation time and never mutated afterwards,
+// so every waiter and every later cache hit shares the one array. Callers hand
+// it straight to a LevelChunkPacket; nothing writes through it.
 pub struct ChunkResult {
 pub:
-	chunk         world.Chunk
 	serialized    []u8
 	section_count int
 	cancelled     bool
@@ -44,10 +52,9 @@ struct ChunkGenJob {
 	cz  int
 }
 
-// One cached chunk plus its precomputed size (bytes) and last used clock
-// value, used for LRU eviction.
+// One cached column's wire bytes plus its size and last used clock value, used
+// for LRU eviction.
 struct ChunkCacheEntry {
-	chunk         world.Chunk
 	serialized    []u8
 	section_count int
 	bytes         i64
@@ -78,9 +85,13 @@ mut:
 	// Defaults to chunk_service_cache_budget_bytes; overridable in tests so
 	// eviction can be exercised without allocating hundreds of MB.
 	budget_bytes i64 = chunk_service_cache_budget_bytes
-	inflight     map[u64]&ChunkRequest
-	jobs         chan ChunkGenJob = chan ChunkGenJob{cap: chunk_gen_queue_capacity}
-	stop         chan bool        = chan bool{cap: chunk_gen_worker_count}
+	// Decoded columns for block queries and override rebuilds, capped by count
+	// rather than bytes: there are only ever chunk_decoded_cache_size of them.
+	decoded       map[u64]world.Chunk
+	decoded_order []u64
+	inflight      map[u64]&ChunkRequest
+	jobs          chan ChunkGenJob = chan ChunkGenJob{cap: chunk_gen_queue_capacity}
+	stop          chan bool        = chan bool{cap: chunk_gen_worker_count}
 
 	published_active_workers &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	published_queue_depth    &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
@@ -126,8 +137,7 @@ pub fn (mut svc WorldChunkService) request(cx int, cz int) chan ChunkResult {
 		svc.cache[key] = touched
 		svc.mutex.unlock()
 		result <- ChunkResult{
-			chunk:         entry.chunk.clone()
-			serialized:    entry.serialized.clone()
+			serialized:    entry.serialized
 			section_count: entry.section_count
 		}
 		return result
@@ -180,22 +190,20 @@ fn (mut svc WorldChunkService) run_worker() {
 	}
 }
 
-// complete caches the generated chunk and delivers it to every waiter.
-// Each waiter gets its own clone. Chunk's slices alias their backing
-// arrays on a plain copy, so handing out the shared value would let one
-// session's block overrides corrupt another session's view and the
-// cache.
+// complete caches the generated column's wire bytes and delivers them to every
+// waiter. The decoded chunk is not cached: it costs an order of magnitude more
+// than its wire form and only the block query and override paths ever need one,
+// so those go through decoded() and its much smaller cache instead.
 fn (mut svc WorldChunkService) complete(key u64, chunk world.Chunk) {
 	// Serialize once here instead of once per waiter
 	serialized := chunk.serialize()
 	section_count := chunk.section_count()
 
 	svc.mutex.lock()
-	bytes := chunk.estimated_bytes() + i64(serialized.len)
+	bytes := i64(serialized.len)
 	svc.evict_until_room_locked(bytes)
 	svc.cache_seq++
 	svc.cache[key] = ChunkCacheEntry{
-		chunk:         chunk
 		serialized:    serialized
 		section_count: section_count
 		bytes:         bytes
@@ -214,13 +222,67 @@ fn (mut svc WorldChunkService) complete(key u64, chunk world.Chunk) {
 		mut ch := w
 		select {
 			ch <- ChunkResult{
-				chunk:         chunk.clone()
-				serialized:    serialized.clone()
+				serialized:    serialized
 				section_count: section_count
 			} {}
 			else {}
 		}
 	}
+}
+
+// decoded_column returns the decoded form of (cx, cz), generating it on a miss.
+// The returned chunk is the service's own - callers that mutate it must clone
+// first, which is what decoded_clone is for.
+fn (mut svc WorldChunkService) decoded_column(cx int, cz int) ?world.Chunk {
+	key := chunk_cache_key(cx, cz)
+	svc.mutex.lock()
+	if svc.closed {
+		svc.mutex.unlock()
+		return none
+	}
+	if chunk := svc.decoded[key] {
+		svc.mutex.unlock()
+		return chunk
+	}
+	mut generator := svc.generator
+	svc.mutex.unlock()
+
+	// Generated outside the lock: a concurrent caller may generate the same
+	// column, which wastes one generation but never yields a different column.
+	chunk := generator.generate(cx, cz)
+
+	svc.mutex.lock()
+	if svc.closed {
+		svc.mutex.unlock()
+		return chunk
+	}
+	if existing := svc.decoded[key] {
+		svc.mutex.unlock()
+		return existing
+	}
+	svc.decoded[key] = chunk
+	svc.decoded_order << key
+	for svc.decoded_order.len > chunk_decoded_cache_size {
+		svc.decoded.delete(svc.decoded_order[0])
+		svc.decoded_order.delete(0)
+	}
+	svc.mutex.unlock()
+	return chunk
+}
+
+// decoded_clone returns a private copy of (cx, cz)'s decoded column, for
+// callers that apply overrides or otherwise write to it.
+pub fn (mut svc WorldChunkService) decoded_clone(cx int, cz int) ?world.Chunk {
+	chunk := svc.decoded_column(cx, cz)?
+	return chunk.clone()
+}
+
+// block_at reads one generated block without copying the column. Block queries
+// run per placement and per physics check, so the read has to stay allocation
+// free.
+pub fn (mut svc WorldChunkService) block_at(x int, y int, z int) int {
+	chunk := svc.decoded_column(x >> 4, z >> 4) or { return world.air.network_id }
+	return chunk.block_id(x & 15, y, z & 15)
 }
 
 fn (mut svc WorldChunkService) evict_until_room_locked(incoming_bytes i64) {
@@ -261,6 +323,8 @@ pub fn (mut svc WorldChunkService) shutdown() {
 		}
 	}
 	svc.inflight = map[u64]&ChunkRequest{}
+	svc.decoded = map[u64]world.Chunk{}
+	svc.decoded_order = []u64{}
 	svc.mutex.unlock()
 	for _ in 0 .. chunk_gen_worker_count {
 		svc.stop <- true
