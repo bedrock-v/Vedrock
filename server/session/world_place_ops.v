@@ -216,7 +216,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 	v := tx.wr.hub.palette.variant(clicked_id) or { return false }
 	stack, name := s.held_stack_and_name()
 	result := tx.wr.hub.items.use_on_block_result(name, v.name, stack.meta) or { return false }
-	current := v.states[result.state_key] or { return false }.int()
+	current := v.states.get(result.state_key) or { return false }.int()
 	new_id := tx.wr.hub.palette.with_state(clicked_id, result.state_key, (current +
 		result.state_delta).str()) or { return false }
 	if new_id == clicked_id {

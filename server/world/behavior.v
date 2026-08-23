@@ -37,7 +37,7 @@ pub fn is_fence_gate_name(name string) bool {
 
 pub fn (p &BlockPalette) toggled_open(id int) ?int {
 	v := p.variant(id) or { return none }
-	open := v.states['open_bit'] or { return none }
+	open := v.states.get('open_bit') or { return none }
 	next := if open == '1' || open == 'true' { '0' } else { '1' }
 	return p.with_state(id, 'open_bit', next)
 }
@@ -47,7 +47,7 @@ pub fn (p &BlockPalette) door_pair_id(id int) ?int {
 	if !is_door_name(v.name) {
 		return none
 	}
-	upper := v.states['upper_block_bit'] or { return none }
+	upper := v.states.get('upper_block_bit') or { return none }
 	next := if upper == '1' || upper == 'true' { '0' } else { '1' }
 	return p.with_state(id, 'upper_block_bit', next)
 }
@@ -78,7 +78,7 @@ pub fn (p &BlockPalette) is_door_top(id int) bool {
 
 pub fn (p &BlockPalette) door_placement(id int, yaw f32, neighbors NeighborBlockIDs) ?DoorPlacement {
 	v := p.variant(id) or { return none }
-	if !is_door_name(v.name) || 'upper_block_bit' !in v.states {
+	if !is_door_name(v.name) || !v.states.has('upper_block_bit') {
 		return none
 	}
 	mut lower := p.oriented(id, yaw, 1, 0.5)
@@ -125,9 +125,9 @@ pub fn (p &BlockPalette) merged_slab(existing_id int, placing_id int, click_face
 		}
 	}
 	double_name := double_slab_name(existing.name)
-	return p.by_key[palette_key(double_name, {
+	return p.id_for(double_name, {
 		'minecraft:vertical_half': if existing_top { 'top' } else { 'bottom' }
-	})] or { return none }
+	})
 }
 
 fn (p &BlockPalette) door_hinge(lower_id int, neighbors NeighborBlockIDs) int {
