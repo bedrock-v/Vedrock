@@ -87,6 +87,25 @@ fn (mut p BlockPalette) seal() {
 	p.keys.sort(a.hash < b.hash)
 	p.by_id.sort(a.id < b.id)
 	p.interned = map[string]u32{}
+	// Every table above was grown by appending, so each one is sitting in the
+	// next power of two - 84525 pairs in room for 131072, and so on. None of
+	// them is ever appended to again.
+	p.strings = tighten(p.strings)
+	p.pairs = tighten(p.pairs)
+	p.entries = tighten(p.entries)
+	p.by_id = tighten(p.by_id)
+	p.ids = tighten(p.ids)
+	p.keys = tighten(p.keys)
+}
+
+// tighten returns a copy of a sized exactly to its length, shedding the spare
+// capacity appending left behind. clone() keeps the capacity, so it cannot.
+fn tighten[T](a []T) []T {
+	mut out := []T{cap: a.len}
+	for v in a {
+		out << v
+	}
+	return out
 }
 
 // entry_index finds id's entry through the sorted id index.
