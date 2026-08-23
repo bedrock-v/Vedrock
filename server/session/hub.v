@@ -6,8 +6,8 @@ import sync.stdatomic
 import math
 import time
 import protocol
-
 import server.event
+import server.player.chat
 import server.scheduler
 import server.entity
 import server.internal.gamedata
@@ -44,9 +44,9 @@ mut:
 	// difficulty. Every read or write including the one time boot load via
 	// set_ops/set_whitelist/set_difficulty, goes through the locked accessors
 	// below.
-	config_mutex &sync.Mutex               = sync.new_mutex()
-	load_bits    &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
-	online_count &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
+	config_mutex                  &sync.Mutex               = sync.new_mutex()
+	load_bits                     &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
+	online_count                  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	active_chunk_generation_count &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	// current_tick_bits backs current_tick()/set_current_tick(). Written
 	// directly from server.v's tick loop while other threads still read it
@@ -622,6 +622,8 @@ fn (mut h Hub) add(target &NetworkSession) {
 	h.sessions[target.runtime_id] = target
 	h.pending_names.delete(normal_player_name(target.player.identity.display_name))
 	h.mutex.unlock()
+	mut joined := unsafe { target }
+	joined.join_global_chat()
 	h.online_count.add(1)
 	h.session_wg.add(1)
 }
@@ -630,6 +632,8 @@ fn (mut h Hub) remove(runtime_id u64) {
 	h.mutex.lock()
 	h.sessions.delete(runtime_id)
 	h.mutex.unlock()
+	mut global := chat.global()
+	global.unsubscribe(runtime_id)
 	h.online_count.sub(1)
 	h.session_wg.done()
 }

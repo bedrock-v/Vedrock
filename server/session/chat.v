@@ -2,11 +2,12 @@ module session
 
 import server.cmd
 import server.event
+import server.player.chat
 import protocol.current as proto
 
 fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
-	chat := proto.text_chat(p.message_type) or { return }
-	message := chat.message.trim_space()
+	text := proto.text_chat(p.message_type) or { return }
+	message := text.message.trim_space()
 	if message == '' {
 		return
 	}
@@ -88,4 +89,29 @@ fn (mut s NetworkSession) send_translation(message string, parameters []string) 
 			parameter_list: parameters
 		}
 	})
+}
+
+// subscriber_id identifies this session in a chat channel. The runtime id is
+// unique for as long as the session is connected, which is exactly as long as
+// it stays subscribed.
+fn (s &NetworkSession) subscriber_id() u64 {
+	return s.runtime_id
+}
+
+// message satisfies chat.Subscriber. Chat written to a channel this session is
+// subscribed to arrives here as plain text.
+fn (mut s NetworkSession) message(text string) {
+	s.send_message(text) or {}
+}
+
+// join_global_chat subscribes the session to the chat every online player
+// receives. It is undone by leave_global_chat when the session goes away.
+fn (mut s NetworkSession) join_global_chat() {
+	mut global := chat.global()
+	global.subscribe(s)
+}
+
+fn (mut s NetworkSession) leave_global_chat() {
+	mut global := chat.global()
+	global.unsubscribe(s.runtime_id)
 }
