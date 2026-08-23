@@ -18,12 +18,19 @@ mut:
 	palette []int
 	narrow  []u8
 	wide    []u16
+	// Terrain is written in runs of the same block, so remembering the last
+	// palette hit answers most lookups with one comparison instead of a scan
+	// over the whole palette. Seeded with air, which is what a fresh section is
+	// full of.
+	last_id    int
+	last_index u16
 }
 
 fn new_section() Section {
 	return Section{
 		palette: [air.network_id]
 		narrow:  []u8{len: 4096}
+		last_id: air.network_id
 	}
 }
 
@@ -54,16 +61,23 @@ fn (mut s Section) set(index int, id int) {
 // stays small enough that a scan beats the per section map a lookup table would
 // cost.
 fn (mut s Section) palette_index(id int) u16 {
+	if id == s.last_id {
+		return s.last_index
+	}
 	for i, entry in s.palette {
 		if entry == id {
-			return u16(i)
+			s.last_id = id
+			s.last_index = u16(i)
+			return s.last_index
 		}
 	}
 	s.palette << id
 	if s.palette.len > 256 && s.wide.len == 0 {
 		s.widen()
 	}
-	return u16(s.palette.len - 1)
+	s.last_id = id
+	s.last_index = u16(s.palette.len - 1)
+	return s.last_index
 }
 
 // widen switches the section to 16 bit indices, once a byte can no longer
@@ -83,9 +97,11 @@ fn (s &Section) bytes() i64 {
 
 fn (s &Section) clone() Section {
 	return Section{
-		palette: s.palette.clone()
-		narrow:  s.narrow.clone()
-		wide:    s.wide.clone()
+		palette:    s.palette.clone()
+		narrow:     s.narrow.clone()
+		wide:       s.wide.clone()
+		last_id:    s.last_id
+		last_index: s.last_index
 	}
 }
 
@@ -163,6 +179,14 @@ pub fn (c &Chunk) biome_id(x int, z int) int {
 }
 
 pub fn (mut c Chunk) set_block(x int, y int, z int, b Block) {
+	c.set_block_id(x, y, z, b.network_id)
+}
+
+// set_block_id writes a block by its network id.
+//
+// Generators already hold the id, and going through set_block made them build a
+// Block - name string included - for every block of terrain they wrote.
+pub fn (mut c Chunk) set_block_id(x int, y int, z int, id int) {
 	// Check y before division because V truncates negative integer division
 	// toward zero. Values just below min_y could otherwise select section 0
 	// and later wrap a negative local index when converted to u32.
@@ -177,7 +201,43 @@ pub fn (mut c Chunk) set_block(x int, y int, z int, b Block) {
 		c.sections[section_index] = new_section()
 	}
 	local_y := (y - c.min_y) % 16
-	c.sections[section_index].set(block_index(x, local_y, z), b.network_id)
+	c.sections[section_index].set(block_index(x, local_y, z), id)
+}
+
+// set_column writes ids as a run at (x, z), the first entry landing at world y
+// start_y. Air entries are skipped.
+//
+// A generator fills a chunk column by column, and going through set_block_id
+// per block repeated the divide, the bounds check and the section lookup for
+// every one of them. This resolves a section once per sixteen blocks instead.
+pub fn (mut c Chunk) set_column(x int, z int, start_y int, ids []int) {
+	mut i := 0
+	mut y := start_y
+	for i < ids.len {
+		if y < c.min_y {
+			y++
+			i++
+			continue
+		}
+		section_index := (y - c.min_y) / 16
+		if section_index < 0 || section_index >= c.subchunk_count {
+			return
+		}
+		if c.sections[section_index].is_empty() {
+			c.sections[section_index] = new_section()
+		}
+		mut section := &c.sections[section_index]
+		mut local_y := (y - c.min_y) % 16
+		for local_y < 16 && i < ids.len {
+			id := ids[i]
+			if id != air.network_id {
+				section.set(block_index(x, local_y, z), id)
+			}
+			local_y++
+			y++
+			i++
+		}
+	}
 }
 
 fn block_index(x int, y int, z int) int {
