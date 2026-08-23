@@ -263,6 +263,10 @@ fn (s &Server) transport_log_level() logging.Level {
 	return if s.cfg.debug { logging.Level.debug } else { logging.Level.warn }
 }
 
+// start binds the transport listeners (NetherNet & LAN discovery) and
+// begins accepting connections and ticking loaded worlds. Blocks the
+// calling thread for the life of the server; call it last. Returns an
+// error if the network identity or a listener fails to bind.
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
 		'Version': proto.selected_minecraft_version
@@ -694,6 +698,9 @@ pub fn (mut s Server) unload_world(name string) ! {
 	s.hub.unload_world(name)!
 }
 
+// register_generator makes a custom world generator available under name,
+// so load_world/WorldConfig can select it by that name for a new world.
+// Register before loading any world that uses it.
 pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
 	s.hub.register_generator(name, factory)
 }

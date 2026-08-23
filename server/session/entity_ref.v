@@ -52,6 +52,8 @@ pub fn (e EntityRef) valid() bool {
 	}) or { false }
 }
 
+// position is the entity's current position. Fails if the entity has
+// despawned or its world is shutting down.
 pub fn (e EntityRef) position() !types.Vector3 {
 	mut w := e.world_
 	snap := world_call[EntityRefSnapshot](mut w.runtime, fn [e] (mut tx WorldTx) EntityRefSnapshot {
@@ -67,6 +69,8 @@ pub fn (e EntityRef) position() !types.Vector3 {
 	return snap.pos
 }
 
+// teleport moves the entity within its world and broadcasts the move to
+// observers. Same failure mode as position.
 pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	mut w := e.world_
 	applied := world_call[bool](mut w.runtime, fn [e, pos] (mut tx WorldTx) bool {
@@ -94,6 +98,10 @@ fn (a AttackerRef) runtime_id() u64 {
 	}
 }
 
+// damage hurts the entity by amount, killing it outright if fatal is true
+// (otherwise normal health/death rules apply). source attributes the hit
+// for mob-targeting purposes (see AttackerRef); pass none for damage with
+// no attacker. Same failure mode as position.
 pub fn (e EntityRef) damage(amount f32, fatal bool, source ?AttackerRef) ! {
 	source_runtime_id := if s := source { s.runtime_id() } else { u64(0) }
 	mut w := e.world_

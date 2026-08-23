@@ -32,14 +32,19 @@ mut:
 	tx &WorldTx
 }
 
+// block_at reads the block at the given coordinates, resolved against this
+// transaction's own in progress writes.
 pub fn (h &WorldTxHandle) block_at(x int, y int, z int) world.Block {
 	return world.block_from_id(h.tx.block_at(x, y, z))
 }
 
+// set_block writes a block, visible to later reads in the same transaction
+// and broadcast to players in this world once the transaction commits.
 pub fn (mut h WorldTxHandle) set_block(x int, y int, z int, b world.Block) ! {
 	h.tx.set_block(x, y, z, b.network_id)
 }
 
+// players lists every player currently registered in this world.
 pub fn (mut h WorldTxHandle) players() []PlayerRef {
 	mut out := []PlayerRef{}
 	for mut a in h.tx.wr.entities.player_actors() {
