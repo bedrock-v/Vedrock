@@ -527,8 +527,8 @@ fn test_place_resolves_block_from_item_registry() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	sign_id :=
-		hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	hub.items.register(item.BlockItem{
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	item.register(item.BlockItem{
 		id:            'minecraft:oak_sign'
 		block_runtime: sign_id
 	})
@@ -561,7 +561,7 @@ fn test_place_resolves_block_from_item_registry() {
 	s.handle_player_auth_input(place_packet)!
 
 	target_id := s.block_at(2, -60, 12)
-	got := hub.blocks.get(target_id) or { panic('placed block not in registry') }
+	got := block.get(target_id) or { panic('placed block not in registry') }
 	assert got is block.SignBlock
 	assert got.identifier() == 'minecraft:standing_sign'
 }
@@ -576,8 +576,8 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	sign_id :=
-		hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	hub.items.register(item.BlockItem{
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	item.register(item.BlockItem{
 		id:            'minecraft:oak_sign'
 		block_runtime: sign_id
 	})
@@ -611,7 +611,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 			'minecraft:test_block': 500
 		}
 	})
-	hub.items.register(item.BlockItem{
+	item.register(item.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.bedrock.network_id
 	})

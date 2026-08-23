@@ -133,8 +133,8 @@ fn test_entity_tick_isolated_to_owning_world() {
 		hub.close_worlds()
 	}
 
-	behaviour_a := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
-	behaviour_b := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
+	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
 	wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
 	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
 
@@ -208,7 +208,7 @@ fn test_entity_spawn_event_isolated_to_owning_world() {
 	wr_a.events.register(handler_a, .normal)
 	wr_b.events.register(handler_b, .normal)
 
-	behaviour := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour := entity.create('pig') or { panic('missing pig behaviour') }
 	task := SpawnEntityTask{
 		behaviour: behaviour
 		x:         0
@@ -237,7 +237,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 
 	wr_a.events.register(&CancelEntitySpawnHandler{}, .normal)
 
-	behaviour_a := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	task_a := SpawnEntityTask{
 		behaviour: behaviour_a
 		x:         0
@@ -248,7 +248,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 	assert <-task_a.result == false
 	assert wr_a.entities.count() == 0
 
-	behaviour_b := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
 	task_b := SpawnEntityTask{
 		behaviour: behaviour_b
 		x:         0
@@ -287,8 +287,8 @@ fn test_entity_despawn_event_isolated_to_owning_world() {
 	wr_a.events.register(handler_a, .normal)
 	wr_b.events.register(handler_b, .normal)
 
-	behaviour_a := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
-	behaviour_b := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
+	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
 	entity_a := wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
 	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
 

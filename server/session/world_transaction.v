@@ -2,6 +2,7 @@ module session
 
 import server.event
 import server.world
+import server.entity
 import protocol.types
 
 // WorldTransaction is the public transaction surface passed to World.exec.
@@ -51,7 +52,7 @@ pub fn (mut h WorldTxHandle) players() []PlayerRef {
 // spawn_entity validates and spawns an entity directly within the current
 // world transaction, avoiding an additional task and result round trip.
 pub fn (mut h WorldTxHandle) spawn_entity(config EntityConfig) !EntityRef {
-	behaviour := h.tx.wr.hub.entity_registry.create(config.type_name) or {
+	behaviour := entity.create(config.type_name) or {
 		return error('unknown entity type "${config.type_name}"')
 	}
 	mut ctx := event.new_context(event.EntitySpawnData{

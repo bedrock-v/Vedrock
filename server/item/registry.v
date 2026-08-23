@@ -107,6 +107,66 @@ pub fn (r &Registry) len() int {
 	return r.items.len
 }
 
+// process_registry is the one item registry for the whole program: every
+// vanilla and custom item lives here, and every lookup (get, max_stack_size,
+// ...) reads from it. Register custom items before calling server.new() -
+// init() below seeds the vanilla set before your own main() runs.
+const process_registry = &Registry{}
+
+fn init() {
+	mut r := process_registry
+	for it in default_items() {
+		r.register(it)
+	}
+}
+
+// register adds or overrides the class for an item id. Use this for a
+// hand-written Item; register_custom (custom.v) is the data-driven form.
+pub fn register(it Item) {
+	mut r := process_registry
+	r.register(it)
+}
+
+// get returns the registered class for id, or none if unregistered.
+pub fn get(id string) ?Item {
+	return process_registry.get(id)
+}
+
+// max_stack_size returns the stack size for id, falling back to 64 for
+// unregistered items.
+pub fn max_stack_size(id string) int {
+	return process_registry.max_stack_size(id)
+}
+
+pub fn consume_result(id string, meta int) ?ConsumeResult {
+	return process_registry.consume_result(id, meta)
+}
+
+pub fn use_result(id string, meta int) ?UseResult {
+	return process_registry.use_result(id, meta)
+}
+
+pub fn use_on_block_result(id string, block_name string, meta int) ?UseOnBlockResult {
+	return process_registry.use_on_block_result(id, block_name, meta)
+}
+
+pub fn use_on_entity_result(id string, entity_name string, meta int) ?UseOnEntityResult {
+	return process_registry.use_on_entity_result(id, entity_name, meta)
+}
+
+pub fn cooldown_ticks(id string) ?int {
+	return process_registry.cooldown_ticks(id)
+}
+
+// apply_palette_fallbacks fills in every wire-palette item that has no hand
+// written class yet, so it's still holdable. Safe to call more than once -
+// an already-registered id is left untouched. Each Hub calls this with its
+// own loaded palette, since the palette itself comes from disk per Hub.
+pub fn apply_palette_fallbacks(entries []FallbackEntry) {
+	mut r := process_registry
+	r.register_fallbacks(entries)
+}
+
 // default_items is the built-in set of modelled items, one class per item.
 // Extend this list as new item classes are added.
 fn default_items() []Item {

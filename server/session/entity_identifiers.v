@@ -2,6 +2,7 @@ module session
 
 import os
 import nbt
+import server.entity
 import server.internal.gamedata
 
 // The client resolves every actor type against this registry, its own player
@@ -14,7 +15,7 @@ const vanilla_entity_identifiers = gamedata.load_entity_identifiers(os.join_path
 // the client cannot do without.
 fn (s &NetworkSession) entity_identifiers() nbt.RootTag {
 	mut entries := vanilla_entity_identifiers.clone()
-	custom := s.hub.custom_entities.identifiers_nbt()
+	custom := entity.custom_identifiers_nbt()
 	if custom_root := compound_of(custom.tag) {
 		if list := custom_root.get('idlist') {
 			if list is nbt.List {

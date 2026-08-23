@@ -303,3 +303,31 @@ pub fn (r &CustomRegistry) names() []string {
 	}
 	return out
 }
+
+// process_custom_registry holds just the custom item definitions, for id
+// allocation and for listing "which items are custom" - session/items.v
+// needs that list to build ItemRegistryPacket/CreativeContentPacket.
+// Lookups (get, max_stack_size, ...) go through registry.v's registry
+// instead; register_custom keeps both in sync.
+const process_custom_registry = &CustomRegistry{}
+
+// register_custom registers a data-driven item: allocates its runtime id
+// and makes it resolvable everywhere immediately (get, max_stack_size,
+// ...). Call it from your own main(), before server.new(). Registering the
+// same id twice just returns the id already allocated to it.
+pub fn register_custom(def CustomItemDefinition) int {
+	mut cr := process_custom_registry
+	rid := cr.register(def)
+	mut stored := def
+	stored.runtime_id = rid
+	register(CustomItemClass{
+		def: stored
+	})
+	return rid
+}
+
+// registered_custom returns every item registered via register_custom so
+// far, each with its runtime id filled in.
+pub fn registered_custom() []CustomItemDefinition {
+	return process_custom_registry.all()
+}

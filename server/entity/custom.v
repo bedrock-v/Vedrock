@@ -24,8 +24,11 @@ pub fn (d &CustomEntityDefinition) short_name() string {
 	return d.id[idx + 1..]
 }
 
-// CustomRegistry owns every registered custom entity definition and hands out
-// runtime ids sequentially, starting at custom_entity_runtime_id_start.
+// CustomRegistry owns every registered custom entity definition and hands
+// out runtime ids sequentially, starting at custom_entity_runtime_id_start.
+// It only tracks which entity types are custom, for id allocation and for
+// identifiers_nbt.
+// The spawn factory itself lives in entity.Registry (registry.v). See register_custom below.
 pub struct CustomRegistry {
 mut:
 	defs    []CustomEntityDefinition
@@ -37,8 +40,8 @@ pub fn new_custom_registry() CustomRegistry {
 	return CustomRegistry{}
 }
 
-// register allocates a runtime id for def and stores it, returning false when
-// the id was already registered.
+// register allocates a runtime id for def and stores it, returning false
+// when the id was already registered.
 pub fn (mut r CustomRegistry) register(def CustomEntityDefinition) bool {
 	if def.id in r.ids {
 		return false
@@ -65,6 +68,37 @@ pub fn (r &CustomRegistry) names() []string {
 		out << def.id
 	}
 	return out
+}
+
+// process_custom_registry holds just the custom entity definitions, for id
+// allocation and for identifiers_nbt. The client needs the custom types
+// added to the vanilla actor identifier list, see
+// session/entity_identifiers.v. Spawning goes through registry.v's
+// register/create instead; register_custom keeps both in sync.
+const process_custom_registry = &CustomRegistry{}
+
+// register_custom registers a custom entity type and makes it spawnable
+// everywhere immediately via create(). Call it from your own setup,
+// before server.new(). Returns false when the id was already registered.
+pub fn register_custom(def CustomEntityDefinition, factory BehaviourFactory) bool {
+	mut cr := process_custom_registry
+	if !cr.register(def) {
+		return false
+	}
+	register(def.short_name(), factory)
+	return true
+}
+
+// registered_custom returns every entity type registered via register_custom
+// so far, each with its runtime id filled in.
+pub fn registered_custom() []CustomEntityDefinition {
+	return process_custom_registry.all()
+}
+
+// custom_identifiers_nbt builds the AvailableActorIdentifiers entries for
+// every entity type registered via register_custom.
+pub fn custom_identifiers_nbt() nbt.RootTag {
+	return process_custom_registry.identifiers_nbt()
 }
 
 fn flag_byte(v bool) nbt.Tag {

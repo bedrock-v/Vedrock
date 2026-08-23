@@ -3,6 +3,8 @@ module session
 import protocol.types
 import nbt
 import server.player.playerdb
+import server.item
+import server.block
 import protocol.current as proto
 
 const inventory_window_id = 0
@@ -41,7 +43,7 @@ fn (s &NetworkSession) max_stack_size_for_numeric(id int) int {
 	if name == '' {
 		return 64
 	}
-	return s.hub.items.max_stack_size(name)
+	return item.max_stack_size(name)
 }
 
 fn (s &NetworkSession) clamp_stack_count(id int, count int) int {
@@ -66,7 +68,7 @@ fn (s &NetworkSession) item_registry() &proto.ItemComponentPacket {
 			component_data:      empty_component_nbt()
 		}
 	}
-	for def in s.hub.custom_items.all() {
+	for def in item.registered_custom() {
 		entries << proto.ItemsEntry{
 			component_item_name: def.id
 			runtime_id:          i16(def.runtime_id)
@@ -115,7 +117,7 @@ fn (s &NetworkSession) voxel_shapes() &proto.VoxelShapesPacket {
 // it can render or place one: the data driven vanilla blocks first, then the
 // blocks plugins registered.
 fn (s &NetworkSession) custom_block_entries() []proto.BlockProperty {
-	defs := s.hub.custom_blocks.all()
+	defs := block.registered_custom()
 	data_driven := s.hub.data.block_definitions
 	mut out := []proto.BlockProperty{cap: data_driven.len + defs.len}
 	for def in data_driven {
@@ -172,7 +174,7 @@ fn (s &NetworkSession) creative_content() &proto.CreativeContentPacket {
 		}
 	}
 	mut next_entry := s.hub.data.creative_items.len + 1
-	for def in s.hub.custom_items.all() {
+	for def in item.registered_custom() {
 		items << proto.CreativeItemData{
 			creative_net_id: u32(next_entry)
 			item_instance:   proto.item_instance(types.ItemStack{

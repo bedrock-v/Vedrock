@@ -117,7 +117,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 			'minecraft:test_block': 500
 		}
 	})
-	hub.items.register(item.BlockItem{
+	item.register(item.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.stone.network_id
 	})

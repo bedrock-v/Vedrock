@@ -685,7 +685,7 @@ fn (mut tx WorldTx) run_due_scheduled_ticks() {
 	due := wr.world.due_scheduled_entries(wr.current_tick, max_due_updates_per_tick)
 	for entry in due {
 		old_id := wr.world.block_id(entry.x, entry.y, entry.z)
-		b := wr.hub.blocks.get(old_id) or { continue }
+		b := block.get(old_id) or { continue }
 		if b is block.ScheduledTicker {
 			b.scheduled_tick(entry.x, entry.y, entry.z, mut wr.world)
 			new_id := wr.world.block_id(entry.x, entry.y, entry.z)
@@ -705,7 +705,7 @@ fn (mut tx WorldTx) run_random_ticks() {
 			continue
 		}
 		old_id := wr.world.block_id(pos.x, pos.y, pos.z)
-		b := wr.hub.blocks.get(old_id) or { continue }
+		b := block.get(old_id) or { continue }
 		if b is block.RandomTicker {
 			b.random_tick(pos.x, pos.y, pos.z, mut wr.world)
 			new_id := wr.world.block_id(pos.x, pos.y, pos.z)

@@ -3,6 +3,7 @@ module session
 import protocol.types
 import protocol.current as proto
 import server.internal.logger
+import server.item
 
 // op / deop
 
@@ -424,7 +425,7 @@ fn (mut s NetworkSession) give_item(id string, count int) bool {
 		return false
 	}
 	mut block_runtime_id := 0
-	if it := s.hub.items.get(id) {
+	if it := item.get(id) {
 		block_runtime_id = it.block_runtime_id()
 	}
 	mut wr := s.current_world_runtime()

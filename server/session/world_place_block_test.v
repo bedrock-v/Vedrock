@@ -9,6 +9,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
+import server.block
 import protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
@@ -72,13 +73,13 @@ fn place_test_data() gamedata.GameData {
 
 fn place_test_hub() &Hub {
 	mut hub := new_hub(place_test_data())
-	hub.items.register(item.BlockItem{
+	item.register(item.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.bedrock.network_id
 	})
 	sign_id :=
-		hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	hub.items.register(item.BlockItem{
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	item.register(item.BlockItem{
 		id:            'minecraft:test_sign'
 		block_runtime: sign_id
 	})
@@ -381,7 +382,7 @@ fn test_handled_interaction_does_not_consume_or_place_held_item() {
 	target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	sign_id :=
-		hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
 	target.set_block(0, 0, 1, sign_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}

@@ -179,7 +179,7 @@ fn (s &NetworkSession) placement_runtime_id() int {
 		return stack.block_runtime_id
 	}
 	held_name := s.hub.data.item_name(stack.id)
-	if held_item := s.hub.items.get(held_name) {
+	if held_item := item.get(held_name) {
 		return held_item.block_runtime_id()
 	}
 	return 0
@@ -204,7 +204,7 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 	if net == 0 {
 		return
 	}
-	it := s.hub.items.get(s.hub.data.item_name(stack.id)) or { return }
+	it := item.get(s.hub.data.item_name(stack.id)) or { return }
 	result := item.damage_item(it, stack.meta, amount)
 	if result.broken {
 		s.player.delete_stack(net)
@@ -231,13 +231,13 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		return
 	}
 	stack, name := s.held_stack_and_name()
-	if cooldown := s.hub.items.cooldown_ticks(name) {
+	if cooldown := item.cooldown_ticks(name) {
 		if s.hub.current_tick() < s.cooldown_until[name] {
 			return
 		}
 		s.cooldown_until[name] = s.hub.current_tick() + i64(cooldown)
 	}
-	result := s.hub.items.use_result(name, stack.meta) or { return }
+	result := item.use_result(name, stack.meta) or { return }
 	mut use_ctx := event.new_context(event.ItemUseData{
 		player:    s
 		item_name: name
@@ -380,7 +380,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.resend_block(pos)
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative && !s.hub.blocks.breakable(old_id) {
+	if s.player.game_mode() != proto.game_type_creative && !block.breakable(old_id) {
 		s.send_maybe_queued(&proto.UpdateBlockPacket{
 			block_position:   proto.block_pos(pos)
 			block_runtime_id: u32(old_id)
@@ -480,7 +480,7 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 		}
 	}
 
-	if b := tx.wr.hub.blocks.get(old_id) {
+	if b := block.get(old_id) {
 		if b is block.ChestBlock {
 			drop_chest_contents(mut tx.wr, mut s, pos.x, pos.y, pos.z)
 		}

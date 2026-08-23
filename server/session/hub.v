@@ -20,7 +20,6 @@ import server.world as blockworld
 import server.world.db
 import server.resourcepack
 import server.permission
-import server.enchant
 import server.internal.auth
 import server.player.playerdb
 import protocol.current as proto
@@ -62,17 +61,10 @@ mut:
 	session_wg         &sync.WaitGroup = sync.new_waitgroup()
 	oidc_verifier      auth.Verifier
 	data               gamedata.GameData
-	items              item.Registry                = item.new_registry()
-	blocks             block.Registry               = block.new_registry()
 	lang               &language.Lang               = unsafe { nil }
 	commands           cmd.Registry                 = cmd.new_registry()
 	events             &event.Bus                   = unsafe { nil }
 	scheduler          &scheduler.Scheduler         = unsafe { nil }
-	entity_registry    entity.Registry              = entity.new_registry()
-	custom_items       item.CustomRegistry          = item.new_custom_registry()
-	custom_blocks      block.CustomRegistry         = block.new_custom_registry()
-	custom_entities    entity.CustomRegistry        = entity.new_custom_registry()
-	enchantments       enchant.Registry             = enchant.new_registry()
 	generators         blockworld.GeneratorRegistry = blockworld.new_generator_registry()
 	started_at         i64
 	default_world_name string
@@ -136,7 +128,6 @@ pub fn (mut h Hub) set_load(v f64) {
 pub struct HubOptions {
 pub:
 	commands             ?cmd.Registry
-	entity_registry      ?entity.Registry
 	world_factory        ?db.Factory
 	player_data_provider ?playerdb.Provider
 	auth_verifier        ?auth.Verifier
@@ -147,12 +138,6 @@ pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
 		mut c := cmd.new_registry()
 		defaultcmd.register_all(mut c)
 		c
-	}
-
-	mut registry := opts.entity_registry or {
-		mut r := entity.new_registry()
-		entity.register_defaults(mut r)
-		r
 	}
 
 	mut player_data_provider := playerdb.Provider(playerdb.FileProvider{
@@ -175,7 +160,6 @@ pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
 		commands:             commands
 		events:               event.new_bus()
 		scheduler:            scheduler.new_scheduler()
-		entity_registry:      registry
 		world_factory:        opts.world_factory
 		started_at:           time.now().unix()
 		world_registry:       new_world_registry()
@@ -183,12 +167,14 @@ pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
 		oidc_verifier:        auth_verifier
 	}
 	hub.register_palette_fallbacks()
+	hub.apply_custom_item_ids()
 	return hub
 }
 
-// register_palette_fallbacks backfills the block and item registries from the
-// wire palette so every vanilla name is placeable/holdable even before it has
-// a hand written class. Hand registered classes always take precedence.
+// register_palette_fallbacks fills in the block and item registries from
+// this Hub's own loaded wire palette, so every vanilla name is
+// placeable/holdable even without a hand written class. A hand written
+// class always wins over a fallback.
 fn (mut h Hub) register_palette_fallbacks() {
 	mut block_entries := []block.PaletteEntry{cap: h.data.block_palette.len}
 	mut canonical := map[string]int{}
@@ -201,7 +187,7 @@ fn (mut h Hub) register_palette_fallbacks() {
 			canonical[e.name] = e.network_id
 		}
 	}
-	h.blocks.register_fallbacks(block_entries)
+	block.apply_palette_fallbacks(block_entries)
 
 	mut item_entries := []item.FallbackEntry{cap: h.data.item_entries.len}
 	for it in h.data.item_entries {
@@ -210,9 +196,18 @@ fn (mut h Hub) register_palette_fallbacks() {
 			block_runtime: canonical[it.name] or { 0 }
 		}
 	}
-	h.items.register_fallbacks(item_entries)
+	item.apply_palette_fallbacks(item_entries)
 	// Both registries have copied what they need out of it.
 	h.data.release_block_palette()
+}
+
+// apply_custom_item_ids gives every registered custom item a numeric wire
+// id in this Hub's own gamedata, the same way vanilla items already have
+// one. gamedata is loaded fresh per Hub, so this runs once per Hub too.
+fn (mut h Hub) apply_custom_item_ids() {
+	for def in item.registered_custom() {
+		h.data.item_id_by_name[def.id] = def.runtime_id
+	}
 }
 
 // The following set_* methods are Hub's boot configuration surface. Each one
@@ -286,7 +281,7 @@ fn (mut h Hub) restore_world_entities(mut wr WorldRuntime) {
 	if saved.len == 0 {
 		return
 	}
-	registry := &h.entity_registry
+	registry := entity.process()
 	world_call[bool](mut wr, fn [saved, registry] (mut tx WorldTx) bool {
 		tx.wr.entities.restore_from_save(registry, saved)
 		return true
@@ -751,7 +746,7 @@ fn (mut h Hub) online_count() int {
 // is stopping or the spawn event is cancelled. Entity registration and event
 // dispatch run inside one task on that world's runtime.
 fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
-	behaviour := h.entity_registry.create(name) or { return false }
+	behaviour := entity.create(name) or { return false }
 	mut wr := h.default_world_runtime() or { return false }
 	task := SpawnEntityTask{
 		behaviour: behaviour
@@ -767,7 +762,7 @@ fn (mut h Hub) spawn_entity(name string, x f32, y f32, z f32) bool {
 
 // entity_type_names lists every summonable entity type.
 fn (mut h Hub) entity_type_names() []string {
-	return h.entity_registry.names()
+	return entity.names()
 }
 
 // player_names lists the display names of every connected player, used by

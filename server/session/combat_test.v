@@ -439,7 +439,7 @@ fn test_handle_entity_interact_milks_cow_with_bucket() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	cow_behaviour := hub.entity_registry.create('cow') or { panic('missing cow behaviour') }
+	cow_behaviour := entity.create('cow') or { panic('missing cow behaviour') }
 	cow := wr.entities.spawn(cow_behaviour, types.Vector3{1.0, 0.0, 0.0})
 	mut sess := &NetworkSession{
 		player:        make_combat_test_player('Alex', 20, 0)
@@ -468,7 +468,7 @@ fn test_handle_entity_interact_non_cow_is_noop() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	pig_behaviour := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	pig_behaviour := entity.create('pig') or { panic('missing pig behaviour') }
 	pig := wr.entities.spawn(pig_behaviour, types.Vector3{1.0, 0.0, 0.0})
 	mut sess := &NetworkSession{
 		player:        make_combat_test_player('Alex', 20, 0)
@@ -497,7 +497,7 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	cow_behaviour := hub.entity_registry.create('cow') or { panic('missing cow behaviour') }
+	cow_behaviour := entity.create('cow') or { panic('missing cow behaviour') }
 	cow := wr.entities.spawn(cow_behaviour, types.Vector3{100.0, 0.0, 0.0})
 	mut sess := &NetworkSession{
 		player:        make_combat_test_player('Alex', 20, 0)

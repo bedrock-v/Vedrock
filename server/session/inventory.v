@@ -454,7 +454,7 @@ fn (mut s NetworkSession) apply_consume(mut wr WorldRuntime, src proto.ItemStack
 		return []SlotChange{}
 	}
 	name := s.hub.data.item_name(stack.id)
-	result := s.hub.items.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
+	result := itemmod.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
 	for e in result.effects {
 		s.apply_add_effect(mut wr, e)
 	}

@@ -4,6 +4,7 @@ import protocol.types
 import server.event
 import server.world
 import server.block
+import server.item
 import protocol.current as proto
 
 // obstructed_by_entity reports whether pos overlaps a player registered in
@@ -47,7 +48,7 @@ fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_run
 // is_replaceable reports whether block_id is silently overwritten by a
 // placement rather than blocking it (short grass, ferns, etc.).
 fn (tx &WorldTx) is_replaceable(block_id int) bool {
-	b := tx.wr.hub.blocks.get(block_id) or { return false }
+	b := block.get(block_id) or { return false }
 	if b is block.Replaceable {
 		return b.replaceable()
 	}
@@ -130,7 +131,7 @@ fn (tx &WorldTx) carve_pumpkin(mut s NetworkSession, old_id int, click_face int)
 // tells observers about it. Called before the block mutation itself
 // broadcasts, so an observer never sees the block exist without its tile.
 fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
-	b := tx.wr.hub.blocks.get(runtime_id) or { return }
+	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
@@ -142,7 +143,7 @@ fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
 }
 
 fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
-	b := tx.wr.hub.blocks.get(runtime_id) or { return }
+	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
@@ -155,7 +156,7 @@ fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.Block
 // interact_block runs old_id's right click behaviour, if any, at pos. false
 // means the caller should fall through to placement handling.
 fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition, old_id int, click_face int) bool {
-	if b := tx.wr.hub.blocks.get(old_id) {
+	if b := block.get(old_id) {
 		if b is block.SignBlock {
 			tx.maybe_open_sign_editor(mut s, pos, old_id)
 			return true
@@ -192,7 +193,7 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 		tx.notify_block_changed(pos)
 		return true
 	}
-	interactable := tx.wr.hub.blocks.get(old_id) or { return false }
+	interactable := block.get(old_id) or { return false }
 	if interactable is block.Interactable {
 		if !interactable.interact(pos.x, pos.y, pos.z, click_face, mut tx.wr.world) {
 			return false
@@ -215,7 +216,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 	}
 	v := tx.wr.hub.palette.variant(clicked_id) or { return false }
 	stack, name := s.held_stack_and_name()
-	result := tx.wr.hub.items.use_on_block_result(name, v.name, stack.meta) or { return false }
+	result := item.use_on_block_result(name, v.name, stack.meta) or { return false }
 	current := v.states.get(result.state_key) or { return false }.int()
 	new_id := tx.wr.hub.palette.with_state(clicked_id, result.state_key, (current +
 		result.state_delta).str()) or { return false }

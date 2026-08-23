@@ -23,7 +23,7 @@ fn break_test_data() gamedata.GameData {
 
 fn break_test_hub() &Hub {
 	mut hub := new_hub(break_test_data())
-	hub.items.register(item.ToolItem{
+	item.register(item.ToolItem{
 		id:             'minecraft:test_pick'
 		tier:           .iron
 		tool_type:      .pickaxe

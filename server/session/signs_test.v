@@ -9,6 +9,7 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import server.block
 import protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
@@ -77,9 +78,8 @@ fn test_sign_editor_opens_only_for_signs() {
 	}
 	hub.add(s)
 
-	r := s.hub.blocks
-	sign_id := r.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	dirt_id := r.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
+	sign_id := block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut tx := &WorldTx{
@@ -126,7 +126,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
 	sign_id :=
-		s.hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, sign_id)
 
@@ -167,7 +167,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 	s.player.reset_position(types.Vector3{0.5, player_eye_height, 0.5})
 	hub.add(s)
 
-	dirt_id := s.hub.blocks.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
+	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, dirt_id)
 
@@ -201,7 +201,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 	hub.add(s)
 
 	sign_id :=
-		s.hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
 	pos := types.BlockPosition{5, 5, 5}
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -239,7 +239,7 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 	}
 	hub.add(s)
 
-	dirt_id := s.hub.blocks.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
+	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
 	pos := types.BlockPosition{5, 5, 5}
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }

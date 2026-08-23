@@ -104,6 +104,64 @@ pub fn (r &Registry) len() int {
 	return r.by_name.len
 }
 
+// process_registry is the one block registry for the whole program: every
+// vanilla and custom block lives here and every lookup reads from it. Register custom blocks before calling server.new()
+// init() below seeds the vanilla set before your own main() runs.
+const process_registry = &Registry{}
+
+fn init() {
+	mut r := process_registry
+	for b in default_blocks() {
+		r.register(b)
+	}
+}
+
+// register adds or overrides the class for a block. Use this for a
+// hand written Block; register_custom (custom.v) is the data driven form.
+pub fn register(b Block) {
+	mut r := process_registry
+	r.register(b)
+}
+
+// get returns the registered class for a runtime id or none if unregistered.
+pub fn get(runtime_id int) ?Block {
+	return process_registry.get(runtime_id)
+}
+
+// get_by_name returns the registered class for a namespaced id or none if
+// unregistered.
+pub fn get_by_name(id string) ?Block {
+	return process_registry.get_by_name(id)
+}
+
+// breakable reports whether survival players may destroy the block with the
+// given runtime id. Unregistered blocks fall back to breakable.
+pub fn breakable(runtime_id int) bool {
+	return process_registry.breakable(runtime_id)
+}
+
+// hardness returns the break hardness for a runtime id, falling back to 1.0
+// for unregistered blocks.
+pub fn hardness(runtime_id int) f32 {
+	return process_registry.hardness(runtime_id)
+}
+
+// break_info returns the break time inputs for a runtime id, falling back to
+// a plain hardness 1.0 no tool block for unregistered ids.
+pub fn break_info(runtime_id int) BreakInfo {
+	return process_registry.break_info(runtime_id)
+}
+
+// apply_palette_fallbacks fills in every wire palette block that has no
+// hand written class yet, so it's still placeable. Safe to call more than
+// once. An already registered id is left untouched. Each Hub calls this
+// with its own loaded palette since the palette itself comes from disk
+// per Hub.
+pub fn apply_palette_fallbacks(entries []PaletteEntry) {
+	mut r := process_registry
+	r.register_fallbacks(entries)
+}
+
 // default_blocks is the built-in set of modelled blocks.
 // Extend this list as new block classes are added.
 fn default_blocks() []Block {

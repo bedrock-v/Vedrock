@@ -189,7 +189,7 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		face:         click_face
 		speed:        speed
 	})
-	if punchable := s.hub.blocks.get(old_id) {
+	if punchable := block.get(old_id) {
 		if punchable is block.Punchable {
 			mut wld := s.current_world()
 			if !isnil(wld) {
@@ -294,7 +294,7 @@ fn (s &NetworkSession) break_complete(pos types.BlockPosition, block_id int) boo
 // block drop anything, the same check vanilla runs before spawning drops.
 fn (s &NetworkSession) can_harvest(runtime_id int) bool {
 	tool_type, harvest_level, _ := s.held_mining_stats()
-	return s.hub.blocks.break_info(runtime_id).tool_compatible(tool_type, harvest_level)
+	return block.break_info(runtime_id).tool_compatible(tool_type, harvest_level)
 }
 
 // break_progress_per_tick is the fraction of the block broken each tick. The
@@ -302,7 +302,7 @@ fn (s &NetworkSession) can_harvest(runtime_id int) bool {
 // player's own state scales it, mirroring vanilla. Efficiency and aqua
 // affinity enchantments are not modelled yet.
 fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
-	info := s.hub.blocks.break_info(runtime_id)
+	info := block.break_info(runtime_id)
 	if !info.breakable() {
 		return 0.0
 	}
@@ -344,7 +344,7 @@ fn mining_fatigue_multiplier(level int) f32 {
 // efficiency one.
 fn (s &NetworkSession) held_mining_stats() (int, int, f32) {
 	_, name := s.held_stack_and_name()
-	held := s.hub.items.get(name) or {
+	held := item.get(name) or {
 		return block.tool_type_none, block.harvest_level_none, f32(1.0)
 	}
 	efficiency := held.mining_speed()

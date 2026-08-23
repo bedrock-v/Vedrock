@@ -5,6 +5,7 @@ import math
 import protocol.types
 import server.effect
 import server.event
+import server.item
 import protocol.current as proto
 
 const knockback_horizontal = f32(0.4)
@@ -152,7 +153,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		return
 	}
 	stack, name := s.held_stack_and_name()
-	result := s.hub.items.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
+	result := item.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
 	mut ctx := event.new_context(event.ItemUseData{
 		player:    s
 		item_name: name
@@ -385,7 +386,7 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 // weapon_damage prefers the damage from a registered weapon class and falls
 // back to the material-tier heuristic for items without a modelled class.
 fn (s &NetworkSession) weapon_damage(name string) f32 {
-	if it := s.hub.items.get(name) {
+	if it := item.get(name) {
 		if it.attack_damage() > 0 {
 			return it.attack_damage()
 		}

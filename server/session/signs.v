@@ -16,7 +16,7 @@ fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) 
 		return
 	}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
-	b := s.hub.blocks.get(old_id) or { return }
+	b := block.get(old_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
