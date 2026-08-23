@@ -395,6 +395,18 @@ fn (mut s Server) tick_loop() {
 				s.log.warn(msg)
 			}
 		}
+		s.hub.request_tick_all(i64(tick))
+		// Global cadence/metrics/scheduler heartbeat are direct: none of this
+		// needs actor serialization, current_tick/tps/load are atomics and the
+		// scheduler guards its own bookkeeping with its own mutex. Effects
+		// ticking, the one piece that genuinely is gameplay mutation, happens
+		// in each owning world's own advance_tick instead (world_runtime.v), not
+		// here.
+		s.hub.set_current_tick(i64(tick))
+		s.hub.scheduler_heartbeat(i64(tick))
+		// Measured once every piece of tick work has run. Taking it before the
+		// dispatch and heartbeat above left them out of the sample, which is what
+		// made load read 0% on a tick that had just reported itself over budget.
 		work := time.now() - tick_start
 		window_ticks++
 		window_work += work.nanoseconds()
@@ -407,30 +419,28 @@ fn (mut s Server) tick_loop() {
 			window_ticks = 0
 			window_work = 0
 		}
-		s.hub.request_tick_all(i64(tick))
-		// Global cadence/metrics/scheduler heartbeat are direct: none of this
-		// needs actor serialization, current_tick/tps/load are atomics and the
-		// scheduler guards its own bookkeeping with its own mutex. Effects
-		// ticking, the one piece that genuinely is gameplay mutation, happens
-		// in each owning world's own advance_tick instead (world_runtime.v), not
-		// here.
-		s.hub.set_current_tick(i64(tick))
 		s.hub.set_tps(tps)
 		s.hub.set_load(load)
-		s.hub.scheduler_heartbeat(i64(tick))
 		deadline := loop_start.add(time.Duration(i64(interval) * i64(tick)))
 		sleep_for := deadline - time.now()
 		if sleep_for > 0 {
 			time.sleep(sleep_for)
 		} else {
-			// The tick ran past its 50ms slot. We don't sleep, so the loop
-			// catches up on the next iterations. The deadline is anchored to
-			// loop_start, so a burst of slow ticks can't compound into runaway
-			// drift - once work speeds up, sleep_for goes positive again and the
-			// cadence self-corrects. Warn (throttled) so operators see the stall.
-			if tick - last_overrun_log >= tick_overrun_log_interval {
-				over := -sleep_for
-				s.log.warn('Tick ${tick} over budget by ${over.milliseconds()}ms (tps=${tps:.1f}, load=${load:.0f}%)')
+			// The deadline passed. We don't sleep, so the loop catches up on the
+			// next iterations. The deadline is anchored to loop_start, so a burst
+			// of missed slots can't compound into runaway drift - once the loop
+			// keeps up again, sleep_for goes positive and the cadence
+			// self-corrects.
+			//
+			// Only the tick's own work being over budget is worth warning about.
+			// time.sleep overshoots its request by a few ms on a loaded host, and
+			// that alone pushes the next deadline into the past on an otherwise
+			// idle server - a missed slot the operator can do nothing about.
+			over := -sleep_for
+			if work <= interval {
+				s.log.debug('Tick ${tick} slot missed by ${over.milliseconds()}ms with ${work.milliseconds()}ms of work - sleep overshoot, not server load')
+			} else if tick - last_overrun_log >= tick_overrun_log_interval {
+				s.log.warn('Tick ${tick} took ${work.milliseconds()}ms, over its ${interval.milliseconds()}ms budget (tps=${tps:.1f}, load=${load:.0f}%)')
 				last_overrun_log = tick
 			}
 		}
