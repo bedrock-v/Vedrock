@@ -110,7 +110,9 @@ fn test_player_key_ignores_unauthenticated_xuid_claim() {
 	s.handle_login(packet)!
 
 	assert !s.player.identity.xbox_authenticated
-	assert s.player.identity.xuid == '2535400000000001'
+	// The claim is dropped outright, so nothing downstream can key off it.
+	assert s.player.identity.xuid == ''
+	assert s.player.identity.uuid == ''
 	assert s.player_key() == 'Steve'
 }
 
