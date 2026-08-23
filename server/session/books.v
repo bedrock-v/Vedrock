@@ -37,7 +37,7 @@ fn (mut s NetworkSession) apply_book_edit(p proto.BookEditPacket) {
 		}
 		proto.BookEditAddPage {
 			if action.page_index < 0 || action.page_index > pages.len
-				|| action.page_index >= item.max_book_pages {
+				|| action.page_index >= item.max_book_pages || pages.len >= item.max_book_pages {
 				return
 			}
 			pages.insert(action.page_index, truncate_page(action.text))
@@ -74,8 +74,8 @@ fn (mut s NetworkSession) sign_book(slot int, stack types.ItemStack, net int, ti
 	pages := item.book_pages_from_nbt(stack.raw_extra_data)
 	mut updated := stack
 	updated.id = written_id
-	updated.raw_extra_data = item.written_book_nbt(truncate_page(title), truncate_page(author), 0,
-		pages)
+	updated.raw_extra_data = item.written_book_nbt(truncate_utf8(title, max_book_title_bytes), truncate_utf8(author,
+		max_book_title_bytes), 0, pages)
 	s.player.put_stack(net, updated)
 	s.send_slot_update(slot, types.ItemStackWrapper{
 		stack_id:   net
@@ -83,9 +83,24 @@ fn (mut s NetworkSession) sign_book(slot int, stack types.ItemStack, net int, ti
 	})
 }
 
+// max_book_title_bytes bounds the title and author a client may write when it
+// signs a book. Both are unbounded strings on the wire.
+const max_book_title_bytes = 64
+
 fn truncate_page(text string) string {
-	if text.len <= item.max_book_page_bytes {
+	return truncate_utf8(text, item.max_book_page_bytes)
+}
+
+// truncate_utf8 cuts text down to at most limit bytes without splitting a
+// UTF-8 sequence, so an oversized page or title never leaves half a character
+// behind in the item's NBT.
+fn truncate_utf8(text string, limit int) string {
+	if text.len <= limit {
 		return text
 	}
-	return text[..item.max_book_page_bytes]
+	mut end := limit
+	for end > 0 && text[end] & 0xc0 == 0x80 {
+		end--
+	}
+	return text[..end]
 }

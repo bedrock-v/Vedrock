@@ -1,13 +1,49 @@
 module session
 
+import encoding.utf8
 import server.cmd
 import server.event
 import server.player.chat
 import protocol.current as proto
 
+// The wire message is an unbounded string, while the vanilla client caps chat
+// at 512 characters and a command line well below that. Without a bound here
+// one client could make the server fan out megabytes of text to every player.
+const max_chat_message_bytes = 512
+const max_command_bytes = 1024
+
+// sanitize_chat_message strips what a player must not be able to put in a line
+// other players see: formatting codes ("§", which can forge another player's
+// chat line or the server's own messages) and control characters such as the
+// newline that would forge whole extra lines.
+fn sanitize_chat_message(text string) string {
+	mut out := []u8{cap: text.len}
+	mut i := 0
+	for i < text.len {
+		c := text[i]
+		if c == 0xc2 && i + 1 < text.len && text[i + 1] == 0xa7 {
+			i += 2
+			continue
+		}
+		if c < 0x20 || c == 0x7f {
+			i++
+			continue
+		}
+		out << c
+		i++
+	}
+	return out.bytestr().trim_space()
+}
+
 fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
 	text := proto.text_chat(p.message_type) or { return }
-	message := text.message.trim_space()
+	if text.message.len > max_chat_message_bytes {
+		return error('chat message of ${text.message.len} bytes exceeds the limit')
+	}
+	if !utf8.validate_str(text.message) {
+		return error('chat message is not valid UTF-8')
+	}
+	message := sanitize_chat_message(text.message)
 	if message == '' {
 		return
 	}
@@ -37,6 +73,12 @@ fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
 }
 
 fn (mut s NetworkSession) handle_command_request(p proto.CommandRequestPacket) ! {
+	if p.command.len > max_command_bytes {
+		return error('command line of ${p.command.len} bytes exceeds the limit')
+	}
+	if !utf8.validate_str(p.command) {
+		return error('command line is not valid UTF-8')
+	}
 	s.run_command(p.command)!
 }
 

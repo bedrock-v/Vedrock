@@ -253,3 +253,10 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 	}
 	assert transport.sent.len == 0
 }
+
+fn test_validate_sign_text_bounds_client_supplied_text() {
+	assert validate_sign_text('line one\n')? == 'line one'
+	if _ := validate_sign_text('a'.repeat(max_sign_text_bytes + 1)) {
+		assert false, 'expected oversized sign text to be rejected'
+	}
+}

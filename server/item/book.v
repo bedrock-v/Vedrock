@@ -215,6 +215,12 @@ fn (mut r LeNbtReader) skip_payload(tag_id u8) ! {
 fn (mut r LeNbtReader) read_pages_list() ![]string {
 	element_id := r.u8()!
 	count := int(r.le_u32()!)
+	// The list length is read before any of its elements, so it is never
+	// backed by the bytes that follow. Reject anything a book cannot hold
+	// rather than sizing an allocation from it.
+	if count < 0 || count > max_book_pages {
+		return error('book nbt: pages list length ${count} out of range')
+	}
 	mut pages := []string{cap: count}
 	for _ in 0 .. count {
 		if element_id != nbt_tag_compound {
