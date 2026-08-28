@@ -171,10 +171,11 @@ fn test_tick_requests_coalesce_while_actor_is_busy() {
 		return wr.tick_runs_count() > 0
 	})
 	assert wr.tick_runs_count() == 1
-	assert wr.tick_snapshot() == 1049
+	assert wr.requested_tick_snapshot() == 1049
+	assert wr.tick_snapshot() == max_world_catchup_ticks
 }
 
-fn test_advance_tick_bounded_catchup_resyncs_clock() {
+fn test_advance_tick_bounded_catchup_leaves_the_clock_behind() {
 	mut wr := new_test_world_runtime()
 	defer {
 		wr.shutdown()
@@ -182,9 +183,67 @@ fn test_advance_tick_bounded_catchup_resyncs_clock() {
 
 	wr.request_tick(500)
 	assert wait_until(2000, fn [wr] () bool {
-		return wr.tick_snapshot() == 500
+		return wr.tick_runs_count() > 0
 	})
+	assert wr.tick_snapshot() == max_world_catchup_ticks
 	assert wr.simulated_steps_count() == max_world_catchup_ticks
+	assert wr.requested_tick_snapshot() - wr.tick_snapshot() == 500 - max_world_catchup_ticks
+}
+
+fn test_sim_debt_is_observable_while_actor_is_busy() {
+	mut wr := new_test_world_runtime()
+	defer {
+		wr.shutdown()
+	}
+
+	started := chan bool{cap: 1}
+	release := chan bool{cap: 1}
+	ok := wr.submit(BarrierTask{
+		started: started
+		release: release
+	})
+	assert ok
+	_ := <-started // actor is now provably blocked, has not touched tick_wakeup
+
+	// Within max_world_catchup_ticks, so a single drain fully closes the
+	// debt below. This test is about real time observability.
+	wr.request_tick(15)
+
+	assert wr.requested_tick_snapshot() == 15
+	assert wr.tick_snapshot() == 0
+	debt_while_busy := wr.requested_tick_snapshot() - wr.tick_snapshot()
+	assert debt_while_busy == 15
+
+	release <- true // let the actor drain tick_wakeup and catch up
+
+	assert wait_until(2000, fn [wr] () bool {
+		return wr.tick_snapshot() == 15
+	})
+	assert wr.requested_tick_snapshot() - wr.tick_snapshot() == 0
+}
+
+fn request_tick_race_caller(mut wr WorldRuntime, base i64, times int) {
+	for i in 0 .. times {
+		wr.request_tick(base + i64(i))
+	}
+}
+
+fn test_requested_tick_snapshot_stays_consistent_under_concurrent_updates() {
+	mut wr := new_test_world_runtime()
+	defer {
+		wr.shutdown()
+	}
+
+	mut threads := []thread{}
+	for i in 0 .. 8 {
+		threads << spawn request_tick_race_caller(mut wr, i64(i) * 10000, 200)
+	}
+	threads.wait()
+
+	wr.tick_mutex.lock()
+	final_latest_tick := wr.latest_tick
+	wr.tick_mutex.unlock()
+	assert wr.requested_tick_snapshot() == final_latest_tick
 }
 
 struct EventCounter {

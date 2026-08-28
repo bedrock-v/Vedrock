@@ -13,8 +13,11 @@ import server.world.db
 import server.internal.logger
 import protocol.current as proto
 
-// max_world_catchup_ticks limits how many missed simulation steps a
-// WorldRuntime replays before advancing directly to the latest requested tick.
+// max_world_catchup_ticks bounds how many simulation steps a WorldRuntime
+// replays in a single run_due_tick call. Debt beyond this is not skipped by
+// resyncing the clock.
+//
+// It stays behind and is picked up on the next call, see advance_tick's own comment.
 const max_world_catchup_ticks = 20
 
 // max_due_updates_per_tick limits scheduled block updates processed in one
@@ -84,6 +87,10 @@ mut:
 
 	// Cross thread snapshot of current_tick.
 	published_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+
+	// Cross thread snapshot of latest_tick, lets any thread compute
+	// simulation debt (requested - simulated) without taking tick_mutex.
+	published_latest_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
 	liquids        &block.LiquidManager = unsafe { nil }
 	events         &event.Bus           = unsafe { nil }
@@ -442,6 +449,9 @@ fn (mut wr WorldRuntime) run_task(mut tx WorldTx, task WorldTask) {
 fn (mut wr WorldRuntime) request_tick(n i64) {
 	wr.tick_mutex.lock()
 	wr.latest_tick = n
+	// Stored inside the same critical section as latest_tick, not after.
+	mut published_latest := wr.published_latest_tick
+	published_latest.store(n)
 	wr.tick_mutex.unlock()
 	select {
 		wr.tick_wakeup <- true {}
@@ -453,6 +463,14 @@ fn (mut wr WorldRuntime) request_tick(n i64) {
 // to call from any thread.
 fn (wr &WorldRuntime) tick_snapshot() i64 {
 	mut p := wr.published_tick
+	return p.load()
+}
+
+// requested_tick_snapshot returns the latest requested (not yet necessarily
+// simulated) tick and is safe to call from any thread. requested_tick_snapshot()
+// minus tick_snapshot() is the world's current simulation debt.
+fn (wr &WorldRuntime) requested_tick_snapshot() i64 {
+	mut p := wr.published_latest_tick
 	return p.load()
 }
 
@@ -491,6 +509,8 @@ pub:
 	queued_tasks                   int
 	oldest_queued_task_age         time.Duration
 	current_tick                   i64
+	requested_tick                 i64
+	simulation_debt_ticks          i64
 	tick_runs                      i64
 	simulated_steps                i64
 	catchup_events                 i64
@@ -549,11 +569,16 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 	mut longest_task_ns := wr.published_longest_task_ns
 	chunk_metrics := wr.chunk_service.metrics()
 
+	current_tick_val := wr.tick_snapshot()
+	requested_tick_val := wr.requested_tick_snapshot()
+
 	return WorldMetrics{
 		world_name:                     wr.world.name
 		queued_tasks:                   int(wr.jobs.len)
 		oldest_queued_task_age:         oldest_age
-		current_tick:                   wr.tick_snapshot()
+		current_tick:                   current_tick_val
+		requested_tick:                 requested_tick_val
+		simulation_debt_ticks:          requested_tick_val - current_tick_val
 		tick_runs:                      tick_runs.load()
 		simulated_steps:                simulated_steps.load()
 		catchup_events:                 catchup_events.load()
@@ -641,7 +666,19 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 	if debt > max_world_catchup_ticks {
 		tx.log_tick_overrun(debt)
 	}
-	wr.current_tick = target // always resync the clock, regardless of how much was actually simulated
+	// Leave current_tick exactly where simulation advanced it. Never snap it
+	// forward to target: doing so would discard unsimulated debt while making
+	// published_tick claim that the world had caught up. That was the cause of
+	// the block break desync: tick numbered progress observed a jump for ticks
+	// that were never actually simulated.
+	//
+	// If debt exceeds the per run cap, the remainder stays pending and is
+	// processed by subsequent run_due_tick calls. It therefore remains visible
+	// as requested_tick_snapshot().
+	// tick_snapshot() rather than being hidden by an artificial resync.
+	//
+	// A world that can't keep up loses TPS and remains behind rather than
+	// advancing its simulation clock over unexecuted ticks.
 	mut p := wr.published_tick
 	p.store(wr.current_tick)
 
