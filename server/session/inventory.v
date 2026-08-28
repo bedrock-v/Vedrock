@@ -9,6 +9,70 @@ struct SlotChange {
 	info      proto.ItemStackResponseSlotInfo
 }
 
+// SlotSnapshot is one slot's pre-request state; net_id == 0 means empty.
+struct SlotSnapshot {
+	net_id int
+	stack  types.ItemStack
+}
+
+// TransactionSnapshot is the undo log for one item stack request.
+// A request is atomic, so a later action failing rolls back every earlier
+// mutation in the same request.
+struct TransactionSnapshot {
+	inventory map[int]SlotSnapshot
+	crafting  map[int]SlotSnapshot
+	cursor    SlotSnapshot
+}
+
+fn (target &NetworkSession) slot_snapshot_for_net_id(net_id int) SlotSnapshot {
+	if net_id == 0 {
+		return SlotSnapshot{}
+	}
+	stack := target.player.inv_stack(net_id) or { types.ItemStack{} }
+	return SlotSnapshot{net_id, stack}
+}
+
+fn (target &NetworkSession) capture_transaction_snapshot() TransactionSnapshot {
+	mut inv := map[int]SlotSnapshot{}
+	for slot in 0 .. inventory_slot_count {
+		net_id := target.player.inv_slot(slot) or { 0 }
+		inv[slot] = target.slot_snapshot_for_net_id(net_id)
+	}
+	mut craft := map[int]SlotSnapshot{}
+	for slot in crafting_grid_small {
+		craft[slot] = target.slot_snapshot_for_net_id(target.crafting_slot_net_id(slot))
+	}
+	for slot in crafting_grid_large {
+		craft[slot] = target.slot_snapshot_for_net_id(target.crafting_slot_net_id(slot))
+	}
+	return TransactionSnapshot{
+		inventory: inv
+		crafting:  craft
+		cursor:    target.slot_snapshot_for_net_id(target.cursor_slot_net_id())
+	}
+}
+
+fn (mut target NetworkSession) restore_transaction_snapshot(snap TransactionSnapshot) {
+	for slot, s in snap.inventory {
+		if s.net_id != 0 {
+			target.player.put_stack(s.net_id, s.stack)
+			target.player.set_slot(slot, s.net_id)
+		} else {
+			target.player.delete_slot(slot)
+		}
+	}
+	for slot, s in snap.crafting {
+		if s.net_id != 0 {
+			target.player.put_stack(s.net_id, s.stack)
+		}
+		target.set_crafting_slot_net_id(slot, s.net_id)
+	}
+	if snap.cursor.net_id != 0 {
+		target.player.put_stack(snap.cursor.net_id, snap.cursor.stack)
+	}
+	target.set_cursor_slot_net_id(snap.cursor.net_id)
+}
+
 // flat_slot maps supported window-0 container slots directly onto the
 // player's flat 0-35 inventory. Hotbar, inventory and combined containers
 // all use the same slot numbering so no offset is applied.
@@ -52,7 +116,7 @@ fn persist_container_changes(mut tx WorldTx, mut target NetworkSession, changes 
 		if change.container.container != .dynamic_container {
 			continue
 		}
-		if change.container.dynamic_id or { -1 } != i32(chest_dynamic_container_id) {
+		if change.container.dynamic_id or { -1 } != i32(chest_dynamic_container_id()) {
 			continue
 		}
 		slot := int(change.info.slot)
@@ -67,7 +131,30 @@ fn persist_container_changes(mut tx WorldTx, mut target NetworkSession, changes 
 	}
 }
 
+fn (s &NetworkSession) cursor_slot_net_id() int {
+	mut m := s.cursor_mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return s.cursor_net_id
+}
+
+fn (mut s NetworkSession) set_cursor_slot_net_id(net_id int) {
+	s.cursor_mutex.lock()
+	s.cursor_net_id = net_id
+	s.cursor_mutex.unlock()
+}
+
 fn (mut s NetworkSession) set_slot_stack(container proto.FullContainerName, slot i8, net_id int) {
+	if container.container == .crafting_input_container {
+		s.set_crafting_slot_net_id(int(slot), net_id)
+		return
+	}
+	if container.container == .cursor_container {
+		s.set_cursor_slot_net_id(net_id)
+		return
+	}
 	flat := flat_slot(container, slot) or { return }
 	if net_id == 0 {
 		s.player.delete_slot(flat)
@@ -102,9 +189,29 @@ fn (s &NetworkSession) resolve_request_stack(container proto.FullContainerName, 
 		return s.inventory_stack_at(flat)
 	}
 	if container.container == .dynamic_container
-		&& container.dynamic_id or { -1 } == i32(chest_dynamic_container_id)
+		&& container.dynamic_id or { -1 } == i32(chest_dynamic_container_id())
 		&& s.open_container_position() != none {
 		net_id := s.open_container_slot_net_id(int(slot))
+		if net_id == 0 {
+			return types.ItemStack{}, 0
+		}
+		if stack := s.player.inv_stack(net_id) {
+			return stack, net_id
+		}
+		return types.ItemStack{}, 0
+	}
+	if container.container == .crafting_input_container {
+		net_id := s.crafting_slot_net_id(int(slot))
+		if net_id == 0 {
+			return types.ItemStack{}, 0
+		}
+		if stack := s.player.inv_stack(net_id) {
+			return stack, net_id
+		}
+		return types.ItemStack{}, 0
+	}
+	if container.container == .cursor_container {
+		net_id := s.cursor_slot_net_id()
 		if net_id == 0 {
 			return types.ItemStack{}, 0
 		}
@@ -239,45 +346,122 @@ fn (mut s NetworkSession) handle_item_stack_request(p proto.ItemStackRequestPack
 	})!
 }
 
+// process_item_stack_requests applies each request's actions in order; on
+// any failure the whole request rolls back via restore_transaction_snapshot
+// so a partial craft/consume can never lose items. Does not cover the open
+// container slot tracking. A known, smaller, symmetric gap.
 fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, requests []proto.RequestsEntry) []proto.ItemStackResponseInfo {
 	mut target := tx.player_for_epoch(runtime_id, epoch) or {
 		return []proto.ItemStackResponseInfo{}
 	}
 	mut out := []proto.ItemStackResponseInfo{}
 	for request in requests {
+		snapshot := target.capture_transaction_snapshot()
 		mut changes := []SlotChange{}
+		mut failed := false
+		mut craft_consumed_crafting_slots := map[int]bool{}
 		for wire_action in request.actions {
 			action := proto.item_stack_action(wire_action)
 			match action {
 				proto.TakeAction {
-					changes << target.apply_move(action.source, action.destination, action.amount)
+					moved := target.apply_move(action.source, action.destination, action.amount)
+					if moved.len == 0 {
+						failed = true
+					} else {
+						changes << moved
+					}
+					target.log.debug('itemstack take ${action.source.container_name.container}:${action.source.slot} -> ${action.destination.container_name.container}:${action.destination.slot} amount=${action.amount} ok=${moved.len > 0}')
 				}
 				proto.PlaceAction {
-					changes << target.apply_move(action.source, action.destination, action.amount)
+					moved := target.apply_move(action.source, action.destination, action.amount)
+					if moved.len == 0 {
+						failed = true
+					} else {
+						changes << moved
+					}
+					target.log.debug('itemstack place ${action.source.container_name.container}:${action.source.slot} -> ${action.destination.container_name.container}:${action.destination.slot} amount=${action.amount} ok=${moved.len > 0}')
 				}
 				proto.SwapAction {
 					changes << target.apply_swap(action.source, action.destination)
+					target.log.debug('itemstack swap ${action.source.container_name.container}:${action.source.slot} <-> ${action.destination.container_name.container}:${action.destination.slot}')
 				}
 				proto.DestroyAction {
 					changes << target.apply_remove(action.source, action.amount)
+					target.log.debug('itemstack destroy ${action.source.container_name.container}:${action.source.slot} amount=${action.amount}')
 				}
 				proto.DropAction {
 					changes << target.apply_drop(mut tx.wr, action.source, action.amount)
+					target.log.debug('itemstack drop ${action.source.container_name.container}:${action.source.slot} amount=${action.amount}')
 				}
 				proto.ConsumeAction {
-					changes << target.apply_consume(mut tx.wr, action.source, action.amount)
+					if action.source.container_name.container == .crafting_input_container
+						&& craft_consumed_crafting_slots[int(action.source.slot)] {
+						target.log.debug('itemstack consume ${action.source.container_name.container}:${action.source.slot} amount=${action.amount} ignored (already consumed by this request\'s own craft)')
+					} else {
+						consumed := target.apply_consume(mut tx.wr, action.source, action.amount)
+						if consumed.len == 0 {
+							failed = true
+						} else {
+							changes << consumed
+						}
+						target.log.debug('itemstack consume ${action.source.container_name.container}:${action.source.slot} amount=${action.amount} ok=${consumed.len > 0}')
+					}
 				}
 				proto.CraftCreativeAction {
 					if target.player.game_mode() == .creative {
 						target.set_pending_creative(int(action.creative_item_network_id))
 					} else {
 						target.player.set_pending_creative(none)
+						failed = true
 					}
+					target.log.debug('itemstack craft_creative id=${action.creative_item_network_id} ok=${!failed}')
 				}
-				proto.OtherAction {}
+				proto.CraftRecipeAction {
+					if craft_changes := tx.attempt_craft(mut target, action.recipe_network_id,
+						action.number_of_crafts)
+					{
+						changes << craft_changes
+						for change in craft_changes {
+							if change.container.container == .crafting_input_container {
+								craft_consumed_crafting_slots[int(change.info.slot)] = true
+							}
+						}
+					} else {
+						failed = true
+					}
+					target.log.debug('itemstack craft_recipe id=${action.recipe_network_id} crafts=${action.number_of_crafts} ok=${!failed}')
+				}
+				proto.AutoCraftRecipeAction {
+					if craft_changes := tx.attempt_auto_craft(mut target, action.recipe_network_id,
+						action.number_of_crafts)
+					{
+						changes << craft_changes
+						for change in craft_changes {
+							if change.container.container == .crafting_input_container {
+								craft_consumed_crafting_slots[int(change.info.slot)] = true
+							}
+						}
+					} else {
+						failed = true
+					}
+					target.log.debug('itemstack auto_craft_recipe id=${action.recipe_network_id} crafts=${action.number_of_crafts} ok=${!failed}')
+				}
+				proto.OtherAction {
+					target.log.debug('itemstack other_action (unhandled) type_id=${wire_action.type_id()}')
+				}
 			}
 		}
+		if failed {
+			target.restore_transaction_snapshot(snapshot)
+			target.log.debug('itemstack request ${request.client_request_id} -> error (state restored)')
+			out << proto.ItemStackResponseInfo{
+				result:            proto.ItemStackNetResult.error
+				client_request_id: i32(request.client_request_id)
+			}
+			continue
+		}
 		persist_container_changes(mut tx, mut target, changes)
+		target.log.debug('itemstack request ${request.client_request_id} -> success (${changes.len} slot changes)')
 		out << proto.ItemStackResponseInfo{
 			result:            proto.ItemStackNetResult.success
 			has_containers:    true

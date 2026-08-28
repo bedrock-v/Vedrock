@@ -226,6 +226,7 @@ fn default_blocks() []Block {
 	result << decorative_blocks()
 	result << replaceable_plant_blocks()
 	result << shelf_mushroom_blocks()
+	result << crafting_table_blocks()
 
 	return result
 }

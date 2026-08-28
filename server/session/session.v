@@ -78,24 +78,31 @@ mut:
 	open_container_pos          ?types.BlockPosition
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
-	movement_mutex              &sync.Mutex = sync.new_mutex()
-	pending_movement            ?MovementSnapshot
-	movement_scheduled          bool
+	crafting_slot_net_ids   map[int]int
+	crafting_workbench_open bool
+	crafting_mutex          &sync.Mutex = sync.new_mutex()
+	// cursor_net_id tracks whatever the client holds on its cursor
+	// (FullContainerName.cursor_container)
+	cursor_net_id      int
+	cursor_mutex       &sync.Mutex = sync.new_mutex()
+	movement_mutex     &sync.Mutex = sync.new_mutex()
+	pending_movement   ?MovementSnapshot
+	movement_scheduled bool
 	// pending_teleport_ack is the position the server last told this client
 	// to snap to (see expect_teleport_ack in movement.v). Client reported
 	// movement is discarded until a report lands within
 	// teleport_ack_tolerance of it.
 	pending_teleport_ack ?types.Vector3
-	pending_radius              int
-	give_next_slot              int
-	next_form_id                int
-	pending_forms               map[int]form.Form
-	forms_mutex                 &sync.Mutex = sync.new_mutex()
-	last_place_ms               i64
-	view_radius                 int
-	last_chunk_x                int
-	last_chunk_z                int
-	sent_chunks                 map[u64]bool
+	pending_radius       int
+	give_next_slot       int
+	next_form_id         int
+	pending_forms        map[int]form.Form
+	forms_mutex          &sync.Mutex = sync.new_mutex()
+	last_place_ms        i64
+	view_radius          int
+	last_chunk_x         int
+	last_chunk_z         int
+	sent_chunks          map[u64]bool
 	// Set when a claimed column was released without reaching the client, so
 	// the next movement re-sweeps even if the player never crosses into
 	// another column. Guarded by chunk_stream_mutex.
@@ -332,7 +339,6 @@ fn (mut s NetworkSession) leave() {
 		s.hub.release_player_name(s.player.identity.display_name)
 		return
 	}
-	s.save_player_data()
 	// spawned is set false before transfer_mutex is acquired.
 	s.spawned = false
 	s.transfer_mutex.lock()
@@ -342,7 +348,10 @@ fn (mut s NetworkSession) leave() {
 		list_remove_pkt := s.player_list_remove_packet()
 		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		world_call[bool](mut wr, fn [rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+		world_call[bool](mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+			// Must run before save_player_data below, so anything returned
+			// to the inventory here is captured in the saved snapshot.
+			s.release_crafting_state()
 			tx.deregister_player(rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
@@ -353,6 +362,7 @@ fn (mut s NetworkSession) leave() {
 		}) or {}
 	}
 	s.transfer_mutex.unlock()
+	s.save_player_data()
 	s.hub.remove(s.runtime_id)
 	s.hub.release_player_name(s.player.identity.display_name)
 	mut ctx := event.new_context(event.QuitData{

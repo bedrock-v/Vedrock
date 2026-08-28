@@ -10,8 +10,14 @@ fn (mut s NetworkSession) handle_interact(p proto.InteractPacket) ! {
 	if s.inv_opened {
 		return
 	}
+
+	if s.workbench_open() || s.open_container_position() != none {
+		s.log.debug('handle_interact: ignored open_inventory - workbench_open=${s.workbench_open()} chest_open=${s.open_container_position() != none}')
+		return
+	}
 	s.inv_opened = true
 	own := s.player.position()
+	s.log.debug('handle_interact: opening plain inventory screen')
 	s.send_maybe_queued(&proto.ContainerOpenPacket{
 		container_id:    proto.ContainerID.inventory
 		container_type:  proto.ContainerType.inventory
@@ -21,10 +27,15 @@ fn (mut s NetworkSession) handle_interact(p proto.InteractPacket) ! {
 }
 
 fn (mut s NetworkSession) handle_container_close(p proto.ContainerClosePacket) ! {
+	s.log.debug('handle_container_close: container_id=${p.container_id} workbench_open=${s.workbench_open()} chest_open=${s.open_container_position() != none}')
 	if p.container_id == proto.ContainerID.inventory {
 		s.inv_opened = false
-	} else if int(p.container_id) == chest_dynamic_container_id {
-		s.release_open_chest_container()
+	} else if int(p.container_id) == chest_dynamic_container_id() {
+		if s.workbench_open() {
+			s.release_workbench()
+		} else {
+			s.release_open_chest_container()
+		}
 	}
 	s.send_maybe_queued(&proto.ContainerClosePacket{
 		container_id:           p.container_id
@@ -42,7 +53,7 @@ fn (mut s NetworkSession) release_open_chest_container() {
 	}
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
-	wr.try_submit(CloseChestContainerTask{
+	wr.submit(CloseChestContainerTask{
 		runtime_id: rid
 		epoch:      epoch
 	})
