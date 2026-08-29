@@ -38,6 +38,16 @@ fn (mut tx WorldTx) interact_jukebox(mut s NetworkSession, pos types.BlockPositi
 	tx.play_sound(center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
 }
 
+fn drop_jukebox_disc(mut wr WorldRuntime, x int, y int, z int) {
+	current := wr.world.tile_text(x, y, z) or { return }
+	if current == '' {
+		return
+	}
+	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
+	spawn_dropped_item_stack(mut wr, current, 1, center)
+	wr.world.set_tile_text(x, y, z, '')
+}
+
 fn build_jukebox_nbt(x int, y int, z int, record_item_name string) nbt.RootTag {
 	mut root := nbt.new_compound()
 	root.set('id', nbt.Tag('RecordPlayer'))

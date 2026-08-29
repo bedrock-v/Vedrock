@@ -151,6 +151,34 @@ fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
 	})
 }
 
+// create_note_tile initializes a newly placed note block's block entity
+// text to pitch 0, matching create_sign_tile's pattern.
+fn (mut tx WorldTx) create_note_tile(pos types.BlockPosition, runtime_id int) {
+	b := block.get(runtime_id) or { return }
+	if b !is block.NoteBlock {
+		return
+	}
+	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '0')
+	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
+		block_position:  proto.block_pos(pos)
+		actor_data_tags: build_note_block_nbt(pos.x, pos.y, pos.z, 0)
+	})
+}
+
+// create_jukebox_tile initializes a newly placed jukebox's block entity
+// text to "no record", matching create_sign_tile's pattern.
+fn (mut tx WorldTx) create_jukebox_tile(pos types.BlockPosition, runtime_id int) {
+	b := block.get(runtime_id) or { return }
+	if b !is block.JukeboxBlock {
+		return
+	}
+	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
+	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
+		block_position:  proto.block_pos(pos)
+		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
+	})
+}
+
 fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
@@ -294,6 +322,8 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 	// Tile initialized before the block mutation broadcasts, so an observer
 	// can never see the block exist without its tile.
 	tx.create_sign_tile(pos, runtime_id)
+	tx.create_note_tile(pos, runtime_id)
+	tx.create_jukebox_tile(pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_swing(s)
@@ -318,6 +348,8 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 		return false
 	}
 	tx.create_sign_tile(pos, runtime_id)
+	tx.create_note_tile(pos, runtime_id)
+	tx.create_jukebox_tile(pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_swing(s)
