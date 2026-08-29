@@ -161,10 +161,9 @@ fn test_entity_tick_isolated_to_owning_world() {
 	assert b_age > 0
 
 	release <- true
-	a_target := i64(500)
-	hub.request_tick_all(a_target)
-	assert entity_test_wait_until(2000, fn [wr_a, a_target] () bool {
-		return wr_a.tick_snapshot() == a_target
+	hub.request_tick_all(i64(500))
+	assert entity_test_wait_until(2000, fn [wr_a] () bool {
+		return wr_a.tick_snapshot() == max_world_catchup_ticks
 	})
 	a_age := world_call[i64](mut wr_a, fn (mut tx WorldTx) i64 {
 		return tx.wr.entities.snapshot()[0].age
