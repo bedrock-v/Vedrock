@@ -1,5 +1,5 @@
 name: Setup V
-description: Build the pinned V compiler (0.5.2 @ 3c0f8cb, vc @ abc2377) and install module dependencies
+description: Build the pinned V compiler (0.5.2 @ d5c6067, vc @ 84d9186) and install module dependencies
 
 runs:
   using: composite
@@ -9,7 +9,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/vlang
-        key: vlang-3c0f8cb-abc2377-${{ runner.os }}
+        key: vlang-d5c6067-84d9186-${{ runner.os }}
 
     - name: Build pinned V
       if: steps.cache-v.outputs.cache-hit != 'true'
@@ -17,9 +17,9 @@ runs:
       run: |
         git clone --filter=blob:none https://github.com/vlang/v ~/vlang
         cd ~/vlang
-        git checkout 3c0f8cb
+        git checkout d5c6067
         git clone --filter=blob:none https://github.com/vlang/vc vc
-        git -C vc checkout abc2377
+        git -C vc checkout 84d9186
         git clone --depth 1 --branch thirdparty-linux-amd64 https://github.com/vlang/tccbin thirdparty/tcc
         make local=1
 

@@ -19,8 +19,8 @@ discussed before you write code.
 
 Build only with the pinned compiler - newer V master **may** break this project.
 
-- V compiler: `0.5.2` (commit `f1ef640`)
-- vc bootstrap pin: `f461dfeb`
+- V compiler: `0.5.2` (commit `d5c6067`)
+- vc bootstrap pin: `84d9186`
 
 ### Dependencies
 
