@@ -126,7 +126,7 @@ fn (c WorldCommand) metrics(mut sender cmd.Sender, ctx cmd.Context) ! {
 	if !m.actor_running {
 		lines << '§c§lACTOR STOPPED§r §7- this world is registered but rejects all work (a previous unload likely failed to close its storage handle; retry unloading it)§r'
 	}
-	lines << '§6Tick: §f${m.current_tick} (last tick §f${m.last_tick_duration_ms}ms§6, §f${m.catchup_events}§6 catch up runs, §f${m.tick_overruns}§6 overruns)§r'
+	lines << '§6Tick: §f${m.current_tick}§6/§f${m.requested_tick}§6 (debt §f${m.simulation_debt_ticks}§6, last tick §f${m.last_tick_duration_ms}ms§6, §f${m.catchup_events}§6 catch up runs, §f${m.tick_overruns}§6 overruns)§r'
 	lines << '§6Queued tasks: §f${m.queued_tasks}§6 (oldest §f${m.oldest_queued_task_age_ms}ms§6)§r'
 	lines << '§6Longest task: §f${m.longest_task_name} (§f${m.longest_task_duration_ms}ms§6)§r'
 	lines << '§6Scheduled backlog: §f${m.scheduled_backlog}§6, liquid backlog: §f${m.liquid_backlog}§r'

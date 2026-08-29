@@ -59,6 +59,8 @@ pub struct WorldMetricsSummary {
 pub:
 	name                           string
 	current_tick                   i64
+	requested_tick                 i64
+	simulation_debt_ticks          i64
 	queued_tasks                   int
 	oldest_queued_task_age_ms      i64
 	last_tick_duration_ms          i64
