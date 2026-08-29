@@ -241,3 +241,19 @@ pub fn (s Note) event_name() string {
 pub fn (s Note) data() i32 {
 	return i32(s.pitch)
 }
+
+// Record is played by a jukebox when a music disc is inserted. track is the
+// disc's own name fragment, stripped of its 'minecraft:music_disc_' prefix
+// by the caller.
+pub struct Record {
+pub:
+	track string
+}
+
+pub fn (s Record) event_name() string {
+	return 'record.${s.track}'
+}
+
+pub fn (s Record) data() i32 {
+	return no_data
+}

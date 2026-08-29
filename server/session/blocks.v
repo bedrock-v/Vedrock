@@ -477,6 +477,9 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 		if b is block.ChestBlock {
 			drop_chest_contents(mut tx.wr, mut s, pos.x, pos.y, pos.z)
 		}
+		if b is block.JukeboxBlock {
+			drop_jukebox_disc(mut tx.wr, pos.x, pos.y, pos.z)
+		}
 	}
 
 	if pair := tx.door_pair_pos(pos, old_id) {
