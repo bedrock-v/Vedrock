@@ -101,15 +101,14 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	if isnil(wr) {
 		return
 	}
-	if !wr.try_submit(PlayerAttackTask{
+	// A hit must not be silently dropped under queue pressure.
+	wr.submit(PlayerAttackTask{
 		attacker_runtime_id: s.runtime_id
 		attacker_epoch:      s.world_binding().epoch
 		victim_runtime_id:   target_runtime_id
 		damage:              damage
 		critical:            critical
-	}) {
-		s.log.debug('Dropped attack task - actor queue full')
-	}
+	})
 }
 
 // EntityInteractSnapshot is a point in time copy of the fields
@@ -300,12 +299,13 @@ fn (mut s NetworkSession) request_respawn() {
 	if isnil(wr) {
 		return
 	}
-	if !wr.try_submit(PlayerRespawnTask{
+	// A dropped respawn has no natural retry. The client only sends
+	// client_ready_to_spawn once, so losing it under queue pressure could
+	// leave the player stuck on the death screen.
+	wr.submit(PlayerRespawnTask{
 		runtime_id: s.runtime_id
 		epoch:      s.world_binding().epoch
-	}) {
-		s.log.debug('Dropped respawn task - actor queue full')
-	}
+	})
 }
 
 fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
