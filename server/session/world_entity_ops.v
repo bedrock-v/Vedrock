@@ -35,8 +35,9 @@ fn (mut h WorldEntityHost) broadcast_near(x f32, y f32, z f32, radius f32, p pro
 		dy := pos.y - y
 		dz := pos.z - z
 		if dx * dx + dy * dy + dz * dz <= r2 {
-			mut s := as_network_session(mut a) or { continue }
-			s.deliver(p)
+			if mut a is NetworkSession {
+				a.deliver(p)
+			}
 		}
 	}
 }
@@ -107,9 +108,9 @@ fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id
 
 fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
 	mut a := wr.entities.actor_by_runtime_id(runtime_id) or { return }
-	if mut s := as_network_session(mut a) {
-		s.apply_knockback(knockback_from, knockback_force, knockback_height)
-		s.apply_hurt(mut wr, amount, source)
+	if mut a is NetworkSession {
+		a.apply_knockback(knockback_from, knockback_force, knockback_height)
+		a.apply_hurt(mut wr, amount, source)
 		return
 	}
 	mut host := WorldEntityHost{

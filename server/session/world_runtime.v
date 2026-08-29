@@ -198,8 +198,9 @@ fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
 // or world_call, because the actor registry is not protected by a lock.
 fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
 	for mut a in wr.entities.player_actors() {
-		mut s := as_network_session(mut a) or { continue }
-		s.deliver(p)
+		if mut a is NetworkSession {
+			a.deliver(p)
+		}
 	}
 }
 
@@ -207,9 +208,10 @@ fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
 // given runtime ID. Call it only from this world's runtime thread.
 fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
 	for mut a in wr.entities.player_actors() {
-		mut s := as_network_session(mut a) or { continue }
-		if s.runtime_id != except_runtime_id {
-			s.deliver(p)
+		if mut a is NetworkSession {
+			if a.runtime_id != except_runtime_id {
+				a.deliver(p)
+			}
 		}
 	}
 }
@@ -695,11 +697,12 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 // separate pass would repeat that work purely for metrics.
 fn (mut tx WorldTx) tick_effects() {
 	for mut a in tx.wr.entities.player_actors() {
-		mut s := as_network_session(mut a) or { continue }
-		s.tick_effects(mut tx.wr)
-		s.tick_environmental_damage(mut tx)
-		s.tick_breaking(mut tx)
-		tx.wr.sample_outbound_depth(int(s.outbound.len))
+		if mut a is NetworkSession {
+			a.tick_effects(mut tx.wr)
+			a.tick_environmental_damage(mut tx)
+			a.tick_breaking(mut tx)
+			tx.wr.sample_outbound_depth(int(a.outbound.len))
+		}
 	}
 }
 

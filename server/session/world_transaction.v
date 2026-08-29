@@ -48,8 +48,9 @@ pub fn (mut h WorldTxHandle) set_block(x int, y int, z int, b world.Block) ! {
 pub fn (mut h WorldTxHandle) players() []PlayerRef {
 	mut out := []PlayerRef{}
 	for mut a in h.tx.wr.entities.player_actors() {
-		s := as_network_session(mut a) or { continue }
-		out << player_ref_for(s)
+		if mut a is NetworkSession {
+			out << player_ref_for(a)
+		}
 	}
 	return out
 }

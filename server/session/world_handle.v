@@ -76,8 +76,9 @@ pub fn (mut w World) players() []PlayerRef {
 	return world_call[[]PlayerRef](mut w.runtime, fn (mut tx WorldTx) []PlayerRef {
 		mut out := []PlayerRef{}
 		for mut a in tx.wr.entities.player_actors() {
-			s := as_network_session(mut a) or { continue }
-			out << player_ref_for(s)
+			if mut a is NetworkSession {
+				out << player_ref_for(a)
+			}
 		}
 		return out
 	}) or { []PlayerRef{} }

@@ -46,11 +46,8 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
 		return
 	}
-	// Narrow and return via as_network_session, then read outside the i`
-	// block. Never read a field/method on the narrowed value from inside
-	// the same block, see CONTRIBUTING.md's interface narrowing hazard.
-	if victim_session := as_network_session(mut victim_actor) {
-		if !victim_session.spawned || !victim_session.player.game_mode().allows_taking_damage() {
+	if mut victim_actor is NetworkSession {
+		if !victim_actor.spawned || !victim_actor.player.game_mode().allows_taking_damage() {
 			return
 		}
 	}
