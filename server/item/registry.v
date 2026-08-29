@@ -120,6 +120,7 @@ fn init() {
 	for it in default_items() {
 		r.register(it)
 	}
+	init_recipes()
 }
 
 // register adds or overrides the class for an item id. Use this for a

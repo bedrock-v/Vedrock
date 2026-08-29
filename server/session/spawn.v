@@ -240,6 +240,7 @@ fn (mut s NetworkSession) start_game() ! {
 		actor_info_list: s.entity_identifiers()
 	})!
 	s.transport.send(s.creative_content())!
+	s.transport.send(crafting_data_packet(s.hub.data))!
 	s.transport.send(biome_definition_list())!
 	s.transport.send(&proto.SetDifficultyPacket{
 		difficulty: u32(s.hub.difficulty_value())

@@ -202,6 +202,10 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 			tx.open_chest_container(mut s, pos)
 			return true
 		}
+		if b is block.CraftingTableBlock {
+			tx.open_workbench(mut s, pos)
+			return true
+		}
 		if b is block.NoteBlock {
 			tx.play_note(mut s, pos)
 			return true
