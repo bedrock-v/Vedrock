@@ -1,138 +1,109 @@
 module encryption
 
+import crypto.ecdsa
 import encoding.base64
 
+// The Bedrock encryption handshake needs a P-384 keypair, an ECDH derive
+// against the client key and an ES384 signature. crypto.ecdsa does all three;
+// this file only bridges the key format. Bedrock carries public keys as base64
+// SubjectPublicKeyInfo DER while crypto.ecdsa emits a raw EC point and reads
+// PEM. Both are the same bytes in different wrappers, so no OpenSSL binding
+// of our own is involved.
+
+// p384_spki_prefix is the SubjectPublicKeyInfo header for a secp384r1 key: the
+// SEQUENCE, the id-ecPublicKey/secp384r1 AlgorithmIdentifier and the BIT
+// STRING tag. It is fixed for the curve, so an SPKI is this prefix followed by
+// the uncompressed point. Pinned by keys_test.v against real OpenSSL output.
+const p384_spki_prefix = [u8(0x30), 0x76, 0x30, 0x10, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d,
+	0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22, 0x03, 0x62, 0x00]
+
+// An uncompressed P-384 point is 0x04 followed by two 48 byte coordinates.
+const p384_point_size = 97
+
+const p384_component_size = 48
+
 // ServerKeyPair holds the ephemeral P-384 ECDH/signing keypair the server
-// generates once per session for the encryption handshake. It owns the raw
-// EVP_PKEY handle and must be freed when the handshake is done.
+// generates once per session for the encryption handshake. It owns two OpenSSL
+// key handles and must be freed when the handshake is done.
 pub struct ServerKeyPair {
 mut:
-	pkey &C.EVP_PKEY = unsafe { nil }
+	private_key ecdsa.PrivateKey
+	public_key  ecdsa.PublicKey
+	freed       bool
 }
 
-// new_server_key_pair generates a fresh secp384r1 keypair via OpenSSL EVP.
+// new_server_key_pair generates a fresh secp384r1 keypair.
 pub fn new_server_key_pair() !&ServerKeyPair {
-	ctx := C.EVP_PKEY_CTX_new_id(evp_pkey_ec, unsafe { nil })
-	if ctx == unsafe { nil } {
-		return error('EVP_PKEY_CTX_new_id failed')
-	}
-	defer {
-		C.EVP_PKEY_CTX_free(ctx)
-	}
-	if C.EVP_PKEY_keygen_init(ctx) != 1 {
-		return error('EVP_PKEY_keygen_init failed')
-	}
-	if C.EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid_secp384r1) != 1 {
-		return error('failed to set P-384 curve')
-	}
-	mut pkey := &C.EVP_PKEY(unsafe { nil })
-	if C.EVP_PKEY_keygen(ctx, &pkey) != 1 {
-		return error('EVP_PKEY_keygen failed')
-	}
+	public_key, private_key := ecdsa.generate_key(nid: .secp384r1)!
 	return &ServerKeyPair{
-		pkey: pkey
+		private_key: private_key
+		public_key: public_key
 	}
 }
 
-// free releases the underlying EVP_PKEY. Safe to call once.
+// free releases both key handles. Idempotent: crypto.ecdsa's own free is not,
+// so the guard keeps a second call from double freeing.
 pub fn (mut k ServerKeyPair) free() {
-	if k.pkey != unsafe { nil } {
-		C.EVP_PKEY_free(k.pkey)
-		k.pkey = unsafe { nil }
+	if k.freed {
+		return
 	}
+	k.freed = true
+	k.private_key.free()
+	k.public_key.free()
 }
 
 // public_key_der returns the server's SubjectPublicKeyInfo (SPKI) DER bytes,
 // used as the base64 x5u header of the ServerToClientHandshake JWT.
 pub fn (k &ServerKeyPair) public_key_der() ![]u8 {
-	bio := C.BIO_new(C.BIO_s_mem())
-	if bio == unsafe { nil } {
-		return error('BIO_new failed')
+	return spki_from_p384_point(k.public_key.bytes()!)
+}
+
+// spki_from_p384_point wraps an uncompressed EC point in SPKI DER.
+fn spki_from_p384_point(point []u8) ![]u8 {
+	if point.len != p384_point_size || point[0] != 0x04 {
+		return error('expected a ${p384_point_size}-byte uncompressed P-384 point, got ${point.len} bytes')
 	}
-	defer {
-		C.BIO_free_all(bio)
+	mut out := []u8{cap: p384_spki_prefix.len + point.len}
+	out << p384_spki_prefix
+	out << point
+	return out
+}
+
+// pem_from_spki_der puts DER into the PEM armor crypto.ecdsa's parser reads.
+// PEM is base64 DER wrapped at 64 columns, so this adds no key material.
+fn pem_from_spki_der(der []u8) string {
+	body := base64.encode(der)
+	mut out := '-----BEGIN PUBLIC KEY-----\n'
+	for i := 0; i < body.len; i += 64 {
+		end := if i + 64 < body.len { i + 64 } else { body.len }
+		out += body[i..end] + '\n'
 	}
-	if C.i2d_PUBKEY_bio(bio, k.pkey) != 1 {
-		return error('i2d_PUBKEY_bio failed')
-	}
-	mut buf := &u8(unsafe { nil })
-	length := C.BIO_ctrl(bio, bio_ctrl_info, 0, voidptr(&buf))
-	if length <= 0 || buf == unsafe { nil } {
-		return error('failed to read SPKI from BIO')
-	}
-	mut out := []u8{len: int(length)}
-	unsafe { vmemcpy(out.data, buf, int(length)) }
+	out += '-----END PUBLIC KEY-----\n'
 	return out
 }
 
 // derive_shared_secret runs ECDH against the client public key (a base64 SPKI
 // DER string from the login chain) and returns the 48-byte raw shared secret.
+// A client key on the wrong curve is rejected while parsing, before the derive.
 pub fn (k &ServerKeyPair) derive_shared_secret(client_public_key_b64 string) ![]u8 {
 	der := base64.decode(client_public_key_b64)
 	if der.len == 0 {
 		return error('client public key is empty or not valid base64')
 	}
-	mut peer := &C.EVP_PKEY(unsafe { nil })
-	pp := &u8(der.data)
-	peer = C.vedrock_d2i_pubkey(&peer, &pp, i64(der.len))
-	if peer == unsafe { nil } {
-		return error('failed to parse client public key DER')
+	peer := ecdsa.pubkey_from_string(pem_from_spki_der(der)) or {
+		return error('failed to parse client public key DER: ${err}')
 	}
 	defer {
-		C.EVP_PKEY_free(peer)
+		peer.free()
 	}
-	ctx := C.EVP_PKEY_CTX_new(k.pkey, unsafe { nil })
-	if ctx == unsafe { nil } {
-		return error('EVP_PKEY_CTX_new failed')
-	}
-	defer {
-		C.EVP_PKEY_CTX_free(ctx)
-	}
-	if C.EVP_PKEY_derive_init(ctx) != 1 {
-		return error('EVP_PKEY_derive_init failed')
-	}
-	if C.EVP_PKEY_derive_set_peer(ctx, peer) != 1 {
-		return error('EVP_PKEY_derive_set_peer failed (curve mismatch?)')
-	}
-	mut secret_len := usize(0)
-	if C.EVP_PKEY_derive(ctx, unsafe { nil }, &secret_len) != 1 {
-		return error('EVP_PKEY_derive length query failed')
-	}
-	if secret_len == 0 {
-		return error('derived secret length is zero')
-	}
-	mut secret := []u8{len: int(secret_len)}
-	if C.EVP_PKEY_derive(ctx, secret.data, &secret_len) != 1 {
-		return error('EVP_PKEY_derive failed')
-	}
-	return secret[..int(secret_len)].clone()
+	return k.private_key.derive_shared_secret(peer)!
 }
 
 // sign_es384 signs the message with the server private key using ECDSA-SHA384
-// and returns the JWS-style fixed-width raw R||S signature (96 bytes for P-384).
+// and returns the JWS-style fixed width raw R||S signature (96 bytes).
 pub fn (k &ServerKeyPair) sign_es384(message []u8) ![]u8 {
-	md_ctx := C.EVP_MD_CTX_new()
-	if md_ctx == unsafe { nil } {
-		return error('EVP_MD_CTX_new failed')
-	}
-	defer {
-		C.EVP_MD_CTX_free(md_ctx)
-	}
-	if C.EVP_DigestSignInit(md_ctx, unsafe { nil }, C.EVP_sha384(), unsafe { nil }, k.pkey) != 1 {
-		return error('EVP_DigestSignInit failed')
-	}
-	mut sig_len := usize(0)
-	if C.vedrock_evp_digest_sign(md_ctx, unsafe { nil }, &sig_len, message.data, usize(message.len)) != 1 {
-		return error('EVP_DigestSign length query failed')
-	}
-	mut der_sig := []u8{len: int(sig_len)}
-	if C.vedrock_evp_digest_sign(md_ctx, der_sig.data, &sig_len, message.data, usize(message.len)) != 1 {
-		return error('EVP_DigestSign failed')
-	}
-	return der_ecdsa_to_raw(der_sig[..int(sig_len)], p384_component_size)!
+	return der_ecdsa_to_raw(k.private_key.sign(message)!, p384_component_size)!
 }
-
-const p384_component_size = 48
 
 // der_ecdsa_to_raw converts a DER-encoded ECDSA signature (SEQUENCE of two
 // INTEGERs r,s) into the fixed-width raw R||S form used by JWS/JWA. Each
