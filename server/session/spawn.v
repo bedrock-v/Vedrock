@@ -94,7 +94,21 @@ fn jigsaw_structure_data() &proto.JigsawStructureDataPacket {
 	}
 }
 
-fn (mut s NetworkSession) start_game() ! {
+// SpawnState is where player enters the world, resolved once by
+// resolve_spawn_state and shared by everything start_game builds from it.
+struct SpawnState {
+	pos            types.Vector3
+	pitch          f32
+	yaw            f32
+	dimension_id   int
+	generator_type proto.GeneratorType
+	spawn_y        int
+}
+
+// resolve_spawn_state picks player's spawn position. A generator provided
+// default or a saved position from player_data_provider when one exists
+// and still lands somewhere safe to stand.
+fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 	s.player.set_game_mode(gamemode_from_name(s.cfg.gamemode))
 	spawn_y := s.generator.spawn_y()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
@@ -105,24 +119,39 @@ fn (mut s NetworkSession) start_game() ! {
 	} else {
 		proto.GeneratorType.overworld
 	}
-	mut spawn_pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
-	mut spawn_pitch := f32(0.0)
-	mut spawn_yaw := f32(0.0)
+	mut pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
+	mut pitch := f32(0.0)
+	mut yaw := f32(0.0)
 	if data := s.hub.player_data_provider.load(s.player_key()) {
 		saved_pos := types.Vector3{data.x, data.y, data.z}
 		if safe_player_position_in_world(s.world, s.generator, saved_pos) {
-			spawn_pos = saved_pos
+			pos = saved_pos
 		}
-		spawn_pitch = data.pitch
-		spawn_yaw = data.yaw
+		pitch = data.pitch
+		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
 		s.player.set_game_mode(gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
 		}
 	}
-	s.player.reset_position(spawn_pos)
-	s.player.set_orientation(spawn_pitch, spawn_yaw, spawn_yaw)
+	s.player.reset_position(pos)
+	s.player.set_orientation(pitch, yaw, yaw)
+	return SpawnState{
+		pos:            pos
+		pitch:          pitch
+		yaw:            yaw
+		dimension_id:   dimension_id
+		generator_type: generator_type
+		spawn_y:        spawn_y
+	}
+}
+
+// build_start_game_packet assembles the StartGamePacket for spawn: the
+// entry point's fixed defaults, plus the handful of fields (dimension,
+// generator, spawn position, permission level, view distance) that vary per
+// session.
+fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto.StartGamePacket {
 	player_permission := if s.player.perm.op() {
 		proto.PlayerPermissionLevel.operator
 	} else {
@@ -137,15 +166,15 @@ fn (mut s NetworkSession) start_game() ! {
 			spawn_settings:                               proto.SpawnSettings{
 				spawn_type:              proto.SpawnBiomeType.default
 				user_defined_biome_name: ''
-				dimension:               i32(dimension_id)
+				dimension:               i32(spawn_state.dimension_id)
 			}
-			generator_type:                               generator_type
+			generator_type:                               spawn_state.generator_type
 			game_type:                                    proto.game_type(gamemode_to_wire(s.player.game_mode()))
 			is_hardcore_enabled:                          false
 			game_difficulty:                              unsafe { proto.Difficulty(s.hub.difficulty_value()) }
 			default_spawn_block_position:                 proto.NetworkBlockPosition{
 				x: 0
-				y: i32(spawn_y)
+				y: i32(spawn_state.spawn_y)
 				z: 0
 			}
 			achievements_disabled:                        false
@@ -186,7 +215,7 @@ fn (mut s NetworkSession) start_game() ! {
 			}
 			limited_world_width:                          0
 			limited_world_depth:                          0
-			nether_type:                                  dimension_id == world.nether.id
+			nether_type:                                  spawn_state.dimension_id == world.nether.id
 			edu_shared_uri_resource:                      proto.EduSharedUriResource{}
 			override_force_experimental_gameplay:         none
 			chat_restriction_level:                       proto.ChatRestrictionLevel.@none
@@ -222,11 +251,17 @@ fn (mut s NetworkSession) start_game() ! {
 		scenario_id:                           ''
 		owner_id:                              ''
 	}
-	start_packet.position[0] = spawn_pos.x
-	start_packet.position[1] = spawn_pos.y
-	start_packet.position[2] = spawn_pos.z
-	start_packet.rotation[0] = spawn_pitch
-	start_packet.rotation[1] = spawn_yaw
+	start_packet.position[0] = spawn_state.pos.x
+	start_packet.position[1] = spawn_state.pos.y
+	start_packet.position[2] = spawn_state.pos.z
+	start_packet.rotation[0] = spawn_state.pitch
+	start_packet.rotation[1] = spawn_state.yaw
+	return start_packet
+}
+
+fn (mut s NetworkSession) start_game() ! {
+	spawn_state := s.resolve_spawn_state()
+	start_packet := s.build_start_game_packet(spawn_state)
 	s.transport.send(jigsaw_structure_data())!
 	// The client builds its collision registry from this while it reads the
 	// level, so it goes out ahead of StartGame. Only the vanilla shapes are
