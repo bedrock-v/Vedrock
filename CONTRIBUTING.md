@@ -134,6 +134,12 @@ Use the bare type name (`if a is NetworkSession`), not a pointer form when narro
 
 Everything that *could* be tested, nothing reproduced it.
 
+## Coding style
+
+See [`docs/coding_style.md`](docs/coding_style.md) - naming, formatting, comments and how
+this project uses V's error handling/interfaces/sum types instead of patterns carried over
+from other languages. Run `v fmt -w` on touched files.
+
 ## Commit style
 
 Use a conventional-commit subject line (`feat:`, `fix:`, `docs:`, `refactor:` etc). A body is
