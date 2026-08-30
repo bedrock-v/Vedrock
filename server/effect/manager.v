@@ -13,6 +13,11 @@ pub:
 	stored   bool
 	replaced bool
 	previous Effect
+	// rejected is set when e itself was invalid (non positive level or a
+	// negative duration on a non-infinite effect) rather than losing out to
+	// an existing effect. accepted/stored are both false either way; this
+	// tells the two cases apart for a caller that wants to know why.
+	rejected bool
 }
 
 pub struct Manager {
@@ -26,29 +31,33 @@ pub fn new_manager() Manager {
 	}
 }
 
+// add applies effect and returns the resulting effect. A caller that needs to
+// know whether "e" actually took hold should call add_result instead.
 pub fn (mut m Manager) add(e Effect) Effect {
 	return m.add_result(e).effect
 }
 
+// add_result applies effect or rejects it outright when it's invalid
+// See AddResult.rejected.
 pub fn (mut m Manager) add_result(e Effect) AddResult {
-	if e.level() <= 0 {
-		panic('effect level must be greater than zero')
-	}
-	if e.duration_ticks() < 0 && !e.infinite() {
-		panic('effect duration cannot be negative')
+	if e.level() <= 0 || (e.duration_ticks() < 0 && !e.infinite()) {
+		return AddResult{
+			effect: e
+			rejected: true
+		}
 	}
 	if e.instant() || !e.effect_type().lasting {
 		return AddResult{
-			effect:   e
+			effect: e
 			accepted: true
 		}
 	}
 	existing := m.effects[e.effect_type().id] or {
 		m.effects[e.effect_type().id] = e
 		return AddResult{
-			effect:   e
+			effect: e
 			accepted: true
-			stored:   true
+			stored: true
 		}
 	}
 	if existing.level() > e.level() {
@@ -73,9 +82,9 @@ pub fn (mut m Manager) add_result(e Effect) AddResult {
 	}
 	m.effects[e.effect_type().id] = e
 	return AddResult{
-		effect:   e
+		effect: e
 		accepted: true
-		stored:   true
+		stored: true
 		replaced: true
 		previous: existing
 	}
@@ -112,7 +121,7 @@ pub fn (mut m Manager) tick() TickResult {
 		m.effects[id] = e.tick_duration()
 	}
 	return TickResult{
-		active:  active
+		active: active
 		expired: expired
 	}
 }
