@@ -23,10 +23,10 @@ jobs:
         uses: ./.github/actions/setup-v
 
       - name: Check
-        run: v -check .
+        run: v -old-compiler -check .
 
       - name: Test
-        run: v test .
+        run: v -old-compiler test .
 
       - name: Build
-        run: v -o vedrock . # or i will use main.v if it gives any error
+        run: v -old-compiler -o vedrock .
