@@ -1,10 +1,10 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.world
 import server.world.particle
 import server.world.sound
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // block_at returns this transaction's authoritative block ID, preferring a
 // stored override and falling back to generation. It always reads from the

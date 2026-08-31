@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 
 // nearest_player_name is the display-name-facing form of nearest_player. It
 // resolves the runtime id back to a name rather than leaking the internal

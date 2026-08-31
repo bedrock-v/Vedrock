@@ -1,16 +1,16 @@
 module session
 
 import os
-import protocol
-import protocol.types
-import protocol.serializer
+import bedrock_v.protocol
+import bedrock_v.protocol.types
+import bedrock_v.protocol.serializer
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.player.playerdb
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := proto.new_packet_pool()

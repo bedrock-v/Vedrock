@@ -5,7 +5,7 @@ import server.permission
 import server.effect
 import server.inventory
 import server.player.playerdb
-import protocol.types
+import bedrock_v.protocol.types
 import sync
 
 // Player holds the gamestate fields that belong to a player as an entity,

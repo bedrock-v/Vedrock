@@ -1,11 +1,11 @@
 module session
 
-import protocol.types
-import nbt
+import bedrock_v.protocol.types
+import bedrock_v.nbt
 import server.player.playerdb
 import server.item
 import server.block
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 const inventory_window_id = 0
 const inventory_slot_count = 36

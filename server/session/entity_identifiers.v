@@ -1,7 +1,7 @@
 module session
 
 import os
-import nbt
+import bedrock_v.nbt
 import server.entity
 import server.internal.gamedata
 

@@ -3,7 +3,7 @@ module session
 import math
 import server.effect
 import server.event
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 const mob_effect_add = proto.MobEffectEvent.add
 const mob_effect_remove = proto.MobEffectEvent.remove

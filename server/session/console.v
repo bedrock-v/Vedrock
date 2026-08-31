@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.logger
 import server.cmd
 import server.form

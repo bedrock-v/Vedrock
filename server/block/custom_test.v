@@ -1,6 +1,6 @@
 module block
 
-import nbt
+import bedrock_v.nbt
 
 fn test_register_allocates_sequential_runtime_ids() {
 	mut r := new_custom_registry()

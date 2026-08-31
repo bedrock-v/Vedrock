@@ -1,7 +1,7 @@
 module session
 
 import server.form
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // send_form queues the form for the target player, since it may be opened
 // from a command running on another session's thread.

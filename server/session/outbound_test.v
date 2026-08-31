@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol
+import bedrock_v.protocol
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth
@@ -9,7 +9,7 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn text_packet(message string) &proto.TextPacket {
 	return &proto.TextPacket{

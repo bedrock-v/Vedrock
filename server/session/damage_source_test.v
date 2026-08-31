@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 import server.internal.auth
 import server.internal.gamedata

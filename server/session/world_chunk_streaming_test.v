@@ -2,13 +2,13 @@ module session
 
 import sync
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 struct BlockingGenerator {
 	started chan bool

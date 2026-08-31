@@ -1,13 +1,13 @@
 module session
 
-import protocol
-import protocol.serializer
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.effect
 import time
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := proto.new_packet_pool()

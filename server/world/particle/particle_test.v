@@ -1,6 +1,6 @@
 module particle
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn test_block_break_carries_the_runtime_id() {
 	p := BlockBreak{

@@ -1,7 +1,7 @@
 module session
 
-import protocol
-import protocol.current as proto
+import bedrock_v.protocol
+import bedrock_v.protocol.current as proto
 import server.internal.logger
 
 // Maximum number of packets a session may have waiting to be sent.

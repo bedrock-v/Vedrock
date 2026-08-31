@@ -1,14 +1,14 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn movement_isolation_test_session(mut hub Hub, mut wr WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut s := &NetworkSession{

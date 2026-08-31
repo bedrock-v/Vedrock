@@ -2,7 +2,7 @@ module entity
 
 import math
 import rand
-import protocol.types
+import bedrock_v.protocol.types
 
 // Behaviour drives an Entity's per tick logic. identifier() returns the network
 // type id used when the entity is spawned for clients; tick() runs once per

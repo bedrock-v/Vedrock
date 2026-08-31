@@ -1,8 +1,8 @@
 module gamedata
 
 import os
-import nbt
-import protocol.serializer
+import bedrock_v.nbt
+import bedrock_v.protocol.serializer
 
 // PayloadWalker reads a BiomeDefinitionListPacket payload the way the client
 // does. It proves the encoder lays every field out in the right order and

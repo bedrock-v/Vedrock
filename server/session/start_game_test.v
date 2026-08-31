@@ -1,9 +1,9 @@
 module session
 
-import protocol
-import protocol.types
-import protocol.serializer
-import nbt
+import bedrock_v.protocol
+import bedrock_v.protocol.types
+import bedrock_v.protocol.serializer
+import bedrock_v.nbt
 import os
 import sync
 import time
@@ -15,7 +15,7 @@ import server.player
 import server.player.playerdb
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {
 	mut pool := proto.new_packet_pool()

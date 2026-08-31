@@ -1,14 +1,14 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) proto.MobEquipmentPacket {
 	return proto.MobEquipmentPacket{

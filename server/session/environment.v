@@ -3,7 +3,7 @@ module session
 import math
 import server.player
 import server.world
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // Environmental damage uses per source tick intervals to approximate repeat
 // damage. These intervals replace general invincibility frames which we

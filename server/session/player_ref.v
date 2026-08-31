@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.player
 
 // PlayerRef is a stale checked reference to a player. It remains valid only

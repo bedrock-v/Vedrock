@@ -1,6 +1,6 @@
 module inventory
 
-import protocol.types
+import bedrock_v.protocol.types
 import sync
 
 // Inventory holds the item stacks a player carries. A stack is tracked by the

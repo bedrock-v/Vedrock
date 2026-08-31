@@ -1,10 +1,10 @@
 module entity
 
-import protocol
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.world
 import server.effect
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // gravity and drag are applied per tick to any entity that is not marked
 // no_gravity. Values are in blocks/tick, matching Bedrock's ~0.08 gravity and

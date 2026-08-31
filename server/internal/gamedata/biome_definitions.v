@@ -2,8 +2,8 @@ module gamedata
 
 import compress.gzip
 import os
-import nbt
-import protocol.serializer
+import bedrock_v.nbt
+import bedrock_v.protocol.serializer
 
 // Mojang ships the biome registry as a big endian NBT document. The wire form
 // the client expects is a flat BiomeDefinitionListPacket payload, so the two

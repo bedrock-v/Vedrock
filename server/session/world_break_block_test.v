@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.internal.gamedata
@@ -10,7 +10,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{

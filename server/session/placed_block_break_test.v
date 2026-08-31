@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.player
 import server.internal.auth

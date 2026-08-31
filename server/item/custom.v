@@ -1,6 +1,6 @@
 module item
 
-import nbt
+import bedrock_v.nbt
 
 // Runtime ids for custom items start well above the vanilla palette so they
 // never collide with it.

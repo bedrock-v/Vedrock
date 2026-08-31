@@ -1,8 +1,8 @@
 module default
 
-import protocol
-import protocol.serializer
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
+import bedrock_v.protocol.types
 import server.internal.language
 import server.permission
 import server.form
@@ -11,7 +11,7 @@ import server.player
 import server.player.bossbar
 import server.player.scoreboard
 import server.player.title
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn full_registry() cmd.Registry {
 	mut r := cmd.new_registry()

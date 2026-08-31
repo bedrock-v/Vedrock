@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.auth
 import server.internal.gamedata
 import server.player
@@ -9,7 +9,7 @@ import server.world
 import server.world.db
 import server.item
 import server.block
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // A break that never starts shows the player no crack animation and no
 // particles, which is the whole symptom of the server reading a different

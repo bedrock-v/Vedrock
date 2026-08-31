@@ -2,7 +2,7 @@ module conf
 
 import os
 import toml
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // default_join_port is the port a Bedrock client tries first when it is
 // given an address with no port of its own.

@@ -4,7 +4,7 @@ import encoding.utf8
 import server.cmd
 import server.event
 import server.player.chat
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // The wire message is an unbounded string, while the vanilla client caps chat
 // at 512 characters and a command line well below that. Without a bound here
