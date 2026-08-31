@@ -1,6 +1,6 @@
 module enchant
 
-import nbt
+import bedrock_v.nbt
 
 // Registry maps enchantment ids and names to their classes. It boots with the
 // vanilla set registered; plugins add theirs with ids from
@@ -102,4 +102,31 @@ pub fn (r &Registry) protection_factor(applied []Applied) f32 {
 		}
 	}
 	return total
+}
+
+// process_registry is the one enchantment registry for the whole program:
+// every vanilla and custom enchantment lives here and every lookup reads
+// from it. Register custom enchantments before calling server.new().
+// init() below seeds the vanilla set before your own main() runs.
+const process_registry = &Registry{}
+
+fn init() {
+	mut r := process_registry
+	register_defaults(mut r)
+}
+
+pub fn get(id int) ?Enchantment {
+	return process_registry.get(id)
+}
+
+pub fn get_by_name(name string) ?Enchantment {
+	return process_registry.get_by_name(name)
+}
+
+pub fn attack_bonus(applied []Applied) f32 {
+	return process_registry.attack_bonus(applied)
+}
+
+pub fn protection_factor(applied []Applied) f32 {
+	return process_registry.protection_factor(applied)
 }

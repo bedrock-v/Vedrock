@@ -16,3 +16,11 @@ pub fn new_iron_ore() IronOreBlock {
 		}
 	}
 }
+
+// new_iron_ore_item is the item form of 'minecraft:iron_ore'.
+pub fn new_iron_ore_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:iron_ore'
+		block_runtime: world.iron_ore.network_id
+	}
+}

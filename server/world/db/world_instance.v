@@ -4,7 +4,8 @@ import sync
 import sync.stdatomic
 import time
 import server.world
-import protocol.types
+import bedrock_v.protocol.types
+import server.internal.logger
 
 const persist_shutdown_timeout = 30 * time.second
 
@@ -75,10 +76,10 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store          ?Provider
-	overrides      map[string]int
-	tile_data      map[string]TileData
-	container_data map[string][]ContainerSlotItem
+	store              ?Provider
+	overrides          map[string]int
+	tile_data          map[string]TileData
+	container_data     map[string][]ContainerSlotItem
 	open_holders       map[string]u64
 	mutex              &sync.Mutex = sync.new_mutex()
 	current_tick       i64
@@ -295,6 +296,10 @@ fn (mut w World) enqueue_persist(record PersistRecord) {
 // beyond store's own internals. Started once by new_world, only when store
 // is present.
 fn (mut w World) run_persist_worker() {
+	logger.name_thread('Persist Worker/${w.name}')
+	defer {
+		logger.unname_thread()
+	}
 	mut store := w.store or { return }
 	// Catch up on anything enqueued before this thread's first select
 	w.drain_persist_records(mut store)

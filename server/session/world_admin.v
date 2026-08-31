@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.cmd
 import server.event
 import server.world
@@ -131,6 +131,8 @@ fn to_world_metrics_summary(m WorldMetrics) cmd.WorldMetricsSummary {
 	return cmd.WorldMetricsSummary{
 		name:                           m.world_name
 		current_tick:                   m.current_tick
+		requested_tick:                 m.requested_tick
+		simulation_debt_ticks:          m.simulation_debt_ticks
 		queued_tasks:                   m.queued_tasks
 		oldest_queued_task_age_ms:      m.oldest_queued_task_age.milliseconds()
 		last_tick_duration_ms:          m.last_tick_duration.milliseconds()

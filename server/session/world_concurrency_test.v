@@ -93,9 +93,8 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 	// Release A and confirm it recovers once unblocked, proves this was a
 	// real stall & recover, not just A never having been scheduled.
 	release <- true
-	a_target := i64(500)
-	hub.request_tick_all(a_target)
-	assert concurrency_wait_until(2000, fn [wr_a, a_target] () bool {
-		return wr_a.tick_snapshot() == a_target
+	hub.request_tick_all(i64(500))
+	assert concurrency_wait_until(2000, fn [wr_a] () bool {
+		return wr_a.tick_snapshot() == max_world_catchup_ticks
 	})
 }

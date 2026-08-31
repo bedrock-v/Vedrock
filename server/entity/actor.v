@@ -1,6 +1,6 @@
 module entity
 
-import protocol.types
+import bedrock_v.protocol.types
 
 // Dimensions describes an actor's collision box and related vertical
 // offsets. Width and height are full dimensions.

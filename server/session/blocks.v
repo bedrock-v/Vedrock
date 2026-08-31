@@ -1,13 +1,12 @@
 module session
 
 import time
-
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
 import server.world
 import server.block
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -15,6 +14,12 @@ const place_cooldown_ms = i64(100)
 
 const survival_place_reach_sq = f32(8.0 * 8.0)
 const creative_place_reach_sq = f32(14.0 * 14.0)
+
+// max_block_actions_per_input bounds the block actions one PlayerAuthInput may
+// carry. Each action can start or finish a break and reaches the owning world's
+// actor thread, so an unbounded list is work a single packet can force on every
+// player in that world. The vanilla client sends a couple per tick.
+const max_block_actions_per_input = 64
 
 // dimension returns the player's current world's dimension.
 fn (s &NetworkSession) dimension() world.Dimension {
@@ -41,9 +46,7 @@ fn (s &NetworkSession) block_at(x int, y int, z int) int {
 }
 
 fn (s &NetworkSession) can_interact() bool {
-	return s.player.game_mode() != proto.game_type_spectator
-		&& s.player.game_mode() != proto.game_type_survival_spectator
-		&& s.player.game_mode() != proto.game_type_creative_spectator
+	return s.player.game_mode() != .spectator
 }
 
 fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
@@ -64,8 +67,8 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 // the client reports one.
 fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransactionPacket) ! {
 	use_item := p.use_item or { return }
-	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position), int(use_item.face),
-		use_item.click_position[1])!
+	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position),
+		int(use_item.face), use_item.click_position[1])!
 }
 
 fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
@@ -76,6 +79,9 @@ fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket
 		s.handle_item_use_transaction(tx)!
 	}
 	if actions := p.player_block_actions {
+		if actions.len > max_block_actions_per_input {
+			return error('player auth input carried ${actions.len} block actions')
+		}
 		for action in actions {
 			s.handle_player_block_action(action)!
 		}
@@ -149,7 +155,7 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		yaw:                s.player.movement().yaw
 		now_ms:             now
 		last_place_ms:      s.last_place_ms
-		is_creative:        s.player.game_mode() == proto.game_type_creative
+		is_creative:        s.player.game_mode() == .creative
 	}
 	if wr.submit(task) {
 		placed := <-task.result
@@ -170,7 +176,7 @@ fn (s &NetworkSession) placement_runtime_id() int {
 		return stack.block_runtime_id
 	}
 	held_name := s.hub.data.item_name(stack.id)
-	if held_item := s.hub.items.get(held_name) {
+	if held_item := item.get(held_name) {
 		return held_item.block_runtime_id()
 	}
 	return 0
@@ -187,15 +193,14 @@ fn (s &NetworkSession) held_stack_and_name() (types.ItemStack, string) {
 // currently held item, removing it if it breaks. Creative mode tools never
 // take durability damage.
 fn (mut s NetworkSession) damage_held_item(amount int) {
-	if s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_creative_spectator {
+	if s.player.game_mode() == .creative {
 		return
 	}
 	stack, net := s.inventory_stack_at(s.player.held_slot())
 	if net == 0 {
 		return
 	}
-	it := s.hub.items.get(s.hub.data.item_name(stack.id)) or { return }
+	it := item.get(s.hub.data.item_name(stack.id)) or { return }
 	result := item.damage_item(it, stack.meta, amount)
 	if result.broken {
 		s.player.delete_stack(net)
@@ -222,13 +227,13 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		return
 	}
 	stack, name := s.held_stack_and_name()
-	if cooldown := s.hub.items.cooldown_ticks(name) {
+	if cooldown := item.cooldown_ticks(name) {
 		if s.hub.current_tick() < s.cooldown_until[name] {
 			return
 		}
 		s.cooldown_until[name] = s.hub.current_tick() + i64(cooldown)
 	}
-	result := s.hub.items.use_result(name, stack.meta) or { return }
+	result := item.use_result(name, stack.meta) or { return }
 	mut use_ctx := event.new_context(event.ItemUseData{
 		player:    s
 		item_name: name
@@ -291,8 +296,7 @@ fn (mut s NetworkSession) handle_player_block_action(action proto.PlayerBlockAct
 // place_reach_sq returns the squared placement reach for the player's
 // current gamemode.
 fn (s &NetworkSession) place_reach_sq() f32 {
-	if s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_creative_spectator {
+	if s.player.game_mode() == .creative {
 		return creative_place_reach_sq
 	}
 	return survival_place_reach_sq
@@ -371,7 +375,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.resend_block(pos)
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative && !s.hub.blocks.breakable(old_id) {
+	if s.player.game_mode() != .creative && !block.breakable(old_id) {
 		s.send_maybe_queued(&proto.UpdateBlockPacket{
 			block_position:   proto.block_pos(pos)
 			block_runtime_id: u32(old_id)
@@ -381,7 +385,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative && !s.break_complete(pos, old_id) {
+	if s.player.game_mode() != .creative && !s.break_complete(pos, old_id) {
 		s.resend_block(pos)
 		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
 		return
@@ -425,9 +429,7 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.done <- true
 	}
-	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or {
-		return
-	}
+	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
 	tx.complete_block_break(mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
@@ -463,7 +465,7 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 	tx.set_block(pos.x, pos.y, pos.z, air_id)
 	tx.damage_held_item(mut s, 1)
 
-	if s.player.game_mode() != proto.game_type_creative && s.can_harvest(old_id) {
+	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
 		drop_name, drop_count := block_drop_for(mut tx.wr, old_id)
 		if drop_name != '' {
 			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
@@ -471,9 +473,12 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 		}
 	}
 
-	if b := tx.wr.hub.blocks.get(old_id) {
+	if b := block.get(old_id) {
 		if b is block.ChestBlock {
 			drop_chest_contents(mut tx.wr, mut s, pos.x, pos.y, pos.z)
+		}
+		if b is block.JukeboxBlock {
+			drop_jukebox_disc(mut tx.wr, pos.x, pos.y, pos.z)
 		}
 	}
 
@@ -520,9 +525,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.result <- placed
 	}
-	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or {
-		return
-	}
+	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
 	pos := t.click_pos
 	neighbor := face_offset(pos, t.click_face)
 	clicked_id := tx.block_at(pos.x, pos.y, pos.z)
@@ -604,7 +607,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p proto.BlockPickRequestPacke
 		}
 		return
 	}
-	if s.player.game_mode() != proto.game_type_creative {
+	if s.player.game_mode() != .creative {
 		return
 	}
 

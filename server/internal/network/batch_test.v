@@ -1,6 +1,6 @@
 module network
 
-import protocol.serializer
+import bedrock_v.protocol.serializer
 
 fn test_batch_roundtrip_uncompressed() {
 	packets := [

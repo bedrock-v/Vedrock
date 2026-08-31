@@ -16,3 +16,11 @@ pub fn new_dirt_block() DirtBlock {
 		}
 	}
 }
+
+// new_dirt_item is the item form of 'minecraft:dirt'.
+pub fn new_dirt_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:dirt'
+		block_runtime: world.dirt.network_id
+	}
+}

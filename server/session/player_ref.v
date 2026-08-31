@@ -1,6 +1,7 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
+import server.player
 
 // PlayerRef is a stale checked reference to a player. It remains valid only
 // for the world membership generation captured when it was created.
@@ -54,35 +55,48 @@ fn (p PlayerRef) resolve() !&NetworkSession {
 	return s
 }
 
+// name is the player's display name, captured when this PlayerRef was
+// created. Stays valid even after the player disconnects.
 pub fn (p PlayerRef) name() string {
 	return p.name_
 }
 
+// world is the world this PlayerRef's membership generation belongs to, not
+// necessarily the player's current world if they've since switched.
 pub fn (p PlayerRef) world() World {
 	return p.world_
 }
 
+// position is the player's current position. Fails if the player has
+// disconnected or left the world membership this PlayerRef was created for.
 pub fn (p PlayerRef) position() !types.Vector3 {
 	mut s := p.resolve()!
-	x, y, z := s.position()
-	return types.Vector3{x, y, z}
+	return s.position()
 }
 
+// send_message shows message in the player's chat. Same failure mode as
+// position.
 pub fn (p PlayerRef) send_message(message string) ! {
 	mut s := p.resolve()!
 	s.send_message(message)!
 }
 
+// teleport moves the player within their current world. Same failure mode
+// as position.
 pub fn (p PlayerRef) teleport(pos types.Vector3) ! {
 	mut s := p.resolve()!
 	s.teleport(pos.x, pos.y, pos.z)
 }
 
+// teleport_to moves the player into world w at pos, transferring world
+// membership. Same failure mode as position.
 pub fn (p PlayerRef) teleport_to(w World, pos types.Vector3) ! {
 	mut s := p.resolve()!
 	s.teleport_to_world(w.name(), pos.x, pos.y, pos.z)
 }
 
+// give_item adds count of the item named id to the player's inventory.
+// Fails if the player is gone (see position) or their inventory has no room.
 pub fn (p PlayerRef) give_item(id string, count int) ! {
 	mut s := p.resolve()!
 	if !s.give_item(id, count) {
@@ -90,11 +104,21 @@ pub fn (p PlayerRef) give_item(id string, count int) ! {
 	}
 }
 
-pub fn (p PlayerRef) set_gamemode(mode int) ! {
+// game_mode returns the player's current game mode.
+pub fn (p PlayerRef) game_mode() !player.Gamemode {
+	mut s := p.resolve()!
+	return s.player.game_mode()
+}
+
+// set_gamemode changes the player's game mode. Same failure mode as
+// position.
+pub fn (p PlayerRef) set_gamemode(mode player.Gamemode) ! {
 	mut s := p.resolve()!
 	s.set_gamemode(mode)
 }
 
+// disconnect kicks the player with message shown as the reason. Same
+// failure mode as position.
 pub fn (p PlayerRef) disconnect(message string) ! {
 	mut s := p.resolve()!
 	s.disconnect(message)

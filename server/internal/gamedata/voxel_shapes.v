@@ -148,8 +148,7 @@ fn parse_voxel_corner(value json2.Any) ![3]f32 {
 	if values.len != 3 {
 		return error('voxel shapes: a corner needs three coordinates')
 	}
-	return [f32(values[0].int()) / 16.0, f32(values[1].int()) / 16.0,
-		f32(values[2].int()) / 16.0]!
+	return [f32(values[0].int()) / 16.0, f32(values[1].int()) / 16.0, f32(values[2].int()) / 16.0]!
 }
 
 fn sorted_unique(values []f32) []f32 {

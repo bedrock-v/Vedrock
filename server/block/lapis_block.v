@@ -16,3 +16,11 @@ pub fn new_lapis_block() LapisBlock {
 		}
 	}
 }
+
+// new_lapis_block_item is the item form of 'minecraft:lapis_block'.
+pub fn new_lapis_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:lapis_block'
+		block_runtime: world.lapis_block.network_id
+	}
+}

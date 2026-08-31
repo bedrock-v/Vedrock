@@ -1,6 +1,7 @@
 module session
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
+import server.player.skin
 
 const skin_width = u32(64)
 const skin_height = u32(64)
@@ -49,30 +50,54 @@ fn (s &NetworkSession) uuid() proto.Uuid {
 	return proto.uuid_from_bytes(parse_uuid(s.player.identity.uuid, s.runtime_id))
 }
 
+// default_skin builds the plain white skin the server hands out to players
+// whose own skin it does not track, and converts it to the serialized form the
+// client expects.
 fn default_skin(id string) proto.SerializedSkin {
-	pixels := []u8{len: int(skin_width * skin_height * 4), init: u8(0xff)}
+	mut sk := skin.new(int(skin_width), int(skin_height))
+	sk.id = '${id}.Vedrock'
+	sk.full_id = '${id}.Vedrock'
+	sk.fill(skin.Colour{
+		r: 0xff
+		g: 0xff
+		b: 0xff
+		a: 0xff
+	})
+	return serialize_skin(sk)
+}
+
+// serialize_skin converts sk to the packet form of a skin. Fields the skin
+// type has no say over, such as the persona pieces, are left at the neutral
+// values a server built skin uses.
+fn serialize_skin(sk skin.Skin) proto.SerializedSkin {
+	mut cape_width := u32(0)
+	mut cape_height := u32(0)
+	if sk.cape.exists() {
+		cape_width = u32(sk.cape.width())
+		cape_height = u32(sk.cape.height())
+	}
 	return proto.SerializedSkin{
-		skin_id:                         '${id}.Vedrock'
-		play_fab_id:                     ''
-		skin_resource_patch:             '{"geometry":{"default":"geometry.humanoid.custom"}}'
-		skin_image_width:                skin_width
-		skin_image_height:               skin_height
-		skin_image_bytes:                pixels
+		skin_id:                         sk.id
+		play_fab_id:                     sk.play_fab_id
+		skin_resource_patch:             sk.model_config.encode()
+		skin_image_width:                u32(sk.width())
+		skin_image_height:               u32(sk.height())
+		skin_image_bytes:                sk.pix
 		animations:                      []proto.SerializedSkinAnimationFrame{}
-		cape_image_width:                0
-		cape_image_height:               0
-		cape_image_bytes:                []u8{}
-		geometry_data:                   '{}'
+		cape_image_width:                cape_width
+		cape_image_height:               cape_height
+		cape_image_bytes:                sk.cape.pix
+		geometry_data:                   if sk.model.len == 0 { '{}' } else { sk.model.bytestr() }
 		geometry_data_engine_version:    ''
 		animation_data:                  ''
-		cape_id:                         ''
-		full_id:                         '${id}.Vedrock'
+		cape_id:                         sk.cape.id
+		full_id:                         sk.full_id
 		arm_size:                        proto.ArmSizeType.wide
 		skin_color:                      0
 		persona_pieces:                  []proto.PersonaPiecesEntry{}
 		piece_tint_colors:               []proto.PieceTintColorsEntry{}
 		is_premium_skin:                 false
-		is_persona_skin:                 false
+		is_persona_skin:                 sk.persona
 		is_persona_cape_on_classic_skin: false
 		is_primary_user:                 true
 		overrides_player_appearance:     true
@@ -127,7 +152,7 @@ fn (s &NetworkSession) add_player_packet() &proto.AddPlayerPacket {
 		platform_chat_id:  ''
 		y_head_rotation:   current.head_yaw
 		carried_item:      proto.item_descriptor(s.player.held_item().item_stack)
-		player_game_type:  proto.game_type(s.player.game_mode())
+		player_game_type:  proto.game_type(gamemode_to_wire(s.player.game_mode()))
 		entity_data:       visible_name_metadata(s.player.identity.display_name)
 		synced_properties: proto.PropertySyncData{}
 		abilities_data:    s.build_abilities()

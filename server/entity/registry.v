@@ -35,6 +35,42 @@ pub fn (r &Registry) names() []string {
 	return out
 }
 
+// process_registry is the one entity registry for the whole program: every
+// vanilla and custom spawn factory lives here and create() reads from it.
+// Register custom types before calling server.new().
+// init() below seeds the vanilla set before your own main() runs.
+const process_registry = &Registry{}
+
+fn init() {
+	mut r := process_registry
+	register_defaults(mut r)
+}
+
+// create builds a new Behaviour for name or none if the type is unknown.
+pub fn create(name string) ?Behaviour {
+	return process_registry.create(name)
+}
+
+// register adds a named entity type directly to the process wide registry.
+// Reregistering a name overwrites it.
+pub fn register(name string, factory BehaviourFactory) {
+	mut r := process_registry
+	r.register(name, factory)
+}
+
+// names lists every registered type name in the process wide registry.
+pub fn names() []string {
+	return process_registry.names()
+}
+
+// process returns the process wide registry itself, for the rare caller
+// that needs a &Registry value instead of create()/register().
+// e.g.  Manager.restore_from_save which takes a &Registry so its own tests can
+// pass in a smaller one instead.
+pub fn process() &Registry {
+	return process_registry
+}
+
 // register_defaults registers the entity types Vedrock ships with.
 //
 // Dimensions approximate each entity type's Bedrock hitbox closely enough

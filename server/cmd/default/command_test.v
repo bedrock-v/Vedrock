@@ -1,13 +1,17 @@
 module default
 
-import protocol
-
-import protocol.serializer
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
+import bedrock_v.protocol.types
 import server.internal.language
 import server.permission
 import server.form
 import server.cmd
-import protocol.current as proto
+import server.player
+import server.player.bossbar
+import server.player.scoreboard
+import server.player.title
+import bedrock_v.protocol.current as proto
 
 fn full_registry() cmd.Registry {
 	mut r := cmd.new_registry()
@@ -30,7 +34,7 @@ struct RecordingSender {
 mut:
 	messages         []string
 	broadcasts       []string
-	gamemode         int = -1
+	gamemode         ?player.Gamemode
 	perm             permission.Permissible
 	peers            map[string]cmd.Sender
 	sender_name      string = 'Steve'
@@ -56,6 +60,7 @@ mut:
 	created_dim      string
 	created_gen      string
 	tp_world         string
+	bossbar_text     string
 	scoreboard_title string
 	scoreboard_lines []string
 	scoreboard_shown bool
@@ -69,7 +74,7 @@ fn (mut s RecordingSender) send_translation(key string, parameters []string) ! {
 	s.messages << '${key} ${parameters}'
 }
 
-fn (mut s RecordingSender) set_gamemode(mode int) {
+fn (mut s RecordingSender) set_gamemode(mode player.Gamemode) {
 	s.gamemode = mode
 }
 
@@ -102,8 +107,8 @@ fn (mut s RecordingSender) kill() {
 	s.killed = true
 }
 
-fn (mut s RecordingSender) position() (f32, f32, f32) {
-	return s.pos_x, s.pos_y, s.pos_z
+fn (mut s RecordingSender) position() types.Vector3 {
+	return types.Vector3{s.pos_x, s.pos_y, s.pos_z}
 }
 
 fn (mut s RecordingSender) place_water(x int, y int, z int) {}
@@ -164,13 +169,25 @@ fn (mut s RecordingSender) broadcast_title(kind int, text string) {
 	s.broadcast_titles << text
 }
 
-fn (mut s RecordingSender) show_scoreboard(title string, lines []string) {
-	s.scoreboard_title = title
-	s.scoreboard_lines = lines
+fn (mut s RecordingSender) send_scoreboard(board &scoreboard.Scoreboard) {
+	s.scoreboard_title = board.name()
+	s.scoreboard_lines = board.lines()
 	s.scoreboard_shown = true
 }
 
-fn (mut s RecordingSender) clear_scoreboard() {
+fn (mut s RecordingSender) send_title(t title.Title) {
+	s.shown_title = t.text()
+}
+
+fn (mut s RecordingSender) send_bossbar(bar bossbar.BossBar) {
+	s.bossbar_text = bar.text()
+}
+
+fn (mut s RecordingSender) remove_bossbar() {
+	s.bossbar_text = ''
+}
+
+fn (mut s RecordingSender) remove_scoreboard() {
 	s.scoreboard_shown = false
 }
 
@@ -270,7 +287,7 @@ fn test_gamemode_command() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
-	assert sender.gamemode == proto.game_type_creative
+	assert (sender.gamemode or { panic('gamemode was never set') }) == .creative
 	assert sender.messages[0].contains('commands.gamemode.success.self')
 }
 
@@ -279,7 +296,7 @@ fn test_gamemode_command_usage_is_not_a_client_translation_key() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	r.dispatch('/gamemode', mut sender, base_ctx())!
-	assert sender.gamemode == -1
+	assert sender.gamemode == none
 	assert sender.messages[0].contains('Usage')
 	assert !sender.messages[0].contains('commands.gamemode.usage')
 }
@@ -288,7 +305,7 @@ fn test_gamemode_command_denied_without_op() {
 	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/gamemode creative', mut sender, base_ctx())!
-	assert sender.gamemode == -1
+	assert sender.gamemode == none
 	assert sender.messages[0].contains('permission')
 }
 

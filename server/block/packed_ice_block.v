@@ -16,3 +16,11 @@ pub fn new_packed_ice() PackedIceBlock {
 		}
 	}
 }
+
+// new_packed_ice_item is the item form of 'minecraft:packed_ice'.
+pub fn new_packed_ice_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:packed_ice'
+		block_runtime: world.packed_ice.network_id
+	}
+}

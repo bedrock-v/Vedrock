@@ -2,14 +2,13 @@ module session
 
 import sync
 import time
-
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 struct BlockingGenerator {
 	started chan bool
@@ -284,7 +283,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 			z: 0
 		}
 	}
-	chans := s.request_chunk_channels(wr, targets)
+	mut pipeline := s.new_chunk_pipeline(wr, targets)
 
 	deadline := time.now().add(2000 * time.millisecond)
 	for time.now() < deadline {
@@ -304,9 +303,12 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	for _ in 0 .. 20 {
 		release <- true
 	}
-	for ch in chans {
-		_ := <-ch
+	mut drained := 0
+	for {
+		_, _ := pipeline.next_result() or { break }
+		drained++
 	}
+	assert drained == targets.len
 }
 
 fn test_chunk_columns_are_released_when_delivery_is_dropped() {

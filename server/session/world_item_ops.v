@@ -2,11 +2,11 @@ module session
 
 import math
 import rand
-
-import protocol.types
+import bedrock_v.protocol.types
 import server.block
 import server.entity
-import protocol.current as proto
+import server.item
+import bedrock_v.protocol.current as proto
 
 fn spawn_dropped_item_entity(mut wr WorldRuntime, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
 	if stack.count <= 0 || stack.id == 0 {
@@ -25,7 +25,7 @@ fn spawn_dropped_item_stack(mut wr WorldRuntime, item_name string, count int, po
 	if id == 0 {
 		return
 	}
-	max_stack := wr.hub.items.max_stack_size(item_name)
+	max_stack := item.max_stack_size(item_name)
 	stack := types.ItemStack{
 		id:    id
 		count: count
@@ -55,7 +55,7 @@ fn drop_player_item(mut wr WorldRuntime, s &NetworkSession, stack types.ItemStac
 }
 
 fn block_drop_for(mut wr WorldRuntime, block_id int) (string, int) {
-	identifier := if b := wr.hub.blocks.get(block_id) { b.identifier() } else { '' }
+	identifier := if b := block.get(block_id) { b.identifier() } else { '' }
 	if identifier != '' {
 		if loot := block.loot_for_block(identifier) {
 			return loot.item_name, entity.rand_int_range(loot.min_count, loot.max_count)

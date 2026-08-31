@@ -16,3 +16,11 @@ pub fn new_granite() GraniteBlock {
 		}
 	}
 }
+
+// new_granite_item is the item form of 'minecraft:granite'.
+pub fn new_granite_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:granite'
+		block_runtime: world.granite.network_id
+	}
+}

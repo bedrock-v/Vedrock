@@ -16,3 +16,11 @@ pub fn new_polished_diorite() PolishedDioriteBlock {
 		}
 	}
 }
+
+// new_polished_diorite_item is the item form of 'minecraft:polished_diorite'.
+pub fn new_polished_diorite_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:polished_diorite'
+		block_runtime: world.polished_diorite.network_id
+	}
+}

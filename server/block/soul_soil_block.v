@@ -16,3 +16,11 @@ pub fn new_soul_soil() SoulSoilBlock {
 		}
 	}
 }
+
+// new_soul_soil_item is the item form of 'minecraft:soul_soil'.
+pub fn new_soul_soil_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:soul_soil'
+		block_runtime: world.soul_soil.network_id
+	}
+}

@@ -1,10 +1,10 @@
 module session
 
-import nbt
-
-import protocol.types
+import encoding.utf8
+import bedrock_v.nbt
+import bedrock_v.protocol.types
 import server.block
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) ! {
 	pos := proto.block_pos_from(p.block_position)
@@ -15,7 +15,7 @@ fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) 
 		return
 	}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
-	b := s.hub.blocks.get(old_id) or { return }
+	b := block.get(old_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
@@ -65,6 +65,12 @@ fn (t SetSignTextTask) run(mut tx WorldTx) {
 	})
 }
 
+// max_sign_text_bytes bounds the text a client may write onto a sign. The NBT
+// string is unbounded on the wire, and the result is stored in the world and
+// broadcast to every player who can see the block, so an oversized value would
+// be persisted and fanned out on every load.
+const max_sign_text_bytes = 256
+
 // extract_sign_text pulls FrontText.Text out of a sign's block-entity NBT
 // compound. Uses `is` checks rather than blind `as` casts since this parses
 // untrusted client input, malformed NBT must be rejected.
@@ -73,10 +79,25 @@ fn extract_sign_text(compound nbt.Compound) ?string {
 	if front_tag is nbt.Compound {
 		text_tag := front_tag.get('Text') or { return none }
 		if text_tag is string {
-			return text_tag
+			return validate_sign_text(text_tag)
 		}
 	}
 	return none
+}
+
+// validate_sign_text rejects text no vanilla client could have sent: the sign
+// keeps its trailing newlines as line separators, but oversized or malformed
+// input is dropped rather than truncated, since cutting a byte sequence in half
+// would leave broken UTF-8 in the world.
+fn validate_sign_text(text string) ?string {
+	trimmed := text.trim_right('\n')
+	if trimmed.len > max_sign_text_bytes {
+		return none
+	}
+	if !utf8.validate_str(trimmed) {
+		return none
+	}
+	return trimmed
 }
 
 // sign_text_side builds one FrontText/BackText compound.

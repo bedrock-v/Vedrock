@@ -16,3 +16,11 @@ pub fn new_iron_block() IronBlock {
 		}
 	}
 }
+
+// new_iron_block_item is the item form of 'minecraft:iron_block'.
+pub fn new_iron_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:iron_block'
+		block_runtime: world.iron_block.network_id
+	}
+}

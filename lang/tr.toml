@@ -28,6 +28,9 @@ other = "{{.Address}} adresinde dinleniyor"
 [server.discovery_listening]
 other = "{{.Address}} adresinde LAN keşfi dinleniyor"
 
+[server.discovery_unavailable]
+other = "{{.Address}} adresinde LAN keşfi kullanılamıyor: {{.Error}}"
+
 [server.started]
 other = "Başarıyla başlatıldı! ({{.Seconds}}sn) Komutlar için \"help\" yazın."
 

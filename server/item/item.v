@@ -2,8 +2,9 @@ module item
 
 // Item is the behaviour contract every item class implements. Every item is
 // its own class built on a family base struct (ToolItem, ArmorItem, FoodItem,
-// BlockItem, SimpleItem) and registered in the Registry so the session layer
-// can look it up by its string identifier (e.g. 'minecraft:diamond_sword').
+// SimpleItem, or block.BlockItem for the items that place a block) and
+// registered in the Registry so the session layer can look it up by its
+// string identifier (e.g. 'minecraft:diamond_sword').
 pub interface Item {
 	// identifier returns the namespaced item id used on the wire.
 	identifier() string

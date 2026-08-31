@@ -28,6 +28,9 @@ other = "Erreichbar unter {{.Address}}"
 [server.discovery_listening]
 other = "LAN-Erkennung auf {{.Address}}"
 
+[server.discovery_unavailable]
+other = "LAN-Erkennung auf {{.Address}} nicht verfügbar: {{.Error}}"
+
 [server.started]
 other = "Erfolgreich gestartet! ({{.Seconds}}s) Gib \"help\" für verfügbare Befehle ein."
 

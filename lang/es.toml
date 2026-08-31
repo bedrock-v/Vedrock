@@ -30,6 +30,9 @@ other = "Escuchando en {{.Address}}"
 [server.discovery_listening]
 other = "Descubrimiento LAN en {{.Address}}"
 
+[server.discovery_unavailable]
+other = "Descubrimiento LAN no disponible en {{.Address}}: {{.Error}}"
+
 [server.started]
 other = "¡Iniciado correctamente! ({{.Seconds}}s) Escribe \"help\" para ver los comandos."
 

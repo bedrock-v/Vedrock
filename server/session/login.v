@@ -1,10 +1,11 @@
 module session
 
 import server.internal.auth
+import server.internal.logger
 import server.internal.encryption
 import server.resourcepack
-import protocol.serializer
-import protocol.current as proto
+import bedrock_v.protocol.serializer
+import bedrock_v.protocol.current as proto
 
 fn login_chain_json(connection_request []u8) !string {
 	mut r := serializer.new_reader(connection_request)
@@ -51,7 +52,7 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 		s.reject_bootstrap('Login failed: malformed connection request')
 		return
 	}
-	identity := auth.parse_login_chain(auth_info_json, s.cfg.xbox_auth, mut s.hub.oidc_verifier) or {
+	claimed := auth.parse_login_chain(auth_info_json, s.cfg.xbox_auth, mut s.hub.oidc_verifier) or {
 		s.log.warn('Authentication failed: ${err}')
 		s.reject_bootstrap('Login failed: ${err}')
 		return
@@ -61,11 +62,12 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	// are NOT proof of identity - only trustworthy when identity.xbox_authenticated.
 	// Validate the fields regardless so downstream code (whitelist, ops, grants,
 	// data files keyed by these strings) never sees empty or oversized input.
-	s.validate_identity(identity) or {
+	s.validate_identity(claimed) or {
 		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${err}')
 		s.reject_bootstrap('Login failed: invalid identity')
 		return
 	}
+	identity := trusted_identity(claimed)
 	if !s.hub.whitelist_allowed(identity.display_name) {
 		s.log.info('${identity.display_name} is not white-listed, rejecting login')
 		s.reject_bootstrap('You are not white-listed on this server!')
@@ -87,16 +89,15 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	s.player.identity = identity
 	s.transport.mark_logged_in()
 	s.player.perm.set_op(s.hub.is_op(identity.display_name))
-	// xuid/uuid grants (player_permissions.yml's "xuid:"/"uuid:" lines) are
-	// only meaningful for a verified account: both fields are populated from
-	// client supplied JWT claims regardless of whether the chain actually
-	// verified, so an unauthenticated claim must
-	// never match another player's xuid/uuid-keyed grants.
-	grant_xuid := if identity.xbox_authenticated { identity.xuid } else { '' }
-	grant_uuid := if identity.xbox_authenticated { identity.uuid } else { '' }
-	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, grant_xuid, grant_uuid)
+	// xuid/uuid grants (player_permissions.yml's "xuid:"/"uuid:" lines) are only
+	// meaningful for a verified account. trusted_identity has already cleared
+	// both for an unverified chain, so an offline login can never match another
+	// player's xuid/uuid-keyed grants.
+	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, identity.xuid,
+		identity.uuid)
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
-	s.log.info('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
+	logger.name_thread(identity.display_name)
+	s.log.debug('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
 	// Negotiate protocol encryption before login_success so the rest of the
 	// session runs ciphered. Skipped when the transport already encrypts every
 	// byte (NetherNet's DTLS), and gated behind the encryption config flag. If
@@ -164,9 +165,30 @@ fn (s &NetworkSession) validate_identity(identity auth.Identity) ! {
 	if identity.uuid.len > max_uuid_len {
 		return error('uuid too long')
 	}
-	// TODO(security): with xbox_auth disabled we accept any self-signed offline
-	// chain - display_name/xuid are unverified and a client can impersonate any
-	// non-online player. Operators relying on identity must set xbox_auth=true.
+}
+
+// trusted_identity strips the account identifiers from an unverified login.
+// A self-signed offline chain carries whatever xuid and uuid the client felt
+// like sending, and those two fields are the ones the rest of the server treats
+// as an account: permission grants key off them, the save file is named after
+// them, and the player list broadcasts the xuid to every other client as the
+// Xbox profile to look up. Clearing them here means an offline session is only
+// ever its display name - which is charset checked, held for the length of the
+// session, and never claims to be an Xbox account.
+//
+// The display name itself stays unverified in offline mode: a client picks its
+// own, so it can take the name (and with it the ops entry and save file) of any
+// player who is not currently connected. That is inherent to running with
+// xbox-auth off, which is why it defaults to on.
+fn trusted_identity(identity auth.Identity) auth.Identity {
+	if identity.xbox_authenticated {
+		return identity
+	}
+	return auth.Identity{
+		...identity
+		xuid: ''
+		uuid: ''
+	}
 }
 
 fn (mut s NetworkSession) start_resource_packs() ! {

@@ -5,9 +5,9 @@ import rand
 import time
 import server.cmd
 import server.scheduler
-import nethernet
-import nethernet.discovery
-import nethernet.endpoint
+import bedrock_v.nethernet
+import bedrock_v.nethernet.discovery
+import bedrock_v.nethernet.endpoint
 import server.internal.logger
 import server.internal.language
 import server.conf
@@ -21,9 +21,10 @@ import server.permission
 import server.crash
 import server.event
 import server.player.playerdb
+import sync
 import sync.stdatomic
-import protocol.current as proto
-import webrtc.logging
+import bedrock_v.protocol.current as proto
+import bedrock_v.webrtc.logging
 
 // nethernet_identity_domain names the issuer of the server's identity token.
 // Bedrock Dedicated Server self-signs its own the same way.
@@ -42,6 +43,35 @@ const world_flush_interval_ticks = u64(ticks_per_second) * 30
 // persist_pressure_log_interval controls how often persistence backlog
 // warnings may be logged while pressure remains elevated.
 const persist_pressure_log_interval = u64(ticks_per_second) * 5
+
+// heap_release_interval_ticks bounds how long freed memory stays mapped after a
+// burst - a player leaving takes their chunk and session allocations with them.
+const heap_release_interval_ticks = u64(ticks_per_second) * 300
+
+fn C.GC_gcollect_and_unmap()
+
+// release_free_heap collects and hands blocks the collector no longer needs
+// back to the OS.
+//
+// Boehm keeps freed blocks mapped until they have been idle for several
+// collections, so without this the process keeps resident whatever its peak
+// was - and boot's peak is the block palette and item/creative JSON parses,
+// several times what any of them actually retains.
+fn release_free_heap() {
+	C.GC_gcollect_and_unmap()
+}
+
+fn C.GC_get_heap_size() usize
+
+fn C.GC_get_free_bytes() usize
+
+// heap_summary reports the collector's mapped and live sizes, for the debug log
+// that follows a heap release.
+fn heap_summary() string {
+	total := u64(C.GC_get_heap_size())
+	free := u64(C.GC_get_free_bytes())
+	return 'heap mapped=${total / 1024 / 1024}MB live=${(total - free) / 1024 / 1024}MB'
+}
 
 // Options is the framework's composition-root entry point. settings carries
 // YAML-loadable server tuning; hub_options swaps Hub subsystems such as the
@@ -70,9 +100,12 @@ mut:
 	// endpoint is the address join channel: a client given this server's
 	// address asks it over HTTP instead of broadcasting for it.
 	endpoint          &endpoint.EndpointHandler = unsafe { nil }
-	endpoint_listener &nethernet.Listener = unsafe { nil }
-	guid      i64
-	running   &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	endpoint_listener &nethernet.Listener       = unsafe { nil }
+	guid              i64
+	running           &stdatomic.AtomicVal[bool] = stdatomic.new_atomic[bool](false)
+	// loop_wg tracks tick_loop/console_loop/both accept_loops. stop() waits
+	// on it before closing any listener.
+	loop_wg &sync.WaitGroup = sync.new_waitgroup()
 	// active_conns bounds concurrent connection handlers so a flood of
 	// half-open/pre-login peers can't exhaust threads and CPU.
 	active_conns &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -193,6 +226,13 @@ pub fn new(opts Options) !&Server {
 		log.warn('Failed to load block palette: ${err}')
 	}
 	hub.set_packs(load_resource_packs(cfg, log, lang))
+	// Every parse above is done and its garbage is dead, and no world thread or
+	// chunk worker exists yet. The collector scans thread stacks conservatively,
+	// so once those threads are running a dead block is far more likely to look
+	// reachable and stay mapped - releasing here is what actually returns the
+	// parse peak rather than carrying it for the process's lifetime.
+	release_free_heap()
+	log.debug('After data load ${heap_summary()}')
 	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
 		cfg.generator, log, lang)
 	return &Server{
@@ -227,6 +267,10 @@ fn (s &Server) transport_log_level() logging.Level {
 	return if s.cfg.debug { logging.Level.debug } else { logging.Level.warn }
 }
 
+// start binds the transport listeners (NetherNet & LAN discovery) and
+// begins accepting connections and ticking loaded worlds. Blocks the
+// calling thread for the life of the server; call it last. Returns an
+// error if the network identity or a listener fails to bind.
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
 		'Version': proto.selected_minecraft_version
@@ -238,31 +282,45 @@ pub fn (mut s Server) start() ! {
 	// server either way sees one identity.
 	identity := network.load_identity(s.cfg.identity_file, nethernet_identity_domain)!
 	// The server answers requests rather than making them, so it binds the
-	// discovery port and never broadcasts.
-	mut signaling := discovery.listen('${s.cfg.address}:${discovery.default_port}',
+	// discovery port and never broadcasts. The port is fixed and shared by
+	// every server on the host, so losing it only costs LAN visibility: the
+	// address join channel below still accepts players.
+	mut signaling := &discovery.Listener(unsafe { nil })
+	mut listener := &nethernet.Listener(unsafe { nil })
+	if mut sig := discovery.listen('${s.cfg.address}:${discovery.default_port}',
 		network_id: u64(s.guid)
 		broadcast:  false
 		logger:     net_log
-	)!
-	signaling.pong_data(s.pong_data(0).bytes())
-	mut listener := nethernet.listen(mut signaling,
-		// The game leaves the identity assertion out of most of its offers,
-		// including every LAN one, so refusing them is opt in. Xbox Live
-		// authentication is checked on the Login chain instead.
-		allow_anonymous: !s.cfg.require_identity
-		identity:        identity
-		logger:          net_log
-	) or {
-		signaling.close()
-		return err
+	)
+	{
+		sig.pong_data(s.pong_data(0).bytes())
+		listener = nethernet.listen(mut sig,
+			// The game leaves the identity assertion out of most of its offers,
+			// including every LAN one, so refusing them is opt in. Xbox Live
+			// authentication is checked on the Login chain instead.
+			allow_anonymous: !s.cfg.require_identity
+			identity:        identity
+			logger:          net_log
+		) or {
+			sig.close()
+			return err
+		}
+		signaling = sig
+	} else {
+		s.log.warn(s.lang.tf('server.discovery_unavailable', {
+			'Address': '${s.cfg.address}:${discovery.default_port}'
+			'Error':   err.msg()
+		}))
 	}
 	mut join_endpoint := endpoint.listen(
 		address:    s.cfg.bind_address()
 		network_id: s.guid.str()
 		logger:     net_log
 	) or {
-		listener.close()
-		signaling.close()
+		if !isnil(listener) {
+			listener.close()
+			signaling.close()
+		}
 		return err
 	}
 	join_endpoint.pong_data(s.pong_data(0).bytes())
@@ -272,8 +330,10 @@ pub fn (mut s Server) start() ! {
 		logger:          net_log
 	) or {
 		join_endpoint.close()
-		listener.close()
-		signaling.close()
+		if !isnil(listener) {
+			listener.close()
+			signaling.close()
+		}
 		return err
 	}
 	s.signaling = signaling
@@ -284,17 +344,28 @@ pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.listening', {
 		'Address': s.cfg.bind_address()
 	}))
-	s.log.info(s.lang.tf('server.discovery_listening', {
-		'Address': '${s.cfg.address}:${discovery.default_port}'
-	}))
+	if !isnil(signaling) {
+		s.log.info(s.lang.tf('server.discovery_listening', {
+			'Address': '${s.cfg.address}:${discovery.default_port}'
+		}))
+	}
+	// Boot is the process's allocation peak and none of its parse garbage is
+	// needed again, so this is the one point where returning it is free.
+	release_free_heap()
+	s.log.debug('After boot ${heap_summary()}')
 	elapsed := (time.now() - s.created_at).seconds()
 	s.log.info(s.lang.tf('server.started', {
 		'Seconds': '${elapsed:.3f}'
 	}))
+	s.loop_wg.add(2)
 	spawn s.tick_loop()
 	spawn s.console_loop()
-	spawn s.accept_loop(mut endpoint_listener)
-	s.accept_loop(mut listener)
+	if !isnil(listener) {
+		s.loop_wg.add(1)
+		spawn s.accept_loop(mut listener)
+	}
+	s.loop_wg.add(1)
+	s.accept_loop(mut endpoint_listener)
 }
 
 const console_poll_interval = 100 * time.millisecond
@@ -302,6 +373,11 @@ const console_poll_interval = 100 * time.millisecond
 // console_loop reads command lines from stdin and dispatches them through the
 // shared command registry as CONSOLE, mirroring the in-game chat path.
 fn (mut s Server) console_loop() {
+	logger.name_thread('Console Thread')
+	defer {
+		logger.unname_thread()
+		s.loop_wg.done()
+	}
 	mut sender := session.new_console_sender(mut s.hub, s.log)
 	for s.running.load() {
 		if !os.fd_is_pending(0) {
@@ -340,6 +416,11 @@ fn (mut s Server) console_loop() {
 }
 
 fn (mut s Server) tick_loop() {
+	logger.name_thread('Server Thread')
+	defer {
+		logger.unname_thread()
+		s.loop_wg.done()
+	}
 	interval := time.second / ticks_per_second
 	loop_start := time.now()
 	mut tick := u64(0)
@@ -360,7 +441,9 @@ fn (mut s Server) tick_loop() {
 				time: world_time
 			})
 			pong := s.pong_data(s.hub.count()).bytes()
-			s.signaling.pong_data(pong)
+			if !isnil(s.signaling) {
+				s.signaling.pong_data(pong)
+			}
 			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
@@ -368,11 +451,26 @@ fn (mut s Server) tick_loop() {
 				s.log.warn('World flush failed: ${msg}')
 			}
 		}
+		if tick % heap_release_interval_ticks == 0 {
+			release_free_heap()
+		}
 		if tick % persist_pressure_log_interval == 0 {
 			for msg in s.hub.persist_pressure_warnings() {
 				s.log.warn(msg)
 			}
 		}
+		s.hub.request_tick_all(i64(tick))
+		// Global cadence/metrics/scheduler heartbeat are direct: none of this
+		// needs actor serialization, current_tick/tps/load are atomics and the
+		// scheduler guards its own bookkeeping with its own mutex. Effects
+		// ticking, the one piece that genuinely is gameplay mutation, happens
+		// in each owning world's own advance_tick instead (world_runtime.v), not
+		// here.
+		s.hub.set_current_tick(i64(tick))
+		s.hub.scheduler_heartbeat(i64(tick))
+		// Measured once every piece of tick work has run. Taking it before the
+		// dispatch and heartbeat above left them out of the sample, which is what
+		// made load read 0% on a tick that had just reported itself over budget.
 		work := time.now() - tick_start
 		window_ticks++
 		window_work += work.nanoseconds()
@@ -385,30 +483,28 @@ fn (mut s Server) tick_loop() {
 			window_ticks = 0
 			window_work = 0
 		}
-		s.hub.request_tick_all(i64(tick))
-		// Global cadence/metrics/scheduler heartbeat are direct: none of this
-		// needs actor serialization, current_tick/tps/load are atomics and the
-		// scheduler guards its own bookkeeping with its own mutex. Effects
-		// ticking, the one piece that genuinely is gameplay mutation, happens
-		// in each owning world's own advance_tick instead (world_runtime.v), not
-		// here.
-		s.hub.set_current_tick(i64(tick))
 		s.hub.set_tps(tps)
 		s.hub.set_load(load)
-		s.hub.scheduler_heartbeat(i64(tick))
 		deadline := loop_start.add(time.Duration(i64(interval) * i64(tick)))
 		sleep_for := deadline - time.now()
 		if sleep_for > 0 {
 			time.sleep(sleep_for)
 		} else {
-			// The tick ran past its 50ms slot. We don't sleep, so the loop
-			// catches up on the next iterations. The deadline is anchored to
-			// loop_start, so a burst of slow ticks can't compound into runaway
-			// drift - once work speeds up, sleep_for goes positive again and the
-			// cadence self-corrects. Warn (throttled) so operators see the stall.
-			if tick - last_overrun_log >= tick_overrun_log_interval {
-				over := -sleep_for
-				s.log.warn('Tick ${tick} over budget by ${over.milliseconds()}ms (tps=${tps:.1f}, load=${load:.0f}%)')
+			// The deadline passed. We don't sleep, so the loop catches up on the
+			// next iterations. The deadline is anchored to loop_start, so a burst
+			// of missed slots can't compound into runaway drift - once the loop
+			// keeps up again, sleep_for goes positive and the cadence
+			// self-corrects.
+			//
+			// Only the tick's own work being over budget is worth warning about.
+			// time.sleep overshoots its request by a few ms on a loaded host, and
+			// that alone pushes the next deadline into the past on an otherwise
+			// idle server - a missed slot the operator can do nothing about.
+			over := -sleep_for
+			if work <= interval {
+				s.log.debug('Tick ${tick} slot missed by ${over.milliseconds()}ms with ${work.milliseconds()}ms of work - sleep overshoot, not server load')
+			} else if tick - last_overrun_log >= tick_overrun_log_interval {
+				s.log.warn('Tick ${tick} took ${work.milliseconds()}ms, over its ${interval.milliseconds()}ms budget (tps=${tps:.1f}, load=${load:.0f}%)')
 				last_overrun_log = tick
 			}
 		}
@@ -422,15 +518,21 @@ const max_concurrent_connections = u64(1024)
 // arrive through. Both end in the same handler: how the connection was
 // negotiated says nothing about the session that follows.
 fn (mut s Server) accept_loop(mut listener nethernet.Listener) {
+	logger.name_thread('Network Listener')
+	defer {
+		logger.unname_thread()
+		s.loop_wg.done()
+	}
 	for s.running.load() {
 		mut conn := listener.accept(time.second) or { continue }
+		peer_addr := network.remote_endpoint(conn.remote_addr())
 		if s.active_conns.load() >= max_concurrent_connections {
-			s.log.warn('Rejecting connection from ${conn.remote_addr()} - at capacity (${max_concurrent_connections})')
+			s.log.warn('Rejecting connection from ${peer_addr} - at capacity (${max_concurrent_connections})')
 			conn.close()
 			continue
 		}
 		s.active_conns.add(1)
-		s.log.info('Incoming connection from ${conn.remote_addr()}')
+		s.log.info('Incoming connection from ${peer_addr}')
 		spawn s.handle(mut conn)
 	}
 }
@@ -445,7 +547,13 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 	defer {
 		s.active_conns.sub(1)
 	}
-	addr := conn.remote_addr().str()
+	addr := network.remote_endpoint(conn.remote_addr())
+	// Renamed to the player's display name once login resolves one, so a
+	// session's lines are attributable before and after it has an identity.
+	logger.name_thread('Connection/${addr}')
+	defer {
+		logger.unname_thread()
+	}
 	mut transport := network.new_session(mut conn, s.log)
 	mut net_session := session.new(mut transport, mut s.hub, s.cfg, s.log)
 	net_session.handle_loop()
@@ -483,6 +591,7 @@ pub fn (mut s Server) stop() {
 	}
 	s.log.info('Stopping server')
 	s.running.store(false)
+	s.loop_wg.wait()
 	if !isnil(s.hub) {
 		s.hub.disconnect_all('Server closed')
 		s.hub.wait_for_sessions_to_leave()
@@ -600,6 +709,9 @@ pub fn (mut s Server) unload_world(name string) ! {
 	s.hub.unload_world(name)!
 }
 
+// register_generator makes a custom world generator available under name,
+// so load_world/WorldConfig can select it by that name for a new world.
+// Register before loading any world that uses it.
 pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
 	s.hub.register_generator(name, factory)
 }

@@ -2,7 +2,7 @@ module default
 
 import server.permission
 import server.cmd
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 pub struct DifficultyCommand {}
 

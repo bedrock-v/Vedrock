@@ -16,3 +16,11 @@ pub fn new_redstone_block() RedstoneBlock {
 		}
 	}
 }
+
+// new_redstone_block_item is the item form of 'minecraft:redstone_block'.
+pub fn new_redstone_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:redstone_block'
+		block_runtime: world.redstone_block.network_id
+	}
+}

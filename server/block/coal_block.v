@@ -16,3 +16,11 @@ pub fn new_coal_block() CoalBlock {
 		}
 	}
 }
+
+// new_coal_block_item is the item form of 'minecraft:coal_block'.
+pub fn new_coal_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:coal_block'
+		block_runtime: world.coal_block.network_id
+	}
+}

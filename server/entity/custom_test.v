@@ -1,6 +1,6 @@
 module entity
 
-import nbt
+import bedrock_v.nbt
 
 fn test_register_allocates_ids_and_rejects_duplicates() {
 	mut r := new_custom_registry()

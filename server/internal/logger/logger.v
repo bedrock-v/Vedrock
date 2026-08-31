@@ -63,13 +63,55 @@ fn (l &Logger) log(level Level, msg string) {
 }
 
 // main_thread is whichever thread first built a Logger, which is the one
-// running main(). Every other thread is reported by its own id so concurrent
-// output stays attributable.
+// running main(). Every other thread is reported by its registered name, or by
+// its own id when it never registered one, so concurrent output stays
+// attributable either way.
 const main_thread = sync.thread_id()
+
+// ThreadNames maps thread ids to the names their threads registered. Reads
+// happen on every log line and writes only twice per thread, so the lock is a
+// read/write one.
+struct ThreadNames {
+mut:
+	lock_ &sync.RwMutex = sync.new_rwmutex()
+	names map[u64]string
+}
+
+const thread_names = &ThreadNames{}
+
+// name_thread labels the calling thread for every log line it writes from here
+// on. Call it as the first statement of a spawned thread, paired with a
+// deferred unname_thread: thread ids are reused once a thread exits, so a name
+// left behind would be inherited by an unrelated thread later.
+pub fn name_thread(name string) {
+	mut reg := unsafe { &ThreadNames(thread_names) }
+	reg.lock_.lock()
+	unsafe {
+		reg.names[sync.thread_id()] = name
+	}
+	reg.lock_.unlock()
+}
+
+// unname_thread drops the calling thread's registered name.
+pub fn unname_thread() {
+	mut reg := unsafe { &ThreadNames(thread_names) }
+	reg.lock_.lock()
+	unsafe {
+		reg.names.delete(sync.thread_id())
+	}
+	reg.lock_.unlock()
+}
 
 fn thread_name() string {
 	id := sync.thread_id()
-	return if id == main_thread { 'Main Thread' } else { 'Thread-${id}' }
+	if id == main_thread {
+		return 'Main Thread'
+	}
+	mut reg := thread_names
+	reg.lock_.rlock()
+	name := reg.names[id] or { '' }
+	reg.lock_.runlock()
+	return if name != '' { name } else { 'Thread-${id}' }
 }
 
 // The date is deliberately left out: a server log is read live, so only the

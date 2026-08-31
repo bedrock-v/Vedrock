@@ -1,6 +1,6 @@
 module block
 
-import nbt
+import bedrock_v.nbt
 
 // Runtime ids for custom blocks start above the vanilla palette so they never
 // collide with it.
@@ -223,4 +223,32 @@ pub fn (r &CustomRegistry) names() []string {
 		out << def.id
 	}
 	return out
+}
+
+// process_custom_registry holds just the custom block definitions, for id
+// allocation and for listing "which blocks are custom".
+// session/items.v needs that list to build the StartGamePacket block list.
+// Lookups (get, hardness, etc.) go through registry.v's registry instead; register_custom
+// keeps both in sync.
+const process_custom_registry = &CustomRegistry{}
+
+// register_custom registers a data driven block: allocates its runtime id
+// and makes it resolvable everywhere immediately.
+// Call it from your own setup, before server.new(). Registering the same
+// id twice just returns the id already allocated to it.
+pub fn register_custom(def CustomBlockDefinition) int {
+	mut cr := process_custom_registry
+	rid := cr.register(def)
+	register(SimpleBlock{
+		id:             def.id
+		block_runtime:  rid
+		break_hardness: def.break_hardness
+	})
+	return rid
+}
+
+// registered_custom returns every block registered via register_custom so
+// far, each with its runtime id filled in.
+pub fn registered_custom() []CustomBlockDefinition {
+	return process_custom_registry.all()
 }

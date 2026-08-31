@@ -28,6 +28,9 @@ other = "Écoute sur {{.Address}}"
 [server.discovery_listening]
 other = "Découverte LAN sur {{.Address}}"
 
+[server.discovery_unavailable]
+other = "Découverte LAN indisponible sur {{.Address}} : {{.Error}}"
+
 [server.started]
 other = "Démarré avec succès ! ({{.Seconds}}s) Tapez \"help\" pour voir les commandes."
 

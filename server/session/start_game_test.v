@@ -1,10 +1,9 @@
 module session
 
-import protocol
-
-import protocol.types
-import protocol.serializer
-import nbt
+import bedrock_v.protocol
+import bedrock_v.protocol.types
+import bedrock_v.protocol.serializer
+import bedrock_v.nbt
 import os
 import sync
 import time
@@ -16,7 +15,7 @@ import server.player
 import server.player.playerdb
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {
 	mut pool := proto.new_packet_pool()
@@ -307,7 +306,7 @@ fn test_chunk_service_reuses_chunk_columns() {
 	counter.mutex.unlock()
 }
 
-fn test_chunk_service_returns_mutable_copies() {
+fn test_decoded_clone_returns_mutable_copies() {
 	mut counter := &GenerateCounter{
 		mutex: sync.new_mutex()
 	}
@@ -315,11 +314,10 @@ fn test_chunk_service_returns_mutable_copies() {
 		counter: counter
 	}
 	mut svc := new_chunk_service(gen)
-	first := <-svc.request(4, -2)
-	mut mutable_first := first.chunk
-	mutable_first.set_block(0, 0, 0, world.air)
-	second := <-svc.request(4, -2)
-	assert second.chunk.block_id(0, 0, 0) == world.bedrock.network_id
+	mut first := svc.decoded_clone(4, -2) or { panic('no decoded column') }
+	first.set_block(0, 0, 0, world.air)
+	second := svc.decoded_clone(4, -2) or { panic('no decoded column') }
+	assert second.block_id(0, 0, 0) == world.bedrock.network_id
 }
 
 fn chunk_cache_entry_bytes() i64 {
@@ -330,7 +328,7 @@ fn chunk_cache_entry_bytes() i64 {
 		counter: probe_counter
 	}
 	chunk := gen.generate(0, 0)
-	return chunk.estimated_bytes() + i64(chunk.serialize().len)
+	return i64(chunk.serialize().len)
 }
 
 struct BlockingCountingGenerator {

@@ -4,18 +4,20 @@ import sync
 import sync.stdatomic
 import time
 import rand
-import protocol
-
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.block
 import server.entity
 import server.event
-import server.world
 import server.world.db
-import protocol.current as proto
+import server.internal.logger
+import bedrock_v.protocol.current as proto
 
-// max_world_catchup_ticks limits how many missed simulation steps a
-// WorldRuntime replays before advancing directly to the latest requested tick.
+// max_world_catchup_ticks bounds how many simulation steps a WorldRuntime
+// replays in a single run_due_tick call. Debt beyond this is not skipped by
+// resyncing the clock.
+//
+// It stays behind and is picked up on the next call, see advance_tick's own comment.
 const max_world_catchup_ticks = 20
 
 // max_due_updates_per_tick limits scheduled block updates processed in one
@@ -85,6 +87,10 @@ mut:
 
 	// Cross thread snapshot of current_tick.
 	published_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+
+	// Cross thread snapshot of latest_tick, lets any thread compute
+	// simulation debt (requested - simulated) without taking tick_mutex.
+	published_latest_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
 	liquids        &block.LiquidManager = unsafe { nil }
 	events         &event.Bus           = unsafe { nil }
@@ -156,11 +162,7 @@ fn (mut tx WorldTx) resubmit(task WorldTask) {
 // generator directly can contradict the world the client already has.
 fn (mut wr WorldRuntime) generated_block(x int, y int, z int) int {
 	mut svc := wr.chunk_service
-	result := <-svc.request(x >> 4, z >> 4)
-	if result.cancelled {
-		return world.air.network_id
-	}
-	return result.chunk.block_id(x & 15, y, z & 15)
+	return svc.block_at(x, y, z)
 }
 
 fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {
@@ -329,6 +331,10 @@ fn (mut wr WorldRuntime) shutdown() {
 // run_jobs owns this world's actor loop. It serializes world tasks, tick
 // processing and shutdown on a single thread.
 fn (mut wr WorldRuntime) run_jobs() {
+	logger.name_thread('World Thread/${wr.world.name}')
+	defer {
+		logger.unname_thread()
+	}
 	mut tx := &WorldTx{
 		wr: wr
 	}
@@ -445,6 +451,9 @@ fn (mut wr WorldRuntime) run_task(mut tx WorldTx, task WorldTask) {
 fn (mut wr WorldRuntime) request_tick(n i64) {
 	wr.tick_mutex.lock()
 	wr.latest_tick = n
+	// Stored inside the same critical section as latest_tick, not after.
+	mut published_latest := wr.published_latest_tick
+	published_latest.store(n)
 	wr.tick_mutex.unlock()
 	select {
 		wr.tick_wakeup <- true {}
@@ -456,6 +465,14 @@ fn (mut wr WorldRuntime) request_tick(n i64) {
 // to call from any thread.
 fn (wr &WorldRuntime) tick_snapshot() i64 {
 	mut p := wr.published_tick
+	return p.load()
+}
+
+// requested_tick_snapshot returns the latest requested (not yet necessarily
+// simulated) tick and is safe to call from any thread. requested_tick_snapshot()
+// minus tick_snapshot() is the world's current simulation debt.
+fn (wr &WorldRuntime) requested_tick_snapshot() i64 {
+	mut p := wr.published_latest_tick
 	return p.load()
 }
 
@@ -490,44 +507,46 @@ fn (wr &WorldRuntime) simulated_steps_count() i64 {
 // entities, liquids or scheduled block updates.
 pub struct WorldMetrics {
 pub:
-	world_name              string
-	queued_tasks            int
-	oldest_queued_task_age  time.Duration
-	current_tick            i64
-	tick_runs               i64
-	simulated_steps         i64
-	catchup_events          i64
-	tick_overruns           i64
-	last_tick_duration      time.Duration
-	longest_task_duration   time.Duration
-	longest_task_name       string
-	scheduled_backlog       int
-	liquid_backlog          int
-	entity_count            int
-	player_count            i64
-	outbound_overflow_count i64
-	outbound_peak_depth     i64
-	persist_pending_count     int
-	persist_oldest_pending_ms i64
-	persist_enqueued_total    i64
-	persist_committed_total   i64
+	world_name                     string
+	queued_tasks                   int
+	oldest_queued_task_age         time.Duration
+	current_tick                   i64
+	requested_tick                 i64
+	simulation_debt_ticks          i64
+	tick_runs                      i64
+	simulated_steps                i64
+	catchup_events                 i64
+	tick_overruns                  i64
+	last_tick_duration             time.Duration
+	longest_task_duration          time.Duration
+	longest_task_name              string
+	scheduled_backlog              int
+	liquid_backlog                 int
+	entity_count                   int
+	player_count                   i64
+	outbound_overflow_count        i64
+	outbound_peak_depth            i64
+	persist_pending_count          int
+	persist_oldest_pending_ms      i64
+	persist_enqueued_total         i64
+	persist_committed_total        i64
 	persist_pressure_level         int
 	persist_high_water_threshold   int
 	persist_hard_ceiling_threshold int
 	persist_last_write_ms          i64
 	persist_longest_write_ms       i64
 	persist_consecutive_errors     i64
-	chunk_cached_count       int
-	chunk_cached_bytes       i64
-	chunk_cache_budget_bytes i64
-	chunk_inflight_count     int
-	chunk_oldest_inflight_ms i64
-	chunk_active_workers     i64
-	chunk_worker_limit       int
-	chunk_queue_depth        i64
-	chunk_requests_total     i64
-	chunk_dedup_hits_total   i64
-	actor_running bool
+	chunk_cached_count             int
+	chunk_cached_bytes             i64
+	chunk_cache_budget_bytes       i64
+	chunk_inflight_count           int
+	chunk_oldest_inflight_ms       i64
+	chunk_active_workers           i64
+	chunk_worker_limit             int
+	chunk_queue_depth              i64
+	chunk_requests_total           i64
+	chunk_dedup_hits_total         i64
+	actor_running                  bool
 }
 
 fn (mut wr WorldRuntime) metrics() WorldMetrics {
@@ -552,11 +571,16 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 	mut longest_task_ns := wr.published_longest_task_ns
 	chunk_metrics := wr.chunk_service.metrics()
 
+	current_tick_val := wr.tick_snapshot()
+	requested_tick_val := wr.requested_tick_snapshot()
+
 	return WorldMetrics{
 		world_name:                     wr.world.name
 		queued_tasks:                   int(wr.jobs.len)
 		oldest_queued_task_age:         oldest_age
-		current_tick:                   wr.tick_snapshot()
+		current_tick:                   current_tick_val
+		requested_tick:                 requested_tick_val
+		simulation_debt_ticks:          requested_tick_val - current_tick_val
 		tick_runs:                      tick_runs.load()
 		simulated_steps:                simulated_steps.load()
 		catchup_events:                 catchup_events.load()
@@ -644,7 +668,19 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 	if debt > max_world_catchup_ticks {
 		tx.log_tick_overrun(debt)
 	}
-	wr.current_tick = target // always resync the clock, regardless of how much was actually simulated
+	// Leave current_tick exactly where simulation advanced it. Never snap it
+	// forward to target: doing so would discard unsimulated debt while making
+	// published_tick claim that the world had caught up. That was the cause of
+	// the block break desync: tick numbered progress observed a jump for ticks
+	// that were never actually simulated.
+	//
+	// If debt exceeds the per run cap, the remainder stays pending and is
+	// processed by subsequent run_due_tick calls. It therefore remains visible
+	// as requested_tick_snapshot().
+	// tick_snapshot() rather than being hidden by an artificial resync.
+	//
+	// A world that can't keep up loses TPS and remains behind rather than
+	// advancing its simulation clock over unexecuted ticks.
 	mut p := wr.published_tick
 	p.store(wr.current_tick)
 
@@ -688,7 +724,7 @@ fn (mut tx WorldTx) run_due_scheduled_ticks() {
 	due := wr.world.due_scheduled_entries(wr.current_tick, max_due_updates_per_tick)
 	for entry in due {
 		old_id := wr.world.block_id(entry.x, entry.y, entry.z)
-		b := wr.hub.blocks.get(old_id) or { continue }
+		b := block.get(old_id) or { continue }
 		if b is block.ScheduledTicker {
 			b.scheduled_tick(entry.x, entry.y, entry.z, mut wr.world)
 			new_id := wr.world.block_id(entry.x, entry.y, entry.z)
@@ -708,7 +744,7 @@ fn (mut tx WorldTx) run_random_ticks() {
 			continue
 		}
 		old_id := wr.world.block_id(pos.x, pos.y, pos.z)
-		b := wr.hub.blocks.get(old_id) or { continue }
+		b := block.get(old_id) or { continue }
 		if b is block.RandomTicker {
 			b.random_tick(pos.x, pos.y, pos.z, mut wr.world)
 			new_id := wr.world.block_id(pos.x, pos.y, pos.z)

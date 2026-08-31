@@ -1,14 +1,13 @@
 module session
 
 import time
-
 import server.internal.gamedata
 import server.internal.auth
 import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -248,4 +247,3 @@ fn test_failed_destination_registration_disconnects_session() {
 	assert !ok
 	assert s.state == .closed
 }
-

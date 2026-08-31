@@ -47,25 +47,25 @@ fn model_for_variant(v BlockVariant) BlockModel {
 	return solid_model()
 }
 
-fn state_int(states map[string]string, key string, fallback int) int {
-	v := states[key] or { return fallback }
+fn state_int(states BlockStates, key string, fallback int) int {
+	v := states.get(key) or { return fallback }
 	return v.int()
 }
 
-fn state_bool(states map[string]string, key string, fallback bool) bool {
-	v := states[key] or { return fallback }
+fn state_bool(states BlockStates, key string, fallback bool) bool {
+	v := states.get(key) or { return fallback }
 	return v == '1' || v == 'true' || v == 'top'
 }
 
-fn state_string(states map[string]string, key string, fallback string) string {
-	return states[key] or { return fallback }
+fn state_string(states BlockStates, key string, fallback string) string {
+	return states.get(key) or { return fallback }
 }
 
-fn slab_is_top(states map[string]string) bool {
-	if v := states['minecraft:vertical_half'] {
+fn slab_is_top(states BlockStates) bool {
+	if v := states.get('minecraft:vertical_half') {
 		return v == 'top'
 	}
-	if v := states['top_slot_bit'] {
+	if v := states.get('top_slot_bit') {
 		return v == '1' || v == 'true'
 	}
 	return false
@@ -91,7 +91,7 @@ fn cardinal_face(value string) int {
 	}
 }
 
-fn door_facing_face(states map[string]string) int {
+fn door_facing_face(states BlockStates) int {
 	return rotate_left_face(cardinal_face(state_string(states, 'minecraft:cardinal_direction',
 		'east')))
 }
@@ -124,19 +124,19 @@ pub fn (p &BlockPalette) can_place_on_support(id int, click_face int, support_id
 	if v.name == 'minecraft:ladder' {
 		return support.face_solid(click_face)
 	}
-	if 'torch_facing_direction' in v.states {
+	if v.states.has('torch_facing_direction') {
 		if click_face == 1 {
 			return support.face_center_solid(click_face)
 		}
 		return support.face_solid(click_face)
 	}
-	if v.name.ends_with('_button') && 'facing_direction' in v.states {
+	if v.name.ends_with('_button') && v.states.has('facing_direction') {
 		return support.face_center_solid(click_face)
 	}
-	if v.name == 'minecraft:lever' && 'lever_direction' in v.states {
+	if v.name == 'minecraft:lever' && v.states.has('lever_direction') {
 		return support.face_center_solid(click_face)
 	}
-	if 'ground_sign_direction' in v.states {
+	if v.states.has('ground_sign_direction') {
 		return support.face_center_solid(click_face)
 	}
 	return true

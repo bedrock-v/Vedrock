@@ -16,3 +16,11 @@ pub fn new_coal_ore() CoalOreBlock {
 		}
 	}
 }
+
+// new_coal_ore_item is the item form of 'minecraft:coal_ore'.
+pub fn new_coal_ore_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:coal_ore'
+		block_runtime: world.coal_ore.network_id
+	}
+}

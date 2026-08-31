@@ -2,7 +2,8 @@ module session
 
 import server.event
 import server.world
-import protocol.types
+import server.entity
+import bedrock_v.protocol.types
 
 // WorldTransaction is the public transaction surface passed to World.exec.
 // Its operations run on the owning world thread, allowing several reads
@@ -31,14 +32,19 @@ mut:
 	tx &WorldTx
 }
 
+// block_at reads the block at the given coordinates, resolved against this
+// transaction's own in progress writes.
 pub fn (h &WorldTxHandle) block_at(x int, y int, z int) world.Block {
 	return world.block_from_id(h.tx.block_at(x, y, z))
 }
 
+// set_block writes a block, visible to later reads in the same transaction
+// and broadcast to players in this world once the transaction commits.
 pub fn (mut h WorldTxHandle) set_block(x int, y int, z int, b world.Block) ! {
 	h.tx.set_block(x, y, z, b.network_id)
 }
 
+// players lists every player currently registered in this world.
 pub fn (mut h WorldTxHandle) players() []PlayerRef {
 	mut out := []PlayerRef{}
 	for mut a in h.tx.wr.entities.player_actors() {
@@ -52,7 +58,7 @@ pub fn (mut h WorldTxHandle) players() []PlayerRef {
 // spawn_entity validates and spawns an entity directly within the current
 // world transaction, avoiding an additional task and result round trip.
 pub fn (mut h WorldTxHandle) spawn_entity(config EntityConfig) !EntityRef {
-	behaviour := h.tx.wr.hub.entity_registry.create(config.type_name) or {
+	behaviour := entity.create(config.type_name) or {
 		return error('unknown entity type "${config.type_name}"')
 	}
 	mut ctx := event.new_context(event.EntitySpawnData{

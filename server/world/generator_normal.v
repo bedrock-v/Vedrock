@@ -307,11 +307,11 @@ fn ground_cover_solid(b Block) bool {
 // apply_ground_cover swaps the top few stone blocks of a column for the
 // biome's surface material. A non solid first layer (snow) sits on top of the
 // surface instead of replacing it, hence the one block offset.
-fn apply_ground_cover(mut ids []int, cover []Block) {
-	if cover.len == 0 {
+fn apply_ground_cover(mut ids []int, limit int, cover []Block) {
+	if cover.len == 0 || limit <= 0 {
 		return
 	}
-	mut start := ids.len - 1
+	mut start := limit - 1
 	for start > 0 && (ids[start] == air.network_id || ids[start] == water.network_id) {
 		start--
 	}
@@ -321,8 +321,8 @@ fn apply_ground_cover(mut ids []int, cover []Block) {
 	if !ground_cover_solid(cover[0]) {
 		start++
 	}
-	if start > ids.len - 1 {
-		start = ids.len - 1
+	if start > limit - 1 {
+		start = limit - 1
 	}
 	end := start - cover.len
 	for y := start; y > end && y >= 0; y-- {
@@ -347,7 +347,7 @@ fn (g NormalGenerator) column_ids(x int, z int) []int {
 	for y := 1; y <= normal_column_top(max_sum); y++ {
 		ids[y] = normal_terrain_id(y, min_sum, max_sum, g.terrain_noise(x, y, z))
 	}
-	apply_ground_cover(mut ids, normal_ground_cover(g.biome_at(x, z)))
+	apply_ground_cover(mut ids, ids.len, normal_ground_cover(g.biome_at(x, z)))
 	return ids
 }
 
@@ -395,7 +395,14 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 			min_sum := min_heights[x * 16 + z]
 			max_sum := max_heights[x * 16 + z]
 			top := normal_column_top(max_sum)
-			for y in 0 .. normal_terrain_height {
+			// Everything above top is air, so only the part of the column that
+			// gets written is worth clearing - the rest was 128 stores per
+			// column that nothing ever read.
+			mut span := top + 2
+			if span > normal_terrain_height {
+				span = normal_terrain_height
+			}
+			for y in 0 .. span {
 				ids[y] = air.network_id
 			}
 			ids[0] = bedrock.network_id
@@ -403,13 +410,8 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 			for y := 1; y <= top; y++ {
 				ids[y] = normal_terrain_id(y, min_sum, max_sum, density_from_column(column, y))
 			}
-			apply_ground_cover(mut ids, normal_ground_cover(biome))
-
-			for y := 0; y <= top + 1 && y < normal_terrain_height; y++ {
-				if ids[y] != air.network_id {
-					c.set_block(x, y, z, block_from_id(ids[y]))
-				}
-			}
+			apply_ground_cover(mut ids, span, normal_ground_cover(biome))
+			c.set_column(x, z, 0, ids[..span])
 		}
 	}
 

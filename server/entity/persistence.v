@@ -2,7 +2,7 @@ module entity
 
 import os
 import json2
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 
 // SaveData contains the persistent state needed to recreate an entity.

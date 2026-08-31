@@ -1,8 +1,7 @@
 module session
 
 import time
-
-import protocol.types
+import bedrock_v.protocol.types
 import server.entity
 import server.event
 import server.internal.gamedata
@@ -10,7 +9,7 @@ import server.internal.auth
 import server.player
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -133,8 +132,8 @@ fn test_entity_tick_isolated_to_owning_world() {
 		hub.close_worlds()
 	}
 
-	behaviour_a := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
-	behaviour_b := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
+	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
 	wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
 	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
 
@@ -162,10 +161,9 @@ fn test_entity_tick_isolated_to_owning_world() {
 	assert b_age > 0
 
 	release <- true
-	a_target := i64(500)
-	hub.request_tick_all(a_target)
-	assert entity_test_wait_until(2000, fn [wr_a, a_target] () bool {
-		return wr_a.tick_snapshot() == a_target
+	hub.request_tick_all(i64(500))
+	assert entity_test_wait_until(2000, fn [wr_a] () bool {
+		return wr_a.tick_snapshot() == max_world_catchup_ticks
 	})
 	a_age := world_call[i64](mut wr_a, fn (mut tx WorldTx) i64 {
 		return tx.wr.entities.snapshot()[0].age
@@ -208,7 +206,7 @@ fn test_entity_spawn_event_isolated_to_owning_world() {
 	wr_a.events.register(handler_a, .normal)
 	wr_b.events.register(handler_b, .normal)
 
-	behaviour := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour := entity.create('pig') or { panic('missing pig behaviour') }
 	task := SpawnEntityTask{
 		behaviour: behaviour
 		x:         0
@@ -237,7 +235,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 
 	wr_a.events.register(&CancelEntitySpawnHandler{}, .normal)
 
-	behaviour_a := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	task_a := SpawnEntityTask{
 		behaviour: behaviour_a
 		x:         0
@@ -248,7 +246,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 	assert <-task_a.result == false
 	assert wr_a.entities.count() == 0
 
-	behaviour_b := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
 	task_b := SpawnEntityTask{
 		behaviour: behaviour_b
 		x:         0
@@ -287,8 +285,8 @@ fn test_entity_despawn_event_isolated_to_owning_world() {
 	wr_a.events.register(handler_a, .normal)
 	wr_b.events.register(handler_b, .normal)
 
-	behaviour_a := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
-	behaviour_b := hub.entity_registry.create('pig') or { panic('missing pig behaviour') }
+	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
+	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
 	entity_a := wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
 	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
 
@@ -370,7 +368,7 @@ fn test_damage_entity_never_reaches_another_worlds_player() {
 	mut b_transport := &FakeTransport{}
 	entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
 	mut session_b := entity_isolation_test_session(mut hub, mut b_transport, mut wr_b, pos)
-	session_b.player.set_game_mode(proto.game_type_survival)
+	session_b.player.set_game_mode(.survival)
 	before_health := session_b.player.health()
 
 	mut host_a := WorldEntityHost{

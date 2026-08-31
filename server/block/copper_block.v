@@ -16,3 +16,11 @@ pub fn new_copper_block() CopperBlock {
 		}
 	}
 }
+
+// new_copper_block_item is the item form of 'minecraft:copper_block'.
+pub fn new_copper_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:copper_block'
+		block_runtime: world.copper_block.network_id
+	}
+}

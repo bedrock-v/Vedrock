@@ -1,7 +1,7 @@
 module gamedata
 
 import os
-import nbt
+import bedrock_v.nbt
 
 // BlockDefinition is one of the blocks the game drives from data rather than
 // implementing natively: the identifier the client resolves and the property

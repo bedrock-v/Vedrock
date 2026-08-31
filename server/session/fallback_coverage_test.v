@@ -1,6 +1,8 @@
 module session
 
 import server.internal.gamedata
+import server.item
+import server.block
 
 fn load_test_data() gamedata.GameData {
 	return gamedata.load('../data') or {
@@ -25,7 +27,7 @@ fn test_long_tail_resolves_from_palette_fallbacks() {
 		'minecraft:border_block',
 		'minecraft:reserved6',
 	] {
-		b := hub.blocks.get_by_name(name) or { panic('missing block fallback ${name}') }
+		b := block.get_by_name(name) or { panic('missing block fallback ${name}') }
 		assert b.identifier() == name
 		assert b.runtime_id() != 0
 	}
@@ -40,12 +42,12 @@ fn test_long_tail_resolves_from_palette_fallbacks() {
 		'minecraft:minecart',
 		'minecraft:elytra',
 	] {
-		it := hub.items.get(name) or { panic('missing item fallback ${name}') }
+		it := item.get(name) or { panic('missing item fallback ${name}') }
 		assert it.identifier() == name
 		assert it.block_runtime_id() == 0
 	}
 	for name in ['minecraft:beacon', 'minecraft:command_block'] {
-		it := hub.items.get(name) or { panic('missing block-item fallback ${name}') }
+		it := item.get(name) or { panic('missing block-item fallback ${name}') }
 		assert it.identifier() == name
 		assert it.block_runtime_id() != 0
 	}

@@ -19,8 +19,8 @@ discussed before you write code.
 
 Build only with the pinned compiler - newer V master **may** break this project.
 
-- V compiler: `0.5.2` (commit `f1ef640`)
-- vc bootstrap pin: `f461dfeb`
+- V compiler: `0.5.2` (commit `d5c6067`)
+- vc bootstrap pin: `84d9186`
 
 ### Dependencies
 
@@ -129,6 +129,16 @@ V wants an exact type match when narrowing an
 interface value, with no implicit pointer/value coercion doing anything "magic" behind your back.
 Use the bare type name (`if a is NetworkSession`), not a pointer form when narrowing - see
 `entity/actor.v`'s own doc comment on `Actor` for the standing rule.
+
+### Narrowed-interface-plus-method-call hazard - retested 2026-08-29, retired
+
+Everything that *could* be tested, nothing reproduced it.
+
+## Coding style
+
+See [`docs/coding_style.md`](docs/coding_style.md) - naming, formatting, comments and how
+this project uses V's error handling/interfaces/sum types instead of patterns carried over
+from other languages. Run `v fmt -w` on touched files.
 
 ## Commit style
 

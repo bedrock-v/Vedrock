@@ -1,8 +1,8 @@
 module session
 
 import math
-import protocol
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.entity
 import server.event
 import server.world

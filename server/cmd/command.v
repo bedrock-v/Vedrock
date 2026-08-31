@@ -1,7 +1,7 @@
 module cmd
 
 import server.internal.language
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 pub struct Context {
 pub:
@@ -14,9 +14,9 @@ pub:
 	tps            f64
 	load           f64
 	// Heap in use and total heap reserved from the OS, both in bytes.
-	memory_used_bytes i64
-	memory_heap_bytes i64
-	args              []string
+	memory_used_bytes             i64
+	memory_heap_bytes             i64
+	args                          []string
 	active_chunk_generation_count i64
 	chunk_cache_entries           i64
 	chunk_cache_bytes             i64

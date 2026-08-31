@@ -1,14 +1,15 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.auth
 import server.internal.gamedata
 import server.player
 import server.world
 import server.world.db
 import server.item
-import protocol.current as proto
+import server.block
+import bedrock_v.protocol.current as proto
 
 // A break that never starts shows the player no crack animation and no
 // particles, which is the whole symptom of the server reading a different
@@ -19,7 +20,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunti
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
@@ -117,7 +118,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 			'minecraft:test_block': 500
 		}
 	})
-	hub.items.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.stone.network_id
 	})

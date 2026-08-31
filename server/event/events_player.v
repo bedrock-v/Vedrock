@@ -54,5 +54,5 @@ pub mut:
 pub struct GameModeChangeData {
 pub mut:
 	player player.View
-	mode   int
+	mode   player.Gamemode
 }

@@ -1,7 +1,7 @@
 module session
 
 import server.conf
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // set_difficulty mutates the server global difficulty under config_mutex, then
 // broadcasts and persists outside the lock.

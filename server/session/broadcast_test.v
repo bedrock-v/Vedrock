@@ -1,14 +1,13 @@
 module session
 
-import protocol
-
-import protocol.serializer
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.effect
 import time
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
 	mut pool := proto.new_packet_pool()
@@ -105,7 +104,7 @@ fn test_update_abilities_roundtrip() {
 		player:     player.new_player()
 		runtime_id: 7
 	}
-	s.player.set_game_mode(proto.game_type_creative)
+	s.player.set_game_mode(.creative)
 	sent := &proto.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	}
@@ -126,8 +125,7 @@ fn test_mob_effect_packet_roundtrip() {
 		player:     player.new_player()
 		runtime_id: 7
 	}
-	sent := s.mob_effect_packet(effect.new(effect.regeneration, 2,
-		5 * time.second), mob_effect_add)
+	sent := s.mob_effect_packet(effect.new(effect.regeneration, 2, 5 * time.second), mob_effect_add)
 	assert roundtrip_packet(sent)!.name() == 'MobEffectPacket'
 	mut decoded := proto.MobEffectPacket{}
 	decode_into(sent, mut decoded)!

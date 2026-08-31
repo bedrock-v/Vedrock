@@ -1,7 +1,8 @@
 module session
 
-import protocol
-import protocol.current as proto
+import bedrock_v.protocol
+import bedrock_v.protocol.current as proto
+import server.player.scoreboard
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the
@@ -55,7 +56,14 @@ fn (mut s NetworkSession) show_scoreboard(title string, lines []string) {
 	}
 }
 
-fn (mut s NetworkSession) clear_scoreboard() {
+// send_scoreboard renders board on the player's sidebar, replacing whichever
+// board was shown before. Editing a board after sending it does not update the
+// sidebar: send it again.
+fn (mut s NetworkSession) send_scoreboard(board &scoreboard.Scoreboard) {
+	s.show_scoreboard(board.name(), board.lines())
+}
+
+fn (mut s NetworkSession) remove_scoreboard() {
 	s.deliver(&proto.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	})

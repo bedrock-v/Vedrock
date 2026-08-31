@@ -1,19 +1,18 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import protocol.current as proto
 
 fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()

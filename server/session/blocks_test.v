@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
 import server.internal.gamedata
 import server.player
@@ -10,7 +10,7 @@ import server.world
 import server.world.db
 import server.block
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn block_pos_v662(pos types.BlockPosition) proto.BlockPos {
 	return proto.BlockPos{
@@ -64,7 +64,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn make_test_player(name string, mode int) &player.Player {
+fn make_test_player(name string, mode player.Gamemode) &player.Player {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: name
@@ -75,7 +75,7 @@ fn make_test_player(name string, mode int) &player.Player {
 
 fn test_within_place_reach_survival_vs_creative() {
 	mut pl := player.new_player()
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 	mut s := &NetworkSession{
 		player: pl
 	}
@@ -86,7 +86,7 @@ fn test_within_place_reach_survival_vs_creative() {
 	assert s.within_place_reach(near_pos)
 	assert !s.within_place_reach(far_pos)
 
-	s.player.set_game_mode(proto.game_type_creative)
+	s.player.set_game_mode(.creative)
 	assert s.within_place_reach(far_pos)
 }
 
@@ -222,7 +222,7 @@ fn test_break_block_unbreakable_resends_without_event() {
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 	mut s := &NetworkSession{
 		player:     pl
 		runtime_id: 1
@@ -277,7 +277,7 @@ fn test_break_block_rejects_out_of_reach() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:     make_test_player('Alex', proto.game_type_survival)
+		player:     make_test_player('Alex', .survival)
 		runtime_id: 1
 		transport:  transport
 		hub:        hub
@@ -299,7 +299,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:     make_test_player('Alex', proto.game_type_survival)
+		player:     make_test_player('Alex', .survival)
 		runtime_id: 1
 		transport:  transport
 		hub:        hub
@@ -331,17 +331,10 @@ fn (mut h CancelBlockBreakHandler) on_block_break(mut ctx event.Context[event.Bl
 	ctx.cancel()
 }
 
-struct ObstructionProbe {
-	obstructed bool
-	self_only  bool
-}
-
-fn probe_obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) (bool, bool) {
-	result := world_call[ObstructionProbe](mut wr, fn [pos, acting_runtime_id] (mut tx WorldTx) ObstructionProbe {
-		obstructed, self_only := obstructed_by_entity(mut tx.wr, pos, acting_runtime_id)
-		return ObstructionProbe{obstructed, self_only}
+fn probe_obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
+	return world_call[ObstructionResult](mut wr, fn [pos, acting_runtime_id] (mut tx WorldTx) ObstructionResult {
+		return obstructed_by_entity(mut tx.wr, pos, acting_runtime_id)
 	}) or { panic('sync barrier rejected') }
-	return result.obstructed, result.self_only
 }
 
 fn obstruction_test_session(mut hub Hub, mut wr WorldRuntime, name string, rid u64, pos types.Vector3) &NetworkSession {
@@ -377,16 +370,14 @@ fn test_obstructed_by_entity_ignores_only_own_body() {
 		obstruction_test_session(mut hub, mut wr, 'Alex', 1, types.Vector3{0.5, player_eye_height, 0.5})
 
 	// Alex's own body occupies (0,0,0), obstructed but self_only.
-	obstructed, self_only := probe_obstructed_by_entity(mut wr, types.BlockPosition{0, 0, 0},
-		alex.runtime_id)
-	assert obstructed
-	assert self_only
+	own_body := probe_obstructed_by_entity(mut wr, types.BlockPosition{0, 0, 0}, alex.runtime_id)
+	assert own_body.obstructed
+	assert own_body.self_only
 
 	// Nobody else occupies a faraway cell.
-	clear_obstructed, clear_self_only := probe_obstructed_by_entity(mut wr, types.BlockPosition{50, 0, 50},
-		alex.runtime_id)
-	assert !clear_obstructed
-	assert clear_self_only
+	clear := probe_obstructed_by_entity(mut wr, types.BlockPosition{50, 0, 50}, alex.runtime_id)
+	assert !clear.obstructed
+	assert clear.self_only
 }
 
 fn test_obstructed_by_entity_blocks_other_player() {
@@ -401,10 +392,9 @@ fn test_obstructed_by_entity_blocks_other_player() {
 		obstruction_test_session(mut hub, mut wr, 'Alex', 1, types.Vector3{10.5, player_eye_height, 10.5})
 	obstruction_test_session(mut hub, mut wr, 'Steve', 2, types.Vector3{0.5, player_eye_height, 0.5})
 
-	obstructed, self_only := probe_obstructed_by_entity(mut wr, types.BlockPosition{0, 0, 0},
-		alex.runtime_id)
-	assert obstructed
-	assert !self_only
+	result := probe_obstructed_by_entity(mut wr, types.BlockPosition{0, 0, 0}, alex.runtime_id)
+	assert result.obstructed
+	assert !result.self_only
 }
 
 fn test_face_offset_covers_all_six_faces() {
@@ -419,7 +409,7 @@ fn test_face_offset_covers_all_six_faces() {
 
 fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSession {
 	mut s := &NetworkSession{
-		player:     make_test_player('Alex', proto.game_type_survival)
+		player:     make_test_player('Alex', .survival)
 		runtime_id: 1
 		transport:  transport
 		hub:        hub
@@ -497,7 +487,7 @@ fn test_break_block_creative_bypasses_gating() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', proto.game_type_creative)
+		player:        make_test_player('Alex', .creative)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -527,14 +517,14 @@ fn test_place_resolves_block_from_item_registry() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	sign_id :=
-		hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	hub.items.register(item.BlockItem{
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	item.register(block.BlockItem{
 		id:            'minecraft:oak_sign'
 		block_runtime: sign_id
 	})
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', proto.game_type_creative)
+		player:        make_test_player('Alex', .creative)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -561,7 +551,7 @@ fn test_place_resolves_block_from_item_registry() {
 	s.handle_player_auth_input(place_packet)!
 
 	target_id := s.block_at(2, -60, 12)
-	got := hub.blocks.get(target_id) or { panic('placed block not in registry') }
+	got := block.get(target_id) or { panic('placed block not in registry') }
 	assert got is block.SignBlock
 	assert got.identifier() == 'minecraft:standing_sign'
 }
@@ -576,14 +566,14 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	sign_id :=
-		hub.blocks.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	hub.items.register(item.BlockItem{
+		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
+	item.register(block.BlockItem{
 		id:            'minecraft:oak_sign'
 		block_runtime: sign_id
 	})
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', proto.game_type_survival)
+		player:        make_test_player('Alex', .survival)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -611,7 +601,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 			'minecraft:test_block': 500
 		}
 	})
-	hub.items.register(item.BlockItem{
+	item.register(block.BlockItem{
 		id:            'minecraft:test_block'
 		block_runtime: world.bedrock.network_id
 	})
@@ -621,7 +611,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 	target.set_block(0, world.overworld.min_y + 1, 0, world.dirt.network_id)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', proto.game_type_spectator)
+		player:        make_test_player('Alex', .spectator)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -653,7 +643,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 
 	mut break_transport := &FakeTransport{}
 	mut breaker := dirt_break_test_session(mut hub, mut break_transport)
-	breaker.player.set_game_mode(proto.game_type_spectator)
+	breaker.player.set_game_mode(.spectator)
 	breaker.world = target
 	breaker.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
 	breaker.generator = world.FlatGenerator{}
@@ -680,7 +670,7 @@ fn test_empty_hand_interact_places_nothing() {
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:        make_test_player('Alex', proto.game_type_creative)
+		player:        make_test_player('Alex', .creative)
 		runtime_id:    1
 		transport:     transport
 		hub:           hub
@@ -743,7 +733,7 @@ fn test_cancelled_consume_keeps_stack() {
 // world with a known block id planted at the pick position via tx.set_block
 // (rather than relying on a generator's own layer layout which is fragile
 // to depend on for a specific numeric id).
-fn pick_request_test_session(mut hub Hub, mode int, pos types.BlockPosition, block_id int) &NetworkSession {
+fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos types.BlockPosition, block_id int) &NetworkSession {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -772,7 +762,7 @@ fn test_block_pick_request_creative_adds_new_item_when_not_held() {
 			42: 500
 		}
 	})
-	mut s := pick_request_test_session(mut hub, proto.game_type_creative, pos, 42)
+	mut s := pick_request_test_session(mut hub, .creative, pos, 42)
 
 	s.handle_block_pick_request(proto.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
@@ -790,7 +780,7 @@ fn test_block_pick_request_survival_without_existing_item_is_noop() {
 			42: 500
 		}
 	})
-	mut s := pick_request_test_session(mut hub, proto.game_type_survival, pos, 42)
+	mut s := pick_request_test_session(mut hub, .survival, pos, 42)
 
 	s.handle_block_pick_request(proto.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
@@ -806,7 +796,7 @@ fn test_block_pick_request_selects_existing_item_into_hand() {
 			42: 500
 		}
 	})
-	mut s := pick_request_test_session(mut hub, proto.game_type_survival, pos, 42)
+	mut s := pick_request_test_session(mut hub, .survival, pos, 42)
 	existing := types.ItemStack{
 		id:               500
 		count:            1

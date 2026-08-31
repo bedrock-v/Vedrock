@@ -1,6 +1,6 @@
 module session
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // Bedrock's UpdateAbilitiesPacket.command_permission wire values.
 const command_permission_normal = u8(0)
@@ -10,9 +10,9 @@ fn ability_bit(index int) u32 {
 	return u32(1) << u32(index)
 }
 
-fn build_ability_layer(creative bool) proto.SerializedLayer {
+fn build_ability_layer(flies bool) proto.SerializedLayer {
 	mut values := ability_bit(proto.ability_build) | ability_bit(proto.ability_mine) | ability_bit(proto.ability_doors_and_switches) | ability_bit(proto.ability_open_containers) | ability_bit(proto.ability_attack_players) | ability_bit(proto.ability_attack_mobs) | ability_bit(proto.ability_walk_speed)
-	if creative {
+	if flies {
 		values |= ability_bit(proto.ability_may_fly) | ability_bit(proto.ability_instabuild)
 	}
 	all := (u32(1) << u32(proto.ability_count)) - 1
@@ -27,8 +27,7 @@ fn build_ability_layer(creative bool) proto.SerializedLayer {
 }
 
 fn (s &NetworkSession) build_abilities() proto.SerializedAbilitiesData {
-	creative := s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator
+	flies := s.player.game_mode().allows_flying()
 	is_op := s.player.perm.op()
 	player_permission := if is_op {
 		u8(proto.PlayerPermissionLevel.operator)
@@ -41,7 +40,7 @@ fn (s &NetworkSession) build_abilities() proto.SerializedAbilitiesData {
 		proto.CommandPermissionLevel.any
 	}
 	mut layers := proto.SerializedLayers{}
-	layers << build_ability_layer(creative)
+	layers << build_ability_layer(flies)
 	return proto.SerializedAbilitiesData{
 		target_player_raw_id: i64(s.runtime_id)
 		player_permissions:   player_permission

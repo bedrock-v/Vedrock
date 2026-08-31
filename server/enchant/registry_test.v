@@ -1,6 +1,6 @@
 module enchant
 
-import nbt
+import bedrock_v.nbt
 
 fn test_defaults_registered() {
 	r := new_registry()

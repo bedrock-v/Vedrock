@@ -16,3 +16,11 @@ pub fn new_diamond_block() DiamondBlock {
 		}
 	}
 }
+
+// new_diamond_block_item is the item form of 'minecraft:diamond_block'.
+pub fn new_diamond_block_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:diamond_block'
+		block_runtime: world.diamond_block.network_id
+	}
+}

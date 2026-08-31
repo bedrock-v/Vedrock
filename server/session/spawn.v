@@ -2,14 +2,14 @@ module session
 
 import math
 import time
-import protocol
-
-import protocol.types
-import nbt
+import bedrock_v.protocol
+import bedrock_v.protocol.types
+import bedrock_v.nbt
 import server.event
 import server.world
 import server.world.db
-import protocol.current as proto
+import server.internal.logger
+import bedrock_v.protocol.current as proto
 
 // The initial spawn stream paces itself so the outbound queue is not filled
 // faster than the writer drains it. A radius 8 view is 289 columns, so the
@@ -94,8 +94,22 @@ fn jigsaw_structure_data() &proto.JigsawStructureDataPacket {
 	}
 }
 
-fn (mut s NetworkSession) start_game() ! {
-	s.player.set_game_mode(gamemode_id(s.cfg.gamemode))
+// SpawnState is where player enters the world, resolved once by
+// resolve_spawn_state and shared by everything start_game builds from it.
+struct SpawnState {
+	pos            types.Vector3
+	pitch          f32
+	yaw            f32
+	dimension_id   int
+	generator_type proto.GeneratorType
+	spawn_y        int
+}
+
+// resolve_spawn_state picks player's spawn position. A generator provided
+// default or a saved position from player_data_provider when one exists
+// and still lands somewhere safe to stand.
+fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
+	s.player.set_game_mode(gamemode_from_name(s.cfg.gamemode))
 	spawn_y := s.generator.spawn_y()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	generator_type := if dimension_id == world.nether.id {
@@ -105,24 +119,39 @@ fn (mut s NetworkSession) start_game() ! {
 	} else {
 		proto.GeneratorType.overworld
 	}
-	mut spawn_pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
-	mut spawn_pitch := f32(0.0)
-	mut spawn_yaw := f32(0.0)
+	mut pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
+	mut pitch := f32(0.0)
+	mut yaw := f32(0.0)
 	if data := s.hub.player_data_provider.load(s.player_key()) {
 		saved_pos := types.Vector3{data.x, data.y, data.z}
 		if safe_player_position_in_world(s.world, s.generator, saved_pos) {
-			spawn_pos = saved_pos
+			pos = saved_pos
 		}
-		spawn_pitch = data.pitch
-		spawn_yaw = data.yaw
+		pitch = data.pitch
+		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
-		s.player.set_game_mode(data.gamemode)
+		s.player.set_game_mode(gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
 		}
 	}
-	s.player.reset_position(spawn_pos)
-	s.player.set_orientation(spawn_pitch, spawn_yaw, spawn_yaw)
+	s.player.reset_position(pos)
+	s.player.set_orientation(pitch, yaw, yaw)
+	return SpawnState{
+		pos:            pos
+		pitch:          pitch
+		yaw:            yaw
+		dimension_id:   dimension_id
+		generator_type: generator_type
+		spawn_y:        spawn_y
+	}
+}
+
+// build_start_game_packet assembles the StartGamePacket for spawn: the
+// entry point's fixed defaults, plus the handful of fields (dimension,
+// generator, spawn position, permission level, view distance) that vary per
+// session.
+fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto.StartGamePacket {
 	player_permission := if s.player.perm.op() {
 		proto.PlayerPermissionLevel.operator
 	} else {
@@ -131,21 +160,21 @@ fn (mut s NetworkSession) start_game() ! {
 	mut start_packet := &proto.StartGamePacket{
 		target_actor_id:                       proto.actor_unique_id(i64(s.runtime_id))
 		target_runtime_id:                     proto.actor_runtime_id(s.runtime_id)
-		actor_game_type:                       proto.game_type(s.player.game_mode())
+		actor_game_type:                       proto.game_type(gamemode_to_wire(s.player.game_mode()))
 		settings:                              proto.LevelSettings{
 			seed:                                         0
 			spawn_settings:                               proto.SpawnSettings{
 				spawn_type:              proto.SpawnBiomeType.default
 				user_defined_biome_name: ''
-				dimension:               i32(dimension_id)
+				dimension:               i32(spawn_state.dimension_id)
 			}
-			generator_type:                               generator_type
-			game_type:                                    proto.game_type(s.player.game_mode())
+			generator_type:                               spawn_state.generator_type
+			game_type:                                    proto.game_type(gamemode_to_wire(s.player.game_mode()))
 			is_hardcore_enabled:                          false
 			game_difficulty:                              unsafe { proto.Difficulty(s.hub.difficulty_value()) }
 			default_spawn_block_position:                 proto.NetworkBlockPosition{
 				x: 0
-				y: i32(spawn_y)
+				y: i32(spawn_state.spawn_y)
 				z: 0
 			}
 			achievements_disabled:                        false
@@ -186,7 +215,7 @@ fn (mut s NetworkSession) start_game() ! {
 			}
 			limited_world_width:                          0
 			limited_world_depth:                          0
-			nether_type:                                  dimension_id == world.nether.id
+			nether_type:                                  spawn_state.dimension_id == world.nether.id
 			edu_shared_uri_resource:                      proto.EduSharedUriResource{}
 			override_force_experimental_gameplay:         none
 			chat_restriction_level:                       proto.ChatRestrictionLevel.@none
@@ -222,11 +251,17 @@ fn (mut s NetworkSession) start_game() ! {
 		scenario_id:                           ''
 		owner_id:                              ''
 	}
-	start_packet.position[0] = spawn_pos.x
-	start_packet.position[1] = spawn_pos.y
-	start_packet.position[2] = spawn_pos.z
-	start_packet.rotation[0] = spawn_pitch
-	start_packet.rotation[1] = spawn_yaw
+	start_packet.position[0] = spawn_state.pos.x
+	start_packet.position[1] = spawn_state.pos.y
+	start_packet.position[2] = spawn_state.pos.z
+	start_packet.rotation[0] = spawn_state.pitch
+	start_packet.rotation[1] = spawn_state.yaw
+	return start_packet
+}
+
+fn (mut s NetworkSession) start_game() ! {
+	spawn_state := s.resolve_spawn_state()
+	start_packet := s.build_start_game_packet(spawn_state)
 	s.transport.send(jigsaw_structure_data())!
 	// The client builds its collision registry from this while it reads the
 	// level, so it goes out ahead of StartGame. Only the vanilla shapes are
@@ -240,6 +275,7 @@ fn (mut s NetworkSession) start_game() ! {
 		actor_info_list: s.entity_identifiers()
 	})!
 	s.transport.send(s.creative_content())!
+	s.transport.send(crafting_data_packet(s.hub.data))!
 	s.transport.send(biome_definition_list())!
 	s.transport.send(&proto.SetDifficultyPacket{
 		difficulty: u32(s.hub.difficulty_value())
@@ -287,6 +323,10 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p proto.RequestChunkRadius
 }
 
 fn (mut s NetworkSession) stream_spawn_chunks_background(radius int) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	s.chunk_stream_mutex.lock()
 	defer {
 		s.chunk_stream_mutex.unlock()
@@ -308,6 +348,10 @@ fn (mut s NetworkSession) handle_play_chunk_radius_async(p proto.RequestChunkRad
 }
 
 fn (mut s NetworkSession) handle_play_chunk_radius_background(p proto.RequestChunkRadiusPacket) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	s.handle_play_chunk_radius(p) or {
 		s.log.warn('Failed to stream requested chunks to ${s.player.identity.display_name}: ${err}')
 	}
@@ -367,12 +411,13 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	cz := int(math.floor(f64(own.z))) >> 4
 	old_cx := s.last_chunk_x
 	old_cz := s.last_chunk_z
-	if cx == old_cx && cz == old_cz {
+	if cx == old_cx && cz == old_cz && !s.chunk_resend_pending {
 		s.chunk_stream_mutex.unlock()
 		return
 	}
 	s.last_chunk_x = cx
 	s.last_chunk_z = cz
+	s.chunk_resend_pending = false
 	radius := s.view_radius
 	prune_sent_chunks(mut s.sent_chunks, cx, cz, radius)
 	targets := chunk_send_targets(cx, cz, radius, s.sent_chunks)
@@ -425,18 +470,23 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 // Holds chunk_gen_mutex for its entire run, released via defer regardless
 // of how it returns.
 fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targets []ChunkSendTarget) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	defer {
 		s.chunk_gen_mutex.unlock()
 		mut active_gen := s.hub.active_chunk_generation_count
 		active_gen.sub(1)
 	}
 	dim := if isnil(binding.world) { world.overworld } else { binding.world.dimension }
-	chans := s.request_chunk_channels(binding.world_runtime, targets)
+	mut pipeline := s.new_chunk_pipeline(binding.world_runtime, targets)
 	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
-	for i, target in targets {
-		result := resolve_chunk_result(chans[i])
-		batch << chunk_delivery_packet_from_result(result, binding.world, dim, target.x, target.z)
+	for {
+		target, result := pipeline.next_result() or { break }
+		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, binding.world,
+			dim, target.x, target.z)
 		batch << tile_data_packets(binding.world, target.x, target.z)
 		batch_keys << chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
@@ -455,10 +505,14 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 // forget_sent_chunks releases columns claimed by stream_chunks_if_moved that
 // never reached the client, so the next movement into range retries them.
 fn (mut s NetworkSession) forget_sent_chunks(keys []u64) {
+	if keys.len == 0 {
+		return
+	}
 	s.chunk_stream_mutex.lock()
 	for key in keys {
 		s.sent_chunks.delete(key)
 	}
+	s.chunk_resend_pending = true
 	s.chunk_stream_mutex.unlock()
 }
 
@@ -514,6 +568,7 @@ fn (mut s NetworkSession) reset_chunk_window() {
 	s.last_chunk_x = 0
 	s.last_chunk_z = 0
 	s.sent_chunks.clear()
+	s.chunk_resend_pending = false
 	s.chunk_stream_mutex.unlock()
 }
 
@@ -523,6 +578,19 @@ fn (mut s NetworkSession) send_spawn_chunks(radius int) ! {
 	cz := int(math.floor(f64(own.z))) >> 4
 	s.sent_chunks.clear()
 	s.send_needed_chunks(cx, cz, radius)!
+}
+
+// chunk_in_view reports whether the column (dx, dz) columns away from the
+// player falls inside the view the client was told to keep.
+//
+// NetworkChunkPublisherUpdate publishes new_view_radius in blocks, and the
+// client culls every column further away than that. A square sweep's corners
+// sit radius * sqrt(2) columns out, so the client would drop them while the
+// session still recorded them as sent - leaving a column that never renders
+// and is never retried. Sweeping the circle the client actually keeps is what
+// makes the two agree.
+fn chunk_in_view(dx int, dz int, radius int) bool {
+	return dx * dx + dz * dz <= radius * radius
 }
 
 fn chunk_send_targets(cx int, cz int, radius int, sent map[u64]bool) []ChunkSendTarget {
@@ -536,6 +604,9 @@ fn chunk_send_targets(cx int, cz int, radius int, sent map[u64]bool) []ChunkSend
 			}
 			dx := x - cx
 			dz := z - cz
+			if !chunk_in_view(dx, dz, radius) {
+				continue
+			}
 			targets << ChunkSendTarget{
 				x:        x
 				z:        z
@@ -553,6 +624,9 @@ fn prune_sent_chunks(mut sent map[u64]bool, cx int, cz int, radius int) {
 	mut keep := map[u64]bool{}
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
+			if !chunk_in_view(x - cx, z - cz, radius) {
+				continue
+			}
 			key := chunk_cache_key(x, z)
 			if key in sent {
 				keep[key] = true
@@ -573,12 +647,13 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	dim := if isnil(wld) { world.overworld } else { wld.dimension }
 	prune_sent_chunks(mut s.sent_chunks, cx, cz, radius)
 	targets := chunk_send_targets(cx, cz, radius, s.sent_chunks)
-	chans := s.request_chunk_channels(binding.world_runtime, targets)
+	mut pipeline := s.new_chunk_pipeline(binding.world_runtime, targets)
 	mut batch := []protocol.Packet{cap: chunk_send_batch_size}
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
-	for i, target in targets {
-		result := resolve_chunk_result(chans[i])
-		batch << chunk_delivery_packet_from_result(result, wld, dim, target.x, target.z)
+	for {
+		target, result := pipeline.next_result() or { break }
+		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, wld, dim,
+			target.x, target.z)
 		batch << tile_data_packets(wld, target.x, target.z)
 		batch_keys << chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
@@ -643,24 +718,28 @@ fn chunk_cache_key(cx int, cz int) u64 {
 fn empty_chunk_result() ChunkResult {
 	empty := world.new_chunk()
 	return ChunkResult{
-		chunk:         empty
 		serialized:    empty.serialize()
 		section_count: empty.section_count()
 	}
 }
 
-// generated_chunk resolves (cx, cz) through the world's shared chunk service
-// rather than generating or caching the chunk per session.
+// generated_chunk resolves (cx, cz)'s decoded column through the world's shared
+// chunk service rather than generating it per session. The copy is private to
+// the caller, which is what lets it apply overrides.
 fn (mut s NetworkSession) generated_chunk(wr &WorldRuntime, cx int, cz int) world.Chunk {
-	return s.generated_chunk_result(wr, cx, cz).chunk
+	if isnil(wr) {
+		return world.new_chunk()
+	}
+	mut svc := wr.chunk_service
+	return svc.decoded_clone(cx, cz) or { world.new_chunk() }
 }
 
 // generated_chunk_result resolves one chunk through the world's shared chunk
 // service and includes its cached serialized bytes and section count.
 //
 // This call blocks until that column is ready. For a view radius sweep, use
-// request_chunk_channels/resolve_chunk_result so multiple columns can be
-// resolved concurrently instead of serializing the sweep one column at a time.
+// ChunkPipeline so several columns are generated concurrently instead of
+// resolving the sweep one column at a time.
 fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz int) ChunkResult {
 	if isnil(wr) {
 		return empty_chunk_result()
@@ -673,32 +752,95 @@ fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz in
 	return result
 }
 
-// request_chunk_channels submits all target chunk requests up front and
-// returns their result channels without waiting for generation.
+// chunk_pipeline_depth bounds how many of a sweep's columns are in flight at
+// once.
 //
-// This preserves the chunk service's worker concurrency across a radius
-// sweep. Requesting and awaiting each column sequentially would serialize
-// the sweep one chunk at a time.
-fn (mut s NetworkSession) request_chunk_channels(wr &WorldRuntime, targets []ChunkSendTarget) []chan ChunkResult {
-	mut chans := []chan ChunkResult{cap: targets.len}
-	if isnil(wr) {
-		for _ in targets {
-			ch := chan ChunkResult{cap: 1}
-			ch <- empty_chunk_result()
-			chans << ch
-		}
-		return chans
-	}
-	mut svc := wr.chunk_service
-	for target in targets {
-		chans << svc.request(target.x, target.z)
-	}
-	return chans
+// Requesting the whole view radius up front kept every column that finished
+// early buffered in its own channel until the consuming loop reached it - the
+// entire radius, about 2MB of wire bytes, per joining player.
+//
+// One worker per column in flight is the useful ceiling: it lets a single
+// joining player saturate the generation pool on its own, and anything beyond
+// it only buys buffering. A shorter window measurably slows a small wave, and a
+// longer one costs peak memory for no throughput.
+//
+// A function rather than a const: V does not guarantee the initialisation order
+// of consts across files, and one derived from chunk_gen_worker_count read as
+// zero.
+fn chunk_pipeline_depth() int {
+	return chunk_gen_worker_count
 }
 
-// resolve_chunk_result drains one channel from request_chunk_channels,
-// normalizing a cancelled result the same way generated_chunk_result does
-// for a single request.
+// ChunkPipeline walks a sweep's targets in order while keeping at most
+// chunk_pipeline_depth() generations queued ahead of the caller.
+struct ChunkPipeline {
+	targets []ChunkSendTarget
+mut:
+	runtime &WorldRuntime = unsafe { nil }
+	// pending is a ring of in flight requests: head is the next to resolve,
+	// count is how many are queued.
+	pending []chan ChunkResult
+	head    int
+	count   int
+	next    int
+	taken   int
+}
+
+fn (mut s NetworkSession) new_chunk_pipeline(wr_in &WorldRuntime, targets []ChunkSendTarget) ChunkPipeline {
+	mut wr := unsafe { wr_in }
+	mut depth := chunk_pipeline_depth()
+	if depth < 1 {
+		depth = 1
+	}
+	if targets.len < depth {
+		depth = targets.len
+	}
+	mut p := ChunkPipeline{
+		targets: targets
+		runtime: wr
+		pending: []chan ChunkResult{len: if depth > 0 { depth } else { 1 }}
+	}
+	for p.count < depth {
+		p.submit_next()
+	}
+	return p
+}
+
+fn (mut p ChunkPipeline) submit_next() {
+	if p.next >= p.targets.len || p.count >= p.pending.len {
+		return
+	}
+	target := p.targets[p.next]
+	slot := (p.head + p.count) % p.pending.len
+	if isnil(p.runtime) {
+		ch := chan ChunkResult{cap: 1}
+		ch <- empty_chunk_result()
+		p.pending[slot] = ch
+	} else {
+		mut svc := p.runtime.chunk_service
+		p.pending[slot] = svc.request(target.x, target.z)
+	}
+	p.next++
+	p.count++
+}
+
+// next_result returns the next target and its resolved column, in sweep order,
+// and tops the window back up. none once every target has been returned.
+fn (mut p ChunkPipeline) next_result() ?(ChunkSendTarget, ChunkResult) {
+	if p.taken >= p.targets.len {
+		return none
+	}
+	target := p.targets[p.taken]
+	ch := p.pending[p.head]
+	p.head = (p.head + 1) % p.pending.len
+	p.count--
+	p.taken++
+	p.submit_next()
+	return target, resolve_chunk_result(ch)
+}
+
+// resolve_chunk_result drains one channel, normalizing a cancelled result the
+// same way generated_chunk_result does for a single request.
 fn resolve_chunk_result(ch chan ChunkResult) ChunkResult {
 	result := <-ch
 	if result.cancelled {
@@ -713,12 +855,12 @@ fn resolve_chunk_result(ch chan ChunkResult) ChunkResult {
 // If the chunk has no block overrides, it reuses the cached serialized
 // bytes. Otherwise it applies the current overrides and serializes a fresh
 // chunk so preoverride bytes are never sent for modified terrain.
-fn chunk_delivery_packet_from_result(result ChunkResult, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
+fn (mut s NetworkSession) chunk_delivery_packet_from_result(result ChunkResult, wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	overrides := if isnil(wld) { []db.BlockOverride{} } else { wld.overrides_in_chunk(cx, cz) }
 	if overrides.len == 0 {
 		return level_chunk_packet_from_bytes(dim, cx, cz, result.section_count, result.serialized)
 	}
-	mut chunk := result.chunk
+	mut chunk := s.generated_chunk(wr, cx, cz)
 	apply_overrides_list(mut chunk, overrides)
 	return level_chunk_packet(dim, cx, cz, chunk)
 }
@@ -729,7 +871,7 @@ fn chunk_delivery_packet_from_result(result ChunkResult, wld &db.World, dim worl
 // multiple columns can be resolved concurrently by the chunk worker pool.
 fn (mut s NetworkSession) chunk_delivery_packet(wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	result := s.generated_chunk_result(wr, cx, cz)
-	return chunk_delivery_packet_from_result(result, wld, dim, cx, cz)
+	return s.chunk_delivery_packet_from_result(result, wr, wld, dim, cx, cz)
 }
 
 fn apply_overrides_list(mut chunk world.Chunk, overrides []db.BlockOverride) {
@@ -899,8 +1041,8 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		self := s.self_ref()
 		deliver_packets := world_call[[]protocol.Packet](mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
 			mut out := []protocol.Packet{}
-			for a in tx.wr.entities.player_actors() {
-				if a is NetworkSession {
+			for mut a in tx.wr.entities.player_actors() {
+				if mut a is NetworkSession {
 					out << a.player_list_add_packet()
 					out << a.add_player_packet()
 				}
@@ -932,7 +1074,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	inventory_packet := s.restore_inventory()
 	s.send_packet(inventory_packet)!
 	s.refresh_available_commands()
-	s.log.info('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
+	s.log.debug('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }
 
 // refresh_available_commands rebuilds and resends the client's command

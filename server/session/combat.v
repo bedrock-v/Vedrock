@@ -1,11 +1,11 @@
 module session
 
 import math
-
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 import server.event
-import protocol.current as proto
+import server.item
+import bedrock_v.protocol.current as proto
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -33,7 +33,7 @@ fn (t PlayerAttackTask) name() string {
 
 fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	mut attacker := tx.player_for_epoch(t.attacker_runtime_id, t.attacker_epoch) or { return }
-	victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
+	mut victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
 	if victim_actor.is_dead() {
 		return
 	}
@@ -46,9 +46,8 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
 		return
 	}
-	if victim_actor is NetworkSession {
-		if !victim_actor.spawned || victim_actor.player.game_mode() == proto.game_type_creative
-			|| victim_actor.player.game_mode() == proto.game_type_spectator {
+	if mut victim_actor is NetworkSession {
+		if !victim_actor.spawned || !victim_actor.player.game_mode().allows_taking_damage() {
 			return
 		}
 	}
@@ -99,15 +98,14 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	if isnil(wr) {
 		return
 	}
-	if !wr.try_submit(PlayerAttackTask{
+	// A hit must not be silently dropped under queue pressure.
+	wr.submit(PlayerAttackTask{
 		attacker_runtime_id: s.runtime_id
 		attacker_epoch:      s.world_binding().epoch
 		victim_runtime_id:   target_runtime_id
 		damage:              damage
 		critical:            critical
-	}) {
-		s.log.debug('Dropped attack task - actor queue full')
-	}
+	})
 }
 
 // EntityInteractSnapshot is a point in time copy of the fields
@@ -152,7 +150,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		return
 	}
 	stack, name := s.held_stack_and_name()
-	result := s.hub.items.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
+	result := item.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
 	mut ctx := event.new_context(event.ItemUseData{
 		player:    s
 		item_name: name
@@ -188,8 +186,7 @@ fn (mut s NetworkSession) replace_held_item(item_name string) {
 }
 
 fn (s &NetworkSession) is_critical() bool {
-	if s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator {
+	if !s.player.game_mode().allows_taking_damage() {
 		return false
 	}
 	return s.player.movement().vy < -0.08
@@ -202,8 +199,7 @@ fn (s &NetworkSession) is_critical() bool {
 // (see DamageSource, damage_source.v) and supplies the
 // death message. Effect damage doesn't go through here.
 fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source DamageSource) {
-	if s.player.is_dead() || s.player.game_mode() == proto.game_type_creative
-		|| s.player.game_mode() == proto.game_type_spectator {
+	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
 	if source.ignored_by_fire_resistance() {
@@ -300,12 +296,13 @@ fn (mut s NetworkSession) request_respawn() {
 	if isnil(wr) {
 		return
 	}
-	if !wr.try_submit(PlayerRespawnTask{
+	// A dropped respawn has no natural retry. The client only sends
+	// client_ready_to_spawn once, so losing it under queue pressure could
+	// leave the player stuck on the death screen.
+	wr.submit(PlayerRespawnTask{
 		runtime_id: s.runtime_id
 		epoch:      s.world_binding().epoch
-	}) {
-		s.log.debug('Dropped respawn task - actor queue full')
-	}
+	})
 }
 
 fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
@@ -345,6 +342,7 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 	move_packet.rotation[0] = current.pitch
 	move_packet.rotation[1] = current.yaw
 	s.deliver(move_packet)
+	s.expect_teleport_ack(current.position)
 	// Remote clients played the death animation; respawn the actor for them.
 	wr.broadcast_world_except(s.runtime_id, s.remove_actor_packet())
 	wr.broadcast_world_except(s.runtime_id, s.add_player_packet())
@@ -385,7 +383,7 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 // weapon_damage prefers the damage from a registered weapon class and falls
 // back to the material-tier heuristic for items without a modelled class.
 fn (s &NetworkSession) weapon_damage(name string) f32 {
-	if it := s.hub.items.get(name) {
+	if it := item.get(name) {
 		if it.attack_damage() > 0 {
 			return it.attack_damage()
 		}

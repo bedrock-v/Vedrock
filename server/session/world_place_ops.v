@@ -1,16 +1,26 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
 import server.world
 import server.block
-import protocol.current as proto
+import server.item
+import bedrock_v.protocol.current as proto
+
+// ObstructionResult is obstructed_by_entity's answer: whether pos is
+// obstructed at all and whether the only body overlapping it is the acting
+// player's own (which placement/break logic treats differently than a
+// stranger's).
+struct ObstructionResult {
+	obstructed bool
+	self_only  bool
+}
 
 // obstructed_by_entity reports whether pos overlaps a player registered in
 // wr, including the acting player's own current or pending body position.
 // Actor only: reads the world's actor registry directly, so must only be
 // called from within a WorldTx operation.
-fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) (bool, bool) {
+fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
 	block_min_x := f32(pos.x)
 	block_max_x := f32(pos.x) + 1
 	block_min_y := f32(pos.y)
@@ -18,8 +28,8 @@ fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_run
 	block_min_z := f32(pos.z)
 	block_max_z := f32(pos.z) + 1
 	mut obstructed := false
-	for a in wr.entities.player_actors() {
-		if a is NetworkSession {
+	for mut a in wr.entities.player_actors() {
+		if mut a is NetworkSession {
 			tp := if a.runtime_id == acting_runtime_id {
 				a.effective_position()
 			} else {
@@ -37,18 +47,18 @@ fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_run
 			if overlaps {
 				obstructed = true
 				if a.runtime_id != acting_runtime_id {
-					return true, false
+					return ObstructionResult{true, false}
 				}
 			}
 		}
 	}
-	return obstructed, true
+	return ObstructionResult{obstructed, true}
 }
 
 // is_replaceable reports whether block_id is silently overwritten by a
 // placement rather than blocking it (short grass, ferns, etc.).
 fn (tx &WorldTx) is_replaceable(block_id int) bool {
-	b := tx.wr.hub.blocks.get(block_id) or { return false }
+	b := block.get(block_id) or { return false }
 	if b is block.Replaceable {
 		return b.replaceable()
 	}
@@ -131,7 +141,7 @@ fn (tx &WorldTx) carve_pumpkin(mut s NetworkSession, old_id int, click_face int)
 // tells observers about it. Called before the block mutation itself
 // broadcasts, so an observer never sees the block exist without its tile.
 fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
-	b := tx.wr.hub.blocks.get(runtime_id) or { return }
+	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
@@ -142,8 +152,36 @@ fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
 	})
 }
 
+// create_note_tile initializes a newly placed note block's block entity
+// text to pitch 0, matching create_sign_tile's pattern.
+fn (mut tx WorldTx) create_note_tile(pos types.BlockPosition, runtime_id int) {
+	b := block.get(runtime_id) or { return }
+	if b !is block.NoteBlock {
+		return
+	}
+	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '0')
+	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
+		block_position:  proto.block_pos(pos)
+		actor_data_tags: build_note_block_nbt(pos.x, pos.y, pos.z, 0)
+	})
+}
+
+// create_jukebox_tile initializes a newly placed jukebox's block entity
+// text to "no record", matching create_sign_tile's pattern.
+fn (mut tx WorldTx) create_jukebox_tile(pos types.BlockPosition, runtime_id int) {
+	b := block.get(runtime_id) or { return }
+	if b !is block.JukeboxBlock {
+		return
+	}
+	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
+	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
+		block_position:  proto.block_pos(pos)
+		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
+	})
+}
+
 fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
-	b := tx.wr.hub.blocks.get(runtime_id) or { return }
+	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
@@ -156,13 +194,25 @@ fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.Block
 // interact_block runs old_id's right click behaviour, if any, at pos. false
 // means the caller should fall through to placement handling.
 fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition, old_id int, click_face int) bool {
-	if b := tx.wr.hub.blocks.get(old_id) {
+	if b := block.get(old_id) {
 		if b is block.SignBlock {
 			tx.maybe_open_sign_editor(mut s, pos, old_id)
 			return true
 		}
 		if b is block.ChestBlock {
 			tx.open_chest_container(mut s, pos)
+			return true
+		}
+		if b is block.CraftingTableBlock {
+			tx.open_workbench(mut s, pos)
+			return true
+		}
+		if b is block.NoteBlock {
+			tx.play_note(mut s, pos)
+			return true
+		}
+		if b is block.JukeboxBlock {
+			tx.interact_jukebox(mut s, pos)
 			return true
 		}
 	}
@@ -193,7 +243,7 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 		tx.notify_block_changed(pos)
 		return true
 	}
-	interactable := tx.wr.hub.blocks.get(old_id) or { return false }
+	interactable := block.get(old_id) or { return false }
 	if interactable is block.Interactable {
 		if !interactable.interact(pos.x, pos.y, pos.z, click_face, mut tx.wr.world) {
 			return false
@@ -216,8 +266,8 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 	}
 	v := tx.wr.hub.palette.variant(clicked_id) or { return false }
 	stack, name := s.held_stack_and_name()
-	result := tx.wr.hub.items.use_on_block_result(name, v.name, stack.meta) or { return false }
-	current := v.states[result.state_key] or { return false }.int()
+	result := item.use_on_block_result(name, v.name, stack.meta) or { return false }
+	current := v.states.get(result.state_key) or { return false }.int()
 	new_id := tx.wr.hub.palette.with_state(clicked_id, result.state_key, (current +
 		result.state_delta).str()) or { return false }
 	if new_id == clicked_id {
@@ -243,7 +293,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 			'minecraft:player', s.runtime_id))
 	}
 	tx.broadcast_swing(s)
-	if s.player.game_mode() != proto.game_type_creative {
+	if s.player.game_mode() != .creative {
 		tx.consume_held_item(mut s)
 	}
 	tx.notify_block_changed(pos)
@@ -255,9 +305,9 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 // cancellable block_place event, then commits.
 fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
 	occupied := tx.block_at(pos.x, pos.y, pos.z) != world.air.network_id
-	obstructed, self_only := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
-	if occupied || obstructed {
-		if occupied || !self_only {
+	obstruction := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
+	if occupied || obstruction.obstructed {
+		if occupied || !obstruction.self_only {
 			s.resend_block(pos)
 		}
 		return false
@@ -277,6 +327,8 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 	// Tile initialized before the block mutation broadcasts, so an observer
 	// can never see the block exist without its tile.
 	tx.create_sign_tile(pos, runtime_id)
+	tx.create_note_tile(pos, runtime_id)
+	tx.create_jukebox_tile(pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_swing(s)
@@ -301,6 +353,8 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 		return false
 	}
 	tx.create_sign_tile(pos, runtime_id)
+	tx.create_note_tile(pos, runtime_id)
+	tx.create_jukebox_tile(pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
 	tx.broadcast_swing(s)
@@ -314,13 +368,13 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 // before either half is written.
 fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
 	above := face_offset(pos, 1)
-	obstructed_lower, lower_self := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
-	obstructed_upper, upper_self := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
-	if obstructed_lower || obstructed_upper {
-		if !lower_self {
+	lower := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
+	upper := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
+	if lower.obstructed || upper.obstructed {
+		if !lower.self_only {
 			s.resend_block(pos)
 		}
-		if !upper_self {
+		if !upper.self_only {
 			s.resend_block(above)
 		}
 		return false

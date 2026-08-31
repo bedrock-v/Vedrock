@@ -1,23 +1,26 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 
 // nearest_player_name is the display-name-facing form of nearest_player. It
 // resolves the runtime id back to a name rather than leaking the internal
 // runtime id concept into a public facing result.
 fn (mut h Hub) nearest_player_name(x f32, y f32, z f32, radius f32) ?string {
-	rid, _, found := h.find_nearest_player(types.Vector3{x, y, z}, radius)
-	if !found {
-		return none
-	}
-	target := h.session_by_runtime(rid) or { return none }
+	nearest := h.find_nearest_player(types.Vector3{x, y, z}, radius) or { return none }
+	target := h.session_by_runtime(nearest.runtime_id) or { return none }
 	return target.name()
 }
 
+// NearestPlayer is the closest connected session to a point, found by
+// find_nearest_player.
+struct NearestPlayer {
+	runtime_id u64
+	pos        types.Vector3
+}
+
 // find_nearest_player scans every connected session (across all worlds) for
-// the closest one to pos within radius, returning its runtime id, position
-// and whether anyone was found.
-fn (mut h Hub) find_nearest_player(pos types.Vector3, radius f32) (u64, types.Vector3, bool) {
+// the closest one to pos within radius or none if nobody is in range.
+fn (mut h Hub) find_nearest_player(pos types.Vector3, radius f32) ?NearestPlayer {
 	mut best_rid := u64(0)
 	mut best_pos := types.Vector3{}
 	mut best_dist_sq := radius * radius
@@ -35,5 +38,8 @@ fn (mut h Hub) find_nearest_player(pos types.Vector3, radius f32) (u64, types.Ve
 			found = true
 		}
 	}
-	return best_rid, best_pos, found
+	if !found {
+		return none
+	}
+	return NearestPlayer{best_rid, best_pos}
 }

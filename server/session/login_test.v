@@ -3,14 +3,14 @@ module session
 import encoding.base64
 import os
 import time
-import protocol.serializer
+import bedrock_v.protocol.serializer
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
 import server.internal.logger
 import server.permission
 import server.player
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn login_test_token(name string, xuid string, uuid string) string {
 	header := base64.url_encode('{"alg":"none"}'.bytes()).trim_right('=')
@@ -110,7 +110,9 @@ fn test_player_key_ignores_unauthenticated_xuid_claim() {
 	s.handle_login(packet)!
 
 	assert !s.player.identity.xbox_authenticated
-	assert s.player.identity.xuid == '2535400000000001'
+	// The claim is dropped outright, so nothing downstream can key off it.
+	assert s.player.identity.xuid == ''
+	assert s.player.identity.uuid == ''
 	assert s.player_key() == 'Steve'
 }
 

@@ -1,9 +1,8 @@
 module session
 
 import server.internal.network
-import protocol
-
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.internal.logger
 import server.conf
 import server.world
@@ -14,7 +13,7 @@ import server.entity
 import server.event
 import server.form
 import sync
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -79,27 +78,52 @@ mut:
 	open_container_pos          ?types.BlockPosition
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
-	movement_mutex              &sync.Mutex = sync.new_mutex()
-	pending_movement            ?MovementSnapshot
-	movement_scheduled          bool
-	pending_radius              int
-	give_next_slot              int
-	next_form_id                int
-	pending_forms               map[int]form.Form
-	forms_mutex                 &sync.Mutex = sync.new_mutex()
-	last_place_ms               i64
-	view_radius                 int
-	last_chunk_x                int
-	last_chunk_z                int
-	sent_chunks                 map[u64]bool
-	chunk_stream_mutex          &sync.Mutex = sync.new_mutex()
-	chunk_gen_mutex             &sync.Mutex = sync.new_mutex()
-	transfer_mutex              &sync.Mutex = sync.new_mutex()
-	cooldown_until              map[string]i64
+	crafting_slot_net_ids   map[int]int
+	crafting_workbench_open bool
+	crafting_mutex          &sync.Mutex = sync.new_mutex()
+	// cursor_net_id tracks whatever the client holds on its cursor
+	// (FullContainerName.cursor_container)
+	cursor_net_id      int
+	cursor_mutex       &sync.Mutex = sync.new_mutex()
+	movement_mutex     &sync.Mutex = sync.new_mutex()
+	pending_movement   ?MovementSnapshot
+	movement_scheduled bool
+	// pending_teleport_ack is the position the server last told this client
+	// to snap to (see expect_teleport_ack in movement.v). Client reported
+	// movement is discarded until a report lands within
+	// teleport_ack_tolerance of it.
+	pending_teleport_ack ?types.Vector3
+	pending_radius       int
+	give_next_slot       int
+	next_form_id         int
+	pending_forms        map[int]form.Form
+	forms_mutex          &sync.Mutex = sync.new_mutex()
+	last_place_ms        i64
+	view_radius          int
+	last_chunk_x         int
+	last_chunk_z         int
+	sent_chunks          map[u64]bool
+	// Set when a claimed column was released without reaching the client, so
+	// the next movement re-sweeps even if the player never crosses into
+	// another column. Guarded by chunk_stream_mutex.
+	chunk_resend_pending bool
+	chunk_stream_mutex   &sync.Mutex = sync.new_mutex()
+	chunk_gen_mutex      &sync.Mutex = sync.new_mutex()
+	transfer_mutex       &sync.Mutex = sync.new_mutex()
+	cooldown_until       map[string]i64
 	// Per session outbound delivery state. Packet queuing and writer lifecycle
 	// are managed in outbound.v.
-	outbound      chan OutboundMessage = chan OutboundMessage{cap: outbound_queue_capacity}
-	outbound_done chan bool            = chan bool{cap: 1}
+	// The queue carries ticket ids, not packets. A V channel keeps whatever was
+	// written into a slot until that slot is written again, so sending payloads
+	// through it left a session pinning its last outbound_queue_capacity
+	// messages - megabytes of already-delivered chunk data - for as long as it
+	// stayed connected. Tickets are a fixed 8 bytes; outbound_pending holds the
+	// payload only until the writer takes it.
+	outbound               chan u64 = chan u64{cap: outbound_queue_capacity}
+	outbound_pending       map[u64]OutboundMessage
+	outbound_pending_mutex &sync.Mutex = sync.new_mutex()
+	outbound_next_ticket   u64
+	outbound_done          chan bool = chan bool{cap: 1}
 	// outbound_abort wakes an idle writer with nothing queued, so
 	// close_outbound_once can always make it exit, not just when it's
 	// mid send. See outbound.v.
@@ -153,7 +177,7 @@ fn (s &NetworkSession) world_and_generator() (&db.World, world.Generator) {
 }
 
 // current_world returns the active world under world_mutex, so block writes
-// never race the world swap on the Hub job thread.
+// never race a concurrent world switch (see set_world_binding/change_world).
 fn (s &NetworkSession) current_world() &db.World {
 	mut m := s.world_mutex
 	m.lock()
@@ -285,14 +309,16 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 pub fn (mut s NetworkSession) handle_loop() {
 	for s.state != .closed {
 		packets := s.transport.read() or {
-			s.log.info('Connection ${s.transport.remote_addr()} ended: ${err}')
+			s.log.info('Connection ${s.transport.remote_addr()} closed')
+			s.log.debug('Connection ${s.transport.remote_addr()} ended: ${err}')
 			s.abort_outbound()
 			break
 		}
 		for p in packets {
 			s.handle(p) or {
 				if network.is_connection_closed(err) {
-					s.log.info('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+					s.log.info('Connection ${s.transport.remote_addr()} closed')
+					s.log.debug('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
 					s.abort_outbound()
 				} else {
 					s.log.warn('Failed to handle ${p.name()}: ${err}')
@@ -313,7 +339,6 @@ fn (mut s NetworkSession) leave() {
 		s.hub.release_player_name(s.player.identity.display_name)
 		return
 	}
-	s.save_player_data()
 	// spawned is set false before transfer_mutex is acquired.
 	s.spawned = false
 	s.transfer_mutex.lock()
@@ -323,7 +348,10 @@ fn (mut s NetworkSession) leave() {
 		list_remove_pkt := s.player_list_remove_packet()
 		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		world_call[bool](mut wr, fn [rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+		world_call[bool](mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+			// Must run before save_player_data below, so anything returned
+			// to the inventory here is captured in the saved snapshot.
+			s.release_crafting_state()
 			tx.deregister_player(rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
@@ -334,6 +362,7 @@ fn (mut s NetworkSession) leave() {
 		}) or {}
 	}
 	s.transfer_mutex.unlock()
+	s.save_player_data()
 	s.hub.remove(s.runtime_id)
 	s.hub.release_player_name(s.player.identity.display_name)
 	mut ctx := event.new_context(event.QuitData{
@@ -344,7 +373,7 @@ fn (mut s NetworkSession) leave() {
 	if !ctx.is_cancelled() && ctx.val.message != '' {
 		s.hub.broadcast_message(ctx.val.message)
 	}
-	s.log.info('${s.player.identity.display_name} left the game (${s.hub.count()} online)')
+	s.log.info('${s.player.identity.display_name} left the game')
 }
 
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {
@@ -394,8 +423,8 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 			} else if p is proto.TextPacket {
 				s.handle_text(p)!
 			} else if p is proto.MovePlayerPacket {
-				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0],
-					p.rotation[1], p.y_head_rotation, p.on_ground)
+				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1],
+					p.y_head_rotation, p.on_ground)
 			} else if p is proto.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
 			} else if p is proto.InteractPacket {

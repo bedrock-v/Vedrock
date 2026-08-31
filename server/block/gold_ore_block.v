@@ -16,3 +16,11 @@ pub fn new_gold_ore() GoldOreBlock {
 		}
 	}
 }
+
+// new_gold_ore_item is the item form of 'minecraft:gold_ore'.
+pub fn new_gold_ore_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:gold_ore'
+		block_runtime: world.gold_ore.network_id
+	}
+}

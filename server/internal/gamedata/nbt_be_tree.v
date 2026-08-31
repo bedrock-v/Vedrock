@@ -1,6 +1,6 @@
 module gamedata
 
-import nbt
+import bedrock_v.nbt
 
 // parse_block_palette in nbt_be.v skips everything it does not need. Loading
 // Mojang's registry files needs the whole document instead, so this reader

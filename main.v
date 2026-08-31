@@ -2,6 +2,7 @@ module main
 
 import os
 import time
+import sync.stdatomic
 import server.conf
 import server
 import server.crash
@@ -19,10 +20,24 @@ fn main() {
 		exit(1)
 	}
 
-	os.signal_opt(.int, fn [mut srv] (_ os.Signal) {
+	// Signal handlers must stay async signal-safe: no allocation, no locks,
+	// no blocking I/O. Server.stop() does all three (logs, locks the hub,
+	// blocks on wait_for_sessions_to_leave), so it must never run directly
+	// inside the handler - doing so segfaults intermittently when the
+	// interrupted thread is already inside libc (malloc, a lock) and the
+	// handler reenters the same machinery.
+	mut interrupted := stdatomic.new_atomic[bool](false)
+	os.signal_opt(.int, fn [mut interrupted] (_ os.Signal) {
+		interrupted.store(true)
+	}) or {}
+	spawn fn [mut srv, mut interrupted] () {
+		for !interrupted.load() {
+			time.sleep(50 * time.millisecond)
+		}
 		srv.stop()
 		exit(0)
-	}) or {}
+	}()
+
 	srv.start() or {
 		srv.log.error('Server stopped: ${err}')
 		// A fatal startup/run error is our last chance to leave a trace before

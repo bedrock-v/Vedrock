@@ -128,9 +128,9 @@ fn wall_variant_name(name string) ?string {
 }
 
 fn (p &BlockPalette) with_named_state(name string, key string, value string) ?int {
-	return p.by_key[palette_key(name, {
+	return p.id_for(name, {
 		key: value
-	})] or { return none }
+	})
 }
 
 // can_place_on_face reports whether a block may be placed from the clicked face.
@@ -140,10 +140,10 @@ pub fn (p &BlockPalette) can_place_on_face(id int, click_face int) bool {
 	if v.name == 'minecraft:ladder' {
 		return is_horizontal_face(click_face)
 	}
-	if 'torch_facing_direction' in v.states {
+	if v.states.has('torch_facing_direction') {
 		return click_face == 1 || is_horizontal_face(click_face)
 	}
-	if 'ground_sign_direction' in v.states {
+	if v.states.has('ground_sign_direction') {
 		return click_face == 1 || is_horizontal_face(click_face)
 	}
 	return true
@@ -157,7 +157,7 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 	look := look_facing(yaw)
 	// Furnaces/chests/pumpkins present their front to the player.
 	front := opposite(look)
-	if 'ground_sign_direction' in v.states {
+	if v.states.has('ground_sign_direction') {
 		if click_face == 1 {
 			return p.with_state(id, 'ground_sign_direction', sign_rotation(yaw).str()) or { id }
 		}
@@ -168,7 +168,7 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 		}
 		return id
 	}
-	if 'torch_facing_direction' in v.states {
+	if v.states.has('torch_facing_direction') {
 		if click_face == 1 {
 			return p.with_state(id, 'torch_facing_direction', 'top') or { id }
 		}
@@ -182,42 +182,44 @@ pub fn (p &BlockPalette) oriented(id int, yaw f32, click_face int, click_y f32) 
 		return p.with_state(id, 'facing_direction',
 			facing_direction_value(facing_from_face(click_face)).str()) or { id }
 	}
-	if v.name.ends_with('_button') && 'facing_direction' in v.states {
+	if v.name.ends_with('_button') && v.states.has('facing_direction') {
 		return p.with_state(id, 'facing_direction',
 			facing_direction_value(facing_from_face(click_face)).str()) or { id }
 	}
-	if v.name == 'minecraft:lever' && 'lever_direction' in v.states
+	if v.name == 'minecraft:lever' && v.states.has('lever_direction')
 		&& is_horizontal_face(click_face) {
 		return p.with_state(id, 'lever_direction', cardinal_string(facing_from_face(click_face))) or {
 			id
 		}
 	}
-	if is_door_name(v.name) && 'minecraft:cardinal_direction' in v.states {
+	if is_door_name(v.name) && v.states.has('minecraft:cardinal_direction') {
 		return p.with_state(id, 'minecraft:cardinal_direction', cardinal_string(rotate_right(look))) or {
 			id
 		}
 	}
-	if is_trapdoor_name(v.name) && 'direction' in v.states {
+	if is_trapdoor_name(v.name) && v.states.has('direction') {
 		mut nid := p.with_state(id, 'direction', weirdo_value(look).str()) or { id }
-		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && 'upside_down_bit' in v.states {
+		if (click_face == 0 || (click_y > 0.5 && click_face != 1))
+			&& v.states.has('upside_down_bit') {
 			nid = p.with_state(nid, 'upside_down_bit', '1') or { nid }
 		}
 		return nid
 	}
-	if 'minecraft:cardinal_direction' in v.states {
+	if v.states.has('minecraft:cardinal_direction') {
 		return p.with_state(id, 'minecraft:cardinal_direction', cardinal_string(front)) or { id }
 	}
-	if 'weirdo_direction' in v.states {
+	if v.states.has('weirdo_direction') {
 		mut nid := p.with_state(id, 'weirdo_direction', weirdo_value(look).str()) or { id }
-		if (click_face == 0 || (click_y > 0.5 && click_face != 1)) && 'upside_down_bit' in v.states {
+		if (click_face == 0 || (click_y > 0.5 && click_face != 1))
+			&& v.states.has('upside_down_bit') {
 			nid = p.with_state(nid, 'upside_down_bit', '1') or { nid }
 		}
 		return nid
 	}
-	if 'facing_direction' in v.states {
+	if v.states.has('facing_direction') {
 		return p.with_state(id, 'facing_direction', facing_direction_value(front).str()) or { id }
 	}
-	if 'pillar_axis' in v.states {
+	if v.states.has('pillar_axis') {
 		return p.with_state(id, 'pillar_axis', axis_from_face(click_face)) or { id }
 	}
 	return id

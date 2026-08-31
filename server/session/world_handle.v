@@ -21,10 +21,13 @@ pub fn (mut h Hub) world_handle(name string) ?World {
 	}
 }
 
+// name is the world's identifier, as passed to load_world/create_world.
 pub fn (w World) name() string {
 	return w.runtime.world.name
 }
 
+// dimension is the world's fixed dimension (overworld/nether/the_end), set
+// at creation and never changed after.
 pub fn (w World) dimension() world.Dimension {
 	return w.runtime.world.dimension
 }

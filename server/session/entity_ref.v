@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 
 // EntityRefSnapshot captures the entity state needed by EntityRef reads.
 // It is collected on the owning world thread.
@@ -52,6 +52,8 @@ pub fn (e EntityRef) valid() bool {
 	}) or { false }
 }
 
+// position is the entity's current position. Fails if the entity has
+// despawned or its world is shutting down.
 pub fn (e EntityRef) position() !types.Vector3 {
 	mut w := e.world_
 	snap := world_call[EntityRefSnapshot](mut w.runtime, fn [e] (mut tx WorldTx) EntityRefSnapshot {
@@ -67,6 +69,8 @@ pub fn (e EntityRef) position() !types.Vector3 {
 	return snap.pos
 }
 
+// teleport moves the entity within its world and broadcasts the move to
+// observers. Same failure mode as position.
 pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	mut w := e.world_
 	applied := world_call[bool](mut w.runtime, fn [e, pos] (mut tx WorldTx) bool {
@@ -80,7 +84,26 @@ pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	}
 }
 
-pub fn (e EntityRef) damage(amount f32, fatal bool, source_runtime_id u64) ! {
+// AttackerRef identifies who or what dealt damage to an entity.
+// A player, another entity or (via none) nothing attributable, e.g. environmental
+// damage. EntityRef.damage takes this instead of a raw runtime id so a
+// caller never needs to know entities and players share an id space
+// internally.
+pub type AttackerRef = EntityRef | PlayerRef
+
+fn (a AttackerRef) runtime_id() u64 {
+	return match a {
+		EntityRef { a.runtime_id }
+		PlayerRef { a.runtime_id }
+	}
+}
+
+// damage hurts the entity by amount, killing it outright if fatal is true
+// (otherwise normal health/death rules apply). source attributes the hit
+// for mob-targeting purposes (see AttackerRef); pass none for damage with
+// no attacker. Same failure mode as position.
+pub fn (e EntityRef) damage(amount f32, fatal bool, source ?AttackerRef) ! {
+	source_runtime_id := if s := source { s.runtime_id() } else { u64(0) }
 	mut w := e.world_
 	applied := world_call[bool](mut w.runtime, fn [e, amount, fatal, source_runtime_id] (mut tx WorldTx) bool {
 		tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }

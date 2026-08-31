@@ -1,8 +1,7 @@
 module session
 
 import time
-import protocol
-
+import bedrock_v.protocol
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth
@@ -11,8 +10,8 @@ import server.entity
 import server.player
 import server.world
 import server.world.db
-import protocol.types
-import protocol.current as proto
+import bedrock_v.protocol.types
+import bedrock_v.protocol.current as proto
 
 struct MetricsBarrierTask {
 	started chan bool
@@ -169,13 +168,15 @@ fn test_metrics_reports_catchup_events_and_tick_overruns_on_a_large_debt() {
 
 	wr.request_tick(500)
 	assert metrics_wait_until(2000, fn [wr] () bool {
-		return wr.tick_snapshot() == 500
+		return wr.tick_snapshot() == max_world_catchup_ticks
 	})
 
 	m := wr.metrics()
 	assert m.catchup_events == 1
 	assert m.tick_overruns == 1
-	assert m.current_tick == 500
+	assert m.current_tick == max_world_catchup_ticks
+	assert m.requested_tick == 500
+	assert m.simulation_debt_ticks == 500 - max_world_catchup_ticks
 }
 
 fn test_metrics_reports_scheduled_backlog() {

@@ -16,3 +16,11 @@ pub fn new_red_sand() RedSandBlock {
 		}
 	}
 }
+
+// new_red_sand_item is the item form of 'minecraft:red_sand'.
+pub fn new_red_sand_item() BlockItem {
+	return BlockItem{
+		id:            'minecraft:red_sand'
+		block_runtime: world.red_sand.network_id
+	}
+}

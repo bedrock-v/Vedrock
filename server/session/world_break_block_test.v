@@ -1,8 +1,7 @@
 module session
 
 import time
-
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.internal.gamedata
@@ -11,7 +10,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -23,7 +22,7 @@ fn break_test_data() gamedata.GameData {
 
 fn break_test_hub() &Hub {
 	mut hub := new_hub(break_test_data())
-	hub.items.register(item.ToolItem{
+	item.register(item.ToolItem{
 		id:             'minecraft:test_pick'
 		tier:           .iron
 		tool_type:      .pickaxe
@@ -39,7 +38,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
 	}
-	pl.set_game_mode(proto.game_type_survival)
+	pl.set_game_mode(.survival)
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()

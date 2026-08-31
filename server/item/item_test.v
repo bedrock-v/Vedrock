@@ -1,8 +1,10 @@
 module item
 
+import server.block
+
 fn test_default_registry_has_builtins() {
 	r := new_registry()
-	assert r.len() == 487
+	assert r.len() == 494
 }
 
 fn test_registered_blocks_carry_runtime_id() {
@@ -10,7 +12,7 @@ fn test_registered_blocks_carry_runtime_id() {
 	it := r.get('minecraft:stone') or { panic('missing stone') }
 	assert it.max_stack_size() == 64
 	assert it.block_runtime_id() != 0
-	assert it is StoneItem
+	assert it.identifier() == 'minecraft:stone'
 }
 
 fn test_registered_foods_restore() {
@@ -157,7 +159,7 @@ fn test_food_stacks_and_restores() {
 }
 
 fn test_block_item_carries_runtime_id() {
-	b := new_stone_item()
+	b := block.new_stone_item()
 	assert b.max_stack_size() == 64
 	assert b.block_runtime_id() != 0
 }
@@ -258,18 +260,11 @@ fn test_register_fallbacks_never_clobbers_hand_items() {
 
 fn test_nether_and_end_block_items_registered() {
 	r := new_registry()
-	soul_sand := r.get('minecraft:soul_sand') or { panic('missing soul_sand item') }
-	assert soul_sand is SoulSandItem
-	assert soul_sand.block_runtime_id() != 0
-	glowstone := r.get('minecraft:glowstone') or { panic('missing glowstone item') }
-	assert glowstone is GlowstoneItem
-	magma := r.get('minecraft:magma') or { panic('missing magma item') }
-	assert magma is MagmaBlockItem
-	assert magma.block_runtime_id() != 0
-	end_bricks := r.get('minecraft:end_bricks') or { panic('missing end_bricks item') }
-	assert end_bricks is EndBricksItem
-	purpur := r.get('minecraft:purpur_block') or { panic('missing purpur_block item') }
-	assert purpur is PurpurBlockItem
+	for id in ['minecraft:soul_sand', 'minecraft:glowstone', 'minecraft:magma',
+		'minecraft:end_bricks', 'minecraft:purpur_block'] {
+		it := r.get(id) or { panic('missing ${id} item') }
+		assert it.block_runtime_id() != 0
+	}
 }
 
 fn test_goat_horn_use_result_by_meta() {
@@ -345,7 +340,7 @@ fn test_damage_item_breaks_a_tool_at_max_durability() {
 }
 
 fn test_damage_item_is_a_noop_for_non_durable_items() {
-	stone := new_stone_item()
+	stone := block.new_stone_item()
 	result := damage_item(stone, 0, 100)
 	assert !result.broken
 	assert result.new_meta == 0

@@ -1,7 +1,9 @@
 module session
 
-import protocol.types
-import protocol.current as proto
+import bedrock_v.protocol.types
+import bedrock_v.protocol.current as proto
+import server.internal.logger
+import server.item
 
 // op / deop
 
@@ -125,9 +127,8 @@ fn (mut s NetworkSession) kill() {
 
 // teleport
 
-fn (mut s NetworkSession) position() (f32, f32, f32) {
-	p := s.current_position()
-	return p.x, p.y, p.z
+fn (mut s NetworkSession) position() types.Vector3 {
+	return s.current_position()
 }
 
 // place_water targets the default world through Hub's block API.
@@ -158,6 +159,10 @@ fn (mut s NetworkSession) request_teleport(x f32, y f32, z f32, world_name strin
 // directly which would let this thread's writes interleave with the
 // writer's on the wire.
 fn (mut s NetworkSession) reload_chunks(radius int) {
+	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
+	defer {
+		logger.unname_thread()
+	}
 	s.chunk_stream_mutex.lock()
 	defer {
 		s.chunk_stream_mutex.unlock()
@@ -278,6 +283,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			player_runtime_id: proto.actor_runtime_id(s.runtime_id)
 			action:            proto.PlayerActionType.change_dimension_ack
 		})
+		s.expect_teleport_ack(types.Vector3{x, y, z})
 	}
 	return true
 }
@@ -301,6 +307,7 @@ fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	move_packet.rotation[0] = current.pitch
 	move_packet.rotation[1] = current.yaw
 	s.deliver(move_packet)
+	s.expect_teleport_ack(current.position)
 	mut wr := s.current_world_runtime()
 	if !isnil(wr) {
 		rid := s.runtime_id
@@ -419,7 +426,7 @@ fn (mut s NetworkSession) give_item(id string, count int) bool {
 		return false
 	}
 	mut block_runtime_id := 0
-	if it := s.hub.items.get(id) {
+	if it := item.get(id) {
 		block_runtime_id = it.block_runtime_id()
 	}
 	mut wr := s.current_world_runtime()

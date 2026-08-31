@@ -14,6 +14,39 @@ fn bits_per_block_for(palette_size int) u8 {
 	return 16
 }
 
+// encode_section_storage encodes a section that already carries its palette,
+// reading whichever index width the section is using. Sections keep their
+// palette as they are built, so serialization does not have to rebuild one.
+fn encode_section_storage(palette []int, narrow []u8, wide []u16) []u8 {
+	bits_per_block := bits_per_block_for(palette.len)
+	mut out := []u8{}
+	out << (bits_per_block << 1) | 1
+	count := if wide.len > 0 { wide.len } else { narrow.len }
+	if bits_per_block > 0 {
+		blocks_per_word := 32 / int(bits_per_block)
+		word_count := (count + blocks_per_word - 1) / blocks_per_word
+		for w in 0 .. word_count {
+			mut word := u32(0)
+			for slot in 0 .. blocks_per_word {
+				position := w * blocks_per_word + slot
+				if position >= count {
+					break
+				}
+				value := if wide.len > 0 { wide[position] } else { u16(narrow[position]) }
+				word |= u32(value) << u32(slot * int(bits_per_block))
+			}
+			put_u32_le(mut out, word)
+		}
+	}
+	if bits_per_block != 0 {
+		put_varint_signed(mut out, palette.len)
+	}
+	for entry in palette {
+		put_varint_signed(mut out, entry)
+	}
+	return out
+}
+
 fn encode_paletted_storage(indices []u16, palette []int) []u8 {
 	bits_per_block := bits_per_block_for(palette.len)
 	mut out := []u8{}
