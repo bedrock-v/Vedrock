@@ -43,7 +43,7 @@ Vedrock/
 
 V resolves Vedrock modules from the parent directory in this layout.
 
-To use Vedrock from projects located elsewhere, clone it into your V modules path:
+To use Vedrock from projects located elsewhere, install it into your V modules path:
 
 ```bash
 v install bedrock-v.vedrock
