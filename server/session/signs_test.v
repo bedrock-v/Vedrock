@@ -1,15 +1,15 @@
 module session
 
 import time
-import nbt
-import protocol.types
+import bedrock_v.nbt
+import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
 import server.block
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond

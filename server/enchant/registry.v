@@ -1,6 +1,6 @@
 module enchant
 
-import nbt
+import bedrock_v.nbt
 
 // Registry maps enchantment ids and names to their classes. It boots with the
 // vanilla set registered; plugins add theirs with ids from

@@ -1,6 +1,6 @@
 module player
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.auth
 
 fn test_new_player_defaults() {

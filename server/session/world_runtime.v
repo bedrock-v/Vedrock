@@ -4,14 +4,14 @@ import sync
 import sync.stdatomic
 import time
 import rand
-import protocol
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.block
 import server.entity
 import server.event
 import server.world.db
 import server.internal.logger
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // max_world_catchup_ticks bounds how many simulation steps a WorldRuntime
 // replays in a single run_due_tick call. Debt beyond this is not skipped by

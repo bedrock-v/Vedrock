@@ -1,8 +1,8 @@
 module session
 
 import server.internal.network
-import protocol
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.internal.logger
 import server.conf
 import server.world
@@ -13,7 +13,7 @@ import server.entity
 import server.event
 import server.form
 import sync
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)

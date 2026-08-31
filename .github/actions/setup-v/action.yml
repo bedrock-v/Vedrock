@@ -32,27 +32,9 @@ runs:
     - name: Install module dependencies
       shell: bash
       run: |
-        deps="$HOME/vedrock-deps"
-        vmod="$HOME/.vmodules"
-
-        rm -rf "$deps" \
-          "$vmod/nethernet" \
-          "$vmod/webrtc" \
-          "$vmod/nbt" \
-          "$vmod/protocol"
-
-        mkdir -p "$deps" "$vmod"
-
-        git clone --depth 1 https://github.com/bedrock-v/nethernet "$deps/nethernet"
-        git clone --depth 1 https://github.com/bedrock-v/webrtc-v "$deps/webrtc"
-        git clone --depth 1 https://github.com/bedrock-v/nbt "$deps/nbt"
-        git clone --depth 1 https://github.com/bedrock-v/protocol "$deps/protocol"
-        git clone --depth 1 https://github.com/vlang/leveldb "$deps/leveldb"
-
-        cp -a "$deps/nethernet" "$vmod/nethernet"
-        cp -a "$deps/webrtc" "$vmod/webrtc"
-        cp -a "$deps/nbt" "$vmod/nbt"
-        cp -a "$deps/protocol/src" "$vmod/protocol"
-        cp -a "$deps/leveldb" "$vmod/leveldb"
-
         ~/vlang/v install nepinhum.i18n
+        git clone --depth 1 https://github.com/vlang/leveldb "$HOME/.vmodules/leveldb"
+        ~/vlang/v install -f bedrock-v.nbt@v0.1.0
+        ~/vlang/v install -f bedrock-v.webrtc@v0.1.1
+        ~/vlang/v install -f bedrock-v.protocol@v2.0.1
+        ~/vlang/v install -f bedrock-v.nethernet@v0.2.0

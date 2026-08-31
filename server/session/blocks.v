@@ -1,12 +1,12 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
 import server.world
 import server.block
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.

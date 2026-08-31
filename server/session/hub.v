@@ -5,7 +5,7 @@ import sync
 import sync.stdatomic
 import math
 import time
-import protocol
+import bedrock_v.protocol
 import server.event
 import server.player.chat
 import server.scheduler
@@ -22,7 +22,7 @@ import server.resourcepack
 import server.permission
 import server.internal.auth
 import server.player.playerdb
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It

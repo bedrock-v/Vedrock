@@ -5,7 +5,7 @@ import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.internal.logger
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 struct RecordingChatHandler {
 	event.NopHandler

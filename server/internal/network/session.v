@@ -1,13 +1,13 @@
 module network
 
 import time
-import nethernet
+import bedrock_v.nethernet
 import sync
-import protocol
-import protocol.serializer
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
 import server.internal.logger
 import server.internal.encryption
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 pub const default_compression_threshold = 256
 

@@ -3,7 +3,7 @@ module session
 import server.event
 import server.world
 import server.entity
-import protocol.types
+import bedrock_v.protocol.types
 
 // WorldTransaction is the public transaction surface passed to World.exec.
 // Its operations run on the owning world thread, allowing several reads

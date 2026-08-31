@@ -1,6 +1,6 @@
 module session
 
-import protocol
+import bedrock_v.protocol
 import server.internal.encryption
 
 // FakeTransport is an in memory network.Transport for tests: send/send_batch

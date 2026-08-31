@@ -4,7 +4,7 @@ import sync
 import sync.stdatomic
 import time
 import server.world
-import protocol.types
+import bedrock_v.protocol.types
 import server.internal.logger
 
 const persist_shutdown_timeout = 30 * time.second

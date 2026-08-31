@@ -1,7 +1,7 @@
 module entity
 
 import rand
-import protocol.types
+import bedrock_v.protocol.types
 
 const item_gravity = f32(0.04)
 const item_drag = f32(0.02)

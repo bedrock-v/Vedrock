@@ -2,14 +2,14 @@ module session
 
 import math
 import time
-import protocol
-import protocol.types
-import nbt
+import bedrock_v.protocol
+import bedrock_v.protocol.types
+import bedrock_v.nbt
 import server.event
 import server.world
 import server.world.db
 import server.internal.logger
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // The initial spawn stream paces itself so the outbound queue is not filled
 // faster than the writer drains it. A radius 8 view is 289 columns, so the

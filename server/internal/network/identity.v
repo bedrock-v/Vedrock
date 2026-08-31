@@ -2,7 +2,7 @@ module network
 
 import crypto.ecdsa
 import encoding.hex
-import nethernet
+import bedrock_v.nethernet
 import os
 
 // identity_curve is fixed by NetherNet: the assertion is signed with ES384, so

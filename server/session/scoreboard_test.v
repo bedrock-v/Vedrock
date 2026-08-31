@@ -1,6 +1,6 @@
 module session
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn test_build_sidebar_packets_sequence() {
 	packets := build_sidebar_packets('Title', ['a', 'b', 'c'])

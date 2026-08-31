@@ -1,6 +1,6 @@
 module entity
 
-import nbt
+import bedrock_v.nbt
 
 // Runtime ids for custom entity types start above the vanilla list so they
 // never collide with it.

@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol
+import bedrock_v.protocol
 import server.internal.encryption
 import server.internal.gamedata
 import server.internal.auth
@@ -10,8 +10,8 @@ import server.entity
 import server.player
 import server.world
 import server.world.db
-import protocol.types
-import protocol.current as proto
+import bedrock_v.protocol.types
+import bedrock_v.protocol.current as proto
 
 struct MetricsBarrierTask {
 	started chan bool

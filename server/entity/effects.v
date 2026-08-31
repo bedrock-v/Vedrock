@@ -1,7 +1,7 @@
 module entity
 
 import server.effect
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 const mob_effect_add = proto.MobEffectEvent.add
 const mob_effect_remove = proto.MobEffectEvent.remove

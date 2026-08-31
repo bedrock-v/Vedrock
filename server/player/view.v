@@ -1,6 +1,6 @@
 module player
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.form
 import server.player.bossbar
 import server.player.scoreboard

@@ -1,7 +1,7 @@
 module session
 
 import time
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.internal.gamedata
@@ -9,7 +9,7 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn make_effects_test_player(name string, health f32) &player.Player {
 	mut pl := player.new_player()

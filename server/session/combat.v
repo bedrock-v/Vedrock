@@ -1,11 +1,11 @@
 module session
 
 import math
-import protocol.types
+import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)

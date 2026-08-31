@@ -1,9 +1,9 @@
 module session
 
 import math
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.

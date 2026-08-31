@@ -1,6 +1,6 @@
 module session
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 import server.player.title
 
 fn (mut s NetworkSession) broadcast_message(text string) {

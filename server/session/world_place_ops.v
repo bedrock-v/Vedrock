@@ -1,11 +1,11 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 import server.event
 import server.world
 import server.block
 import server.item
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // ObstructionResult is obstructed_by_entity's answer: whether pos is
 // obstructed at all and whether the only body overlapping it is the acting

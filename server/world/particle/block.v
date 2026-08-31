@@ -1,6 +1,6 @@
 module particle
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // BlockBreak is the burst of block fragments shown when a block is broken. The
 // runtime id decides which texture the fragments use.

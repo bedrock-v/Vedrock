@@ -1,10 +1,10 @@
 module session
 
 import rand
-import protocol.types
+import bedrock_v.protocol.types
 import server.entity
 import server.world.db
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn chest_dynamic_container_id() int {
 	return int(proto.ContainerID.first)

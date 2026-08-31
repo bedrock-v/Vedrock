@@ -4,8 +4,8 @@ import server.internal.auth
 import server.internal.logger
 import server.internal.encryption
 import server.resourcepack
-import protocol.serializer
-import protocol.current as proto
+import bedrock_v.protocol.serializer
+import bedrock_v.protocol.current as proto
 
 fn login_chain_json(connection_request []u8) !string {
 	mut r := serializer.new_reader(connection_request)

@@ -1,6 +1,6 @@
 module session
 
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 import server.player.bossbar
 
 // bossbar_actor_id is the unique id the boss bar is attached to. The bar is

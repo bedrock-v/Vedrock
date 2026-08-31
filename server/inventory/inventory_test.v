@@ -1,6 +1,6 @@
 module inventory
 
-import protocol.types
+import bedrock_v.protocol.types
 
 fn test_track_stack_hands_out_unique_ids() {
 	mut inv := new()

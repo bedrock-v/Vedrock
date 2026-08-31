@@ -5,9 +5,9 @@ import rand
 import time
 import server.cmd
 import server.scheduler
-import nethernet
-import nethernet.discovery
-import nethernet.endpoint
+import bedrock_v.nethernet
+import bedrock_v.nethernet.discovery
+import bedrock_v.nethernet.endpoint
 import server.internal.logger
 import server.internal.language
 import server.conf
@@ -23,8 +23,8 @@ import server.event
 import server.player.playerdb
 import sync
 import sync.stdatomic
-import protocol.current as proto
-import webrtc.logging
+import bedrock_v.protocol.current as proto
+import bedrock_v.webrtc.logging
 
 // nethernet_identity_domain names the issuer of the server's identity token.
 // Bedrock Dedicated Server self-signs its own the same way.

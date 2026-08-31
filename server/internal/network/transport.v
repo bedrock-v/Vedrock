@@ -1,6 +1,6 @@
 module network
 
-import protocol
+import bedrock_v.protocol
 import server.internal.encryption
 
 // Transport is everything NetworkSession needs from the wire: framed

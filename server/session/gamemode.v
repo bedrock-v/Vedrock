@@ -2,7 +2,7 @@ module session
 
 import server.event
 import server.player
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 fn gamemode_from_wire(v int) player.Gamemode {
 	return match v {

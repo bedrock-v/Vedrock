@@ -1,6 +1,6 @@
 module session
 
-import protocol.types
+import bedrock_v.protocol.types
 
 // EntityRefSnapshot captures the entity state needed by EntityRef reads.
 // It is collected on the owning world thread.

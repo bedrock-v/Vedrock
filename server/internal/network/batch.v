@@ -1,7 +1,7 @@
 module network
 
 import compress.deflate
-import protocol.serializer
+import bedrock_v.protocol.serializer
 
 // A NetherNet message carries the batch on its own: the first byte is the
 // compression marker below, with no game packet header in front of it.

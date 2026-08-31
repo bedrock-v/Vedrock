@@ -1,7 +1,7 @@
 module session
 
-import protocol.types
-import protocol.current as proto
+import bedrock_v.protocol.types
+import bedrock_v.protocol.current as proto
 import server.internal.logger
 import server.item
 

@@ -1,6 +1,6 @@
 module block
 
-import nbt
+import bedrock_v.nbt
 
 // Runtime ids for custom blocks start above the vanilla palette so they never
 // collide with it.

@@ -1,7 +1,7 @@
 module session
 
-import protocol.types
-import protocol.current as proto
+import bedrock_v.protocol.types
+import bedrock_v.protocol.current as proto
 
 fn (mut s NetworkSession) handle_interact(p proto.InteractPacket) ! {
 	if p.action != proto.InteractPacketAction.open_inventory {

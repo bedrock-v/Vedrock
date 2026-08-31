@@ -1,13 +1,13 @@
 module session
 
 import math
-import protocol.types
+import bedrock_v.protocol.types
 import server.block
 import server.effect
 import server.event
 import server.item
 import server.world
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 // break_fx_interval_ticks is how often the punch particle and the arm swing
 // repeat while a player keeps mining the same block.

@@ -1,7 +1,7 @@
 module cmd
 
 import server.internal.language
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 pub struct Context {
 pub:

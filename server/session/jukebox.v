@@ -1,9 +1,9 @@
 module session
 
-import nbt
-import protocol.types
+import bedrock_v.nbt
+import bedrock_v.protocol.types
 import server.world.sound
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 const music_disc_prefix = 'minecraft:music_disc_'
 

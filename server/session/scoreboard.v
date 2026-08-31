@@ -1,7 +1,7 @@
 module session
 
-import protocol
-import protocol.current as proto
+import bedrock_v.protocol
+import bedrock_v.protocol.current as proto
 import server.player.scoreboard
 
 // sidebar_objective is the stable objective name used for the per-player

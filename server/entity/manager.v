@@ -2,8 +2,8 @@ module entity
 
 import sync
 import rand
-import protocol
-import protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.types
 import server.world
 import server.effect
 

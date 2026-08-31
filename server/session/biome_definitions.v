@@ -1,10 +1,10 @@
 module session
 
 import os
-import protocol
+import bedrock_v.protocol
 import server.internal.gamedata
 import server.world
-import protocol.current as proto
+import bedrock_v.protocol.current as proto
 
 struct BiomeDescriptor {
 	id          int

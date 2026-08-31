@@ -1,9 +1,9 @@
 module network
 
-import protocol
-import protocol.serializer
-import protocol.version
-import protocol.current as proto
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
+import bedrock_v.protocol.version
+import bedrock_v.protocol.current as proto
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 	mut pool := proto.new_packet_pool()
