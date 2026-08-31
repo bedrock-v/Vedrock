@@ -26,7 +26,7 @@ fn test_submit_runs_task_on_actor_thread() {
 	defer {
 		wr.shutdown()
 	}
-	result := world_call[int](mut wr, fn (mut tx WorldTx) int {
+	result := world_call[int]('test', mut wr, fn (mut tx WorldTx) int {
 		return 42
 	}) or { panic('world_call was rejected while running') }
 	assert result == 42
@@ -47,7 +47,7 @@ fn test_submit_and_try_submit_reject_after_shutdown() {
 	assert wr.submit(NoopTask{}) == false
 	assert wr.try_submit(NoopTask{}) == false
 	// world_call must not hang forever once the world is stopped either.
-	res := world_call[int](mut wr, fn (mut tx WorldTx) int {
+	res := world_call[int]('test', mut wr, fn (mut tx WorldTx) int {
 		return 1
 	})
 	assert res == none
@@ -253,7 +253,7 @@ mut:
 }
 
 fn sync_barrier(mut wr WorldRuntime) {
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected - world unexpectedly stopped') }
 }

@@ -332,7 +332,7 @@ fn (mut h CancelBlockBreakHandler) on_block_break(mut ctx event.Context[event.Bl
 }
 
 fn probe_obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
-	return world_call[ObstructionResult](mut wr, fn [pos, acting_runtime_id] (mut tx WorldTx) ObstructionResult {
+	return world_call[ObstructionResult]('test', mut wr, fn [pos, acting_runtime_id] (mut tx WorldTx) ObstructionResult {
 		return obstructed_by_entity(mut tx.wr, pos, acting_runtime_id)
 	}) or { panic('sync barrier rejected') }
 }
@@ -351,7 +351,7 @@ fn obstruction_test_session(mut hub Hub, mut wr WorldRuntime, name string, rid u
 	}
 	s.player.reset_position(pos)
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -422,7 +422,7 @@ fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSes
 
 fn register_test_session(mut s NetworkSession) {
 	mut wr := s.world_runtime
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -737,7 +737,7 @@ fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos types.BlockP
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	world_call[bool](mut wr, fn [pos, block_id] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [pos, block_id] (mut tx WorldTx) bool {
 		tx.set_block(pos.x, pos.y, pos.z, block_id)
 		return true
 	}) or { panic('sync barrier rejected') }

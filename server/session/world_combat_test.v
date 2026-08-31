@@ -25,7 +25,7 @@ fn combat_world_test_session(mut hub Hub, mut wr WorldRuntime, name string, heal
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -75,7 +75,7 @@ fn test_player_attack_event_isolated_to_owning_world() {
 	mut victim := combat_world_test_session(mut hub, mut wr_a, 'Steve', 20)
 
 	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -99,7 +99,7 @@ fn test_attack_cross_world_victim_produces_no_effect() {
 	mut victim := combat_world_test_session(mut hub, mut wr_b, 'Steve', 20)
 
 	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -131,7 +131,7 @@ fn test_attack_stale_epoch_produces_no_effect() {
 		damage:              10.0
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -160,7 +160,7 @@ fn test_kill_stale_epoch_produces_no_effect() {
 		epoch:      stale_epoch
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -192,7 +192,7 @@ fn test_respawn_stale_epoch_produces_no_effect() {
 		epoch:      stale_epoch
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -219,7 +219,7 @@ fn test_player_death_event_isolated_to_owning_world() {
 
 	mut s := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
 	s.kill()
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 

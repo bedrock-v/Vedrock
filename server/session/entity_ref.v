@@ -24,7 +24,7 @@ pub struct EntityRef {
 // returns an EntityRef for it or none if no such entity is currently
 // registered here.
 pub fn (mut w World) entity_ref(runtime_id u64) ?EntityRef {
-	found := world_call[bool](mut w.runtime, fn [runtime_id] (mut tx WorldTx) bool {
+	found := world_call[bool]('EntityRef.lookup', mut w.runtime, fn [runtime_id] (mut tx WorldTx) bool {
 		tx.wr.entities.by_runtime_id(runtime_id) or { return false }
 		return true
 	}) or { return none }
@@ -46,7 +46,7 @@ pub fn (e EntityRef) world() World {
 // despawned or never existing runtime id reports false.
 pub fn (e EntityRef) valid() bool {
 	mut w := e.world_
-	return world_call[bool](mut w.runtime, fn [e] (mut tx WorldTx) bool {
+	return world_call[bool]('EntityRef.valid', mut w.runtime, fn [e] (mut tx WorldTx) bool {
 		tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		return true
 	}) or { false }
@@ -56,7 +56,7 @@ pub fn (e EntityRef) valid() bool {
 // despawned or its world is shutting down.
 pub fn (e EntityRef) position() !types.Vector3 {
 	mut w := e.world_
-	snap := world_call[EntityRefSnapshot](mut w.runtime, fn [e] (mut tx WorldTx) EntityRefSnapshot {
+	snap := world_call[EntityRefSnapshot]('EntityRef.position', mut w.runtime, fn [e] (mut tx WorldTx) EntityRefSnapshot {
 		target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return EntityRefSnapshot{} }
 		return EntityRefSnapshot{
 			found: true
@@ -73,7 +73,7 @@ pub fn (e EntityRef) position() !types.Vector3 {
 // observers. Same failure mode as position.
 pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	mut w := e.world_
-	applied := world_call[bool](mut w.runtime, fn [e, pos] (mut tx WorldTx) bool {
+	applied := world_call[bool]('EntityRef.teleport', mut w.runtime, fn [e, pos] (mut tx WorldTx) bool {
 		mut target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		target.pos = pos
 		tx.wr.broadcast_world(target.move_packet())
@@ -105,7 +105,7 @@ fn (a AttackerRef) runtime_id() u64 {
 pub fn (e EntityRef) damage(amount f32, fatal bool, source ?AttackerRef) ! {
 	source_runtime_id := if s := source { s.runtime_id() } else { u64(0) }
 	mut w := e.world_
-	applied := world_call[bool](mut w.runtime, fn [e, amount, fatal, source_runtime_id] (mut tx WorldTx) bool {
+	applied := world_call[bool]('EntityRef.damage', mut w.runtime, fn [e, amount, fatal, source_runtime_id] (mut tx WorldTx) bool {
 		tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		mut host := WorldEntityHost{
 			wr: tx.wr
@@ -122,7 +122,7 @@ pub fn (e EntityRef) damage(amount f32, fatal bool, source ?AttackerRef) ! {
 // a normal death does.
 pub fn (e EntityRef) close() ! {
 	mut w := e.world_
-	applied := world_call[bool](mut w.runtime, fn [e] (mut tx WorldTx) bool {
+	applied := world_call[bool]('EntityRef.close', mut w.runtime, fn [e] (mut tx WorldTx) bool {
 		tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		tx.wr.entities.despawn(e.runtime_id)
 		return true

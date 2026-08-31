@@ -54,7 +54,7 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 		z: 0
 	})
 	assert ok
-	world_call[bool](mut wr_b, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier on B rejected - world unexpectedly stopped') } // wait for the placement to land before stalling A
 
@@ -82,7 +82,7 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 	}
 
 	// B's other runtime tasks, not just ticks, still complete throughout.
-	world_call[bool](mut wr_b, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier on B rejected - world unexpectedly stopped') }
 

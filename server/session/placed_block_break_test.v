@@ -24,7 +24,7 @@ fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRu
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 5) + 0.62, 2.5})
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected') }

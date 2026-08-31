@@ -54,7 +54,7 @@ fn mob_equipment_test_session(mut hub Hub, mut wr WorldRuntime, name string, tra
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -81,7 +81,7 @@ fn test_handle_mob_equipment_selects_hotbar_slot() {
 	s.handle_mob_equipment(mob_equipment_packet(s.runtime_id, stack, 4)) or {
 		panic('handle_mob_equipment failed: ${err}')
 	}
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -117,7 +117,7 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 	actor.handle_mob_equipment(mob_equipment_packet(actor.runtime_id, stack, 4)) or {
 		panic('handle_mob_equipment failed: ${err}')
 	}
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 	// The world_call barrier only proves the world actor finished
@@ -170,7 +170,7 @@ fn test_mob_equipment_stale_epoch_produces_no_effect() {
 		}
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -225,7 +225,7 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 			]
 		},
 	]
-	world_call[[]proto.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
+	world_call[[]proto.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
 	}) or { []proto.ItemStackResponseInfo{} }
 

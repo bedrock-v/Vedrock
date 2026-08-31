@@ -132,7 +132,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		return
 	}
 	mut wr := binding.world_runtime
-	snap := world_call[EntityInteractSnapshot](mut wr, fn [own, target_runtime_id] (mut tx WorldTx) EntityInteractSnapshot {
+	snap := world_call[EntityInteractSnapshot]('EntityInteract', mut wr, fn [own, target_runtime_id] (mut tx WorldTx) EntityInteractSnapshot {
 		target := tx.wr.entities.by_runtime_id(target_runtime_id) or {
 			return EntityInteractSnapshot{}
 		}

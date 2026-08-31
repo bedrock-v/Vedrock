@@ -40,7 +40,7 @@ fn effects_tick_test_session(mut hub Hub, mut wr WorldRuntime, name string, heal
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -77,13 +77,13 @@ fn test_effects_tick_isolated_to_owning_world() {
 	mut player_b := effects_tick_test_session(mut hub, mut wr_b, 'Steve', 10)
 
 	rid_a := player_a.runtime_id
-	world_call[bool](mut wr_a, fn [rid_a] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn [rid_a] (mut tx WorldTx) bool {
 		mut s := tx.player_for_epoch(rid_a, 0) or { return false }
 		s.apply_add_effect(mut tx.wr, effect.new(effect.regeneration, 1, 5 * time.second))
 		return true
 	}) or { panic('sync barrier rejected') }
 	rid_b := player_b.runtime_id
-	world_call[bool](mut wr_b, fn [rid_b] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn [rid_b] (mut tx WorldTx) bool {
 		mut s := tx.player_for_epoch(rid_b, 0) or { return false }
 		s.apply_add_effect(mut tx.wr, effect.new(effect.regeneration, 1, 5 * time.second))
 		return true

@@ -91,14 +91,14 @@ struct ExecOutcome {
 // Operations inside the callback can't interleave with other world tasks
 // and callback errors are returned by exec.
 //
-// Keep callbacks short, synchronous and world local. Blocking work stalls
-// the entire world and calling PlayerRef or EntityRef methods from inside
-// the callback would deadlock by starting a nested world transaction.
+// Keep callbacks short, synchronous and world local: blocking work stalls the
+// entire world. PlayerRef and EntityRef methods start a nested world
+// transaction and panic when called from inside the callback.
 //
 // To return a value from the callback, use a channel. Mutable closure
 // captures are copied in V and don't update the enclosing variable.
 pub fn (mut w World) exec(f fn (mut tx WorldTransaction) !) ! {
-	outcome := world_call[ExecOutcome](mut w.runtime, fn [f] (mut tx WorldTx) ExecOutcome {
+	outcome := world_call[ExecOutcome]('World.exec', mut w.runtime, fn [f] (mut tx WorldTx) ExecOutcome {
 		mut handle := WorldTransaction(&WorldTxHandle{
 			tx: &tx
 		})

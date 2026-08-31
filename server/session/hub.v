@@ -285,7 +285,7 @@ fn (mut h Hub) restore_world_entities(mut wr WorldRuntime) {
 		return
 	}
 	registry := entity.process()
-	world_call[bool](mut wr, fn [saved, registry] (mut tx WorldTx) bool {
+	world_call[bool]('Hub.restore_world_entities', mut wr, fn [saved, registry] (mut tx WorldTx) bool {
 		tx.wr.entities.restore_from_save(registry, saved)
 		return true
 	}) or {}

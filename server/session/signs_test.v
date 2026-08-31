@@ -120,7 +120,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	s.world_runtime = wr
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

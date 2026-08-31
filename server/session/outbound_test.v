@@ -217,7 +217,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	s.world = wr.world
 	s.world_runtime = wr
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -226,7 +226,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 
 	done := chan bool{cap: 1}
 	spawn fn [mut wr, done] () {
-		world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 			tx.wr.broadcast_world(text_packet('hello'))
 			return true
 		}) or {}
@@ -474,7 +474,7 @@ fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut tr
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -497,7 +497,7 @@ fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport F
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -534,7 +534,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 
 	done := chan bool{cap: 1}
 	spawn fn [mut wr_a, done] () {
-		world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+		world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
 			tx.wr.broadcast_world(text_packet('broadcast'))
 			return true
 		}) or {}
@@ -551,7 +551,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	assert overflowing_session.state == .closed
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
-	world_call[bool](mut wr_b, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
 		tx.wr.broadcast_world(text_packet('other world'))
 		return true
 	}) or { panic('world b broadcast rejected - unaffected by world a overflow') }

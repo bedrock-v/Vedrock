@@ -25,7 +25,7 @@ fn player_ref_test_session(mut hub Hub, mut wr WorldRuntime, display_name string
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -109,12 +109,12 @@ fn test_player_ref_operations_fail_after_world_switch() {
 	p := hub.player_ref('Notch') or { panic('expected player ref') }
 	assert p.world().name() == 'ref-switch-a'
 
-	world_call[bool](mut wr_a, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn [s] (mut tx WorldTx) bool {
 		tx.deregister_player(s.runtime_id)
 		return true
 	}) or { panic('deregistration rejected - world unexpectedly stopped') }
 	s.set_world_binding(wr_b, world.VoidGenerator{})
-	world_call[bool](mut wr_b, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

@@ -83,7 +83,7 @@ fn chunk_stream_test_session(mut hub Hub, mut wr WorldRuntime, gen world.Generat
 		log:           logger.new(.info)
 	}
 	s.player.reset_position(types.Vector3{0, 0, 0})
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -93,7 +93,7 @@ fn chunk_stream_test_session(mut hub Hub, mut wr WorldRuntime, gen world.Generat
 fn actor_is_responsive(mut wr WorldRuntime, timeout_ms int) bool {
 	done := chan bool{cap: 1}
 	spawn fn [mut wr, done] () {
-		world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 			return true
 		}) or {}
 		done <- true
@@ -180,13 +180,13 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	// Mirror change_world's real sequence: deregister from the source world,
 	// rebind, then register with the destination.
-	world_call[bool](mut wr_a, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn [s] (mut tx WorldTx) bool {
 		tx.deregister_player(s.runtime_id)
 		return true
 	}) or { panic('deregistration rejected - world unexpectedly stopped') }
 	gen_b := world_b.make_generator(hub.build_generator(world_b))
 	s.set_world_binding(wr_b, gen_b)
-	world_call[bool](mut wr_b, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

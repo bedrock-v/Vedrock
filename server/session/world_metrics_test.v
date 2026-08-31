@@ -110,7 +110,7 @@ fn test_metrics_reports_longest_task_name() {
 	})
 	assert wr.submit(MetricsFillerTask{})
 
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected - world unexpectedly stopped') }
 
@@ -141,7 +141,7 @@ fn test_metrics_reports_player_and_entity_counts() {
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -150,7 +150,7 @@ fn test_metrics_reports_player_and_entity_counts() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{})
 
-	ground_truth_players := world_call[int](mut wr, fn (mut tx WorldTx) int {
+	ground_truth_players := world_call[int]('test', mut wr, fn (mut tx WorldTx) int {
 		return int(tx.wr.entities.player_actor_count())
 	}) or { panic('read rejected - world unexpectedly stopped') }
 
@@ -187,7 +187,7 @@ fn test_metrics_reports_scheduled_backlog() {
 
 	assert wr.metrics().scheduled_backlog == 0
 
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		// Far enough out that no amount of ticking in this test reaches it.
 		tx.wr.world.schedule_tick(0, 60, 0, 100000)
 		return true
@@ -207,7 +207,7 @@ fn test_metrics_liquid_backlog_matches_actor_owned_state_after_a_tick() {
 		y: 60
 		z: 0
 	})
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected - world unexpectedly stopped') }
 
@@ -216,7 +216,7 @@ fn test_metrics_liquid_backlog_matches_actor_owned_state_after_a_tick() {
 		return wr.tick_runs_count() > 0
 	})
 
-	ground_truth_backlog := world_call[int](mut wr, fn (mut tx WorldTx) int {
+	ground_truth_backlog := world_call[int]('test', mut wr, fn (mut tx WorldTx) int {
 		return tx.wr.liquids.pending_count()
 	}) or { panic('read rejected - world unexpectedly stopped') }
 
@@ -293,7 +293,7 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

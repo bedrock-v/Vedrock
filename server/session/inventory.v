@@ -338,7 +338,7 @@ fn (mut s NetworkSession) handle_item_stack_request(p proto.ItemStackRequestPack
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := p.requests
-	responses := world_call[[]proto.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
+	responses := world_call[[]proto.ItemStackResponseInfo]('ItemStackRequest', mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
 	}) or { []proto.ItemStackResponseInfo{} }
 	s.send_maybe_queued(&proto.ItemStackResponsePacket{

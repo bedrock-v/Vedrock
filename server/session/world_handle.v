@@ -62,7 +62,7 @@ pub fn (w World) spawn_y() int {
 // set_block applies an authoritative block change through the owning world
 // thread.
 pub fn (mut w World) set_block(x int, y int, z int, b world.Block) ! {
-	world_call[bool](mut w.runtime, fn [x, y, z, b] (mut tx WorldTx) bool {
+	world_call[bool]('World.set_block', mut w.runtime, fn [x, y, z, b] (mut tx WorldTx) bool {
 		tx.set_block(x, y, z, b.network_id)
 		return true
 	}) or { return error('world "${w.runtime.world.name}" is shutting down') }
@@ -73,7 +73,7 @@ pub fn (mut w World) set_block(x int, y int, z int, b world.Block) ! {
 //
 // If the world is shutting down, players returns an empty slice.
 pub fn (mut w World) players() []PlayerRef {
-	return world_call[[]PlayerRef](mut w.runtime, fn (mut tx WorldTx) []PlayerRef {
+	return world_call[[]PlayerRef]('World.players', mut w.runtime, fn (mut tx WorldTx) []PlayerRef {
 		mut out := []PlayerRef{}
 		for mut a in tx.wr.entities.player_actors() {
 			if mut a is NetworkSession {
@@ -94,7 +94,7 @@ pub fn (w World) player_count() i64 {
 // registered in this world. If the world is shutting down, it returns an
 // empty slice.
 pub fn (mut w World) entities() []EntityRef {
-	return world_call[[]EntityRef](mut w.runtime, fn (mut tx WorldTx) []EntityRef {
+	return world_call[[]EntityRef]('World.entities', mut w.runtime, fn (mut tx WorldTx) []EntityRef {
 		mut out := []EntityRef{}
 		for e in tx.wr.entities.snapshot() {
 			out << EntityRef{

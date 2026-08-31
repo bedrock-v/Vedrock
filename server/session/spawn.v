@@ -1039,7 +1039,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		list_add_pkt := s.player_list_add_packet()
 		add_player_pkt := s.add_player_packet()
 		self := s.self_ref()
-		deliver_packets := world_call[[]protocol.Packet](mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
+		deliver_packets := world_call[[]protocol.Packet]('PlayerInitialized', mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
 			mut out := []protocol.Packet{}
 			for mut a in tx.wr.entities.player_actors() {
 				if mut a is NetworkSession {

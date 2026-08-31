@@ -28,7 +28,7 @@ fn entity_ref_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeT
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -170,7 +170,7 @@ fn test_entity_ref_damage_kills_when_fatal() {
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
 	ref.damage(100, true, none)!
 
-	dead := world_call[bool](mut wr, fn [e] (mut tx WorldTx) bool {
+	dead := world_call[bool]('test', mut wr, fn [e] (mut tx WorldTx) bool {
 		target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		return target.is_dead()
 	}) or { panic('read rejected - world unexpectedly stopped') }
@@ -197,7 +197,7 @@ fn test_entity_ref_damage_with_player_sets_attacker_as_target() {
 	ref := handle.entity_ref(zombie.runtime_id) or { panic('expected entity ref') }
 	ref.damage(5, false, player_ref)!
 
-	moved_toward_attacker := world_call[bool](mut wr, fn [zombie] (mut tx WorldTx) bool {
+	moved_toward_attacker := world_call[bool]('test', mut wr, fn [zombie] (mut tx WorldTx) bool {
 		tx.wr.entities.tick()
 		target := tx.wr.entities.by_runtime_id(zombie.runtime_id) or { return false }
 		return target.velocity.x > 0

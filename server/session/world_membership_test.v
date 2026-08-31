@@ -28,7 +28,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 }
 
 fn wr_has_player(mut wr WorldRuntime, rid u64) bool {
-	return world_call[bool](mut wr, fn [rid] (mut tx WorldTx) bool {
+	return world_call[bool]('test', mut wr, fn [rid] (mut tx WorldTx) bool {
 		return tx.wr.entities.is_player_actor(rid)
 	}) or { false }
 }
@@ -121,7 +121,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	mut far_p := membership_test_session_with_transport(mut hub, wr_a, 'Far', mut far_transport)
 	far_p.spawned = true
 	hub.add(far_p)
-	world_call[bool](mut wr_a, fn [far_p] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_a, fn [far_p] (mut tx WorldTx) bool {
 		tx.register_player(far_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -130,7 +130,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	mut near_p := membership_test_session_with_transport(mut hub, wr_b, 'Near', mut near_transport)
 	near_p.spawned = true
 	hub.add(near_p)
-	world_call[bool](mut wr_b, fn [near_p] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn [near_p] (mut tx WorldTx) bool {
 		tx.register_player(near_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

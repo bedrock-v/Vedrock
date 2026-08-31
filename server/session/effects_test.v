@@ -32,7 +32,7 @@ fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, 
 		world_runtime: wr
 	}
 	hub.add(sess)
-	world_call[bool](mut wr, fn [sess] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [sess] (mut tx WorldTx) bool {
 		tx.register_player(sess)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

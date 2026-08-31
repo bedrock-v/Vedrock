@@ -226,7 +226,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		remove_pkt := s.remove_actor_packet()
 		list_remove_pkt := s.player_list_remove_packet()
 		held_container := s.open_container_position()
-		world_call[bool](mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx WorldTx) bool {
+		world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx WorldTx) bool {
 			tx.deregister_player(rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
@@ -247,7 +247,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	list_add_pkt := s.player_list_add_packet()
 	add_player_pkt := s.add_player_packet()
 	self := s.self_ref()
-	registered := world_call[bool](mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
+	registered := world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
 		tx.register_player(self)
 		tx.wr.broadcast_world_except(rid, list_add_pkt)
 		tx.wr.broadcast_world_except(rid, add_player_pkt)
@@ -312,7 +312,7 @@ fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	if !isnil(wr) {
 		rid := s.runtime_id
 		move_pkt := s.move_actor_packet()
-		world_call[bool](mut wr, fn [rid, move_pkt] (mut tx WorldTx) bool {
+		world_call[bool]('Session.teleport_broadcast', mut wr, fn [rid, move_pkt] (mut tx WorldTx) bool {
 			tx.wr.broadcast_world_except(rid, move_pkt)
 			return true
 		}) or {}

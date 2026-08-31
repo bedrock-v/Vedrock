@@ -348,7 +348,7 @@ fn (mut s NetworkSession) leave() {
 		list_remove_pkt := s.player_list_remove_packet()
 		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		world_call[bool](mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+		world_call[bool]('Session.leave', mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
 			s.release_crafting_state()

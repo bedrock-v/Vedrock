@@ -50,7 +50,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -362,7 +362,7 @@ fn test_standing_player_mines_at_vanilla_speed() {
 // tick_world_once runs one simulation step on the owning world actor, the same
 // entry point the tick loop uses.
 fn tick_world_once(mut wr WorldRuntime) {
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		tx.tick_effects()
 		return true
 	}) or { panic('tick rejected - world unexpectedly stopped') }

@@ -111,6 +111,17 @@ mut:
 	published_outbound_overflow_count &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	published_outbound_peak_depth     &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	published_longest_task_ns         &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	// Continuation backlog, published for metrics because continuations is
+	// actor owned and must not be read from another thread. The list is
+	// deliberately unbounded (see its own comment), so depth is the only
+	// signal that a task is rescheduling itself without making progress.
+	published_continuation_depth      &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_continuation_peak       &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	// actor_thread identifies the thread running run_jobs, published once
+	// before the loop starts. Other threads read it to detect a call that
+	// would block waiting for the actor it is already running on. It reads as
+	// 0 until the actor starts, so the check fails open rather than wrong.
+	actor_thread 					  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	// longest_task_name uses the runtime mutex because V atomics can't store
 	// strings. It is updated only when a task sets a new duration record.
 	longest_task_name string
@@ -153,6 +164,29 @@ fn (tx &WorldTx) world() &db.World {
 // it to yield without risking the remainder being refused by a full queue.
 fn (mut tx WorldTx) resubmit(task WorldTask) {
 	tx.wr.continuations << task
+	tx.wr.publish_continuation_depth()
+}
+
+// publish_continuation_depth refreshes the cross thread view of the
+// continuation backlog and its high water mark. Called only from the actor,
+// which is the sole owner of the continuations list.
+fn (mut wr WorldRuntime) publish_continuation_depth() {
+	depth := i64(wr.continuations.len)
+	mut current := wr.published_continuation_depth
+	current.store(depth)
+	mut peak := wr.published_continuation_peak
+	if depth > peak.load() {
+		peak.store(depth)
+	}
+}
+
+// on_actor_thread reports whether the caller is already running on this
+// runtime's actor. A blocking call from there waits for work only that same
+// thread can perform, so it never completes.
+fn (wr &WorldRuntime) on_actor_thread() bool {
+	mut owner := wr.actor_thread
+	id := owner.load()
+	return id != 0 && sync.thread_id() == id
 }
 
 // generated_block is the generated state of one position, read through the
@@ -332,6 +366,8 @@ fn (mut wr WorldRuntime) shutdown() {
 // processing and shutdown on a single thread.
 fn (mut wr WorldRuntime) run_jobs() {
 	logger.name_thread('World Thread/${wr.world.name}')
+	mut owner := wr.actor_thread
+	owner.store(sync.thread_id())
 	defer {
 		logger.unname_thread()
 	}
@@ -398,6 +434,7 @@ fn (mut wr WorldRuntime) run_continuation(mut tx WorldTx) {
 	}
 	task := wr.continuations[0]
 	wr.continuations.delete(0)
+	wr.publish_continuation_depth()
 	wr.run_task(mut tx, task)
 }
 
@@ -547,6 +584,11 @@ pub:
 	chunk_requests_total           i64
 	chunk_dedup_hits_total         i64
 	actor_running                  bool
+	// Continuation backlog now and at its high water mark. Continuations are
+	// actor owned follow up work for tasks that yielded; a depth that keeps
+	// climbing means something is rescheduling itself faster than it retires.
+	continuation_depth 			   i64
+	continuation_peak  			   i64
 }
 
 fn (mut wr WorldRuntime) metrics() WorldMetrics {
@@ -569,6 +611,8 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 	mut outbound_overflow_count := wr.published_outbound_overflow_count
 	mut outbound_peak_depth := wr.published_outbound_peak_depth
 	mut longest_task_ns := wr.published_longest_task_ns
+	mut continuation_depth := wr.published_continuation_depth
+	mut continuation_peak := wr.published_continuation_peak
 	chunk_metrics := wr.chunk_service.metrics()
 
 	current_tick_val := wr.tick_snapshot()
@@ -615,6 +659,8 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 		chunk_requests_total:           chunk_metrics.requests_total
 		chunk_dedup_hits_total:         chunk_metrics.dedup_hits_total
 		actor_running:                  actor_running
+		continuation_depth:             continuation_depth.load()
+		continuation_peak:              continuation_peak.load()
 	}
 }
 

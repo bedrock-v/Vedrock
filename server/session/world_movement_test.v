@@ -23,7 +23,7 @@ fn movement_isolation_test_session(mut hub Hub, mut wr WorldRuntime, pos types.V
 	s.player.reset_position(pos)
 	hub.add(s)
 	// PlayerMoveTask requires world membership.
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -76,7 +76,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	// transfer.
 	gen := world_b.make_generator(hub.build_generator(world_b))
 	s.set_world_binding(wr_b, gen)
-	world_call[bool](mut wr_b, fn [s] (mut tx WorldTx) bool {
+	world_call[bool]('test', mut wr_b, fn [s] (mut tx WorldTx) bool {
 		tx.register_player(s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
