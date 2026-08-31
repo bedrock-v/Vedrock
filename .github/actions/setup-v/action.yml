@@ -33,7 +33,8 @@ runs:
       shell: bash
       run: |
         ~/vlang/v install nepinhum.i18n
-        ~/vlang/v install bedrock-v.protocol@v2.0.1
-        ~/vlang/v install bedrock-v.nethernet@v0.2.0
-        ~/vlang/v install bedrock-v.webrtc@v0.1.1
-        ~/vlang/v install bedrock-v.nbt@v0.1.0
+        ~/vlang/v install leveldb
+        ~/vlang/v install -f bedrock-v.nbt@v0.1.0
+        ~/vlang/v install -f bedrock-v.webrtc@v0.1.1
+        ~/vlang/v install -f bedrock-v.protocol@v2.0.1
+        ~/vlang/v install -f bedrock-v.nethernet@v0.2.0
