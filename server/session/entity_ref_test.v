@@ -20,7 +20,7 @@ fn entity_ref_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeT
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr

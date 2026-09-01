@@ -47,7 +47,7 @@ fn membership_test_session_with_transport(mut hub Hub, wr &WorldRuntime, name st
 		player:        pl
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		spawned:       false
 		world:         wr.world
 		world_runtime: wr
@@ -245,5 +245,5 @@ fn test_failed_destination_registration_disconnects_session() {
 	ok := s.change_world('world-b', 0.0, 0.0, 0.0)
 
 	assert !ok
-	assert s.state == .closed
+	assert s.conn.state == .closed
 }

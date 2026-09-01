@@ -95,7 +95,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world

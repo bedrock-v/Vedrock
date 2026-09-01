@@ -47,7 +47,7 @@ fn mob_equipment_test_session(mut hub Hub, mut wr WorldRuntime, name string, tra
 		player:        pl
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr

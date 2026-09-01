@@ -2,7 +2,6 @@ module session
 
 import bedrock_v.protocol
 import bedrock_v.protocol.current as proto
-import server.internal.logger
 
 // Maximum number of packets a session may have waiting to be sent.
 // A full queue aborts the session instead of blocking the caller or
@@ -44,73 +43,15 @@ enum EnqueueResult {
 // activate_outbound transfers transport writes from the bootstrap sequence
 // to the session's outbound writer. It must run before the session is
 // registered with a world or added to Hub.
-//
-// Returns false if the session is already closing. Repeated calls, including
-// calls for test sessions that never entered bootstrap, are harmless.
 fn (mut s NetworkSession) activate_outbound() bool {
-	s.close_mutex.lock()
-	if s.close_started {
-		s.close_mutex.unlock()
-		return false
-	}
-	if !s.outbound_bootstrap {
-		s.close_mutex.unlock()
-		return true
-	}
-	s.outbound_bootstrap = false
-	s.close_mutex.unlock()
-	s.ensure_outbound_writer()
-	return true
+	return s.conn.activate(s.log)
 }
 
-// ensure_outbound_writer starts the session's writer the first time it is
-// needed. The lock stops concurrent callers from starting duplicates,
-// including sessions built directly in tests.
-fn (mut s NetworkSession) ensure_outbound_writer() {
-	s.writer_mutex.lock()
-	if s.writer_started {
-		s.writer_mutex.unlock()
-		return
-	}
-	s.writer_started = true
-	s.writer_mutex.unlock()
-	spawn s.run_outbound_writer()
-}
-
-// try_enqueue adds an outbound message without blocking. Calling it before
-// activate_outbound is an architecture error; callers that can return errors
-// propagate it, while deliver and disconnect panic.
-//
-// The activation check, closing check, disconnect state change and enqueue
-// are performed under one lock so nothing can be queued after a disconnect.
+// try_enqueue hands msg to the connection and reports an overflow against the
+// player it belongs to. Conn has no gameplay state, so naming the player and
+// finding the world runtime to count the overflow against happens here.
 fn (mut s NetworkSession) try_enqueue(msg OutboundMessage, is_disconnect bool) !EnqueueResult {
-	s.close_mutex.lock()
-	if s.outbound_bootstrap {
-		s.close_mutex.unlock()
-		return error('outbound message enqueued before activate_outbound()')
-	}
-	if s.outbound_closing || s.close_started {
-		s.close_mutex.unlock()
-		return .closing
-	}
-	if is_disconnect {
-		s.outbound_closing = true
-	}
-	s.ensure_outbound_writer()
-	ticket := s.hold_outbound(msg)
-	mut result := EnqueueResult.queue_full
-	select {
-		s.outbound <- ticket {
-			result = .enqueued
-		}
-		else {
-			result = .queue_full
-		}
-	}
-	if result != .enqueued {
-		s.take_outbound(ticket)
-	}
-	s.close_mutex.unlock()
+	result := s.conn.enqueue(msg, is_disconnect, s.log)!
 	if result == .queue_full {
 		mut wr := s.current_world_runtime()
 		if !isnil(wr) {
@@ -119,36 +60,6 @@ fn (mut s NetworkSession) try_enqueue(msg OutboundMessage, is_disconnect bool) !
 		s.log.warn('outbound queue full (capacity ${outbound_queue_capacity}) for ${s.player.name()}, aborting session')
 	}
 	return result
-}
-
-// hold_outbound parks msg under a fresh ticket for the writer to collect.
-fn (mut s NetworkSession) hold_outbound(msg OutboundMessage) u64 {
-	s.outbound_pending_mutex.lock()
-	s.outbound_next_ticket++
-	ticket := s.outbound_next_ticket
-	s.outbound_pending[ticket] = msg
-	s.outbound_pending_mutex.unlock()
-	return ticket
-}
-
-// take_outbound removes and returns a parked message. none when the ticket was
-// already collected, or dropped because it never made it onto the queue.
-fn (mut s NetworkSession) take_outbound(ticket u64) ?OutboundMessage {
-	s.outbound_pending_mutex.lock()
-	defer {
-		s.outbound_pending_mutex.unlock()
-	}
-	msg := s.outbound_pending[ticket] or { return none }
-	s.outbound_pending.delete(ticket)
-	return msg
-}
-
-// discard_outbound drops every parked message, so a closed session stops
-// holding packets its writer will never collect.
-fn (mut s NetworkSession) discard_outbound() {
-	s.outbound_pending_mutex.lock()
-	s.outbound_pending = map[u64]OutboundMessage{}
-	s.outbound_pending_mutex.unlock()
 }
 
 // deliver queues a packet for the session's writer. If the queue is full,
@@ -204,36 +115,18 @@ fn (mut s NetworkSession) send_batch(packets []protocol.Packet) ! {
 // These helpers handle packets that may be sent before player initialization.
 // They write directly during bootstrap and use the outbound queue after
 // activation.
-//
-// The bootstrap check and direct write share one lock so activation cannot
-// hand the transport to the writer while a direct send is still in progress.
 fn (mut s NetworkSession) send_maybe_queued(p protocol.Packet) ! {
-	s.close_mutex.lock()
-	if s.outbound_bootstrap {
-		s.transport.send(p) or {
-			s.close_mutex.unlock()
-			return err
-		}
-		s.close_mutex.unlock()
+	if s.conn.send_direct(p)! {
 		return
 	}
-	s.close_mutex.unlock()
 	s.send_packet(p)!
 }
 
-// send_batch_maybe_queued mirrors send_maybe_queued's locking. See its
-// comment for why the bootstrap check and the direct write share one lock.
+// send_batch_maybe_queued is send_maybe_queued for a batch.
 fn (mut s NetworkSession) send_batch_maybe_queued(packets []protocol.Packet) ! {
-	s.close_mutex.lock()
-	if s.outbound_bootstrap {
-		s.transport.send_batch(packets) or {
-			s.close_mutex.unlock()
-			return err
-		}
-		s.close_mutex.unlock()
+	if s.conn.send_batch_direct(packets)! {
 		return
 	}
-	s.close_mutex.unlock()
 	s.send_batch(packets)!
 }
 
@@ -241,28 +134,14 @@ fn (mut s NetworkSession) send_batch_maybe_queued(packets []protocol.Packet) ! {
 // harmless; transport shutdown and writer completion are handled
 // separately.
 fn (mut s NetworkSession) mark_closed() {
-	s.state = .closed
+	s.conn.state = .closed
 }
 
 // close_outbound_once closes the transport and signals completion exactly
 // once. It also wakes an idle writer so the thread cannot remain blocked
 // on an empty queue after shutdown.
 fn (mut s NetworkSession) close_outbound_once() {
-	s.close_mutex.lock()
-	if s.close_started {
-		s.close_mutex.unlock()
-		return
-	}
-	s.close_started = true
-	s.close_mutex.unlock()
-	s.transport.close()
-	select {
-		s.outbound_abort <- true {}
-		else {}
-	}
-	// Anything still parked is never going to be written now.
-	s.discard_outbound()
-	s.outbound_done <- true
+	s.conn.close_once()
 }
 
 // abort_outbound closes the session immediately without touching the
@@ -276,14 +155,11 @@ fn (mut s NetworkSession) abort_outbound() {
 // when packets still use direct transport writes. After activation, it
 // delegates to the normal queued disconnect path.
 fn (mut s NetworkSession) reject_bootstrap(message string) {
-	s.close_mutex.lock()
-	bootstrapping := s.outbound_bootstrap
-	s.close_mutex.unlock()
-	if !bootstrapping {
+	if !s.conn.bootstrapping() {
 		s.disconnect(message)
 		return
 	}
-	s.transport.send(&proto.DisconnectPacket{
+	s.conn.send_direct(&proto.DisconnectPacket{
 		reason:  proto.connection_fail_disconnect_packet
 		message: proto.DisconnectMessage{
 			kick_message:     message
@@ -291,57 +167,4 @@ fn (mut s NetworkSession) reject_bootstrap(message string) {
 		}
 	}) or {}
 	s.abort_outbound()
-}
-
-// run_outbound_writer sends queued messages in order and handles socket
-// writes away from the calling thread. An abort may interrupt the queue
-// immediately including while the writer is idle.
-fn (mut s NetworkSession) run_outbound_writer() {
-	logger.name_thread('Outbound/${s.transport.remote_addr()}')
-	defer {
-		logger.unname_thread()
-	}
-	defer {
-		select {
-			s.writer_exited <- true {}
-			else {}
-		}
-	}
-	for {
-		select {
-			ticket := <-s.outbound {
-				msg := s.take_outbound(ticket) or { continue }
-				match msg {
-					OutboundPacket {
-						s.transport.send(msg.packet) or {
-							s.log.debug('outbound write failed: ${err}')
-							s.abort_outbound()
-							return
-						}
-					}
-					OutboundBatch {
-						s.transport.send_batch(msg.packets) or {
-							s.log.debug('outbound batch write failed: ${err}')
-							s.abort_outbound()
-							return
-						}
-					}
-					OutboundDisconnect {
-						s.transport.send(&proto.DisconnectPacket{
-							reason:  proto.connection_fail_disconnect_packet
-							message: proto.DisconnectMessage{
-								kick_message:     msg.message
-								filtered_message: ''
-							}
-						}) or {}
-						s.abort_outbound()
-						return
-					}
-				}
-			}
-			_ := <-s.outbound_abort {
-				return
-			}
-		}
-	}
 }

@@ -157,8 +157,8 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 	mut observer_b := movement_isolation_test_session(mut hub, mut wr_b, target_pos)
 	mut a_transport := &FakeTransport{}
 	mut b_transport := &FakeTransport{}
-	observer_a.transport = a_transport
-	observer_b.transport = b_transport
+	observer_a.conn.transport = a_transport
+	observer_b.conn.transport = b_transport
 
 	mut mover := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
 	mover.update_movement(target_pos, 0.0, 0.0, 0.0, false)

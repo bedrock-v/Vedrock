@@ -86,7 +86,7 @@ fn combat_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr
-		transport:     &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
@@ -198,7 +198,7 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 		player:     make_combat_test_player('Steve', 5, .survival)
 		runtime_id: 2
 		hub:        hub
-		transport:  transport
+		conn: &Conn{ transport: transport }
 	}
 	hub.add(victim)
 
@@ -319,7 +319,7 @@ fn test_apply_respawn_resets_health_and_position() {
 		player:     pl
 		runtime_id: 2
 		hub:        hub
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		generator:  world.VoidGenerator{}
 	}
 	// Give it a nonzero vy the same way real movement would, to prove
@@ -364,7 +364,7 @@ fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
 		player:    player.new_player()
-		transport: transport
+		conn: &Conn{ transport: transport }
 	}
 	s.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
@@ -383,7 +383,7 @@ fn test_apply_knockback_pushes_away_from_attacker() {
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
 		player:    player.new_player()
-		transport: transport
+		conn: &Conn{ transport: transport }
 	}
 	s.player.reset_position(types.Vector3{10.0, 0.0, 0.0})
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)

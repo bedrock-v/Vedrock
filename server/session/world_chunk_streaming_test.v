@@ -73,7 +73,7 @@ fn chunk_stream_test_session(mut hub Hub, mut wr WorldRuntime, gen world.Generat
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		world:         wr.world
 		world_runtime: wr
 		generator:     gen

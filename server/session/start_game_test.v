@@ -143,7 +143,7 @@ fn start_game_test_session(mut hub Hub, mut transport FakeTransport, target &db.
 	return &NetworkSession{
 		player:        pl
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		cfg:           cfg
 		world:         target

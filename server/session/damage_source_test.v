@@ -30,7 +30,7 @@ fn damage_source_test_session(mut hub Hub, mut wr WorldRuntime, name string, hea
 		player:     dst_test_player(name, health, .survival)
 		runtime_id: hub.allocate_runtime_id()
 		hub:        hub
-		transport:  &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 	}
 	hub.add(s)
 	mut tx := &WorldTx{

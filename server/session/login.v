@@ -23,21 +23,21 @@ fn (mut s NetworkSession) handle_request_network_settings(p proto.RequestNetwork
 			proto.PlayStatus.login_failed_server_old
 		}
 		s.log.warn('Rejected client with protocol ${client_protocol} (server requires ${proto.selected_protocol})')
-		s.transport.send(&proto.PlayStatusPacket{
+		s.conn.transport.send(&proto.PlayStatusPacket{
 			status: status
 		})!
 		s.reject_bootstrap('Incompatible client version. Server requires ${proto.selected_minecraft_version}.')
 		return
 	}
-	s.transport.send(&proto.NetworkSettingsPacket{
+	s.conn.transport.send(&proto.NetworkSettingsPacket{
 		compression_threshold:     u16(s.cfg.compression_threshold)
 		compression_algorithm:     proto.PacketCompressionAlgorithm.z_lib
 		client_throttle_enabled:   false
 		client_throttle_threshold: 0
 		client_throttle_scalar:    0.0
 	})!
-	s.transport.enable_compression(s.cfg.compression_threshold)
-	s.state = .login
+	s.conn.transport.enable_compression(s.cfg.compression_threshold)
+	s.conn.state = .login
 }
 
 // Identity field bounds. display_name is the vanilla gamertag limit; xuid/uuid
@@ -63,7 +63,7 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	// Validate the fields regardless so downstream code (whitelist, ops, grants,
 	// data files keyed by these strings) never sees empty or oversized input.
 	s.validate_identity(claimed) or {
-		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${err}')
+		s.log.warn('Rejected login from ${s.conn.transport.remote_addr()}: ${err}')
 		s.reject_bootstrap('Login failed: invalid identity')
 		return
 	}
@@ -87,7 +87,7 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 		return
 	}
 	s.player.identity = identity
-	s.transport.mark_logged_in()
+	s.conn.transport.mark_logged_in()
 	s.player.perm.set_op(s.hub.is_op(identity.display_name))
 	// xuid/uuid grants (player_permissions.yml's "xuid:"/"uuid:" lines) are only
 	// meaningful for a verified account. trusted_identity has already cleared
@@ -103,12 +103,12 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	// byte (NetherNet's DTLS), and gated behind the encryption config flag. If
 	// the client sent no public key, or the handshake fails, we fall back to
 	// cleartext rather than dropping the player.
-	if s.cfg.encryption && !s.transport.disable_encryption() {
+	if s.cfg.encryption && !s.conn.transport.disable_encryption() {
 		s.start_encryption(identity.client_public_key) or {
 			s.log.warn('Encryption handshake skipped for ${identity.display_name}: ${err}')
 		}
 	}
-	s.transport.send(&proto.PlayStatusPacket{
+	s.conn.transport.send(&proto.PlayStatusPacket{
 		status: proto.PlayStatus.login_success
 	})!
 	s.start_resource_packs()!
@@ -126,16 +126,16 @@ fn (mut s NetworkSession) start_encryption(client_public_key string) ! {
 	result := encryption.prepare_handshake(client_public_key)!
 	mut ctx := encryption.new_context(result.key)!
 	// Must be flushed in cleartext before the cipher is installed.
-	s.transport.send(&proto.ServerToClientHandshakePacket{
+	s.conn.transport.send(&proto.ServerToClientHandshakePacket{
 		handshake_web_token: result.handshake_jwt
 	})!
-	s.transport.enable_encryption(mut ctx)
-	s.encryption_enabled = true
+	s.conn.transport.enable_encryption(mut ctx)
+	s.conn.encryption_enabled = true
 	s.log.debug('Encryption enabled for ${s.player.identity.display_name}')
 }
 
 fn (mut s NetworkSession) handle_client_to_server_handshake(_ proto.ClientToServerHandshakePacket) ! {
-	if !s.encryption_enabled {
+	if !s.conn.encryption_enabled {
 		s.log.debug('Unexpected ClientToServerHandshake without an active cipher')
 		return
 	}
@@ -203,11 +203,11 @@ fn (mut s NetworkSession) start_resource_packs() ! {
 			}
 		}
 	}
-	s.transport.send(&proto.ResourcePacksInfoPacket{
+	s.conn.transport.send(&proto.ResourcePacksInfoPacket{
 		resource_pack_required: s.packs_must_accept()
 		resource_packs:         entries
 	})!
-	s.state = .resource_packs
+	s.conn.state = .resource_packs
 }
 
 fn (s &NetworkSession) packs_must_accept() bool {
@@ -224,7 +224,7 @@ fn (mut s NetworkSession) send_pack_stack() ! {
 			}
 		}
 	}
-	s.transport.send(&proto.ResourcePackStackPacket{
+	s.conn.transport.send(&proto.ResourcePackStackPacket{
 		texture_pack_required: s.packs_must_accept()
 		addon_list:            stack
 		base_game_version:     proto.BaseGameVersion{
@@ -269,7 +269,7 @@ fn (mut s NetworkSession) send_requested_packs(pack_ids []string) ! {
 		if pack.is_cdn() {
 			continue
 		}
-		s.transport.send(&proto.ResourcePackDataInfoPacket{
+		s.conn.transport.send(&proto.ResourcePackDataInfoPacket{
 			resource_name: pack.id()
 			chunk_size:    u32(resourcepack.pack_chunk_size)
 			chunk_amount:  u32(pack.chunk_count())
@@ -289,7 +289,7 @@ fn (mut s NetworkSession) handle_resource_pack_chunk_request(p proto.ResourcePac
 		s.log.warn('Chunk request for unknown resource pack ${p.resource_name}')
 		return
 	}
-	s.transport.send(&proto.ResourcePackChunkDataPacket{
+	s.conn.transport.send(&proto.ResourcePackChunkDataPacket{
 		resource_name: pack.id()
 		chunk_id:      p.chunk
 		byte_offset:   u64(p.chunk) * u64(resourcepack.pack_chunk_size)

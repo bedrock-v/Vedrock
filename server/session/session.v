@@ -53,14 +53,16 @@ mut:
 pub struct NetworkSession {
 mut:
 	// player holds the gamestate fields.
-	player    &player.Player    = unsafe { nil }
-	transport network.Transport = FakeTransport{}
-	breaking  ?BreakProgress
+	player &player.Player = unsafe { nil }
+	// conn owns the transport, the outbound queue and the writer thread. It
+	// holds no gameplay state, which is what lets the writer run while the
+	// world actor mutates this session's player.
+	conn     &Conn = &Conn{}
+	breaking ?BreakProgress
 	// breaking_mutex guards breaking, written by the session thread and
 	// advanced by the owning world thread once per tick.
 	breaking_mutex &sync.Mutex = sync.new_mutex()
-	hub            &Hub        = unsafe { nil }
-	state          State       = .handshake
+	hub            &Hub = unsafe { nil }
 	cfg            conf.Config
 	world          &db.World       = unsafe { nil }
 	generator      world.Generator = world.VoidGenerator{}
@@ -71,7 +73,6 @@ mut:
 	world_epoch i64
 	// world_mutex guards world/generator/world_runtime/world_epoch.
 	world_mutex                 &sync.Mutex = sync.new_mutex()
-	encryption_enabled          bool
 	runtime_id                  u64
 	spawned                     bool
 	inv_opened                  bool
@@ -111,40 +112,6 @@ mut:
 	chunk_gen_mutex      &sync.Mutex = sync.new_mutex()
 	transfer_mutex       &sync.Mutex = sync.new_mutex()
 	cooldown_until       map[string]i64
-	// Per session outbound delivery state. Packet queuing and writer lifecycle
-	// are managed in outbound.v.
-	// The queue carries ticket ids, not packets. A V channel keeps whatever was
-	// written into a slot until that slot is written again, so sending payloads
-	// through it left a session pinning its last outbound_queue_capacity
-	// messages - megabytes of already-delivered chunk data - for as long as it
-	// stayed connected. Tickets are a fixed 8 bytes; outbound_pending holds the
-	// payload only until the writer takes it.
-	outbound               chan u64 = chan u64{cap: outbound_queue_capacity}
-	outbound_pending       map[u64]OutboundMessage
-	outbound_pending_mutex &sync.Mutex = sync.new_mutex()
-	outbound_next_ticket   u64
-	outbound_done          chan bool = chan bool{cap: 1}
-	// outbound_abort wakes an idle writer with nothing queued, so
-	// close_outbound_once can always make it exit, not just when it's
-	// mid send. See outbound.v.
-	outbound_abort chan bool = chan bool{cap: 1}
-	// writer_exited fires once the writer loop actually returns. Tests use
-	// this to know the writer thread is gone, since outbound_done only
-	// proves close_outbound_once ran, not that the writer itself exited.
-	writer_exited chan bool   = chan bool{cap: 1}
-	close_mutex   &sync.Mutex = sync.new_mutex()
-	close_started bool
-	// outbound_closing is set the moment a graceful disconnect is
-	// accepted. Different from close_started: closing means no new
-	// packets are accepted, but the disconnect message still has to
-	// drain; close_started means the transport is actually closed.
-	outbound_closing bool
-	// outbound_bootstrap is true while a real connection still owns transport
-	// writes during bootstrap. activate_outbound clears it once and only before
-	// closing begins; test sessions default to the active state.
-	outbound_bootstrap bool
-	writer_mutex       &sync.Mutex = sync.new_mutex()
-	writer_started     bool
 	// handler is a per session attachment point, set via
 	// set_handler(h). It receives the same event.Handler calls as the global
 	// Bus for event dispatch sites that explicitly check it.
@@ -288,7 +255,10 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 	p.reset_position(types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0})
 	return &NetworkSession{
 		player:             p
-		transport:          transport
+		conn:               &Conn{
+			transport: transport
+			bootstrap: true
+		}
 		hub:                hub
 		cfg:                cfg
 		world:              spawn_world
@@ -299,7 +269,6 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		chunk_stream_mutex: sync.new_mutex()
 		chunk_gen_mutex:    sync.new_mutex()
 		log:                log
-		outbound_bootstrap: true
 	}
 }
 
@@ -307,18 +276,18 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 // connection is already gone, so handle_loop aborts outbound delivery
 // immediately instead of trying to drain it gracefully.
 pub fn (mut s NetworkSession) handle_loop() {
-	for s.state != .closed {
-		packets := s.transport.read() or {
-			s.log.info('Connection ${s.transport.remote_addr()} closed')
-			s.log.debug('Connection ${s.transport.remote_addr()} ended: ${err}')
+	for s.conn.state != .closed {
+		packets := s.conn.transport.read() or {
+			s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
+			s.log.debug('Connection ${s.conn.transport.remote_addr()} ended: ${err}')
 			s.abort_outbound()
 			break
 		}
 		for p in packets {
 			s.handle(p) or {
 				if network.is_connection_closed(err) {
-					s.log.info('Connection ${s.transport.remote_addr()} closed')
-					s.log.debug('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+					s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
+					s.log.debug('Connection ${s.conn.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
 					s.abort_outbound()
 				} else {
 					s.log.warn('Failed to handle ${p.name()}: ${err}')
@@ -329,7 +298,7 @@ pub fn (mut s NetworkSession) handle_loop() {
 		}
 	}
 	s.leave()
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 }
 
 // leave deregisters the session from its world before removing it from Hub,
@@ -377,7 +346,7 @@ fn (mut s NetworkSession) leave() {
 }
 
 fn (mut s NetworkSession) handle(p protocol.Packet) ! {
-	match s.state {
+	match s.conn.state {
 		.handshake {
 			if p is proto.RequestNetworkSettingsPacket {
 				s.handle_request_network_settings(p)!
@@ -411,7 +380,7 @@ fn (mut s NetworkSession) handle(p protocol.Packet) ! {
 		}
 		.play {
 			if p is proto.RequestChunkRadiusPacket {
-				if should_stream_chunk_radius_async(s.state, s.spawned) {
+				if should_stream_chunk_radius_async(s.conn.state, s.spawned) {
 					s.handle_play_chunk_radius_async(p)
 				} else {
 					s.handle_request_chunk_radius(p)!

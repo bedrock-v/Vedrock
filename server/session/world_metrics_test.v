@@ -133,7 +133,7 @@ fn test_metrics_reports_player_and_entity_counts() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -285,7 +285,7 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr

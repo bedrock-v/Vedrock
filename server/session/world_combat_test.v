@@ -18,7 +18,7 @@ fn combat_world_test_session(mut hub Hub, mut wr WorldRuntime, name string, heal
 		player:        pl
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr

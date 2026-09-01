@@ -37,7 +37,7 @@ fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut w
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr

@@ -262,32 +262,32 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 fn (mut s NetworkSession) start_game() ! {
 	spawn_state := s.resolve_spawn_state()
 	start_packet := s.build_start_game_packet(spawn_state)
-	s.transport.send(jigsaw_structure_data())!
+	s.conn.transport.send(jigsaw_structure_data())!
 	// The client builds its collision registry from this while it reads the
 	// level, so it goes out ahead of StartGame. Only the vanilla shapes are
 	// sent, but the client still resolves them by the names carried here.
-	s.transport.send(s.voxel_shapes())!
-	s.transport.send(start_packet)!
-	s.transport.send(s.item_registry())!
+	s.conn.transport.send(s.voxel_shapes())!
+	s.conn.transport.send(start_packet)!
+	s.conn.transport.send(s.item_registry())!
 	// Sent unconditionally: the client resolves its own player actor against
 	// this list, so the actor data below has nothing to attach to without it.
-	s.transport.send(&proto.AvailableActorIdentifiersPacket{
+	s.conn.transport.send(&proto.AvailableActorIdentifiersPacket{
 		actor_info_list: s.entity_identifiers()
 	})!
-	s.transport.send(s.creative_content())!
-	s.transport.send(crafting_data_packet(s.hub.data))!
-	s.transport.send(biome_definition_list())!
-	s.transport.send(&proto.SetDifficultyPacket{
+	s.conn.transport.send(s.creative_content())!
+	s.conn.transport.send(crafting_data_packet(s.hub.data))!
+	s.conn.transport.send(biome_definition_list())!
+	s.conn.transport.send(&proto.SetDifficultyPacket{
 		difficulty: u32(s.hub.difficulty_value())
 	})!
-	s.transport.send(&proto.UpdateAbilitiesPacket{
+	s.conn.transport.send(&proto.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	})!
-	s.transport.send(adventure_settings())!
-	s.transport.send(s.update_attributes())!
-	s.transport.send(s.set_actor_data())!
+	s.conn.transport.send(adventure_settings())!
+	s.conn.transport.send(s.update_attributes())!
+	s.conn.transport.send(s.set_actor_data())!
 	s.log.info('${s.player.identity.display_name} joined the game')
-	s.state = .play
+	s.conn.state = .play
 	if s.pending_radius > 0 {
 		radius := s.pending_radius
 		s.pending_radius = 0
@@ -304,10 +304,10 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p proto.RequestChunkRadius
 		radius = 1
 	}
 	own := s.player.position()
-	s.transport.send(&proto.ChunkRadiusUpdatedPacket{
+	s.conn.transport.send(&proto.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	})!
-	s.transport.send(&proto.NetworkChunkPublisherUpdatePacket{
+	s.conn.transport.send(&proto.NetworkChunkPublisherUpdatePacket{
 		new_view_position:   proto.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
@@ -316,7 +316,7 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p proto.RequestChunkRadius
 		new_view_radius:     u32(radius * 16)
 		server_built_chunks: []proto.ChunkPos{}
 	})!
-	s.transport.send(&proto.PlayStatusPacket{
+	s.conn.transport.send(&proto.PlayStatusPacket{
 		status: proto.PlayStatus.player_spawn
 	})!
 	spawn s.stream_spawn_chunks_background(radius)

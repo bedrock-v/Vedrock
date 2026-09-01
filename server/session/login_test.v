@@ -34,7 +34,7 @@ fn login_test_session(mut hub Hub, name string) (&NetworkSession, &FakeTransport
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
 		player:    player.new_player()
-		transport: transport
+		conn: &Conn{ transport: transport }
 		hub:       hub
 		cfg:       conf.Config{
 			xbox_auth:      false
@@ -86,7 +86,7 @@ fn test_duplicate_login_rejected_while_first_session_is_pending_spawn() {
 
 	assert sent_packet[proto.ResourcePacksInfoPacket](first_transport)
 	assert wait_for_sent[proto.DisconnectPacket](second_transport, 5000)
-	assert second.state == .closed
+	assert second.conn.state == .closed
 }
 
 // login_test_packet_with_xuid builds a LoginPacket claiming the given xuid.
@@ -149,5 +149,5 @@ fn test_max_players_counts_pending_logins_before_reserving_name() {
 
 	assert sent_packet[proto.ResourcePacksInfoPacket](first_transport)
 	assert wait_for_sent[proto.DisconnectPacket](second_transport, 5000)
-	assert second.state == .closed
+	assert second.conn.state == .closed
 }

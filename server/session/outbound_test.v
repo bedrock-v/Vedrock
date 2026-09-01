@@ -109,7 +109,7 @@ fn outbound_test_session(mut transport BlockingFakeTransport) &NetworkSession {
 	return &NetworkSession{
 		player:     pl
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        new_hub(gamedata.GameData{})
 		log:        logger.new(.info)
 	}
@@ -160,8 +160,8 @@ fn test_outbound_preserves_order_before_disconnect() {
 	if c := transport.sent[2] {
 		assert c is proto.DisconnectPacket
 	}
-	_ := <-s.outbound_done
-	assert s.state == .closed
+	_ := <-s.conn.done
+	assert s.conn.state == .closed
 }
 
 fn test_outbound_overflow_aborts_session() {
@@ -175,13 +175,13 @@ fn test_outbound_overflow_aborts_session() {
 	for i in 0 .. outbound_queue_capacity {
 		s.deliver(text_packet('fill${i}'))
 	}
-	assert s.state != .closed
+	assert s.conn.state != .closed
 
 	s.deliver(text_packet('overflow'))
-	assert s.state == .closed
+	assert s.conn.state == .closed
 
 	transport.release_send()
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 }
 
 fn test_abort_outbound_releases_blocked_writer_once() {
@@ -195,12 +195,12 @@ fn test_abort_outbound_releases_blocked_writer_once() {
 	s.abort_outbound()
 
 	select {
-		_ := <-s.outbound_done {}
+		_ := <-s.conn.done {}
 		1000 * time.millisecond {
 			assert false // abort_outbound's close() should have unblocked the writer's pending send
 		}
 	}
-	assert s.state == .closed
+	assert s.conn.state == .closed
 }
 
 fn test_world_broadcast_does_not_wait_for_slow_session() {
@@ -253,10 +253,12 @@ fn bootstrap_test_session(mut transport FakeTransport) &NetworkSession {
 	return &NetworkSession{
 		player:             pl
 		runtime_id:         1
-		transport:          transport
+		conn: &Conn{
+			transport: transport
+			bootstrap: true
+		}
 		hub:                new_hub(gamedata.GameData{})
 		log:                logger.new(.info)
-		outbound_bootstrap: true
 	}
 }
 
@@ -268,10 +270,12 @@ fn bootstrap_test_session_blocking(mut transport BlockingFakeTransport) &Network
 	return &NetworkSession{
 		player:             pl
 		runtime_id:         1
-		transport:          transport
+		conn: &Conn{
+			transport: transport
+			bootstrap: true
+		}
 		hub:                new_hub(gamedata.GameData{})
 		log:                logger.new(.info)
-		outbound_bootstrap: true
 	}
 }
 
@@ -286,7 +290,7 @@ fn test_outbound_enqueue_fails_before_activation_then_succeeds_after() {
 		assert false
 	}
 	assert transport.sent.len == 0
-	assert s.state != .closed
+	assert s.conn.state != .closed
 
 	s.activate_outbound()
 
@@ -415,7 +419,7 @@ fn test_disconnect_rejects_later_packet_enqueue() {
 	if p := transport.sent[0] {
 		assert p is proto.DisconnectPacket
 	}
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 }
 
 fn test_abort_stops_idle_outbound_writer() {
@@ -426,19 +430,19 @@ fn test_abort_stops_idle_outbound_writer() {
 	assert blocking_sent_text(transport, 1, 2000)
 
 	s.abort_outbound()
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 	select {
-		_ := <-s.writer_exited {}
+		_ := <-s.conn.writer_exited {}
 		1000 * time.millisecond {
 			assert false // the writer never exited - the idle-writer leak is still present
 		}
 	}
 
-	leaked_ticket := s.hold_outbound(OutboundMessage(OutboundPacket{
+	leaked_ticket := s.conn.hold(OutboundMessage(OutboundPacket{
 		packet: text_packet('leaked')
 	}))
 	select {
-		s.outbound <- leaked_ticket {}
+		s.conn.outbound <- leaked_ticket {}
 		else {}
 	}
 	select {
@@ -466,7 +470,7 @@ fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut tr
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -489,7 +493,7 @@ fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport F
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -530,7 +534,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	for i in 0 .. outbound_queue_capacity {
 		overflowing_session.deliver(text_packet('fill${i}'))
 	}
-	assert overflowing_session.state != .closed
+	assert overflowing_session.conn.state != .closed
 
 	done := chan bool{cap: 1}
 	spawn fn [mut wr_a, done] () {
@@ -548,7 +552,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 		}
 	}
 
-	assert overflowing_session.state == .closed
+	assert overflowing_session.conn.state == .closed
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
 	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
@@ -567,21 +571,21 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 	mut s := &NetworkSession{
 		player:     pl
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        new_hub(gamedata.GameData{})
 		log:        logger.new(.info)
 	}
 
 	s.disconnect('bye')
 	assert wait_for_sent_len(transport, 1, 2000)
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 
 	s.disconnect('bye again')
 	s.deliver(text_packet('late'))
 	s.abort_outbound()
 
 	select {
-		_ := <-s.outbound_done {
+		_ := <-s.conn.done {
 			assert false // close_outbound_once fired more than once
 		}
 		300 * time.millisecond {}

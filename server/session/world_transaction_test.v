@@ -24,7 +24,7 @@ fn wtx_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &Netw
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		transport:     &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr

@@ -102,7 +102,7 @@ fn test_place_block_rejects_when_occupied() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.FlatGenerator{}
@@ -140,7 +140,7 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.VoidGenerator{}
@@ -184,7 +184,7 @@ fn test_place_block_cancelled_resends_skips_write() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.VoidGenerator{}
@@ -226,7 +226,7 @@ fn test_break_block_unbreakable_resends_without_event() {
 	mut s := &NetworkSession{
 		player:     pl
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		generator:  world.FlatGenerator{}
 	}
@@ -255,7 +255,7 @@ fn test_break_block_air_resends_authoritative_state() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		generator:  world.VoidGenerator{}
 	}
@@ -279,7 +279,7 @@ fn test_break_block_rejects_out_of_reach() {
 	mut s := &NetworkSession{
 		player:     make_test_player('Alex', .survival)
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.FlatGenerator{}
@@ -301,7 +301,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	mut s := &NetworkSession{
 		player:     make_test_player('Alex', .survival)
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.FlatGenerator{}
@@ -411,7 +411,7 @@ fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSes
 	mut s := &NetworkSession{
 		player:     make_test_player('Alex', .survival)
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		generator:  world.FlatGenerator{}
 	}
@@ -489,7 +489,7 @@ fn test_break_block_creative_bypasses_gating() {
 	mut s := &NetworkSession{
 		player:        make_test_player('Alex', .creative)
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         target
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
@@ -526,7 +526,7 @@ fn test_place_resolves_block_from_item_registry() {
 	mut s := &NetworkSession{
 		player:        make_test_player('Alex', .creative)
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         target
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
@@ -575,7 +575,7 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 	mut s := &NetworkSession{
 		player:        make_test_player('Alex', .survival)
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         target
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
@@ -613,7 +613,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 	mut s := &NetworkSession{
 		player:        make_test_player('Alex', .spectator)
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         target
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
@@ -672,7 +672,7 @@ fn test_empty_hand_interact_places_nothing() {
 	mut s := &NetworkSession{
 		player:        make_test_player('Alex', .creative)
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         target
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
@@ -744,7 +744,7 @@ fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos types.BlockP
 	mut s := &NetworkSession{
 		player:        make_test_player('Alex', mode)
 		runtime_id:    1
-		transport:     &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 		hub:           hub
 		world:         target
 		world_runtime: wr

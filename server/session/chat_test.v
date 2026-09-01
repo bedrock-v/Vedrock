@@ -27,7 +27,7 @@ fn test_handle_text_dispatches_to_per_session_handler() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		log:        logger.new(.info)
 	}
@@ -62,7 +62,7 @@ fn test_handle_text_rejects_an_oversized_message() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		log:        logger.new(.info)
 	}

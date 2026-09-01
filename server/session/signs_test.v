@@ -71,7 +71,7 @@ fn test_sign_editor_opens_only_for_signs() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 	}
@@ -111,7 +111,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.VoidGenerator{}
@@ -159,7 +159,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.VoidGenerator{}
@@ -194,7 +194,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 	}
@@ -233,7 +233,7 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 			}
 		}
 		runtime_id: 1
-		transport:  transport
+		conn: &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 	}
