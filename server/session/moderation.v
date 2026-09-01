@@ -145,13 +145,45 @@ fn (mut s NetworkSession) request_teleport(x f32, y f32, z f32, world_name strin
 		if !s.change_world(world_name, x, y, z) {
 			return
 		}
-		s.apply_teleport(x, y, z)
+		s.submit_teleport(x, y, z)
 		// Chunk transmission (up to a few hundred packets) runs on its own
 		// thread so it never stalls whichever thread called teleport.
 		spawn s.reload_chunks(s.cfg.view_distance)
 		return
 	}
-	s.apply_teleport(x, y, z)
+	s.submit_teleport(x, y, z)
+}
+
+// submit_teleport arms the teleport acknowledgement and runs the move on the
+// world that owns the player, blocking until it has happened.
+//
+// It blocks because teleport reads as immediate to its caller: a command that
+// moves a player and then reports where they are must not race its own move.
+//
+// The acknowledgement is armed here rather than inside the transaction because
+// the client keeps reporting movement in the meantime. Anything it sends
+// between now and the move describes a position the server is about to
+// overwrite and must not be applied on top of the teleport.
+fn (mut s NetworkSession) submit_teleport(x f32, y f32, z f32) {
+	mut wr := s.current_world_runtime()
+	if isnil(wr) {
+		return
+	}
+	pos := types.Vector3{x, y, z}
+	rid := s.runtime_id
+	epoch := s.world_binding().epoch
+	s.expect_teleport_ack(pos)
+	moved := worldrt.world_call[bool]('Player.teleport', mut wr, fn [rid, epoch, pos] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+		target.player.teleport(mut tx, pos)
+		return true
+	}) or { false }
+	if !moved {
+		// The teleport didn't happen. Release the acknowledgement armed
+		// above or the client stays frozen waiting to confirm a position it
+		// was never sent.
+		s.expect_teleport_ack(s.player.position())
+	}
 }
 
 // reload_chunks resends the spawn chunks around the player. Runs on its
@@ -289,36 +321,6 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	return true
 }
 
-// apply_teleport resets the position, sends the correction packet and
-// broadcasts the move through the owning world actor. Unlike change_world,
-// a same world teleport has no existing worldrt.world_call to reuse.
-fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
-	s.player.reset_position(types.Vector3{x, y, z})
-	current := s.player.movement()
-	mut move_packet := &proto.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		y_head_rotation:   current.head_yaw
-		position_mode:     proto.PlayerPositionMode.teleport
-		teleport_data:     proto.MovePlayerTeleportData{}
-		on_ground:         false
-	}
-	move_packet.position[0] = current.position.x
-	move_packet.position[1] = current.position.y
-	move_packet.position[2] = current.position.z
-	move_packet.rotation[0] = current.pitch
-	move_packet.rotation[1] = current.yaw
-	s.deliver(move_packet)
-	s.expect_teleport_ack(current.position)
-	mut wr := s.current_world_runtime()
-	if !isnil(wr) {
-		rid := s.runtime_id
-		move_pkt := s.move_actor_packet()
-		worldrt.world_call[bool]('Session.teleport_broadcast', mut wr, fn [rid, move_pkt] (mut tx worldrt.WorldTx) bool {
-			tx.wr.broadcast_world_except(rid, move_pkt)
-			return true
-		}) or {}
-	}
-}
 
 fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, '')

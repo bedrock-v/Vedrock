@@ -2,6 +2,7 @@ module session
 
 import bedrock_v.protocol.types
 import server.player
+import server.worldrt
 
 // PlayerRef is a stale checked reference to a player. It remains valid only
 // for the world membership generation captured when it was created.
@@ -69,6 +70,34 @@ pub fn (p PlayerRef) world() World {
 	return p.world_
 }
 
+// exec runs "f"unction against this player on the actor that owns it and blocks until
+// it has run. This is the way to act on a player: everything a player can do
+// is a method on player.Player and those take the transaction "f" is handed.
+//
+// label names the operation in WorldMetrics.longest_task_name.
+//
+// It fails if the player has disconnected or left the world membership this
+// PlayerRef was created for or if that world is shutting down.
+pub fn (p PlayerRef) exec(label string, f fn (mut tx worldrt.WorldTx, mut pl player.Player)) ! {
+	mut wr := p.world_.runtime
+	rid := p.runtime_id
+	epoch := p.epoch
+	ran := worldrt.world_call[bool](label, mut wr, fn [f, rid, epoch] (mut tx worldrt.WorldTx) bool {
+		mut s := player_for_epoch(mut tx, rid, epoch) or { return false }
+		f(mut tx, mut s.player)
+		return true
+	}) or { return error('world "${p.world_.name()}" is shutting down') }
+	if !ran {
+		return stale_error()
+	}
+}
+
+// stale_error is what every operation reports when the reference no longer
+// names a player in the world it was created for.
+fn stale_error() IError {
+	return error('player is no longer in this world')
+}
+
 // position is the player's current position. Fails if the player has
 // disconnected or left the world membership this PlayerRef was created for.
 pub fn (p PlayerRef) position() !types.Vector3 {
@@ -83,11 +112,13 @@ pub fn (p PlayerRef) send_message(message string) ! {
 	s.send_message(message)!
 }
 
-// teleport moves the player within their current world. Same failure mode
-// as position.
+// teleport moves the player within their current world. Same failure mode as
+// position. It is exec plus Player.teleport, kept because moving a player is
+// common enough to be worth one call.
 pub fn (p PlayerRef) teleport(pos types.Vector3) ! {
-	mut s := p.resolve()!
-	s.teleport(pos.x, pos.y, pos.z)
+	p.exec('PlayerRef.teleport', fn [pos] (mut tx worldrt.WorldTx, mut pl player.Player) {
+		pl.teleport(mut tx, pos)
+	})!
 }
 
 // teleport_to moves the player into world w at pos, transferring world

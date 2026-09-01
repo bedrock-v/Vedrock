@@ -20,6 +20,10 @@ pub struct Player {
 pub mut:
 	identity auth.Identity
 	perm     permission.Permissible
+	// sink is whatever drives this player. It is a NopSink until a session
+	// claims the player, a verb never has to check whether anyone is
+	// listening.
+	sink Sink = NopSink{}
 mut:
 	// state_mutex guards the mutable player state below, excluding fields
 	// covered by their own mutexes. State accessors must hold this lock because

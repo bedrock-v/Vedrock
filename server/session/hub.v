@@ -641,6 +641,11 @@ pub fn (mut h Hub) allocate_runtime_id() u64 {
 }
 
 fn (mut h Hub) add(target &NetworkSession) {
+	// The player acts through the session driving it. Wired here because this
+	// is the one point every session passes through including the ones tests
+	// build by hand.
+	mut claimed := unsafe { target }
+	claimed.player.sink = claimed
 	h.mutex.lock()
 	h.sessions[target.runtime_id] = target
 	h.pending_names.delete(normal_player_name(target.player.identity.display_name))
