@@ -126,8 +126,8 @@ fn test_player_move_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingMoveHandler{}
 	mut handler_b := &CountingMoveHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
 	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)

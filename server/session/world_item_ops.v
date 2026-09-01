@@ -21,7 +21,7 @@ fn spawn_dropped_item_stack(mut wr WorldRuntime, item_name string, count int, po
 	if count <= 0 {
 		return
 	}
-	id := wr.hub.data.item_id(item_name)
+	id := wr.game.hub.data.item_id(item_name)
 	if id == 0 {
 		return
 	}
@@ -61,11 +61,11 @@ fn block_drop_for(mut wr WorldRuntime, block_id int) (string, int) {
 			return loot.item_name, entity.rand_int_range(loot.min_count, loot.max_count)
 		}
 	}
-	item_id := wr.hub.data.item_for_block(block_id)
+	item_id := wr.game.hub.data.item_for_block(block_id)
 	if item_id == 0 {
 		return '', 0
 	}
-	return wr.hub.data.item_name(item_id), 1
+	return wr.game.hub.data.item_name(item_id), 1
 }
 
 fn (mut s NetworkSession) try_collect_item(stack types.ItemStack) int {

@@ -203,8 +203,8 @@ fn test_entity_spawn_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingEntitySpawnHandler{}
 	mut handler_b := &CountingEntitySpawnHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	behaviour := entity.create('pig') or { panic('missing pig behaviour') }
 	task := SpawnEntityTask{
@@ -233,7 +233,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 		hub.close_worlds()
 	}
 
-	wr_a.events.register(&CancelEntitySpawnHandler{}, .normal)
+	wr_a.game.events.register(&CancelEntitySpawnHandler{}, .normal)
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	task_a := SpawnEntityTask{
@@ -282,8 +282,8 @@ fn test_entity_despawn_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingEntityDespawnHandler{}
 	mut handler_b := &CountingEntityDespawnHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }

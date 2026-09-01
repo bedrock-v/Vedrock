@@ -456,7 +456,7 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 		z:        pos.z
 		block_id: old_id
 	})
-	tx.wr.events.block_break(mut ctx)
+	tx.wr.game.events.block_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false

@@ -56,7 +56,7 @@ fn (t PlayerSetGamemodeTask) name() string {
 
 fn (t PlayerSetGamemodeTask) run(mut tx WorldTx) {
 	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
-	s.apply_gamemode(mut tx.wr.events, t.mode)
+	s.apply_gamemode(mut tx.wr.game.events, t.mode)
 }
 
 fn (mut s NetworkSession) set_gamemode(mode player.Gamemode) {

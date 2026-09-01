@@ -46,14 +46,14 @@ fn (mut h WorldEntityHost) broadcast_near(x f32, y f32, z f32, radius f32, p pro
 // and player runtime ids never collide. The one piece that stays global on
 // purpose, matching entity.Host's original contract.
 fn (mut h WorldEntityHost) allocate_runtime_id() u64 {
-	return h.wr.hub.allocate_runtime_id()
+	return h.wr.game.hub.allocate_runtime_id()
 }
 
 fn (mut h WorldEntityHost) get_block(x int, y int, z int) int {
 	if id := h.wr.world.block_override(x, y, z) {
 		return id
 	}
-	gen := h.wr.world.make_generator(h.wr.hub.build_generator(h.wr.world))
+	gen := h.wr.world.make_generator(h.wr.game.hub.build_generator(h.wr.world))
 	return gen.block_at(x, y, z)
 }
 
@@ -62,19 +62,19 @@ fn (mut h WorldEntityHost) collision_boxes(x int, y int, z int) []world.AABB {
 	if id == world.air.network_id {
 		return []world.AABB{}
 	}
-	if isnil(h.wr.hub.palette) {
+	if isnil(h.wr.game.hub.palette) {
 		return world.absolute_boxes(world.solid_model(), x, y, z)
 	}
-	return world.absolute_boxes_with_neighbors(h.wr.hub.palette.model(id), h.neighbor_models(x, y,
+	return world.absolute_boxes_with_neighbors(h.wr.game.hub.palette.model(id), h.neighbor_models(x, y,
 		z), x, y, z)
 }
 
 fn (mut h WorldEntityHost) neighbor_models(x int, y int, z int) map[int]world.BlockModel {
 	mut out := map[int]world.BlockModel{}
-	out[2] = h.wr.hub.palette.model(h.get_block(x, y, z - 1))
-	out[3] = h.wr.hub.palette.model(h.get_block(x, y, z + 1))
-	out[4] = h.wr.hub.palette.model(h.get_block(x - 1, y, z))
-	out[5] = h.wr.hub.palette.model(h.get_block(x + 1, y, z))
+	out[2] = h.wr.game.hub.palette.model(h.get_block(x, y, z - 1))
+	out[3] = h.wr.game.hub.palette.model(h.get_block(x, y, z + 1))
+	out[4] = h.wr.game.hub.palette.model(h.get_block(x - 1, y, z))
+	out[5] = h.wr.game.hub.palette.model(h.get_block(x + 1, y, z))
 	return out
 }
 
@@ -189,7 +189,7 @@ fn (mut h WorldEntityHost) notify_entity_despawn(identifier string, x f32, y f32
 		y:          y
 		z:          z
 	})
-	h.wr.events.entity_despawn(mut ctx)
+	h.wr.game.events.entity_despawn(mut ctx)
 }
 
 // SpawnEntityTask resolves and, unless the owning world's entity_spawn
@@ -217,7 +217,7 @@ fn (t SpawnEntityTask) run(mut tx WorldTx) {
 		y:          t.y
 		z:          t.z
 	})
-	tx.wr.events.entity_spawn(mut ctx)
+	tx.wr.game.events.entity_spawn(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}

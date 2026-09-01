@@ -265,11 +265,11 @@ fn test_register_and_unregister_event_go_through_the_actor() {
 	}
 
 	handler := &EventCounter{}
-	wr.register_event(handler, .normal)
+	register_world_event(mut wr, handler, .normal)
 	sync_barrier(mut wr)
-	assert wr.events.len() == 1
+	assert wr.game.events.len() == 1
 
-	wr.unregister_event(handler)
+	unregister_world_event(mut wr, handler)
 	sync_barrier(mut wr)
-	assert wr.events.len() == 0
+	assert wr.game.events.len() == 0
 }

@@ -75,7 +75,7 @@ fn (mut s NetworkSession) apply_add_effect(mut wr WorldRuntime, e effect.Effect)
 		duration_ticks: e.duration_ticks()
 		player:         s
 	})
-	wr.events.effect_add(mut ctx)
+	wr.game.events.effect_add(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -97,7 +97,7 @@ fn (mut s NetworkSession) apply_remove_effect(mut wr WorldRuntime, typ effect.Ty
 		effect_name: typ.name
 		player:      s
 	})
-	wr.events.effect_remove(mut ctx)
+	wr.game.events.effect_remove(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}

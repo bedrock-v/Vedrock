@@ -38,7 +38,7 @@ fn (mut h CancelEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[event.
 
 fn test_cancelled_event_prevents_spawn() {
 	mut hub, wr := entity_test_hub_with_world()
-	wr.events.register(&CancelEntitySpawnHandler{}, .normal)
+	wr.game.events.register(&CancelEntitySpawnHandler{}, .normal)
 	ok := hub.spawn_entity('pig', 0, 10, 0)
 	assert !ok
 	assert wr.entities.count() == 0
@@ -59,7 +59,7 @@ fn (mut h RecordingDespawnHandler) on_entity_despawn(mut ctx event.Context[event
 fn test_despawn_dispatches_entity_despawn_event() {
 	mut hub, wr := entity_test_hub_with_world()
 	mut handler := &RecordingDespawnHandler{}
-	wr.events.register(handler, .normal)
+	wr.game.events.register(handler, .normal)
 	hub.spawn_entity('pig', 0, 10, 0)
 	assert wr.entities.count() == 1
 

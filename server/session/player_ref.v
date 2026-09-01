@@ -47,7 +47,7 @@ pub fn (mut h Hub) player_refs() []PlayerRef {
 }
 
 fn (p PlayerRef) resolve() !&NetworkSession {
-	mut hub := p.world_.runtime.hub
+	mut hub := p.world_.runtime.game.hub
 	s := hub.session_by_runtime(p.runtime_id) or { return error('player is no longer connected') }
 	if s.world_binding().epoch != p.epoch {
 		return error('player has since left this world')

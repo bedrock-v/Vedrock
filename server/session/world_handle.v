@@ -47,7 +47,7 @@ pub fn (w World) block_at(x int, y int, z int) world.Block {
 	if id := w.runtime.world.block_override(x, y, z) {
 		return world.block_from_id(id)
 	}
-	gen := w.runtime.world.make_generator(w.runtime.hub.build_generator(w.runtime.world))
+	gen := w.runtime.world.make_generator(w.runtime.game.hub.build_generator(w.runtime.world))
 	return world.block_from_id(gen.block_at(x, y, z))
 }
 
@@ -55,7 +55,7 @@ pub fn (w World) block_at(x int, y int, z int) world.Block {
 // The generator can be resolved from thread safe world and registry state,
 // so no world actor call is required.
 pub fn (w World) spawn_y() int {
-	gen := w.runtime.world.make_generator(w.runtime.hub.build_generator(w.runtime.world))
+	gen := w.runtime.world.make_generator(w.runtime.game.hub.build_generator(w.runtime.world))
 	return gen.spawn_y()
 }
 

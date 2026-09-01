@@ -193,7 +193,7 @@ fn test_place_block_cancelled_resends_skips_write() {
 	hub.add(s)
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	wr.events.register(&CancelBlockPlaceHandler{}, .normal)
+	wr.game.events.register(&CancelBlockPlaceHandler{}, .normal)
 	mut tx := &WorldTx{
 		wr: wr
 	}

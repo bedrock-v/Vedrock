@@ -68,8 +68,8 @@ fn test_player_attack_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingAttackHandler{}
 	mut handler_b := &CountingAttackHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	mut attacker := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
 	mut victim := combat_world_test_session(mut hub, mut wr_a, 'Steve', 20)
@@ -214,8 +214,8 @@ fn test_player_death_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingDeathHandler{}
 	mut handler_b := &CountingDeathHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	mut s := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
 	s.kill()

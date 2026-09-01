@@ -66,31 +66,31 @@ fn (tx &WorldTx) is_replaceable(block_id int) bool {
 }
 
 fn (tx &WorldTx) can_place_block_on_face(runtime_id int, click_face int, support_id int) bool {
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return true
 	}
-	return tx.wr.hub.palette.can_place_on_support(runtime_id, click_face, support_id)
+	return tx.wr.game.hub.palette.can_place_on_support(runtime_id, click_face, support_id)
 }
 
 // oriented_block resolves a directional block's runtime id from the acting
 // player's yaw and the clicked face. Falls back to the raw id when no
 // palette is loaded.
 fn (tx &WorldTx) oriented_block(runtime_id int, click_face int, click_y f32, yaw f32) int {
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return runtime_id
 	}
-	return tx.wr.hub.palette.oriented(runtime_id, yaw, click_face, click_y)
+	return tx.wr.game.hub.palette.oriented(runtime_id, yaw, click_face, click_y)
 }
 
 fn (tx &WorldTx) merged_slab(existing_id int, placing_id int, click_face int, click_y f32, clicked bool) ?int {
-	if existing_id == world.air.network_id || isnil(tx.wr.hub.palette) {
+	if existing_id == world.air.network_id || isnil(tx.wr.game.hub.palette) {
 		return none
 	}
-	return tx.wr.hub.palette.merged_slab(existing_id, placing_id, click_face, click_y, clicked)
+	return tx.wr.game.hub.palette.merged_slab(existing_id, placing_id, click_face, click_y, clicked)
 }
 
 fn (mut tx WorldTx) door_placement(runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
-	if click_face != 1 || isnil(tx.wr.hub.palette) {
+	if click_face != 1 || isnil(tx.wr.game.hub.palette) {
 		return none
 	}
 	above := face_offset(pos, 1)
@@ -104,28 +104,28 @@ fn (mut tx WorldTx) door_placement(runtime_id int, pos types.BlockPosition, clic
 		return none
 	}
 	below_id := tx.block_at(below.x, below.y, below.z)
-	if !tx.wr.hub.palette.model(below_id).face_solid(1) {
+	if !tx.wr.game.hub.palette.model(below_id).face_solid(1) {
 		return none
 	}
-	return tx.wr.hub.palette.door_placement(runtime_id, yaw, tx.neighbor_ids(pos))
+	return tx.wr.game.hub.palette.door_placement(runtime_id, yaw, tx.neighbor_ids(pos))
 }
 
 fn (tx &WorldTx) door_pair_pos(pos types.BlockPosition, id int) ?types.BlockPosition {
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return none
 	}
-	_ := tx.wr.hub.palette.door_pair_id(id) or { return none }
-	if tx.wr.hub.palette.is_door_top(id) {
+	_ := tx.wr.game.hub.palette.door_pair_id(id) or { return none }
+	if tx.wr.game.hub.palette.is_door_top(id) {
 		return face_offset(pos, 0)
 	}
 	return face_offset(pos, 1)
 }
 
 fn (tx &WorldTx) door_pair_matches(id int, pair_id int) bool {
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return false
 	}
-	expected := tx.wr.hub.palette.door_pair_id(id) or { return false }
+	expected := tx.wr.game.hub.palette.door_pair_id(id) or { return false }
 	return expected == pair_id
 }
 
@@ -134,7 +134,7 @@ fn (tx &WorldTx) carve_pumpkin(mut s NetworkSession, old_id int, click_face int)
 	if name != 'minecraft:shears' {
 		return none
 	}
-	return tx.wr.hub.palette.carved_pumpkin_id(old_id, click_face)
+	return tx.wr.game.hub.palette.carved_pumpkin_id(old_id, click_face)
 }
 
 // create_sign_tile initializes a newly placed sign's block entity text and
@@ -216,7 +216,7 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 			return true
 		}
 	}
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return false
 	}
 	if new_id := tx.carve_pumpkin(mut s, old_id, click_face) {
@@ -227,7 +227,7 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 	}
 	if pair := tx.door_pair_pos(pos, old_id) {
 		pair_id := tx.block_at(pair.x, pair.y, pair.z)
-		if toggled := tx.wr.hub.palette.door_toggled_pair(old_id, pair_id) {
+		if toggled := tx.wr.game.hub.palette.door_toggled_pair(old_id, pair_id) {
 			tx.set_block(pos.x, pos.y, pos.z, toggled.clicked)
 			tx.set_block(pair.x, pair.y, pair.z, toggled.pair)
 			tx.broadcast_swing(s)
@@ -237,7 +237,7 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 		}
 		return false
 	}
-	if new_id := tx.wr.hub.palette.toggled_open(old_id) {
+	if new_id := tx.wr.game.hub.palette.toggled_open(old_id) {
 		tx.set_block(pos.x, pos.y, pos.z, new_id)
 		tx.broadcast_swing(s)
 		tx.notify_block_changed(pos)
@@ -261,14 +261,14 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 // bone meal advancing a crop's growth stage) if clicked_id qualifies.
 // Returns false for every item/block combination that doesn't.
 fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosition, clicked_id int) bool {
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return false
 	}
-	v := tx.wr.hub.palette.variant(clicked_id) or { return false }
+	v := tx.wr.game.hub.palette.variant(clicked_id) or { return false }
 	stack, name := s.held_stack_and_name()
 	result := item.use_on_block_result(name, v.name, stack.meta) or { return false }
 	current := v.states.get(result.state_key) or { return false }.int()
-	new_id := tx.wr.hub.palette.with_state(clicked_id, result.state_key, (current +
+	new_id := tx.wr.game.hub.palette.with_state(clicked_id, result.state_key, (current +
 		result.state_delta).str()) or { return false }
 	if new_id == clicked_id {
 		return false
@@ -319,7 +319,7 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 		z:        pos.z
 		block_id: runtime_id
 	})
-	tx.wr.events.block_place(mut ctx)
+	tx.wr.game.events.block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false
@@ -347,7 +347,7 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 		z:        pos.z
 		block_id: runtime_id
 	})
-	tx.wr.events.block_place(mut ctx)
+	tx.wr.game.events.block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false
@@ -386,7 +386,7 @@ fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPositio
 		z:        pos.z
 		block_id: parts.lower
 	})
-	tx.wr.events.block_place(mut ctx)
+	tx.wr.game.events.block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		s.resend_block(above)

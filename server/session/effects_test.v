@@ -187,7 +187,7 @@ fn test_cancelled_effect_add_rejects_effect() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelEffectAddHandler{}, .normal)
+	wr.game.events.register(&CancelEffectAddHandler{}, .normal)
 
 	add_effect_directly(wr, sess.runtime_id, effect.new(effect.regeneration, 1, 5 * time.second))
 
@@ -215,7 +215,7 @@ fn test_cancelled_effect_remove_keeps_effect() {
 	active := sess.player.effect(effect.regeneration) or { panic('missing effect') }
 	assert active.level() == 1
 
-	wr.events.register(&CancelEffectRemoveHandler{}, .normal)
+	wr.game.events.register(&CancelEffectRemoveHandler{}, .normal)
 
 	remove_effect_directly(wr, sess.runtime_id, effect.regeneration)
 

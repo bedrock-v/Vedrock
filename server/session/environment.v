@@ -26,7 +26,7 @@ fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
 	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
-	tick := tx.wr.hub.current_tick()
+	tick := tx.wr.game.hub.current_tick()
 	pos := s.current_position()
 
 	if pos.y < void_damage_y {

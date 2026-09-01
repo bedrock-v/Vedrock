@@ -113,7 +113,7 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	// block_break is dispatched on the owning world's own event bus, not
 	// Hub's global one.
-	wr.events.register(&BreakTestCancelHandler{}, .normal)
+	wr.game.events.register(&BreakTestCancelHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := break_test_session(mut hub, mut transport, mut wr)
 	give_held_pick(mut s)
@@ -209,8 +209,8 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingBreakHandler{}
 	mut handler_b := &CountingBreakHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	mut transport_a := &FakeTransport{}
 	mut s_a := break_test_session(mut hub, mut transport_a, mut wr_a)

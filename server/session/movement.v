@@ -177,7 +177,7 @@ fn (t PlayerMoveTask) name() string {
 }
 
 fn (t PlayerMoveTask) run(mut tx WorldTx) {
-	mut s := tx.wr.hub.session_by_runtime(t.runtime_id) or { return }
+	mut s := tx.wr.game.hub.session_by_runtime(t.runtime_id) or { return }
 	for {
 		if s.world_binding().epoch != t.epoch || !tx.wr.entities.is_player_actor(t.runtime_id) {
 			s.movement_mutex.lock()
@@ -195,17 +195,17 @@ fn (t PlayerMoveTask) run(mut tx WorldTx) {
 
 fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapshot) {
 	position := snapshot.position
-	if s.spawned && tx.wr.hub.current_tick() % 40 == 0 {
+	if s.spawned && tx.wr.game.hub.current_tick() % 40 == 0 {
 		s.log.debug('move ${s.player.identity.display_name} pos=(${position.x:.2f}, ${position.y:.2f}, ${position.z:.2f})')
 	}
-	if s.spawned && tx.wr.events.len() > 0 {
+	if s.spawned && tx.wr.game.events.len() > 0 {
 		mut ctx := event.new_context(event.MoveData{
 			player: s
 			x:      position.x
 			y:      position.y
 			z:      position.z
 		})
-		tx.wr.events.player_move(mut ctx)
+		tx.wr.game.events.player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
 			mut move_packet := &proto.MovePlayerPacket{

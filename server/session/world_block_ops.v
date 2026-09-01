@@ -32,7 +32,7 @@ fn (tx &WorldTx) neighbor_ids(pos types.BlockPosition) world.NeighborBlockIDs {
 // horizontal neighbors using this transaction's world view. It is safe to call
 // from within an already running WorldTx task.
 fn (mut tx WorldTx) recompute_neighbor_blocks(pos types.BlockPosition) {
-	if isnil(tx.wr.hub.palette) {
+	if isnil(tx.wr.game.hub.palette) {
 		return
 	}
 	for p in [
@@ -46,7 +46,7 @@ fn (mut tx WorldTx) recompute_neighbor_blocks(pos types.BlockPosition) {
 		if old_id == world.air.network_id {
 			continue
 		}
-		new_id := tx.wr.hub.palette.connected_block(old_id, tx.neighbor_ids(p))
+		new_id := tx.wr.game.hub.palette.connected_block(old_id, tx.neighbor_ids(p))
 		if new_id != old_id {
 			tx.set_block(p.x, p.y, p.z, new_id)
 		}

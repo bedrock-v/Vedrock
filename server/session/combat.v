@@ -59,7 +59,7 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		knockback_force:   t.knockback_force
 		knockback_height:  t.knockback_height
 	})
-	tx.wr.events.player_attack(mut ctx)
+	tx.wr.game.events.player_attack(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -221,7 +221,7 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 		amount:        reduced_amount
 		attacker_name: source.attacker_label()
 	})
-	wr.events.player_hurt(mut ctx)
+	wr.game.events.player_hurt(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -247,7 +247,7 @@ fn (mut s NetworkSession) apply_death(mut wr WorldRuntime, message_key string, p
 		message_key: message_key
 		params:      parameters
 	})
-	wr.events.player_death(mut ctx)
+	wr.game.events.player_death(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -318,7 +318,7 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 		y:      f32(spawn_y) + player_eye_height
 		z:      0.0
 	})
-	wr.events.player_respawn(mut ctx)
+	wr.game.events.player_respawn(mut ctx)
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())

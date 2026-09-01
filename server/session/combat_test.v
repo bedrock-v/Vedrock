@@ -104,7 +104,7 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelAttackHandler{}, .normal)
+	wr.game.events.register(&CancelAttackHandler{}, .normal)
 
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
 	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
@@ -231,7 +231,7 @@ fn test_apply_hurt_cancelled_event_prevents_damage() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelHurtHandler{}, .normal)
+	wr.game.events.register(&CancelHurtHandler{}, .normal)
 	mut victim := &NetworkSession{
 		player:     make_combat_test_player('Steve', 20, .survival)
 		runtime_id: 2
@@ -258,7 +258,7 @@ fn test_apply_death_cancelled_prevents_death_entirely() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelDeathHandler{}, .normal)
+	wr.game.events.register(&CancelDeathHandler{}, .normal)
 	mut victim := &NetworkSession{
 		player:     make_combat_test_player('Steve', 0, .survival)
 		runtime_id: 2

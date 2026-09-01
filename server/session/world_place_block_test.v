@@ -223,7 +223,7 @@ fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	// block_place is dispatched on the owning world's own event bus, not
 	// Hub's global one.
-	wr.events.register(&CancelBlockPlaceHandler{}, .normal)
+	wr.game.events.register(&CancelBlockPlaceHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr)
 	give_held_stack(mut s, 500, 3)
@@ -328,8 +328,8 @@ fn test_place_block_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingPlaceHandler{}
 	mut handler_b := &CountingPlaceHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.game.events.register(handler_a, .normal)
+	wr_b.game.events.register(handler_b, .normal)
 
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr_a)
@@ -447,7 +447,7 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	// block_place is dispatched on the owning world's own event bus, not
 	// Hub's global one.
-	wr.events.register(&CancelBlockPlaceHandler{}, .normal)
+	wr.game.events.register(&CancelBlockPlaceHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr)
 	s.player.reset_position(types.Vector3{10.5, 1.62, 10.5})

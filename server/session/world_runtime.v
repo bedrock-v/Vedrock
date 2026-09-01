@@ -8,7 +8,6 @@ import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.block
 import server.entity
-import server.event
 import server.world.db
 import server.internal.logger
 import server.worldrt
@@ -52,8 +51,10 @@ interface WorldTask {
 @[heap]
 struct WorldRuntime {
 mut:
-	hub   &Hub      = unsafe { nil }
-	world &db.World = unsafe { nil }
+	// game holds the session side services a world task may need. The actor's
+	// own work never touches it.
+	game  &WorldGame = unsafe { nil }
+	world &db.World  = unsafe { nil }
 	// Guards lifecycle state and in flight submission accounting. It must not
 	// be held during blocking channel operations.
 	mutex     &sync.Mutex = sync.new_mutex()
@@ -94,7 +95,6 @@ mut:
 	published_latest_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
 	liquids        &block.LiquidManager = unsafe { nil }
-	events         &event.Bus           = unsafe { nil }
 	entities       &entity.Manager      = unsafe { nil }
 	chunk_service  &worldrt.WorldChunkService   = unsafe { nil }
 	task_scheduler &WorldScheduler      = unsafe { nil }
@@ -132,11 +132,10 @@ mut:
 // its actor thread. Callers must shut it down before releasing all references.
 fn new_world_runtime(hub &Hub, w &db.World) &WorldRuntime {
 	mut wr := &WorldRuntime{
-		hub:   hub
+		game:  new_world_game(hub)
 		world: w
 	}
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
-	wr.events = event.new_bus()
 	wr.entities = entity.new_manager(WorldEntityHost{ wr: wr })
 	wr.chunk_service = worldrt.new_chunk_service(w.make_generator(hub.build_generator(w)))
 	wr.task_scheduler = new_world_scheduler()
@@ -262,7 +261,7 @@ fn (mut h WorldLiquidHost) get_block(x int, y int, z int) int {
 	if id := h.wr.world.block_override(x, y, z) {
 		return id
 	}
-	gen := h.wr.world.make_generator(h.wr.hub.build_generator(h.wr.world))
+	gen := h.wr.world.make_generator(h.wr.game.hub.build_generator(h.wr.world))
 	return gen.block_at(x, y, z)
 }
 
@@ -825,48 +824,4 @@ fn (mut tx WorldTx) log_tick_overrun(debt i64) {
 fn (mut wr WorldRuntime) record_outbound_overflow() {
 	mut overflows := wr.published_outbound_overflow_count
 	overflows.add(1)
-}
-
-// register_event submits event-bus mutation to the owning runtime so
-// registration is serialized against dispatch.
-fn (wr &WorldRuntime) register_event(handler event.Handler, priority event.Priority) {
-	mut w := unsafe { wr }
-	w.submit(RegisterEventTask{
-		handler:  handler
-		priority: priority
-	})
-}
-
-struct RegisterEventTask {
-	handler  event.Handler
-	priority event.Priority
-}
-
-fn (t RegisterEventTask) name() string {
-	return 'RegisterEventTask'
-}
-
-fn (t RegisterEventTask) run(mut tx WorldTx) {
-	tx.wr.events.register(t.handler, t.priority)
-}
-
-// unregister_event submits event-bus mutation to the owning runtime so removal
-// is serialized against dispatch.
-fn (wr &WorldRuntime) unregister_event(handler event.Handler) {
-	mut w := unsafe { wr }
-	w.submit(UnregisterEventTask{
-		handler: handler
-	})
-}
-
-struct UnregisterEventTask {
-	handler event.Handler
-}
-
-fn (t UnregisterEventTask) name() string {
-	return 'UnregisterEventTask'
-}
-
-fn (t UnregisterEventTask) run(mut tx WorldTx) {
-	tx.wr.events.unregister(t.handler)
 }
