@@ -94,7 +94,11 @@ mut:
 	// simulation debt (requested - simulated) without taking tick_mutex.
 	published_latest_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
-	liquids        &block.LiquidManager = unsafe { nil }
+	// generators resolves this world's generator. Held as the narrow contract
+	// rather than as the Hub, so the runtime never gains access to sessions
+	// through it.
+	generators     worldrt.GeneratorFactory
+	liquids        &block.LiquidManager     = unsafe { nil }
 	entities       &entity.Manager      = unsafe { nil }
 	chunk_service  &worldrt.WorldChunkService   = unsafe { nil }
 	task_scheduler &WorldScheduler      = unsafe { nil }
@@ -132,12 +136,13 @@ mut:
 // its actor thread. Callers must shut it down before releasing all references.
 fn new_world_runtime(hub &Hub, w &db.World) &WorldRuntime {
 	mut wr := &WorldRuntime{
-		game:  new_world_game(hub)
-		world: w
+		game:       new_world_game(hub)
+		generators: hub
+		world:      w
 	}
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.entities = entity.new_manager(WorldEntityHost{ wr: wr })
-	wr.chunk_service = worldrt.new_chunk_service(w.make_generator(hub.build_generator(w)))
+	wr.chunk_service = worldrt.new_chunk_service(w.make_generator(wr.generators.build_generator(w)))
 	wr.task_scheduler = new_world_scheduler()
 	spawn wr.run_jobs()
 	return wr
@@ -231,21 +236,17 @@ fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
 // Call it only from this world's runtime thread, usually inside a WorldTx
 // or world_call, because the actor registry is not protected by a lock.
 fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
-	for mut a in wr.entities.player_actors() {
-		if mut a is NetworkSession {
-			a.deliver(p)
-		}
+	for mut v in wr.entities.player_viewers() {
+		v.deliver(p)
 	}
 }
 
 // broadcast_world_except sends p to every player in this world except the
 // given runtime ID. Call it only from this world's runtime thread.
 fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
-	for mut a in wr.entities.player_actors() {
-		if mut a is NetworkSession {
-			if a.runtime_id != except_runtime_id {
-				a.deliver(p)
-			}
+	for mut v in wr.entities.player_viewers() {
+		if v.runtime_id() != except_runtime_id {
+			v.deliver(p)
 		}
 	}
 }
@@ -261,7 +262,7 @@ fn (mut h WorldLiquidHost) get_block(x int, y int, z int) int {
 	if id := h.wr.world.block_override(x, y, z) {
 		return id
 	}
-	gen := h.wr.world.make_generator(h.wr.game.hub.build_generator(h.wr.world))
+	gen := h.wr.world.make_generator(h.wr.generators.build_generator(h.wr.world))
 	return gen.block_at(x, y, z)
 }
 

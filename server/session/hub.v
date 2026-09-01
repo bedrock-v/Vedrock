@@ -479,7 +479,7 @@ fn (mut h Hub) generator_type_names() []string {
 
 // build_generator resolves a world's own generator by name and dimension
 // through the registry.
-fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
+pub fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
 	return h.generators.create(w.generator_name, w.dimension) or {
 		h.generators.create(w.dimension.default_generator, w.dimension) or {
 			blockworld.new_generator(w.generator_name)
