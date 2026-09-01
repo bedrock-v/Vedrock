@@ -6,6 +6,7 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import time
 
 fn wtx_test_world() (&Hub, &WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
@@ -46,7 +47,7 @@ fn test_exec_commits_block_change() {
 	}
 	mut handle := hub.world_handle('world-transaction-test') or { panic('expected handle') }
 
-	handle.exec(fn (mut tx WorldTransaction) ! {
+	handle.exec('test.set_block', fn (mut tx WorldTransaction) ! {
 		tx.set_block(1, 2, 3, world.stone)!
 	}) or { panic('expected exec to succeed: ${err}') }
 
@@ -61,7 +62,7 @@ fn test_exec_applies_multiple_mutations() {
 	}
 	mut handle := hub.world_handle('world-transaction-test') or { panic('expected handle') }
 
-	handle.exec(fn (mut tx WorldTransaction) ! {
+	handle.exec('test.multi_set_block', fn (mut tx WorldTransaction) ! {
 		tx.set_block(0, 0, 0, world.stone)!
 		tx.set_block(1, 0, 0, world.stone)!
 		assert tx.block_at(0, 0, 0).network_id == world.stone.network_id
@@ -82,7 +83,7 @@ fn test_exec_returns_callback_error_without_rollback() {
 
 	mut failed := false
 	mut msg := ''
-	handle.exec(fn (mut tx WorldTransaction) ! {
+	handle.exec('test.failing_callback', fn (mut tx WorldTransaction) ! {
 		tx.set_block(4, 4, 4, world.stone)!
 		return error('deliberate failure')
 	}) or {

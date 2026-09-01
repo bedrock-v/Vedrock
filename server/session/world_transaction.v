@@ -91,14 +91,19 @@ struct ExecOutcome {
 // Operations inside the callback can't interleave with other world tasks
 // and callback errors are returned by exec.
 //
+// label identifies the transaction in WorldMetrics.longest_task_name, so a
+// slow callback is attributed to the caller rather than to exec itself. An
+// empty label falls back to the name of this function.
+//
 // Keep callbacks short, synchronous and world local: blocking work stalls the
 // entire world. PlayerRef and EntityRef methods start a nested world
 // transaction and panic when called from inside the callback.
 //
 // To return a value from the callback, use a channel. Mutable closure
 // captures are copied in V and don't update the enclosing variable.
-pub fn (mut w World) exec(f fn (mut tx WorldTransaction) !) ! {
-	outcome := world_call[ExecOutcome]('World.exec', mut w.runtime, fn [f] (mut tx WorldTx) ExecOutcome {
+pub fn (mut w World) exec(label string, f fn (mut tx WorldTransaction) !) ! {
+	task_label := if label == '' { 'World.exec' } else { label }
+	outcome := world_call[ExecOutcome](task_label, mut w.runtime, fn [f] (mut tx WorldTx) ExecOutcome {
 		mut handle := WorldTransaction(&WorldTxHandle{
 			tx: &tx
 		})
