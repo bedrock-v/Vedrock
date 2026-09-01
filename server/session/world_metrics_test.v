@@ -142,7 +142,7 @@ fn test_metrics_reports_player_and_entity_counts() {
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
@@ -294,7 +294,7 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 

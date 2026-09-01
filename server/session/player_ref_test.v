@@ -26,7 +26,7 @@ fn player_ref_test_session(mut hub Hub, mut wr WorldRuntime, display_name string
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -110,12 +110,12 @@ fn test_player_ref_operations_fail_after_world_switch() {
 	assert p.world().name() == 'ref-switch-a'
 
 	world_call[bool]('test', mut wr_a, fn [s] (mut tx WorldTx) bool {
-		tx.deregister_player(s.runtime_id)
+		deregister_player(mut tx, s.runtime_id)
 		return true
 	}) or { panic('deregistration rejected - world unexpectedly stopped') }
 	s.set_world_binding(wr_b, world.VoidGenerator{})
 	world_call[bool]('test', mut wr_b, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 

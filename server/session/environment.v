@@ -35,7 +35,7 @@ fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
 		}
 	}
 
-	block_id := tx.block_at(int(math.floor(pos.x)), int(math.floor(pos.y)), int(math.floor(pos.z)))
+	block_id := block_at(tx, int(math.floor(pos.x)), int(math.floor(pos.y)), int(math.floor(pos.z)))
 	s.tick_breath(mut tx, block_id == world.water.network_id, tick)
 	s.tick_burning(mut tx, block_id == world.lava.network_id, block_id == world.water.network_id)
 }

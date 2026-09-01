@@ -430,8 +430,8 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.done <- true
 	}
-	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
-	tx.complete_block_break(mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
+	mut s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
+	complete_block_break(mut tx, mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
 // complete_block_break destroys the block and runs everything that follows
@@ -442,9 +442,9 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 // arrives as a PlayerBreakBlockTask, and a break the server itself finished
 // calls in from tick_breaking, which is the only path that runs when the
 // client has handed block breaking to the server.
-fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
+fn complete_block_break(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
 	air_id := world.air.network_id
-	current_id := tx.block_at(pos.x, pos.y, pos.z)
+	current_id := block_at(tx, pos.x, pos.y, pos.z)
 	if current_id != old_id {
 		s.resend_block(pos)
 		return false
@@ -464,7 +464,7 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 	}
 
 	tx.set_block(pos.x, pos.y, pos.z, air_id)
-	tx.damage_held_item(mut s, 1)
+	damage_held_item(mut tx, mut s, 1)
 
 	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
 		drop_name, drop_count := block_drop_for(mut tx.wr, old_id)
@@ -483,20 +483,20 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 		}
 	}
 
-	if pair := tx.door_pair_pos(pos, old_id) {
-		pair_id := tx.block_at(pair.x, pair.y, pair.z)
-		if tx.door_pair_matches(old_id, pair_id) {
+	if pair := door_pair_pos(tx, pos, old_id) {
+		pair_id := block_at(tx, pair.x, pair.y, pair.z)
+		if door_pair_matches(tx, old_id, pair_id) {
 			tx.set_block(pair.x, pair.y, pair.z, air_id)
 			tx.on_block_changed(pair.x, pair.y, pair.z)
-			tx.recompute_neighbor_blocks(pair)
+			recompute_neighbor_blocks(mut tx, pair)
 		}
 	}
 
-	tx.broadcast_stop_cracking(pos.x, pos.y, pos.z)
-	tx.broadcast_destroy_particles(pos.x, pos.y, pos.z, old_id)
-	tx.broadcast_swing(s)
+	broadcast_stop_cracking(mut tx, pos.x, pos.y, pos.z)
+	broadcast_destroy_particles(mut tx, pos.x, pos.y, pos.z, old_id)
+	broadcast_swing(mut tx, s)
 	tx.on_block_changed(pos.x, pos.y, pos.z)
-	tx.recompute_neighbor_blocks(pos)
+	recompute_neighbor_blocks(mut tx, pos)
 	return true
 }
 
@@ -526,15 +526,15 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	defer {
 		t.result <- placed
 	}
-	mut s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
+	mut s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
 	pos := t.click_pos
 	neighbor := face_offset(pos, t.click_face)
-	clicked_id := tx.block_at(pos.x, pos.y, pos.z)
+	clicked_id := block_at(tx, pos.x, pos.y, pos.z)
 
-	if tx.interact_block(mut s, pos, clicked_id, t.click_face) {
+	if interact_block(mut tx, mut s, pos, clicked_id, t.click_face) {
 		return
 	}
-	if tx.use_item_on_block(mut s, pos, clicked_id) {
+	if use_item_on_block(mut tx, mut s, pos, clicked_id) {
 		return
 	}
 	if t.runtime_id == 0 {
@@ -544,7 +544,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	}
 
 	mut target := pos
-	if !tx.is_replaceable(clicked_id) {
+	if !is_replaceable(tx, clicked_id) {
 		target = neighbor
 	}
 	dim := tx.world().dimension
@@ -559,26 +559,26 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 		return
 	}
 
-	if merged := tx.merged_slab(clicked_id, t.runtime_id, t.click_face, t.clicked_y, true) {
-		placed = tx.replace_block_form(mut s, pos, merged)
-	} else if !tx.can_place_block_on_face(t.runtime_id, t.click_face, clicked_id) {
+	if merged := merged_slab(tx, clicked_id, t.runtime_id, t.click_face, t.clicked_y, true) {
+		placed = replace_block_form(mut tx, mut s, pos, merged)
+	} else if !can_place_block_on_face(tx, t.runtime_id, t.click_face, clicked_id) {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return
 	} else {
-		placed_id := tx.oriented_block(t.runtime_id, t.click_face, t.clicked_y, t.yaw)
-		target_id := tx.block_at(target.x, target.y, target.z)
-		if merged2 := tx.merged_slab(target_id, t.runtime_id, t.click_face, t.clicked_y, false) {
-			placed = tx.replace_block_form(mut s, target, merged2)
-		} else if parts := tx.door_placement(placed_id, target, t.click_face, t.yaw) {
-			placed = tx.place_door_pair(mut s, target, parts)
+		placed_id := oriented_block(tx, t.runtime_id, t.click_face, t.clicked_y, t.yaw)
+		target_id := block_at(tx, target.x, target.y, target.z)
+		if merged2 := merged_slab(tx, target_id, t.runtime_id, t.click_face, t.clicked_y, false) {
+			placed = replace_block_form(mut tx, mut s, target, merged2)
+		} else if parts := door_placement(mut tx, placed_id, target, t.click_face, t.yaw) {
+			placed = place_door_pair(mut tx, mut s, target, parts)
 		} else {
-			placed = tx.place_block_form(mut s, target, placed_id)
+			placed = place_block_form(mut tx, mut s, target, placed_id)
 		}
 	}
 
 	if placed && !t.is_creative {
-		tx.consume_held_item(mut s)
+		consume_held_item(mut tx, mut s)
 	}
 }
 

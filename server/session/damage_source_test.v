@@ -36,7 +36,7 @@ fn damage_source_test_session(mut hub Hub, mut wr WorldRuntime, name string, hea
 	mut tx := &WorldTx{
 		wr: wr
 	}
-	tx.register_player(s)
+	register_player(mut tx, s)
 	return s
 }
 
@@ -290,6 +290,7 @@ fn test_tick_effects_applies_damage_when_wired_throu_world_tx() {
 		wr: wr
 	}
 
-	tx.tick_effects()
+	mut ticker := SessionPlayerTicker{}
+	ticker.tick_players(mut tx)
 	assert s.player.health() == 16
 }

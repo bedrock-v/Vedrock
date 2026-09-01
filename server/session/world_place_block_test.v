@@ -105,7 +105,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	hub.add(s)
 	// PlayerPlaceBlockTask requires world membership.
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -435,7 +435,7 @@ fn test_door_placement_upper_blocked_leaves_both_untouched() {
 		lower: 1001
 		upper: 1002
 	}
-	placed := tx.place_door_pair(mut s, pos, parts)
+	placed := place_door_pair(mut tx, mut s, pos, parts)
 	assert !placed
 	assert target.block_override(pos.x, pos.y, pos.z) == none
 	assert target.block_override(above.x, above.y, above.z) == none
@@ -464,7 +464,7 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 		lower: 1001
 		upper: 1002
 	}
-	placed := tx.place_door_pair(mut s, pos, parts)
+	placed := place_door_pair(mut tx, mut s, pos, parts)
 	assert !placed
 	assert target.block_override(pos.x, pos.y, pos.z) == none
 	assert target.block_override(above.x, above.y, above.z) == none
@@ -491,7 +491,7 @@ fn test_door_placement_writes_both_halves_atomically_in_same_world() {
 		lower: 1001
 		upper: 1002
 	}
-	placed := tx.place_door_pair(mut s, pos, parts)
+	placed := place_door_pair(mut tx, mut s, pos, parts)
 	assert placed
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == 1001
 	assert target.block_override(above.x, above.y, above.z) or { -1 } == 1002

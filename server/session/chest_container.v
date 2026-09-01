@@ -59,7 +59,7 @@ fn (mut s NetworkSession) set_open_container_slot_net_id(slot int, net_id int) {
 	s.open_container_mutex.unlock()
 }
 
-fn (mut tx WorldTx) open_chest_container(mut s NetworkSession, pos types.BlockPosition) {
+fn open_chest_container(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	if old := s.open_container_position() {
 		tx.wr.world.release_container_hold(old.x, old.y, old.z, s.runtime_id)
 		s.set_open_container_position(none)

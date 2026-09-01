@@ -56,6 +56,9 @@ mut:
 	game &WorldGame = unsafe { nil }
 	// handler receives what happens in this world without a player causing it.
 	handler worldrt.Handler = worldrt.NopHandler{}
+	// players advances the players in this world once per simulated step. The
+	// runtime can't do it itself: a player is a session concept.
+	players PlayerTicker = SessionPlayerTicker{}
 	world &db.World  = unsafe { nil }
 	// Guards lifecycle state and in flight submission accounting. It must not
 	// be held during blocking channel operations.
@@ -729,7 +732,7 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 			wr.liquids.tick()
 		}
 		wr.entities.tick()
-		tx.tick_effects()
+		wr.players.tick_players(mut tx)
 		wr.task_scheduler.heartbeat(mut tx, wr.current_tick)
 	}
 	if debt > max_world_catchup_ticks {
@@ -755,22 +758,6 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 	liquid_backlog.store(i64(wr.liquids.pending_count()))
 	mut last_tick_ns := wr.published_last_tick_ns
 	last_tick_ns.store(time.since(tick_start).nanoseconds())
-}
-
-// tick_effects advances active effects for players currently registered in
-// this world. Effect damage and death stay on the same runtime as the player.
-// It also samples each session's outbound queue depth, since this loop
-// already visits every registered player once per simulated step and a
-// separate pass would repeat that work purely for metrics.
-fn (mut tx WorldTx) tick_effects() {
-	for mut a in tx.wr.entities.player_actors() {
-		if mut a is NetworkSession {
-			a.tick_effects(mut tx.wr)
-			a.tick_environmental_damage(mut tx)
-			a.tick_breaking(mut tx)
-			tx.wr.sample_outbound_depth(int(a.conn.outbound.len))
-		}
-	}
 }
 
 fn (mut wr WorldRuntime) sample_outbound_depth(depth int) {

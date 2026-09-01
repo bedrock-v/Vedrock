@@ -131,8 +131,8 @@ fn (t BlockCrackingTask) name() string {
 }
 
 fn (t BlockCrackingTask) run(mut tx WorldTx) {
-	tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
-	tx.broadcast_cracking(t.event_id, t.pos, t.data)
+	player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
+	broadcast_cracking(mut tx, t.event_id, t.pos, t.data)
 }
 
 // StartBreakAnimationTask emits both animations a mining start produces - the
@@ -149,11 +149,11 @@ fn (t StartBreakAnimationTask) name() string {
 }
 
 fn (t StartBreakAnimationTask) run(mut tx WorldTx) {
-	s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
+	s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
 	if t.crack_speed > 0 {
-		tx.broadcast_cracking(proto.level_event_start_block_cracking, t.pos, t.crack_speed)
+		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
 	}
-	tx.broadcast_swing(s)
+	broadcast_swing(mut tx, s)
 }
 
 fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
@@ -233,11 +233,11 @@ fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
 fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 	original := s.breaking_snapshot() or { return }
 	pos := types.BlockPosition{original.x, original.y, original.z}
-	current_id := tx.block_at(original.x, original.y, original.z)
+	current_id := block_at(tx, original.x, original.y, original.z)
 	if s.player.is_dead() || !s.can_interact() || !s.within_place_reach(pos)
 		|| current_id != original.block_id {
 		if s.clear_breaking_if_current(original) {
-			tx.broadcast_stop_cracking(original.x, original.y, original.z)
+			broadcast_stop_cracking(mut tx, original.x, original.y, original.z)
 		}
 		return
 	}
@@ -254,7 +254,7 @@ fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 	// forever and the block is never removed.
 	if bp.progress >= 1.0 {
 		if s.clear_breaking_if_current(original) {
-			tx.complete_block_break(mut s, pos, bp.block_id)
+			complete_block_break(mut tx, mut s, pos, bp.block_id)
 		}
 		return
 	}
@@ -270,11 +270,11 @@ fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 		return
 	}
 	if speed_changed {
-		tx.broadcast_crack_speed(pos, int(break_crack_scale * speed))
+		broadcast_crack_speed(mut tx, pos, int(break_crack_scale * speed))
 	}
 	if send_fx {
-		tx.broadcast_punch_particle(pos, bp.block_id, bp.face)
-		tx.broadcast_swing(s)
+		broadcast_punch_particle(mut tx, pos, bp.block_id, bp.face)
+		broadcast_swing(mut tx, s)
 	}
 }
 

@@ -60,7 +60,7 @@ fn (t PlayerOpRefreshTask) run(mut tx WorldTx) {
 	defer {
 		t.result <- applied
 	}
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.refresh_available_commands()
 	target.refresh_abilities()
 	applied = true
@@ -106,7 +106,7 @@ fn (t PlayerKillTask) name() string {
 }
 
 fn (t PlayerKillTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	if target.player.is_dead() {
 		return
 	}
@@ -228,7 +228,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		list_remove_pkt := s.player_list_remove_packet()
 		held_container := s.open_container_position()
 		world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx WorldTx) bool {
-			tx.deregister_player(rid)
+			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}
@@ -249,7 +249,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	add_player_pkt := s.add_player_packet()
 	self := s.self_ref()
 	registered := world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
-		tx.register_player(self)
+		register_player(mut tx, self)
 		tx.wr.broadcast_world_except(rid, list_add_pkt)
 		tx.wr.broadcast_world_except(rid, add_player_pkt)
 		return true
@@ -345,7 +345,7 @@ fn (t PlayerClearInventoryTask) name() string {
 }
 
 fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
-	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_clear_inventory()
 }
 
@@ -402,7 +402,7 @@ fn (t PlayerGiveItemTask) name() string {
 }
 
 fn (t PlayerGiveItemTask) run(mut tx WorldTx) {
-	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_give_item(t.numeric_id, t.block_runtime_id, t.count)
 }
 

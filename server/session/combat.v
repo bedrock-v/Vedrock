@@ -33,7 +33,7 @@ fn (t PlayerAttackTask) name() string {
 }
 
 fn (t PlayerAttackTask) run(mut tx WorldTx) {
-	mut attacker := tx.player_for_epoch(t.attacker_runtime_id, t.attacker_epoch) or { return }
+	mut attacker := player_for_epoch(mut tx, t.attacker_runtime_id, t.attacker_epoch) or { return }
 	mut victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
 	if victim_actor.is_dead() {
 		return
@@ -64,7 +64,7 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	if ctx.is_cancelled() {
 		return
 	}
-	tx.damage_held_item(mut attacker, 1)
+	damage_held_item(mut tx, mut attacker, 1)
 	damage_actor(mut tx.wr, t.victim_runtime_id, ctx.val.damage, AttackDamageSource{
 		attacker_name: attacker.player.identity.display_name
 	}, t.attacker_runtime_id, own, ctx.val.knockback_force, ctx.val.knockback_height)
@@ -281,7 +281,7 @@ fn (t PlayerRespawnTask) name() string {
 }
 
 fn (t PlayerRespawnTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.apply_respawn(mut tx.wr)
 }
 

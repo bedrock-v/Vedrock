@@ -321,7 +321,7 @@ fn (mut s NetworkSession) leave() {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
 			s.release_crafting_state()
-			tx.deregister_player(rid)
+			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}

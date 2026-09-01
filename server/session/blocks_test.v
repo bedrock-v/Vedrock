@@ -117,7 +117,7 @@ fn test_place_block_rejects_when_occupied() {
 
 	// FlatGenerator's bottom layer (bedrock) sits at the dimension's min_y.
 	pos := types.BlockPosition{0, world.overworld.min_y, 0}
-	placed := tx.place_block_form(mut s, pos, world.bedrock.network_id)
+	placed := place_block_form(mut tx, mut s, pos, world.bedrock.network_id)
 	assert !placed
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
@@ -152,10 +152,10 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 	mut tx := &WorldTx{
 		wr: wr
 	}
-	tx.register_player(s)
+	register_player(mut tx, s)
 
 	pos := types.BlockPosition{5, 5, 5}
-	placed := tx.place_block_form(mut s, pos, world.bedrock.network_id)
+	placed := place_block_form(mut tx, mut s, pos, world.bedrock.network_id)
 	assert placed
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.bedrock.network_id
 	assert wait_for_sent_len(transport, 1, 5000)
@@ -199,7 +199,7 @@ fn test_place_block_cancelled_resends_skips_write() {
 	}
 
 	pos := types.BlockPosition{5, 5, 5}
-	placed := tx.place_block_form(mut s, pos, world.bedrock.network_id)
+	placed := place_block_form(mut tx, mut s, pos, world.bedrock.network_id)
 	assert !placed
 	if _ := target.block_override(pos.x, pos.y, pos.z) {
 		assert false
@@ -352,7 +352,7 @@ fn obstruction_test_session(mut hub Hub, mut wr WorldRuntime, name string, rid u
 	s.player.reset_position(pos)
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -423,7 +423,7 @@ fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSes
 fn register_test_session(mut s NetworkSession) {
 	mut wr := s.world_runtime
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 }

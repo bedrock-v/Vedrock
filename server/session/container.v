@@ -70,6 +70,6 @@ fn (t CloseChestContainerTask) name() string {
 }
 
 fn (t CloseChestContainerTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.close_chest_container(mut tx)
 }

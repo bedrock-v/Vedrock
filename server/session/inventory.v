@@ -262,7 +262,7 @@ fn (t PlayerMobEquipmentTask) name() string {
 }
 
 fn (t PlayerMobEquipmentTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.player.set_held(t.hotbar_slot, t.item)
 	tx.wr.broadcast_world_except(t.runtime_id, &proto.MobEquipmentPacket{
 		target_runtime_id: proto.actor_runtime_id(t.runtime_id)
@@ -352,7 +352,7 @@ fn (mut s NetworkSession) handle_item_stack_request(p proto.ItemStackRequestPack
 // so a partial craft/consume can never lose items. Does not cover the open
 // container slot tracking. A known, smaller, symmetric gap.
 fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, requests []proto.RequestsEntry) []proto.ItemStackResponseInfo {
-	mut target := tx.player_for_epoch(runtime_id, epoch) or {
+	mut target := player_for_epoch(mut tx, runtime_id, epoch) or {
 		return []proto.ItemStackResponseInfo{}
 	}
 	mut out := []proto.ItemStackResponseInfo{}
@@ -418,7 +418,7 @@ fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, reques
 					target.log.debug('itemstack craft_creative id=${action.creative_item_network_id} ok=${!failed}')
 				}
 				proto.CraftRecipeAction {
-					if craft_changes := tx.attempt_craft(mut target, action.recipe_network_id,
+					if craft_changes := attempt_craft(mut tx, mut target, action.recipe_network_id,
 						action.number_of_crafts)
 					{
 						changes << craft_changes
@@ -433,7 +433,7 @@ fn process_item_stack_requests(mut tx WorldTx, runtime_id u64, epoch i64, reques
 					target.log.debug('itemstack craft_recipe id=${action.recipe_network_id} crafts=${action.number_of_crafts} ok=${!failed}')
 				}
 				proto.AutoCraftRecipeAction {
-					if craft_changes := tx.attempt_auto_craft(mut target, action.recipe_network_id,
+					if craft_changes := attempt_auto_craft(mut tx, mut target, action.recipe_network_id,
 						action.number_of_crafts)
 					{
 						changes << craft_changes

@@ -553,7 +553,7 @@ fn (t ChunkDeliveryTask) name() string {
 }
 
 fn (t ChunkDeliveryTask) run(mut tx WorldTx) {
-	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.send_batch(t.packets) or {}
 }
 
@@ -1044,7 +1044,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 					out << a.add_player_packet()
 				}
 			}
-			tx.register_player(self)
+			register_player(mut tx, self)
 			tx.wr.broadcast_world(list_add_pkt)
 			tx.wr.broadcast_world_except(self.runtime_id, add_player_pkt)
 			for e in tx.wr.entities.snapshot() {

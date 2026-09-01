@@ -86,7 +86,7 @@ fn test_sign_editor_opens_only_for_signs() {
 		wr: wr
 	}
 
-	tx.maybe_open_sign_editor(mut s, types.BlockPosition{0, 0, 0}, sign_id)
+	maybe_open_sign_editor(mut tx, mut s, types.BlockPosition{0, 0, 0}, sign_id)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
 	if sent is proto.OpenSignPacket {
@@ -95,7 +95,7 @@ fn test_sign_editor_opens_only_for_signs() {
 		assert false
 	}
 
-	tx.maybe_open_sign_editor(mut s, types.BlockPosition{1, 0, 0}, dirt_id)
+	maybe_open_sign_editor(mut tx, mut s, types.BlockPosition{1, 0, 0}, dirt_id)
 	assert transport.sent.len == 1 // unchanged - dirt isn't a sign
 }
 
@@ -121,7 +121,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	s.world_runtime = wr
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
@@ -208,8 +208,8 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 	mut tx := &WorldTx{
 		wr: wr
 	}
-	tx.register_player(s)
-	tx.create_sign_tile(pos, sign_id)
+	register_player(mut tx, s)
+	create_sign_tile(mut tx, pos, sign_id)
 
 	assert target.tile_text(pos.x, pos.y, pos.z) or { 'missing' } == ''
 	assert wait_for_sent_len(transport, 1, 5000)
@@ -246,7 +246,7 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 	mut tx := &WorldTx{
 		wr: wr
 	}
-	tx.create_sign_tile(pos, dirt_id)
+	create_sign_tile(mut tx, pos, dirt_id)
 
 	if _ := target.tile_text(pos.x, pos.y, pos.z) {
 		assert false

@@ -122,7 +122,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	far_p.spawned = true
 	hub.add(far_p)
 	world_call[bool]('test', mut wr_a, fn [far_p] (mut tx WorldTx) bool {
-		tx.register_player(far_p)
+		register_player(mut tx, far_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
@@ -131,7 +131,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	near_p.spawned = true
 	hub.add(near_p)
 	world_call[bool]('test', mut wr_b, fn [near_p] (mut tx WorldTx) bool {
-		tx.register_player(near_p)
+		register_player(mut tx, near_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 

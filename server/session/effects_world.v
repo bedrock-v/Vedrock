@@ -6,19 +6,19 @@ import server.world.particle
 import server.world.sound
 
 // play_sound plays snd at pos for every session in this transaction's world.
-fn (mut tx WorldTx) play_sound(pos types.Vector3, snd sound.Sound) {
+fn play_sound(mut tx WorldTx, pos types.Vector3, snd sound.Sound) {
 	tx.wr.broadcast_world(proto.level_sound_event(snd.event_name(), pos, snd.data(), '', 0))
 }
 
 // play_sound_except plays snd for every session in this transaction's world
 // but the one that caused it, which normally renders the sound itself.
-fn (mut tx WorldTx) play_sound_except(except_runtime_id u64, pos types.Vector3, snd sound.Sound) {
+fn play_sound_except(mut tx WorldTx, except_runtime_id u64, pos types.Vector3, snd sound.Sound) {
 	tx.wr.broadcast_world_except(except_runtime_id, proto.level_sound_event(snd.event_name(), pos,
 		snd.data(), '', 0))
 }
 
 // add_particle shows p at pos for every session in this transaction's world.
-fn (mut tx WorldTx) add_particle(pos types.Vector3, p particle.Particle) {
+fn add_particle(mut tx WorldTx, pos types.Vector3, p particle.Particle) {
 	mut packet := &proto.LevelEventPacket{
 		event_id: p.event_id()
 		data:     p.data()

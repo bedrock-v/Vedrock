@@ -33,7 +33,7 @@ fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, 
 	}
 	hub.add(sess)
 	world_call[bool]('test', mut wr, fn [sess] (mut tx WorldTx) bool {
-		tx.register_player(sess)
+		register_player(mut tx, sess)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return sess, wr
@@ -67,7 +67,8 @@ fn tick_effects_directly(wr &WorldRuntime) {
 	mut tx := &WorldTx{
 		wr: wr
 	}
-	tx.tick_effects()
+	mut ticker := SessionPlayerTicker{}
+	ticker.tick_players(mut tx)
 }
 
 fn test_add_effect_job_stores_lasting_effect() {

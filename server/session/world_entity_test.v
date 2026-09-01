@@ -47,7 +47,7 @@ fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut w
 	s.player.reset_position(pos)
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s

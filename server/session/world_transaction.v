@@ -35,7 +35,7 @@ mut:
 // block_at reads the block at the given coordinates, resolved against this
 // transaction's own in progress writes.
 pub fn (h &WorldTxHandle) block_at(x int, y int, z int) world.Block {
-	return world.block_from_id(h.tx.block_at(x, y, z))
+	return world.block_from_id(block_at(h.tx, x, y, z))
 }
 
 // set_block writes a block, visible to later reads in the same transaction

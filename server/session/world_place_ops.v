@@ -58,7 +58,7 @@ fn obstructed_by_entity(mut wr WorldRuntime, pos types.BlockPosition, acting_run
 
 // is_replaceable reports whether block_id is silently overwritten by a
 // placement rather than blocking it (short grass, ferns, etc.).
-fn (tx &WorldTx) is_replaceable(block_id int) bool {
+fn is_replaceable(tx &WorldTx, block_id int) bool {
 	b := block.get(block_id) or { return false }
 	if b is block.Replaceable {
 		return b.replaceable()
@@ -66,7 +66,7 @@ fn (tx &WorldTx) is_replaceable(block_id int) bool {
 	return false
 }
 
-fn (tx &WorldTx) can_place_block_on_face(runtime_id int, click_face int, support_id int) bool {
+fn can_place_block_on_face(tx &WorldTx, runtime_id int, click_face int, support_id int) bool {
 	if isnil(tx.wr.game.hub.palette) {
 		return true
 	}
@@ -76,21 +76,21 @@ fn (tx &WorldTx) can_place_block_on_face(runtime_id int, click_face int, support
 // oriented_block resolves a directional block's runtime id from the acting
 // player's yaw and the clicked face. Falls back to the raw id when no
 // palette is loaded.
-fn (tx &WorldTx) oriented_block(runtime_id int, click_face int, click_y f32, yaw f32) int {
+fn oriented_block(tx &WorldTx, runtime_id int, click_face int, click_y f32, yaw f32) int {
 	if isnil(tx.wr.game.hub.palette) {
 		return runtime_id
 	}
 	return tx.wr.game.hub.palette.oriented(runtime_id, yaw, click_face, click_y)
 }
 
-fn (tx &WorldTx) merged_slab(existing_id int, placing_id int, click_face int, click_y f32, clicked bool) ?int {
+fn merged_slab(tx &WorldTx, existing_id int, placing_id int, click_face int, click_y f32, clicked bool) ?int {
 	if existing_id == world.air.network_id || isnil(tx.wr.game.hub.palette) {
 		return none
 	}
 	return tx.wr.game.hub.palette.merged_slab(existing_id, placing_id, click_face, click_y, clicked)
 }
 
-fn (mut tx WorldTx) door_placement(runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
+fn door_placement(mut tx WorldTx, runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
 	if click_face != 1 || isnil(tx.wr.game.hub.palette) {
 		return none
 	}
@@ -100,18 +100,18 @@ fn (mut tx WorldTx) door_placement(runtime_id int, pos types.BlockPosition, clic
 	if pos.y < dim.min_y || above.y > dim.max_y() {
 		return none
 	}
-	if tx.block_at(pos.x, pos.y, pos.z) != world.air.network_id
-		|| tx.block_at(above.x, above.y, above.z) != world.air.network_id {
+	if block_at(tx, pos.x, pos.y, pos.z) != world.air.network_id
+		|| block_at(tx, above.x, above.y, above.z) != world.air.network_id {
 		return none
 	}
-	below_id := tx.block_at(below.x, below.y, below.z)
+	below_id := block_at(tx, below.x, below.y, below.z)
 	if !tx.wr.game.hub.palette.model(below_id).face_solid(1) {
 		return none
 	}
-	return tx.wr.game.hub.palette.door_placement(runtime_id, yaw, tx.neighbor_ids(pos))
+	return tx.wr.game.hub.palette.door_placement(runtime_id, yaw, neighbor_ids(tx, pos))
 }
 
-fn (tx &WorldTx) door_pair_pos(pos types.BlockPosition, id int) ?types.BlockPosition {
+fn door_pair_pos(tx &WorldTx, pos types.BlockPosition, id int) ?types.BlockPosition {
 	if isnil(tx.wr.game.hub.palette) {
 		return none
 	}
@@ -122,7 +122,7 @@ fn (tx &WorldTx) door_pair_pos(pos types.BlockPosition, id int) ?types.BlockPosi
 	return face_offset(pos, 1)
 }
 
-fn (tx &WorldTx) door_pair_matches(id int, pair_id int) bool {
+fn door_pair_matches(tx &WorldTx, id int, pair_id int) bool {
 	if isnil(tx.wr.game.hub.palette) {
 		return false
 	}
@@ -130,7 +130,7 @@ fn (tx &WorldTx) door_pair_matches(id int, pair_id int) bool {
 	return expected == pair_id
 }
 
-fn (tx &WorldTx) carve_pumpkin(mut s NetworkSession, old_id int, click_face int) ?int {
+fn carve_pumpkin(tx &WorldTx, mut s NetworkSession, old_id int, click_face int) ?int {
 	_, name := s.held_stack_and_name()
 	if name != 'minecraft:shears' {
 		return none
@@ -141,7 +141,7 @@ fn (tx &WorldTx) carve_pumpkin(mut s NetworkSession, old_id int, click_face int)
 // create_sign_tile initializes a newly placed sign's block entity text and
 // tells observers about it. Called before the block mutation itself
 // broadcasts, so an observer never sees the block exist without its tile.
-fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
+fn create_sign_tile(mut tx WorldTx, pos types.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
@@ -155,7 +155,7 @@ fn (mut tx WorldTx) create_sign_tile(pos types.BlockPosition, runtime_id int) {
 
 // create_note_tile initializes a newly placed note block's block entity
 // text to pitch 0, matching create_sign_tile's pattern.
-fn (mut tx WorldTx) create_note_tile(pos types.BlockPosition, runtime_id int) {
+fn create_note_tile(mut tx WorldTx, pos types.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.NoteBlock {
 		return
@@ -169,7 +169,7 @@ fn (mut tx WorldTx) create_note_tile(pos types.BlockPosition, runtime_id int) {
 
 // create_jukebox_tile initializes a newly placed jukebox's block entity
 // text to "no record", matching create_sign_tile's pattern.
-fn (mut tx WorldTx) create_jukebox_tile(pos types.BlockPosition, runtime_id int) {
+fn create_jukebox_tile(mut tx WorldTx, pos types.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.JukeboxBlock {
 		return
@@ -181,7 +181,7 @@ fn (mut tx WorldTx) create_jukebox_tile(pos types.BlockPosition, runtime_id int)
 	})
 }
 
-fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
+fn maybe_open_sign_editor(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
@@ -194,54 +194,54 @@ fn (mut tx WorldTx) maybe_open_sign_editor(mut s NetworkSession, pos types.Block
 
 // interact_block runs old_id's right click behaviour, if any, at pos. false
 // means the caller should fall through to placement handling.
-fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition, old_id int, click_face int) bool {
+fn interact_block(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int, click_face int) bool {
 	if b := block.get(old_id) {
 		if b is block.SignBlock {
-			tx.maybe_open_sign_editor(mut s, pos, old_id)
+			maybe_open_sign_editor(mut tx, mut s, pos, old_id)
 			return true
 		}
 		if b is block.ChestBlock {
-			tx.open_chest_container(mut s, pos)
+			open_chest_container(mut tx, mut s, pos)
 			return true
 		}
 		if b is block.CraftingTableBlock {
-			tx.open_workbench(mut s, pos)
+			open_workbench(mut tx, mut s, pos)
 			return true
 		}
 		if b is block.NoteBlock {
-			tx.play_note(mut s, pos)
+			play_note(mut tx, mut s, pos)
 			return true
 		}
 		if b is block.JukeboxBlock {
-			tx.interact_jukebox(mut s, pos)
+			interact_jukebox(mut tx, mut s, pos)
 			return true
 		}
 	}
 	if isnil(tx.wr.game.hub.palette) {
 		return false
 	}
-	if new_id := tx.carve_pumpkin(mut s, old_id, click_face) {
+	if new_id := carve_pumpkin(tx, mut s, old_id, click_face) {
 		tx.set_block(pos.x, pos.y, pos.z, new_id)
-		tx.broadcast_swing(s)
-		tx.notify_block_changed(pos)
+		broadcast_swing(mut tx, s)
+		notify_block_changed(mut tx, pos)
 		return true
 	}
-	if pair := tx.door_pair_pos(pos, old_id) {
-		pair_id := tx.block_at(pair.x, pair.y, pair.z)
+	if pair := door_pair_pos(tx, pos, old_id) {
+		pair_id := block_at(tx, pair.x, pair.y, pair.z)
 		if toggled := tx.wr.game.hub.palette.door_toggled_pair(old_id, pair_id) {
 			tx.set_block(pos.x, pos.y, pos.z, toggled.clicked)
 			tx.set_block(pair.x, pair.y, pair.z, toggled.pair)
-			tx.broadcast_swing(s)
-			tx.notify_block_changed(pair)
-			tx.notify_block_changed(pos)
+			broadcast_swing(mut tx, s)
+			notify_block_changed(mut tx, pair)
+			notify_block_changed(mut tx, pos)
 			return true
 		}
 		return false
 	}
 	if new_id := tx.wr.game.hub.palette.toggled_open(old_id) {
 		tx.set_block(pos.x, pos.y, pos.z, new_id)
-		tx.broadcast_swing(s)
-		tx.notify_block_changed(pos)
+		broadcast_swing(mut tx, s)
+		notify_block_changed(mut tx, pos)
 		return true
 	}
 	interactable := block.get(old_id) or { return false }
@@ -249,10 +249,10 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 		if !interactable.interact(pos.x, pos.y, pos.z, click_face, mut tx.wr.world) {
 			return false
 		}
-		new_id := tx.block_at(pos.x, pos.y, pos.z)
+		new_id := block_at(tx, pos.x, pos.y, pos.z)
 		tx.broadcast_block(pos.x, pos.y, pos.z, new_id)
-		tx.broadcast_swing(s)
-		tx.notify_block_changed(pos)
+		broadcast_swing(mut tx, s)
+		notify_block_changed(mut tx, pos)
 		return true
 	}
 	return false
@@ -261,7 +261,7 @@ fn (mut tx WorldTx) interact_block(mut s NetworkSession, pos types.BlockPosition
 // use_item_on_block applies the held item's UsableOnBlockItem effect (e.g.
 // bone meal advancing a crop's growth stage) if clicked_id qualifies.
 // Returns false for every item/block combination that doesn't.
-fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosition, clicked_id int) bool {
+fn use_item_on_block(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, clicked_id int) bool {
 	if isnil(tx.wr.game.hub.palette) {
 		return false
 	}
@@ -293,19 +293,19 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 		tx.wr.broadcast_world(proto.level_sound_event(result.sound, s.current_position(), -1,
 			'minecraft:player', s.runtime_id))
 	}
-	tx.broadcast_swing(s)
+	broadcast_swing(mut tx, s)
 	if s.player.game_mode() != .creative {
-		tx.consume_held_item(mut s)
+		consume_held_item(mut tx, mut s)
 	}
-	tx.notify_block_changed(pos)
+	notify_block_changed(mut tx, pos)
 	return true
 }
 
 // place_block_form places runtime_id at pos as an ordinary (non replacing)
 // placement: rejects on occupancy/entity obstruction, dispatches the
 // cancellable block_place event, then commits.
-fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
-	occupied := tx.block_at(pos.x, pos.y, pos.z) != world.air.network_id
+fn place_block_form(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
+	occupied := block_at(tx, pos.x, pos.y, pos.z) != world.air.network_id
 	obstruction := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
 	if occupied || obstruction.obstructed {
 		if occupied || !obstruction.self_only {
@@ -327,20 +327,20 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 	}
 	// Tile initialized before the block mutation broadcasts, so an observer
 	// can never see the block exist without its tile.
-	tx.create_sign_tile(pos, runtime_id)
-	tx.create_note_tile(pos, runtime_id)
-	tx.create_jukebox_tile(pos, runtime_id)
+	create_sign_tile(mut tx, pos, runtime_id)
+	create_note_tile(mut tx, pos, runtime_id)
+	create_jukebox_tile(mut tx, pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
-	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
-	tx.broadcast_swing(s)
-	tx.notify_block_changed(pos)
-	tx.maybe_open_sign_editor(mut s, pos, runtime_id)
+	broadcast_place_sound(mut tx, s, pos.x, pos.y, pos.z, runtime_id)
+	broadcast_swing(mut tx, s)
+	notify_block_changed(mut tx, pos)
+	maybe_open_sign_editor(mut tx, mut s, pos, runtime_id)
 	return true
 }
 
 // replace_block_form overwrites an existing replaceable block (e.g. merging
 // into a double slab).
-fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
+fn replace_block_form(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
 	mut ctx := event.new_context(player.BlockPlaceData{
 		player:   s
 		x:        pos.x
@@ -353,21 +353,21 @@ fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosi
 		s.resend_block(pos)
 		return false
 	}
-	tx.create_sign_tile(pos, runtime_id)
-	tx.create_note_tile(pos, runtime_id)
-	tx.create_jukebox_tile(pos, runtime_id)
+	create_sign_tile(mut tx, pos, runtime_id)
+	create_note_tile(mut tx, pos, runtime_id)
+	create_jukebox_tile(mut tx, pos, runtime_id)
 	tx.set_block(pos.x, pos.y, pos.z, runtime_id)
-	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, runtime_id)
-	tx.broadcast_swing(s)
-	tx.notify_block_changed(pos)
-	tx.maybe_open_sign_editor(mut s, pos, runtime_id)
+	broadcast_place_sound(mut tx, s, pos.x, pos.y, pos.z, runtime_id)
+	broadcast_swing(mut tx, s)
+	notify_block_changed(mut tx, pos)
+	maybe_open_sign_editor(mut tx, mut s, pos, runtime_id)
 	return true
 }
 
 // place_door_pair places both halves of a door as a single transaction.
 // Both positions are validated and one block_place event is dispatched
 // before either half is written.
-fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
+fn place_door_pair(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
 	above := face_offset(pos, 1)
 	lower := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
 	upper := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
@@ -395,9 +395,9 @@ fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPositio
 	}
 	tx.set_block(pos.x, pos.y, pos.z, parts.lower)
 	tx.set_block(above.x, above.y, above.z, parts.upper)
-	tx.broadcast_place_sound(s, pos.x, pos.y, pos.z, parts.lower)
-	tx.broadcast_swing(s)
-	tx.notify_block_changed(pos)
-	tx.notify_block_changed(above)
+	broadcast_place_sound(mut tx, s, pos.x, pos.y, pos.z, parts.lower)
+	broadcast_swing(mut tx, s)
+	notify_block_changed(mut tx, pos)
+	notify_block_changed(mut tx, above)
 	return true
 }

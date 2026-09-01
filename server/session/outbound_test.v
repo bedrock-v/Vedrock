@@ -218,7 +218,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	s.world_runtime = wr
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
@@ -479,7 +479,7 @@ fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut tr
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -502,7 +502,7 @@ fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport F
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s

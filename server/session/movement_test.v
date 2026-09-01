@@ -44,7 +44,7 @@ fn movement_test_session(mut hub Hub, mut wr WorldRuntime) &NetworkSession {
 	}
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -153,7 +153,7 @@ fn test_movement_before_spawn_is_dropped_not_stranded() {
 	s.spawned = true
 	hub.add(s)
 	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 

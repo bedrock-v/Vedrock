@@ -13,7 +13,7 @@ const music_disc_prefix = 'minecraft:music_disc_'
 // per record state for 'minecraft:jukebox' (empty states compound), so the
 // inserted record's item id is tracked as block entity data.
 // Empty string means no record.
-fn (mut tx WorldTx) interact_jukebox(mut s NetworkSession, pos types.BlockPosition) {
+fn interact_jukebox(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '' }
 	if current != '' {
@@ -29,13 +29,13 @@ fn (mut tx WorldTx) interact_jukebox(mut s NetworkSession, pos types.BlockPositi
 	if !name.starts_with(music_disc_prefix) {
 		return
 	}
-	tx.consume_held_item(mut s)
+	consume_held_item(mut tx, mut s)
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, name)
 	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
 		block_position:  proto.block_pos(pos)
 		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, name)
 	})
-	tx.play_sound(center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
+	play_sound(mut tx, center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
 }
 
 fn drop_jukebox_disc(mut wr WorldRuntime, x int, y int, z int) {

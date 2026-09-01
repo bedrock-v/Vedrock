@@ -15,7 +15,7 @@ const note_block_pitches = 25
 //
 // minecraft:noteblock has no per pitch wire palette state, so the pitch
 // must be tracked separately from the block itself.
-fn (mut tx WorldTx) play_note(mut s NetworkSession, pos types.BlockPosition) {
+fn play_note(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '0' }
 	pitch := (current.int() + 1) % note_block_pitches
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, pitch.str())
@@ -24,8 +24,8 @@ fn (mut tx WorldTx) play_note(mut s NetworkSession, pos types.BlockPosition) {
 		actor_data_tags: build_note_block_nbt(pos.x, pos.y, pos.z, pitch)
 	})
 	center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
-	tx.play_sound(center, sound.Note{ pitch: pitch })
-	tx.broadcast_swing(s)
+	play_sound(mut tx, center, sound.Note{ pitch: pitch })
+	broadcast_swing(mut tx, s)
 }
 
 fn build_note_block_nbt(x int, y int, z int, pitch int) nbt.RootTag {
