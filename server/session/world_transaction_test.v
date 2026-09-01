@@ -6,7 +6,6 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import time
 
 fn wtx_test_world() (&Hub, &WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
