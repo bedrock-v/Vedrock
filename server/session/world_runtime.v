@@ -277,6 +277,11 @@ fn (mut wr WorldRuntime) submit(task WorldTask) bool {
 		return false
 	}
 	wr.inflight++
+	// Recorded before the send so the actor can't pop this task's turn in the
+	// queue before the submitter has written it. A task that waits for
+	// capacity is counted as queued for that wait, which is the age an
+	// operator asking about backlog wants to see.
+	wr.queue_times << time.now()
 	wr.mutex.unlock()
 
 	// The channel remains open for the runtime's lifetime, so this can block
@@ -285,7 +290,6 @@ fn (mut wr WorldRuntime) submit(task WorldTask) bool {
 
 	wr.mutex.lock()
 	wr.inflight--
-	wr.queue_times << time.now()
 	wr.mutex.unlock()
 	return true
 }
@@ -314,6 +318,11 @@ fn (mut wr WorldRuntime) try_submit(task WorldTask) bool {
 	return false
 }
 
+// pop_queue_time consumes the enqueue time of one task, for the oldest queued
+// task age in WorldMetrics. Entries are written one per accepted submission,
+// so only a task received from the jobs channel may consume one. A
+// continuation is actor owned follow up work that was never submitted and
+// popping for one would retire the turn of a task still waiting in the queue.
 fn (mut wr WorldRuntime) pop_queue_time() ?time.Time {
 	wr.mutex.lock()
 	defer {
@@ -396,6 +405,7 @@ fn (mut wr WorldRuntime) run_jobs() {
 fn (mut wr WorldRuntime) poll_once(mut tx WorldTx) bool {
 	select {
 		task := <-wr.jobs {
+			wr.pop_queue_time() or {}
 			wr.run_task(mut tx, task)
 		}
 		_ := <-wr.tick_wakeup {
@@ -415,6 +425,7 @@ fn (mut wr WorldRuntime) poll_once(mut tx WorldTx) bool {
 fn (mut wr WorldRuntime) wait_once(mut tx WorldTx) bool {
 	select {
 		task := <-wr.jobs {
+			wr.pop_queue_time() or {}
 			wr.run_task(mut tx, task)
 		}
 		_ := <-wr.tick_wakeup {
@@ -447,6 +458,7 @@ fn (mut wr WorldRuntime) finish(mut tx WorldTx) {
 		mut idle := false
 		select {
 			task := <-wr.jobs {
+				wr.pop_queue_time() or {}
 				wr.run_task(mut tx, task)
 			}
 			_ := <-wr.tick_wakeup {
@@ -468,7 +480,6 @@ fn (mut wr WorldRuntime) finish(mut tx WorldTx) {
 }
 
 fn (mut wr WorldRuntime) run_task(mut tx WorldTx, task WorldTask) {
-	wr.pop_queue_time() or {}
 	start := time.now()
 	task.run(mut tx)
 	dur := time.since(start).nanoseconds()
