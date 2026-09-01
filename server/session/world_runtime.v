@@ -11,6 +11,7 @@ import server.entity
 import server.event
 import server.world.db
 import server.internal.logger
+import server.worldrt
 import bedrock_v.protocol.current as proto
 
 // max_world_catchup_ticks bounds how many simulation steps a WorldRuntime
@@ -95,7 +96,7 @@ mut:
 	liquids        &block.LiquidManager = unsafe { nil }
 	events         &event.Bus           = unsafe { nil }
 	entities       &entity.Manager      = unsafe { nil }
-	chunk_service  &WorldChunkService   = unsafe { nil }
+	chunk_service  &worldrt.WorldChunkService   = unsafe { nil }
 	task_scheduler &WorldScheduler      = unsafe { nil }
 
 	// Cross thread metric snapshots. The world thread publishes simulation
@@ -137,7 +138,7 @@ fn new_world_runtime(hub &Hub, w &db.World) &WorldRuntime {
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.events = event.new_bus()
 	wr.entities = entity.new_manager(WorldEntityHost{ wr: wr })
-	wr.chunk_service = new_chunk_service(w.make_generator(hub.build_generator(w)))
+	wr.chunk_service = worldrt.new_chunk_service(w.make_generator(hub.build_generator(w)))
 	wr.task_scheduler = new_world_scheduler()
 	spawn wr.run_jobs()
 	return wr

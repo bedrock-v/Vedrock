@@ -9,6 +9,7 @@ import server.player
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 struct BlockingGenerator {
 	started chan bool
@@ -288,7 +289,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	deadline := time.now().add(2000 * time.millisecond)
 	for time.now() < deadline {
 		tracker.mutex.lock()
-		reached := tracker.in_flight >= chunk_gen_worker_count
+		reached := tracker.in_flight >= worldrt.chunk_worker_count()
 		tracker.mutex.unlock()
 		if reached {
 			break
@@ -298,7 +299,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	tracker.mutex.lock()
 	peak := tracker.peak
 	tracker.mutex.unlock()
-	assert peak == chunk_gen_worker_count, 'expected all ${chunk_gen_worker_count} workers busy at once from one session-style request burst, got peak ${peak}'
+	assert peak == worldrt.chunk_worker_count(), 'expected all ${worldrt.chunk_worker_count()} workers busy at once from one session-style request burst, got peak ${peak}'
 
 	for _ in 0 .. 20 {
 		release <- true

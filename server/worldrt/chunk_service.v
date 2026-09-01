@@ -1,4 +1,8 @@
-module session
+// worldrt owns the world actor's infrastructure: work that a world runs on
+// its own thread, independent of who is connected or what the gameplay rules
+// are. It imports no session, player or event code, which is what lets higher
+// layers depend on it.
+module worldrt
 
 import runtime
 import sync
@@ -53,6 +57,19 @@ const chunk_decoded_cache_size = 24
 // serialized is computed once at generation time and never mutated afterwards,
 // so every waiter and every later cache hit shares the one array. Callers hand
 // it straight to a LevelChunkPacket; nothing writes through it.
+// chunk_worker_count is the number of generation workers a chunk service runs.
+// A function rather than an exported const: V does not guarantee the
+// initialisation order of consts across files, so a const in another module
+// derived from this one can read as zero.
+pub fn chunk_worker_count() int {
+	return chunk_gen_worker_count
+}
+
+// chunk_cache_key packs a column's coordinates into one map key.
+pub fn chunk_cache_key(cx int, cz int) u64 {
+	return (u64(u32(cx)) << 32) | u64(u32(cz))
+}
+
 pub struct ChunkResult {
 pub:
 	serialized    []u8

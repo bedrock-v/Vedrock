@@ -23,6 +23,7 @@ import server.permission
 import server.internal.auth
 import server.player.playerdb
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
@@ -714,7 +715,7 @@ pub fn (mut h Hub) active_chunk_generation_count() i64 {
 	return h.active_chunk_generation_count.load()
 }
 
-// chunk_cache_totals aggregates every loaded world's WorldChunkService cache
+// chunk_cache_totals aggregates every loaded world's worldrt.WorldChunkService cache
 // into one entry count and estimated byte total.
 pub fn (mut h Hub) chunk_cache_totals() (int, i64) {
 	mut entries := 0

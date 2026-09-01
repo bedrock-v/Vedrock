@@ -16,6 +16,7 @@ import server.player.playerdb
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn roundtrip(p protocol.Packet) !protocol.Packet {
 	mut pool := proto.new_packet_pool()
@@ -296,7 +297,7 @@ fn test_chunk_service_reuses_chunk_columns() {
 	gen := CountingGenerator{
 		counter: counter
 	}
-	mut svc := new_chunk_service(gen)
+	mut svc := worldrt.new_chunk_service(gen)
 	first := <-svc.request(4, -2)
 	second := <-svc.request(4, -2)
 	assert !first.cancelled
@@ -313,7 +314,7 @@ fn test_decoded_clone_returns_mutable_copies() {
 	gen := CountingGenerator{
 		counter: counter
 	}
-	mut svc := new_chunk_service(gen)
+	mut svc := worldrt.new_chunk_service(gen)
 	mut first := svc.decoded_clone(4, -2) or { panic('no decoded column') }
 	first.set_block(0, 0, 0, world.air)
 	second := svc.decoded_clone(4, -2) or { panic('no decoded column') }
@@ -365,13 +366,13 @@ fn (g BlockingCountingGenerator) biome_at(x int, z int) int {
 
 fn test_prune_sent_chunks_keeps_only_current_radius() {
 	mut sent := map[u64]bool{}
-	sent[chunk_cache_key(0, 0)] = true
-	sent[chunk_cache_key(1, 0)] = true
-	sent[chunk_cache_key(4, 0)] = true
+	sent[worldrt.chunk_cache_key(0, 0)] = true
+	sent[worldrt.chunk_cache_key(1, 0)] = true
+	sent[worldrt.chunk_cache_key(4, 0)] = true
 	prune_sent_chunks(mut sent, 1, 0, 1)
-	assert sent[chunk_cache_key(0, 0)]
-	assert sent[chunk_cache_key(1, 0)]
-	assert chunk_cache_key(4, 0) !in sent
+	assert sent[worldrt.chunk_cache_key(0, 0)]
+	assert sent[worldrt.chunk_cache_key(1, 0)]
+	assert worldrt.chunk_cache_key(4, 0) !in sent
 }
 
 fn test_level_chunk_packet_sends_sections_inline() {

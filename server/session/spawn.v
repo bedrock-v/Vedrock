@@ -9,6 +9,7 @@ import server.event
 import server.world
 import server.world.db
 import server.internal.logger
+import server.worldrt
 import bedrock_v.protocol.current as proto
 
 // The initial spawn stream paces itself so the outbound queue is not filled
@@ -427,7 +428,7 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	// player leaves and re-enters the view radius.
 	mut claimed := []u64{cap: targets.len}
 	for target in targets {
-		key := chunk_cache_key(target.x, target.z)
+		key := worldrt.chunk_cache_key(target.x, target.z)
 		claimed << key
 		s.sent_chunks[key] = true
 	}
@@ -488,7 +489,7 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, binding.world,
 			dim, target.x, target.z)
 		batch << tile_data_packets(binding.world, target.x, target.z)
-		batch_keys << chunk_cache_key(target.x, target.z)
+		batch_keys << worldrt.chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
 			if !s.commit_chunk_batch(binding, batch.clone()) {
 				s.forget_sent_chunks(batch_keys)
@@ -598,7 +599,7 @@ fn chunk_send_targets(cx int, cz int, radius int, sent map[u64]bool) []ChunkSend
 	span := radius * 2 + 1
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
-			key := chunk_cache_key(x, z)
+			key := worldrt.chunk_cache_key(x, z)
 			if key in sent {
 				continue
 			}
@@ -627,7 +628,7 @@ fn prune_sent_chunks(mut sent map[u64]bool, cx int, cz int, radius int) {
 			if !chunk_in_view(x - cx, z - cz, radius) {
 				continue
 			}
-			key := chunk_cache_key(x, z)
+			key := worldrt.chunk_cache_key(x, z)
 			if key in sent {
 				keep[key] = true
 			}
@@ -655,7 +656,7 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, wld, dim,
 			target.x, target.z)
 		batch << tile_data_packets(wld, target.x, target.z)
-		batch_keys << chunk_cache_key(target.x, target.z)
+		batch_keys << worldrt.chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
 			s.send_batch_maybe_queued(batch)!
 			for key in batch_keys {
@@ -707,17 +708,13 @@ fn level_chunk_packet_from_bytes(dim world.Dimension, x int, z int, section_coun
 	}
 }
 
-fn chunk_cache_key(cx int, cz int) u64 {
-	return (u64(u32(cx)) << 32) | u64(u32(cz))
-}
-
-// empty_chunk_result returns a valid empty ChunkResult for unavailable or
+// empty_chunk_result returns a valid empty worldrt.ChunkResult for unavailable or
 // cancelled chunk requests. It uses an initialized empty chunk rather than
-// ChunkResult's zero value whose sections are not sized for the dimension
+// worldrt.ChunkResult's zero value whose sections are not sized for the dimension
 // and are unsafe for downstream indexed access.
-fn empty_chunk_result() ChunkResult {
+fn empty_chunk_result() worldrt.ChunkResult {
 	empty := world.new_chunk()
-	return ChunkResult{
+	return worldrt.ChunkResult{
 		serialized:    empty.serialize()
 		section_count: empty.section_count()
 	}
@@ -740,7 +737,7 @@ fn (mut s NetworkSession) generated_chunk(wr &WorldRuntime, cx int, cz int) worl
 // This call blocks until that column is ready. For a view radius sweep, use
 // ChunkPipeline so several columns are generated concurrently instead of
 // resolving the sweep one column at a time.
-fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz int) ChunkResult {
+fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz int) worldrt.ChunkResult {
 	if isnil(wr) {
 		return empty_chunk_result()
 	}
@@ -765,10 +762,9 @@ fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz in
 // longer one costs peak memory for no throughput.
 //
 // A function rather than a const: V does not guarantee the initialisation order
-// of consts across files, and one derived from chunk_gen_worker_count read as
-// zero.
+// of consts across files and one derived from the worker count read as zero.
 fn chunk_pipeline_depth() int {
-	return chunk_gen_worker_count
+	return worldrt.chunk_worker_count()
 }
 
 // ChunkPipeline walks a sweep's targets in order while keeping at most
@@ -779,7 +775,7 @@ mut:
 	runtime &WorldRuntime = unsafe { nil }
 	// pending is a ring of in flight requests: head is the next to resolve,
 	// count is how many are queued.
-	pending []chan ChunkResult
+	pending []chan worldrt.ChunkResult
 	head    int
 	count   int
 	next    int
@@ -798,7 +794,7 @@ fn (mut s NetworkSession) new_chunk_pipeline(wr_in &WorldRuntime, targets []Chun
 	mut p := ChunkPipeline{
 		targets: targets
 		runtime: wr
-		pending: []chan ChunkResult{len: if depth > 0 { depth } else { 1 }}
+		pending: []chan worldrt.ChunkResult{len: if depth > 0 { depth } else { 1 }}
 	}
 	for p.count < depth {
 		p.submit_next()
@@ -813,7 +809,7 @@ fn (mut p ChunkPipeline) submit_next() {
 	target := p.targets[p.next]
 	slot := (p.head + p.count) % p.pending.len
 	if isnil(p.runtime) {
-		ch := chan ChunkResult{cap: 1}
+		ch := chan worldrt.ChunkResult{cap: 1}
 		ch <- empty_chunk_result()
 		p.pending[slot] = ch
 	} else {
@@ -826,7 +822,7 @@ fn (mut p ChunkPipeline) submit_next() {
 
 // next_result returns the next target and its resolved column, in sweep order,
 // and tops the window back up. none once every target has been returned.
-fn (mut p ChunkPipeline) next_result() ?(ChunkSendTarget, ChunkResult) {
+fn (mut p ChunkPipeline) next_result() ?(ChunkSendTarget, worldrt.ChunkResult) {
 	if p.taken >= p.targets.len {
 		return none
 	}
@@ -841,7 +837,7 @@ fn (mut p ChunkPipeline) next_result() ?(ChunkSendTarget, ChunkResult) {
 
 // resolve_chunk_result drains one channel, normalizing a cancelled result the
 // same way generated_chunk_result does for a single request.
-fn resolve_chunk_result(ch chan ChunkResult) ChunkResult {
+fn resolve_chunk_result(ch chan worldrt.ChunkResult) worldrt.ChunkResult {
 	result := <-ch
 	if result.cancelled {
 		return empty_chunk_result()
@@ -850,12 +846,12 @@ fn resolve_chunk_result(ch chan ChunkResult) ChunkResult {
 }
 
 // chunk_delivery_packet_from_result builds a LevelChunkPacket from an
-// already resolved ChunkResult.
+// already resolved worldrt.ChunkResult.
 //
 // If the chunk has no block overrides, it reuses the cached serialized
 // bytes. Otherwise it applies the current overrides and serializes a fresh
 // chunk so preoverride bytes are never sent for modified terrain.
-fn (mut s NetworkSession) chunk_delivery_packet_from_result(result ChunkResult, wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
+fn (mut s NetworkSession) chunk_delivery_packet_from_result(result worldrt.ChunkResult, wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	overrides := if isnil(wld) { []db.BlockOverride{} } else { wld.overrides_in_chunk(cx, cz) }
 	if overrides.len == 0 {
 		return level_chunk_packet_from_bytes(dim, cx, cz, result.section_count, result.serialized)
@@ -975,7 +971,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p proto.SubChunkRequestPacket
 		abs_index := int(p.center_pos[1]) + int(off.offset_y)
 		mut chunk := s.generated_chunk(binding.world_runtime, target_cx, target_cz)
 		apply_overrides(mut chunk, wld, target_cx, target_cz)
-		cache_key := chunk_cache_key(target_cx, target_cz)
+		cache_key := worldrt.chunk_cache_key(target_cx, target_cz)
 		if cache_key !in tile_sent_columns {
 			tile_sent_columns[cache_key] = true
 			for pkt in tile_data_packets(wld, target_cx, target_cz) {
