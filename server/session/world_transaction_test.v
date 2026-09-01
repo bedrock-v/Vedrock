@@ -6,8 +6,9 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import server.worldrt
 
-fn wtx_test_world() (&Hub, &WorldRuntime) {
+fn wtx_test_world() (&Hub, &worldrt.WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('world-transaction-test', none, 'void', world.overworld)
 	hub.add_world(w)
@@ -15,7 +16,7 @@ fn wtx_test_world() (&Hub, &WorldRuntime) {
 	return hub, wr
 }
 
-fn wtx_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &NetworkSession {
+fn wtx_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, display_name string) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: display_name
@@ -32,7 +33,7 @@ fn wtx_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &Netw
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

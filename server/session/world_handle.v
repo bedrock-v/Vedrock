@@ -1,6 +1,7 @@
 module session
 
 import server.world
+import server.worldrt
 
 // World is a public handle for a loaded world. Its methods route mutations
 // through the owning world thread without exposing runtime or storage internals.
@@ -9,7 +10,7 @@ import server.world
 // World time is omitted because it is currently global, not owned per world.
 pub struct World {
 mut:
-	runtime &WorldRuntime
+	runtime &worldrt.WorldRuntime
 }
 
 // world_handle wraps the world loaded under name in a public World or
@@ -34,7 +35,7 @@ pub fn (w World) dimension() world.Dimension {
 
 // current_tick is this world's own simulation clock, safe to read from any
 // thread. It never requires a round trip through the actor, so it stays
-// readable even while that actor is stuck, the same reason WorldMetrics
+// readable even while that actor is stuck, the same reason worldrt.WorldMetrics
 // exists.
 pub fn (w World) current_tick() i64 {
 	return w.runtime.tick_snapshot()
@@ -47,7 +48,7 @@ pub fn (w World) block_at(x int, y int, z int) world.Block {
 	if id := w.runtime.world.block_override(x, y, z) {
 		return world.block_from_id(id)
 	}
-	gen := w.runtime.world.make_generator(w.runtime.game.hub.build_generator(w.runtime.world))
+	gen := w.runtime.world.make_generator(w.runtime.generators.build_generator(w.runtime.world))
 	return world.block_from_id(gen.block_at(x, y, z))
 }
 
@@ -55,14 +56,14 @@ pub fn (w World) block_at(x int, y int, z int) world.Block {
 // The generator can be resolved from thread safe world and registry state,
 // so no world actor call is required.
 pub fn (w World) spawn_y() int {
-	gen := w.runtime.world.make_generator(w.runtime.game.hub.build_generator(w.runtime.world))
+	gen := w.runtime.world.make_generator(w.runtime.generators.build_generator(w.runtime.world))
 	return gen.spawn_y()
 }
 
 // set_block applies an authoritative block change through the owning world
 // thread.
 pub fn (mut w World) set_block(x int, y int, z int, b world.Block) ! {
-	world_call[bool]('World.set_block', mut w.runtime, fn [x, y, z, b] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('World.set_block', mut w.runtime, fn [x, y, z, b] (mut tx worldrt.WorldTx) bool {
 		tx.set_block(x, y, z, b.network_id)
 		return true
 	}) or { return error('world "${w.runtime.world.name}" is shutting down') }
@@ -73,7 +74,7 @@ pub fn (mut w World) set_block(x int, y int, z int, b world.Block) ! {
 //
 // If the world is shutting down, players returns an empty slice.
 pub fn (mut w World) players() []PlayerRef {
-	return world_call[[]PlayerRef]('World.players', mut w.runtime, fn (mut tx WorldTx) []PlayerRef {
+	return worldrt.world_call[[]PlayerRef]('World.players', mut w.runtime, fn (mut tx worldrt.WorldTx) []PlayerRef {
 		mut out := []PlayerRef{}
 		for mut a in tx.wr.entities.player_actors() {
 			if mut a is NetworkSession {
@@ -94,7 +95,7 @@ pub fn (w World) player_count() i64 {
 // registered in this world. If the world is shutting down, it returns an
 // empty slice.
 pub fn (mut w World) entities() []EntityRef {
-	return world_call[[]EntityRef]('World.entities', mut w.runtime, fn (mut tx WorldTx) []EntityRef {
+	return worldrt.world_call[[]EntityRef]('World.entities', mut w.runtime, fn (mut tx worldrt.WorldTx) []EntityRef {
 		mut out := []EntityRef{}
 		for e in tx.wr.entities.snapshot() {
 			out << EntityRef{
@@ -111,7 +112,7 @@ pub fn (mut w World) entities() []EntityRef {
 // metrics returns a snapshot of this world's runtime metrics including
 // queue pressure, tick timing, persistence backlog and chunk generation
 // load. It is thread safe and does not block on the world actor.
-pub fn (mut w World) metrics() WorldMetrics {
+pub fn (mut w World) metrics() worldrt.WorldMetrics {
 	return w.runtime.metrics()
 }
 
@@ -120,7 +121,7 @@ pub fn (mut w World) metrics() WorldMetrics {
 //
 // The callback must remain short and non blocking. A slow callback stalls
 // only this world. Scheduled callbacks are fire and forget.
-pub fn (mut w World) run_task(f fn (mut tx WorldTransaction)) &WorldTaskHandler {
+pub fn (mut w World) run_task(f fn (mut tx WorldTransaction)) &worldrt.WorldTaskHandler {
 	return w.runtime.task_scheduler.add(WorldClosureTask{
 		callback: f
 	}, 0, 0, w.runtime.tick_snapshot())
@@ -128,7 +129,7 @@ pub fn (mut w World) run_task(f fn (mut tx WorldTransaction)) &WorldTaskHandler 
 
 // run_delayed queues "f" to run once, delay simulated ticks of this world
 // from now.
-pub fn (mut w World) run_delayed(f fn (mut tx WorldTransaction), delay i64) &WorldTaskHandler {
+pub fn (mut w World) run_delayed(f fn (mut tx WorldTransaction), delay i64) &worldrt.WorldTaskHandler {
 	return w.runtime.task_scheduler.add(WorldClosureTask{
 		callback: f
 	}, delay, 0, w.runtime.tick_snapshot())
@@ -136,7 +137,7 @@ pub fn (mut w World) run_delayed(f fn (mut tx WorldTransaction), delay i64) &Wor
 
 // run_repeating queues "f" to run every period simulated ticks of this
 // world starting on the next step.
-pub fn (mut w World) run_repeating(f fn (mut tx WorldTransaction), period i64) &WorldTaskHandler {
+pub fn (mut w World) run_repeating(f fn (mut tx WorldTransaction), period i64) &worldrt.WorldTaskHandler {
 	return w.runtime.task_scheduler.add(WorldClosureTask{
 		callback: f
 	}, 0, period, w.runtime.tick_snapshot())

@@ -10,6 +10,7 @@ import server.world
 import server.world.db
 import server.block
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -82,11 +83,11 @@ fn test_sign_editor_opens_only_for_signs() {
 	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
-	maybe_open_sign_editor(mut tx, mut s, types.BlockPosition{0, 0, 0}, sign_id)
+	maybe_open_sign_editor(mut s, types.BlockPosition{0, 0, 0}, sign_id)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
 	if sent is proto.OpenSignPacket {
@@ -95,7 +96,7 @@ fn test_sign_editor_opens_only_for_signs() {
 		assert false
 	}
 
-	maybe_open_sign_editor(mut tx, mut s, types.BlockPosition{1, 0, 0}, dirt_id)
+	maybe_open_sign_editor(mut s, types.BlockPosition{1, 0, 0}, dirt_id)
 	assert transport.sent.len == 1 // unchanged - dirt isn't a sign
 }
 
@@ -120,7 +121,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	s.world_runtime = wr
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -205,7 +206,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 	pos := types.BlockPosition{5, 5, 5}
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	register_player(mut tx, s)
@@ -243,7 +244,7 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 	pos := types.BlockPosition{5, 5, 5}
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	create_sign_tile(mut tx, pos, dirt_id)

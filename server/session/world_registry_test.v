@@ -3,14 +3,22 @@ module session
 import server.internal.gamedata
 import server.world
 import server.world.db
+import server.worldrt
 
 fn test_world_registry_add_get_remove() {
-	mut r := new_world_registry()
+	mut r := worldrt.new_world_registry()
 	assert r.len() == 0
 
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('reg-test', none, 'flat', world.overworld)
-	mut wr := new_world_runtime(hub, w)
+	mut wr := worldrt.new_world_runtime(
+		world:      w
+		services:   hub
+		generators: hub
+		handler:    hub.world_handler
+		players:    SessionPlayerTicker{}
+		entity_host: new_world_entity_host
+	)
 	defer {
 		wr.shutdown()
 	}

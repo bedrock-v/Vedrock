@@ -4,6 +4,7 @@ import math
 import server.player
 import server.world
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 // Environmental damage uses per source tick intervals to approximate repeat
 // damage. These intervals replace general invincibility frames which we
@@ -22,11 +23,11 @@ const fire_tick_interval_ticks = i64(20) // once per second while burning
 
 // tick_environmental_damage applies void, drowning and fire/lava damage for
 // one player during the owning world's simulation step.
-fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
+fn (mut s NetworkSession) tick_environmental_damage(mut tx worldrt.WorldTx) {
 	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
-	tick := tx.wr.game.hub.current_tick()
+	tick := tx.wr.services.current_tick()
 	pos := s.current_position()
 
 	if pos.y < void_damage_y {
@@ -42,7 +43,7 @@ fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
 
 // tick_breath drains or refills the underwater breath meter and applies
 // drowning damage once it runs out.
-fn (mut s NetworkSession) tick_breath(mut tx WorldTx, submerged bool, tick i64) {
+fn (mut s NetworkSession) tick_breath(mut tx worldrt.WorldTx, submerged bool, tick i64) {
 	old_air := s.player.air_supply()
 	mut air := old_air
 	if submerged {
@@ -63,7 +64,7 @@ fn (mut s NetworkSession) tick_breath(mut tx WorldTx, submerged bool, tick i64) 
 
 // tick_burning handles lava contact and the ongoing once-per-second fire
 // damage while burning, extinguishing on contact with water.
-fn (mut s NetworkSession) tick_burning(mut tx WorldTx, in_lava bool, in_water bool) {
+fn (mut s NetworkSession) tick_burning(mut tx worldrt.WorldTx, in_lava bool, in_water bool) {
 	if in_water {
 		if s.player.fire_ticks() > 0 {
 			s.player.set_fire_ticks(0)
@@ -88,7 +89,7 @@ fn (mut s NetworkSession) tick_burning(mut tx WorldTx, in_lava bool, in_water bo
 	}
 }
 
-fn (mut s NetworkSession) send_air_supply(mut wr WorldRuntime, air i64) {
+fn (mut s NetworkSession) send_air_supply(mut wr worldrt.WorldRuntime, air i64) {
 	if !s.spawned {
 		return
 	}

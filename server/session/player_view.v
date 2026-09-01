@@ -2,7 +2,6 @@ module session
 
 import bedrock_v.protocol.current as proto
 import server.player.skin
-import server.player
 
 const skin_width = u32(64)
 const skin_height = u32(64)

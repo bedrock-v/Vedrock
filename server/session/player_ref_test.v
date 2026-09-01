@@ -6,8 +6,9 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import server.worldrt
 
-fn player_ref_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &NetworkSession {
+fn player_ref_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, display_name string) &NetworkSession {
 	mut transport := &FakeTransport{}
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
@@ -25,7 +26,7 @@ fn player_ref_test_session(mut hub Hub, mut wr WorldRuntime, display_name string
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -109,12 +110,12 @@ fn test_player_ref_operations_fail_after_world_switch() {
 	p := hub.player_ref('Notch') or { panic('expected player ref') }
 	assert p.world().name() == 'ref-switch-a'
 
-	world_call[bool]('test', mut wr_a, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn [s] (mut tx worldrt.WorldTx) bool {
 		deregister_player(mut tx, s.runtime_id)
 		return true
 	}) or { panic('deregistration rejected - world unexpectedly stopped') }
 	s.set_world_binding(wr_b, world.VoidGenerator{})
-	world_call[bool]('test', mut wr_b, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_b, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

@@ -4,7 +4,7 @@ import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
 import server.internal.logger
 import server.item
-import server.player
+import server.worldrt
 
 // op / deop
 
@@ -55,7 +55,7 @@ fn (t PlayerOpRefreshTask) name() string {
 	return 'PlayerOpRefreshTask'
 }
 
-fn (t PlayerOpRefreshTask) run(mut tx WorldTx) {
+fn (t PlayerOpRefreshTask) run(mut tx worldrt.WorldTx) {
 	mut applied := false
 	defer {
 		t.result <- applied
@@ -105,7 +105,7 @@ fn (t PlayerKillTask) name() string {
 	return 'PlayerKillTask'
 }
 
-fn (t PlayerKillTask) run(mut tx WorldTx) {
+fn (t PlayerKillTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	if target.player.is_dead() {
 		return
@@ -227,7 +227,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		remove_pkt := s.remove_actor_packet()
 		list_remove_pkt := s.player_list_remove_packet()
 		held_container := s.open_container_position()
-		world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx worldrt.WorldTx) bool {
 			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
@@ -248,7 +248,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	list_add_pkt := s.player_list_add_packet()
 	add_player_pkt := s.add_player_packet()
 	self := s.self_ref()
-	registered := world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
+	registered := worldrt.world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, self)
 		tx.wr.broadcast_world_except(rid, list_add_pkt)
 		tx.wr.broadcast_world_except(rid, add_player_pkt)
@@ -291,7 +291,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 
 // apply_teleport resets the position, sends the correction packet and
 // broadcasts the move through the owning world actor. Unlike change_world,
-// a same world teleport has no existing world_call to reuse.
+// a same world teleport has no existing worldrt.world_call to reuse.
 fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	s.player.reset_position(types.Vector3{x, y, z})
 	current := s.player.movement()
@@ -313,7 +313,7 @@ fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
 	if !isnil(wr) {
 		rid := s.runtime_id
 		move_pkt := s.move_actor_packet()
-		world_call[bool]('Session.teleport_broadcast', mut wr, fn [rid, move_pkt] (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('Session.teleport_broadcast', mut wr, fn [rid, move_pkt] (mut tx worldrt.WorldTx) bool {
 			tx.wr.broadcast_world_except(rid, move_pkt)
 			return true
 		}) or {}
@@ -344,7 +344,7 @@ fn (t PlayerClearInventoryTask) name() string {
 	return 'PlayerClearInventoryTask'
 }
 
-fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
+fn (t PlayerClearInventoryTask) run(mut tx worldrt.WorldTx) {
 	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_clear_inventory()
 }
@@ -401,7 +401,7 @@ fn (t PlayerGiveItemTask) name() string {
 	return 'PlayerGiveItemTask'
 }
 
-fn (t PlayerGiveItemTask) run(mut tx WorldTx) {
+fn (t PlayerGiveItemTask) run(mut tx worldrt.WorldTx) {
 	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_give_item(t.numeric_id, t.block_runtime_id, t.count)
 }

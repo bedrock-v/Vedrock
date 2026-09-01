@@ -2,7 +2,6 @@ module session
 
 import bedrock_v.protocol.current as proto
 import server.player.title
-import server.player
 
 fn (mut s NetworkSession) broadcast_message(text string) {
 	s.hub.broadcast(&proto.TextPacket{

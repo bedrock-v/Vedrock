@@ -3,7 +3,6 @@ module session
 import bedrock_v.protocol
 import bedrock_v.protocol.current as proto
 import server.player.scoreboard
-import server.player
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the

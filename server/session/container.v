@@ -2,7 +2,7 @@ module session
 
 import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
-import server.player
+import server.worldrt
 
 fn (mut s NetworkSession) handle_interact(p proto.InteractPacket) ! {
 	if p.action != proto.InteractPacketAction.open_inventory {
@@ -69,7 +69,7 @@ fn (t CloseChestContainerTask) name() string {
 	return 'CloseChestContainerTask'
 }
 
-fn (t CloseChestContainerTask) run(mut tx WorldTx) {
+fn (t CloseChestContainerTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.close_chest_container(mut tx)
 }

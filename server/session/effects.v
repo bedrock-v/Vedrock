@@ -5,6 +5,7 @@ import server.effect
 import server.event
 import bedrock_v.protocol.current as proto
 import server.player
+import server.worldrt
 
 const mob_effect_add = proto.MobEffectEvent.add
 const mob_effect_remove = proto.MobEffectEvent.remove
@@ -23,7 +24,7 @@ fn (t PlayerAddEffectTask) name() string {
 	return 'PlayerAddEffectTask'
 }
 
-fn (t PlayerAddEffectTask) run(mut tx WorldTx) {
+fn (t PlayerAddEffectTask) run(mut tx worldrt.WorldTx) {
 	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_add_effect(mut tx.wr, t.effect)
 }
@@ -38,7 +39,7 @@ fn (t PlayerRemoveEffectTask) name() string {
 	return 'PlayerRemoveEffectTask'
 }
 
-fn (t PlayerRemoveEffectTask) run(mut tx WorldTx) {
+fn (t PlayerRemoveEffectTask) run(mut tx worldrt.WorldTx) {
 	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_remove_effect(mut tx.wr, t.typ)
 }
@@ -69,7 +70,7 @@ fn (mut s NetworkSession) remove_effect(typ effect.Type) {
 
 // Effect mutation receives the owning runtime explicitly because event
 // dispatch, effect packets and effect damage are world scoped.
-fn (mut s NetworkSession) apply_add_effect(mut wr WorldRuntime, e effect.Effect) {
+fn (mut s NetworkSession) apply_add_effect(mut wr worldrt.WorldRuntime, e effect.Effect) {
 	mut ctx := event.new_context(player.EffectAddData{
 		effect_name:    e.effect_type().name
 		level:          e.level()
@@ -93,7 +94,7 @@ fn (mut s NetworkSession) apply_add_effect(mut wr WorldRuntime, e effect.Effect)
 	s.send_effect(mut wr, result.effect)
 }
 
-fn (mut s NetworkSession) apply_remove_effect(mut wr WorldRuntime, typ effect.Type) {
+fn (mut s NetworkSession) apply_remove_effect(mut wr worldrt.WorldRuntime, typ effect.Type) {
 	mut ctx := event.new_context(player.EffectRemoveData{
 		effect_name: typ.name
 		player:      s
@@ -110,7 +111,7 @@ fn (mut s NetworkSession) apply_remove_effect(mut wr WorldRuntime, typ effect.Ty
 // tick_effects advances one player's active effects during the owning world's
 // simulation step. Environmental damage and death stay on that world's
 // runtime.
-fn (mut s NetworkSession) tick_effects(mut wr WorldRuntime) {
+fn (mut s NetworkSession) tick_effects(mut wr worldrt.WorldRuntime) {
 	result := s.player.tick_effects()
 	for e in result.active {
 		s.apply_effect_tick(mut wr, e)
@@ -121,19 +122,19 @@ fn (mut s NetworkSession) tick_effects(mut wr WorldRuntime) {
 	}
 }
 
-fn (mut s NetworkSession) send_active_effects(mut wr WorldRuntime) {
+fn (mut s NetworkSession) send_active_effects(mut wr worldrt.WorldRuntime) {
 	for e in s.player.active_effects() {
 		s.send_effect(mut wr, e)
 	}
 }
 
-fn (mut s NetworkSession) send_effect(mut wr WorldRuntime, e effect.Effect) {
+fn (mut s NetworkSession) send_effect(mut wr worldrt.WorldRuntime, e effect.Effect) {
 	s.send_effect_removal(mut wr, e.effect_type())
 	s.send_mob_effect(mut wr, e, mob_effect_add)
 }
 
 // Effect packets are visible only to players in the same world.
-fn (mut s NetworkSession) send_effect_removal(mut wr WorldRuntime, typ effect.Type) {
+fn (mut s NetworkSession) send_effect_removal(mut wr worldrt.WorldRuntime, typ effect.Type) {
 	if !s.spawned {
 		return
 	}
@@ -144,7 +145,7 @@ fn (mut s NetworkSession) send_effect_removal(mut wr WorldRuntime, typ effect.Ty
 	})
 }
 
-fn (mut s NetworkSession) send_mob_effect(mut wr WorldRuntime, e effect.Effect, event_id proto.MobEffectEvent) {
+fn (mut s NetworkSession) send_mob_effect(mut wr worldrt.WorldRuntime, e effect.Effect, event_id proto.MobEffectEvent) {
 	if !s.spawned {
 		return
 	}
@@ -182,7 +183,7 @@ fn (mut s NetworkSession) apply_effect_end(e effect.Effect) {
 	}
 }
 
-fn (mut s NetworkSession) apply_effect_tick(mut wr WorldRuntime, e effect.Effect) {
+fn (mut s NetworkSession) apply_effect_tick(mut wr worldrt.WorldRuntime, e effect.Effect) {
 	match e.effect_type().id {
 		effect.instant_health.id {
 			amount := f32((2 << e.level())) * f32(e.potency())
@@ -233,7 +234,7 @@ fn (mut s NetworkSession) heal(amount f32) {
 // non-fatal damage floors at one health; fatal effects may kill and use
 // apply_death so all deaths share one path. Effect damage has no attacker, so
 // it does not dispatch player_hurt.
-fn (mut s NetworkSession) apply_damage_from_effect(mut wr WorldRuntime, amount f32, fatal bool) {
+fn (mut s NetworkSession) apply_damage_from_effect(mut wr worldrt.WorldRuntime, amount f32, fatal bool) {
 	if s.player.is_dead() || amount <= 0 || !s.player.game_mode().allows_taking_damage() {
 		return
 	}

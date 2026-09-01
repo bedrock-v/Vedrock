@@ -5,7 +5,7 @@ import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
-import server.player
+import server.worldrt
 
 const crafting_grid_small = [28, 29, 30, 31]
 const crafting_grid_large = [32, 33, 34, 35, 36, 37, 38, 39, 40]
@@ -53,10 +53,10 @@ fn (s &NetworkSession) crafting_grid_slots() []int {
 
 // attempt_craft resolves recipe_network_id against the grid; falls back to
 // whatever the grid actually matches if the client's claimed id doesn't.
-fn attempt_craft(mut tx WorldTx, mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
+fn attempt_craft(mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
 	times := if number_of_crafts < 1 { 1 } else { int(number_of_crafts) }
 	if requested := item.recipe_by_network_id(recipe_network_id) {
-		if changes := try_craft_recipe(mut tx, mut s, requested, times) {
+		if changes := try_craft_recipe(mut s, requested, times) {
 			return changes
 		}
 	} else {
@@ -64,7 +64,7 @@ fn attempt_craft(mut tx WorldTx, mut s NetworkSession, recipe_network_id u32, nu
 	}
 	fallback := s.find_matching_recipe(times) or { return none }
 	s.log.debug('attempt_craft: requested recipe network_id=${recipe_network_id} did not match the grid - falling back to recipe=${fallback.id} (network_id=${fallback.network_id}), which does')
-	return try_craft_recipe(mut tx, mut s, fallback, times)
+	return try_craft_recipe(mut s, fallback, times)
 }
 
 struct PlannedConsumption {
@@ -128,7 +128,7 @@ fn (s &NetworkSession) describe_crafting_grid() string {
 	return seen.join(', ')
 }
 
-fn try_craft_recipe(mut tx WorldTx, mut s NetworkSession, recipe item.Recipe, times int) ?[]SlotChange {
+fn try_craft_recipe(mut s NetworkSession, recipe item.Recipe, times int) ?[]SlotChange {
 	if recipe.block != 'crafting_table' {
 		s.log.debug('try_craft_recipe: recipe ${recipe.id} (network_id=${recipe.network_id}) requires block=${recipe.block}, not crafting_table')
 		return none
@@ -263,7 +263,7 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 	}
 }
 
-fn attempt_auto_craft(mut tx WorldTx, mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
+fn attempt_auto_craft(mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
 	recipe := item.recipe_by_network_id(recipe_network_id) or { return none }
 	if recipe.block != 'crafting_table' {
 		return none
@@ -296,7 +296,7 @@ fn attempt_auto_craft(mut tx WorldTx, mut s NetworkSession, recipe_network_id u3
 	return changes
 }
 
-fn open_workbench(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition) {
+fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	s.log.debug('open_workbench: opening at ${pos}')
 	s.close_chest_container(mut tx)
 	s.set_workbench_open(true)
@@ -385,7 +385,7 @@ fn (t CloseWorkbenchTask) name() string {
 	return 'CloseWorkbenchTask'
 }
 
-fn (t CloseWorkbenchTask) run(mut tx WorldTx) {
+fn (t CloseWorkbenchTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.close_workbench()
 }

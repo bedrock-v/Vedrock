@@ -6,6 +6,7 @@ import server.event
 import server.world
 import server.world.db
 import server.player
+import server.worldrt
 
 // world_admin wires the /world command's needs onto the Hub. Create/delete
 // only touch the worlds map (never a player's active world), so they run
@@ -128,7 +129,7 @@ fn to_world_summary(info WorldInfo) cmd.WorldSummary {
 	}
 }
 
-fn to_world_metrics_summary(m WorldMetrics) cmd.WorldMetricsSummary {
+fn to_world_metrics_summary(m worldrt.WorldMetrics) cmd.WorldMetricsSummary {
 	return cmd.WorldMetricsSummary{
 		name:                           m.world_name
 		current_tick:                   m.current_tick

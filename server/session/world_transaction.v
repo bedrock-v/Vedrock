@@ -4,6 +4,7 @@ import server.event
 import server.world
 import server.entity
 import bedrock_v.protocol.types
+import server.worldrt
 
 // WorldTransaction is the public transaction surface passed to World.exec.
 // Its operations run on the owning world thread, allowing several reads
@@ -25,11 +26,11 @@ pub:
 	pos       types.Vector3
 }
 
-// WorldTxHandle adapts the internal WorldTx to the public
+// WorldTxHandle adapts the internal worldrt.WorldTx to the public
 // WorldTransaction interface.
 struct WorldTxHandle {
 mut:
-	tx &WorldTx
+	tx &worldrt.WorldTx
 }
 
 // block_at reads the block at the given coordinates, resolved against this
@@ -80,7 +81,7 @@ pub fn (mut h WorldTxHandle) spawn_entity(config EntityConfig) !EntityRef {
 	}
 }
 
-// ExecOutcome transports a transaction callback error through world_call
+// ExecOutcome transports a transaction callback error through worldrt.world_call
 // which returns plain values. The caller converts it back into an error.
 struct ExecOutcome {
 	failed bool
@@ -91,7 +92,7 @@ struct ExecOutcome {
 // Operations inside the callback can't interleave with other world tasks
 // and callback errors are returned by exec.
 //
-// label identifies the transaction in WorldMetrics.longest_task_name, so a
+// label identifies the transaction in worldrt.WorldMetrics.longest_task_name, so a
 // slow callback is attributed to the caller rather than to exec itself. An
 // empty label falls back to the name of this function.
 //
@@ -103,7 +104,7 @@ struct ExecOutcome {
 // captures are copied in V and don't update the enclosing variable.
 pub fn (mut w World) exec(label string, f fn (mut tx WorldTransaction) !) ! {
 	task_label := if label == '' { 'World.exec' } else { label }
-	outcome := world_call[ExecOutcome](task_label, mut w.runtime, fn [f] (mut tx WorldTx) ExecOutcome {
+	outcome := worldrt.world_call[ExecOutcome](task_label, mut w.runtime, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
 		mut handle := WorldTransaction(&WorldTxHandle{
 			tx: &tx
 		})

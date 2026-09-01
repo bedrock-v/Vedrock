@@ -6,6 +6,7 @@ import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.effect
+import server.worldrt
 import time
 import bedrock_v.protocol.current as proto
 
@@ -117,7 +118,7 @@ fn test_update_abilities_roundtrip() {
 }
 
 fn test_block_update_flags_match_reference_servers() {
-	assert block_update_flags == 11
+	assert worldrt.block_update_flags == 11
 }
 
 fn test_mob_effect_packet_roundtrip() {

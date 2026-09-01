@@ -3,6 +3,7 @@ module session
 import server.event
 import server.player
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn gamemode_from_wire(v int) player.Gamemode {
 	return match v {
@@ -54,7 +55,7 @@ fn (t PlayerSetGamemodeTask) name() string {
 	return 'PlayerSetGamemodeTask'
 }
 
-fn (t PlayerSetGamemodeTask) run(mut tx WorldTx) {
+fn (t PlayerSetGamemodeTask) run(mut tx worldrt.WorldTx) {
 	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.apply_gamemode(t.mode)
 }

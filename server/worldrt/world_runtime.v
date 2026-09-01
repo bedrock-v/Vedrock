@@ -1,4 +1,4 @@
-module session
+module worldrt
 
 import sync
 import sync.stdatomic
@@ -10,7 +10,6 @@ import server.block
 import server.entity
 import server.world.db
 import server.internal.logger
-import server.worldrt
 import bedrock_v.protocol.current as proto
 
 // max_world_catchup_ticks bounds how many simulation steps a WorldRuntime
@@ -30,7 +29,7 @@ const max_due_updates_per_tick = 64
 const liquid_tick_interval = 5
 
 // WorldLifecycle governs whether a WorldRuntime accepts new work.
-enum WorldLifecycle {
+pub enum WorldLifecycle {
 	running  // submit()/try_submit() accept and enqueue
 	stopping // reject new submissions; in flight submitters still landing, actor still processing what's queued
 	closed   // actor loop has exited; safe to close the underlying db.World
@@ -40,7 +39,7 @@ enum WorldLifecycle {
 // WorldTx for world access. name identifies the task's concrete type for
 // metrics, so a slow task is attributable to a cause rather than showing up
 // only as an unexplained tick duration spike.
-interface WorldTask {
+pub interface WorldTask {
 	run(mut tx WorldTx)
 	name() string
 }
@@ -49,17 +48,34 @@ interface WorldTask {
 // External callers submit WorldTasks; task code accesses the world through
 // WorldTx. Actor owned fields must not be accessed directly from other threads.
 @[heap]
-struct WorldRuntime {
-mut:
+// block_update_flags is the UpdateBlockPacket flag set every block change is
+// sent with: neighbours plus network.
+pub const block_update_flags = 11
+
+@[heap]
+pub struct WorldRuntime {
+pub mut:
+	// The shared substrate a world task works on. Public because gameplay code
+	// outside this module runs on the actor and needs them; everything below
+	// belongs to the actor alone and stays private to it.
+	world          &db.World = unsafe { nil }
+	entities       &entity.Manager = unsafe { nil }
+	chunk_service  &WorldChunkService = unsafe { nil }
+	task_scheduler &WorldScheduler = unsafe { nil }
 	// services is the slice of the surrounding server a world task may need.
 	// The actor's own work never touches it.
-    services worldrt.Services
+	services Services
+	// generators resolves this world's generator. Held as the narrow contract
+	// rather than as the server type, so the runtime never gains access to
+	// sessions through it.
+	generators GeneratorFactory
 	// handler receives what happens in this world without a player causing it.
-	handler worldrt.Handler = worldrt.NopHandler{}
+	handler Handler = NopHandler{}
+	liquids &block.LiquidManager = unsafe { nil }
+mut:
 	// players advances the players in this world once per simulated step. The
 	// runtime can't do it itself: a player is a session concept.
 	players PlayerTicker
-	world &db.World  = unsafe { nil }
 	// Guards lifecycle state and in flight submission accounting. It must not
 	// be held during blocking channel operations.
 	mutex     &sync.Mutex = sync.new_mutex()
@@ -99,14 +115,6 @@ mut:
 	// simulation debt (requested - simulated) without taking tick_mutex.
 	published_latest_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
-	// generators resolves this world's generator. Held as the narrow contract
-	// rather than as the Hub, so the runtime never gains access to sessions
-	// through it.
-	generators     worldrt.GeneratorFactory
-	liquids        &block.LiquidManager     = unsafe { nil }
-	entities       &entity.Manager      = unsafe { nil }
-	chunk_service  &worldrt.WorldChunkService   = unsafe { nil }
-	task_scheduler &WorldScheduler      = unsafe { nil }
 
 	// Cross thread metric snapshots. The world thread publishes simulation
 	// values, session threads publish outbound values and other threads only
@@ -138,23 +146,24 @@ mut:
 }
 
 // RuntimeConfig is everything a world runtime needs from the layer above it.
-// Each field is a narrow contract rather than the server type itself, so the
+// Each field is a narrow contract rather than the server type itself and the
 // runtime has no route back to a session.
-struct RuntimeConfig {
+pub struct RuntimeConfig {
+pub:
 	world      &db.World = unsafe { nil }
-	services   worldrt.Services
-	generators worldrt.GeneratorFactory
-	handler    worldrt.Handler = worldrt.NopHandler{}
+	services   Services
+	generators GeneratorFactory
+	handler    Handler = NopHandler{}
 	players    PlayerTicker
 	// entity_host builds the entity manager's host once the runtime exists.
 	// A function rather than a value because the host needs the runtime it
-	// belongs to, which does not exist when the config is written.
+	// belongs to.
 	entity_host fn (wr &WorldRuntime) entity.Host = unsafe { nil }
 }
 
 // new_world_runtime creates a runtime for an already loaded world and starts
 // its actor thread. Callers must shut it down before releasing all references.
-fn new_world_runtime(cfg RuntimeConfig) &WorldRuntime {
+pub fn new_world_runtime(cfg RuntimeConfig) &WorldRuntime {
 	mut wr := &WorldRuntime{
 		services:   cfg.services
 		handler:    cfg.handler
@@ -165,7 +174,7 @@ fn new_world_runtime(cfg RuntimeConfig) &WorldRuntime {
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.entities = entity.new_manager(cfg.entity_host(wr))
 	mut w := cfg.world
-	wr.chunk_service = worldrt.new_chunk_service(w.make_generator(wr.generators.build_generator(w)))
+	wr.chunk_service = new_chunk_service(w.make_generator(wr.generators.build_generator(w)))
 	wr.task_scheduler = new_world_scheduler()
 	spawn wr.run_jobs()
 	return wr
@@ -176,21 +185,21 @@ fn new_world_runtime(cfg RuntimeConfig) &WorldRuntime {
 // running inside a task must perform nested work through WorldTx rather than
 // submitting another task to the same runtime.
 @[heap]
-struct WorldTx {
-mut:
+pub struct WorldTx {
+pub mut:
 	wr &WorldRuntime
 }
 
 // world returns the underlying db.World for direct reads/writes. Only ever
 // reachable through a WorldTx, i.e. only from the owning actor thread.
-fn (tx &WorldTx) world() &db.World {
+pub fn (tx &WorldTx) world() &db.World {
 	return tx.wr.world
 }
 
 // resubmit schedules task to run again on this actor after the work already
 // queued has had a turn. A task processing a large job in bounded batches uses
 // it to yield without risking the remainder being refused by a full queue.
-fn (mut tx WorldTx) resubmit(task WorldTask) {
+pub fn (mut tx WorldTx) resubmit(task WorldTask) {
 	tx.wr.continuations << task
 	tx.wr.publish_continuation_depth()
 }
@@ -210,8 +219,8 @@ fn (mut wr WorldRuntime) publish_continuation_depth() {
 
 // on_actor_thread reports whether the caller is already running on this
 // runtime's actor. A blocking call from there waits for work only that same
-// thread can perform, so it never completes.
-fn (wr &WorldRuntime) on_actor_thread() bool {
+// thread can perform, then it never completes.
+pub fn (wr &WorldRuntime) on_actor_thread() bool {
 	mut owner := wr.actor_thread
 	id := owner.load()
 	return id != 0 && sync.thread_id() == id
@@ -219,28 +228,28 @@ fn (wr &WorldRuntime) on_actor_thread() bool {
 
 // generated_block is the generated state of one position, read through the
 // world's chunk service so it is the same column every session was sent. A
-// generator's per block query and the chunk it builds do not have to agree -
-// the chunk carries the populators, the query does not - so asking the
+// generator's per block query and the chunk it builds do not have to agree,
+// the chunk carries the populators; the query does not. Asking the
 // generator directly can contradict the world the client already has.
-fn (mut wr WorldRuntime) generated_block(x int, y int, z int) int {
+pub fn (mut wr WorldRuntime) generated_block(x int, y int, z int) int {
 	mut svc := wr.chunk_service
 	return svc.block_at(x, y, z)
 }
 
-fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {
+pub fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {
 	tx.wr.world.set_block(x, y, z, id)
 	tx.broadcast_block(x, y, z, id)
 }
 
-fn (mut tx WorldTx) place_water(x int, y int, z int) {
+pub fn (mut tx WorldTx) place_water(x int, y int, z int) {
 	tx.wr.liquids.place_source(x, y, z)
 }
 
-fn (mut tx WorldTx) on_block_changed(x int, y int, z int) {
+pub fn (mut tx WorldTx) on_block_changed(x int, y int, z int) {
 	tx.wr.liquids.on_block_changed(x, y, z)
 }
 
-fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
+pub fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
 	tx.wr.broadcast_world(update_block_packet(x, y, z, id))
 }
 
@@ -255,16 +264,16 @@ fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
 	}
 }
 
-// handle replaces this world's event handler. Embed worldrt.NopHandler and
+// handle replaces this world's event handler. Embed NopHandler and
 // define only the events the caller cares about.
-pub fn (mut wr WorldRuntime) handle(h worldrt.Handler) {
+pub fn (mut wr WorldRuntime) handle(h Handler) {
 	wr.handler = h
 }
 
 // broadcast_world sends p to every player registered with this world.
 // Call it only from this world's runtime thread, usually inside a WorldTx
-// or world_call, because the actor registry is not protected by a lock.
-fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
+// or world_call because the actor registry is not protected by a lock.
+pub fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
 	for mut v in wr.entities.player_viewers() {
 		v.deliver(p)
 	}
@@ -272,7 +281,7 @@ fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
 
 // broadcast_world_except sends p to every player in this world except the
 // given runtime ID. Call it only from this world's runtime thread.
-fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
+pub fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
 	for mut v in wr.entities.player_viewers() {
 		if v.runtime_id() != except_runtime_id {
 			v.deliver(p)
@@ -300,7 +309,7 @@ fn (mut h WorldLiquidHost) set_block_id(id int, x int, y int, z int) {
 	h.wr.broadcast_world(update_block_packet(x, y, z, id))
 }
 
-fn (mut wr WorldRuntime) submit(task WorldTask) bool {
+pub fn (mut wr WorldRuntime) submit(task WorldTask) bool {
 	wr.mutex.lock()
 	if wr.lifecycle != .running {
 		wr.mutex.unlock()
@@ -326,7 +335,7 @@ fn (mut wr WorldRuntime) submit(task WorldTask) bool {
 
 // try_submit attempts to queue task without blocking. It returns false if the
 // runtime is stopping or the queue has no available capacity.
-fn (mut wr WorldRuntime) try_submit(task WorldTask) bool {
+pub fn (mut wr WorldRuntime) try_submit(task WorldTask) bool {
 	wr.mutex.lock()
 	defer {
 		wr.mutex.unlock()
@@ -375,7 +384,7 @@ fn (mut wr WorldRuntime) pop_queue_time() ?time.Time {
 //
 // Shutdown is graceful and may block indefinitely if an active task or
 // in flight submitter never completes.
-fn (mut wr WorldRuntime) shutdown() {
+pub fn (mut wr WorldRuntime) shutdown() {
 	wr.mutex.lock()
 	if wr.lifecycle != .running {
 		wr.mutex.unlock()
@@ -524,9 +533,9 @@ fn (mut wr WorldRuntime) run_task(mut tx WorldTx, task WorldTask) {
 }
 
 // request_tick publishes the latest requested tick and sends a coalesced wakeup
-// to the world actor. Tick delivery uses a dedicated channel, so task traffic
+// to the world actor. Tick delivery uses a dedicated channel. Task traffic
 // can't delay publication or queue multiple pending wakeups.
-fn (mut wr WorldRuntime) request_tick(n i64) {
+pub fn (mut wr WorldRuntime) request_tick(n i64) {
 	wr.tick_mutex.lock()
 	wr.latest_tick = n
 	// Stored inside the same critical section as latest_tick, not after.
@@ -541,15 +550,26 @@ fn (mut wr WorldRuntime) request_tick(n i64) {
 
 // tick_snapshot returns the latest actor published simulation tick and is safe
 // to call from any thread.
-fn (wr &WorldRuntime) tick_snapshot() i64 {
+pub fn (wr &WorldRuntime) tick_snapshot() i64 {
 	mut p := wr.published_tick
 	return p.load()
+}
+
+// requested_tick_locked reads the requested tick under the lock that publishes
+// it. requested_tick_snapshot is the lock free path; this is the value it has
+// to agree with and exists to that agreement can be asserted.
+pub fn (mut wr WorldRuntime) requested_tick_locked() i64 {
+	wr.tick_mutex.lock()
+	defer {
+		wr.tick_mutex.unlock()
+	}
+	return wr.latest_tick
 }
 
 // requested_tick_snapshot returns the latest requested (not yet necessarily
 // simulated) tick and is safe to call from any thread. requested_tick_snapshot()
 // minus tick_snapshot() is the world's current simulation debt.
-fn (wr &WorldRuntime) requested_tick_snapshot() i64 {
+pub fn (wr &WorldRuntime) requested_tick_snapshot() i64 {
 	mut p := wr.published_latest_tick
 	return p.load()
 }
@@ -565,16 +585,16 @@ fn (mut tx WorldTx) run_due_tick() {
 	runs.add(1)
 }
 
-fn (wr &WorldRuntime) tick_runs_count() i64 {
+pub fn (wr &WorldRuntime) tick_runs_count() i64 {
 	mut runs := wr.published_tick_runs
 	return runs.load()
 }
 
 // simulated_steps_count reports how many discrete simulated ticks
-// advance_tick has actually run, across every call - proves the bounded
-// catch-up policy structurally: this grows by at most max_world_catchup_ticks
+// advance_tick has actually run, across every call. Proves the bounded
+// catchup policy structurally: this grows by at most max_world_catchup_ticks
 // per run_due_tick, never by the full debt. Safe to call from any thread.
-fn (wr &WorldRuntime) simulated_steps_count() i64 {
+pub fn (wr &WorldRuntime) simulated_steps_count() i64 {
 	mut steps := wr.published_simulated_steps
 	return steps.load()
 }
@@ -632,7 +652,7 @@ pub:
 	continuation_peak  			   i64
 }
 
-fn (mut wr WorldRuntime) metrics() WorldMetrics {
+pub fn (mut wr WorldRuntime) metrics() WorldMetrics {
 	mut oldest_age := time.Duration(0)
 	wr.mutex.lock()
 	if wr.queue_times.len > 0 {
@@ -707,7 +727,7 @@ fn (mut wr WorldRuntime) metrics() WorldMetrics {
 
 // publish_player_count refreshes the cross thread player count snapshot.
 // Called only from register_player/deregister_player, both actor only.
-fn (mut wr WorldRuntime) publish_player_count() {
+pub fn (mut wr WorldRuntime) publish_player_count() {
 	mut count := wr.published_player_count
 	count.store(wr.entities.player_actor_count())
 }
@@ -719,17 +739,6 @@ pub fn (wr &WorldRuntime) player_count() i64 {
 	return count.load()
 }
 
-// advance_tick owns one centralized catch-up loop - subsystems never run
-// their own. If this called w.tick()-equivalent logic, liquids.tick(), and
-// a scheduler each with their own independent notion of "how far behind are
-// we," a single 20-step catch-up could silently become several times the
-// intended work. Instead this simulates real discrete steps one at a time,
-// running every discrete subsystem exactly once per step, in the same
-// fixed order the previous single actor tick path used: scheduled ticks,
-// then random ticks, then liquids, then entities, then publish -
-// broadcasting each step's changes before moving to the next so later
-// steps in the same call see already-applied state, matching how a real
-// 50ms-apart tick would.
 fn (mut tx WorldTx) advance_tick(target i64) {
 	mut wr := tx.wr
 	tick_start := time.now()
@@ -755,19 +764,7 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 	if debt > max_world_catchup_ticks {
 		tx.log_tick_overrun(debt)
 	}
-	// Leave current_tick exactly where simulation advanced it. Never snap it
-	// forward to target: doing so would discard unsimulated debt while making
-	// published_tick claim that the world had caught up. That was the cause of
-	// the block break desync: tick numbered progress observed a jump for ticks
-	// that were never actually simulated.
-	//
-	// If debt exceeds the per run cap, the remainder stays pending and is
-	// processed by subsequent run_due_tick calls. It therefore remains visible
-	// as requested_tick_snapshot().
-	// tick_snapshot() rather than being hidden by an artificial resync.
-	//
-	// A world that can't keep up loses TPS and remains behind rather than
-	// advancing its simulation clock over unexecuted ticks.
+
 	mut p := wr.published_tick
 	p.store(wr.current_tick)
 
@@ -777,19 +774,13 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 	last_tick_ns.store(time.since(tick_start).nanoseconds())
 }
 
-fn (mut wr WorldRuntime) sample_outbound_depth(depth int) {
+pub fn (mut wr WorldRuntime) sample_outbound_depth(depth int) {
 	mut peak := wr.published_outbound_peak_depth
 	if i64(depth) > peak.load() {
 		peak.store(i64(depth))
 	}
 }
 
-// run_due_scheduled_ticks executes at most max_due_updates_per_tick entries
-// whose deadline has arrived at this simulated step. Deadline advancement
-// (which entries are due) is an uncapped elapsed-time comparison, handled
-// inside due_scheduled_entries against wr.current_tick; execution is the
-// part that needs the bound, since a long stall can make hundreds of
-// entries due in the same step.
 fn (mut tx WorldTx) run_due_scheduled_ticks() {
 	mut wr := tx.wr
 	due := wr.world.due_scheduled_entries(wr.current_tick, max_due_updates_per_tick)
@@ -827,15 +818,14 @@ fn (mut tx WorldTx) run_random_ticks() {
 }
 
 // log_tick_overrun records that this world fell behind further than
-// max_world_catchup_ticks could absorb. Runtime-level reporting currently uses
-// stderr because WorldRuntime does not own a logger.
+// max_world_catchup_ticks could absorb.
 fn (mut tx WorldTx) log_tick_overrun(debt i64) {
 	mut overruns := tx.wr.published_tick_overruns
 	overruns.add(1)
 	eprintln('[world ${tx.wr.world.name}] tick overrun: ${debt} ticks behind, catch-up capped at ${max_world_catchup_ticks}')
 }
 
-fn (mut wr WorldRuntime) record_outbound_overflow() {
+pub fn (mut wr WorldRuntime) record_outbound_overflow() {
 	mut overflows := wr.published_outbound_overflow_count
 	overflows.add(1)
 }

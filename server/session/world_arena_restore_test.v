@@ -4,6 +4,7 @@ import time
 import server.internal.gamedata
 import server.world
 import server.world.db
+import server.worldrt
 
 struct SequentialBlockSource {}
 
@@ -20,7 +21,7 @@ fn (t ArenaRestoreBarrierTask) name() string {
 	return 'ArenaRestoreBarrierTask'
 }
 
-fn (t ArenaRestoreBarrierTask) run(mut tx WorldTx) {
+fn (t ArenaRestoreBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -33,7 +34,7 @@ fn (t ArenaFairnessMarkerTask) name() string {
 	return 'ArenaFairnessMarkerTask'
 }
 
-fn (t ArenaFairnessMarkerTask) run(mut tx WorldTx) {
+fn (t ArenaFairnessMarkerTask) run(mut tx worldrt.WorldTx) {
 	t.done <- true
 }
 
@@ -128,7 +129,7 @@ fn (t ArenaQueueFillerTask) name() string {
 	return 'ArenaQueueFillerTask'
 }
 
-fn (t ArenaQueueFillerTask) run(mut tx WorldTx) {
+fn (t ArenaQueueFillerTask) run(mut tx worldrt.WorldTx) {
 	time.sleep(time.millisecond)
 }
 

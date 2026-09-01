@@ -1,4 +1,4 @@
-module session
+module worldrt
 
 // WorldCallTask wraps a closure for execution on a WorldRuntime actor through
 // the regular WorldTask queue.
@@ -20,7 +20,7 @@ fn (t WorldCallTask) run(mut tx WorldTx) {
 	t.run_fn(mut tx)
 }
 
-// world_call runs "f" on this WorldRuntime's actor thread and blocks until its
+// world_call runs "f"unction on this WorldRuntime's actor thread and blocks until its
 // result is available. It returns none if the runtime rejects submission,
 // such as during shutdown.
 //
@@ -31,7 +31,7 @@ fn (t WorldCallTask) run(mut tx WorldTx) {
 // it would hang the world permanently and, because shutdown waits for the
 // active task, block shutdown with it. Code already inside a task must use its
 // WorldTx directly.
-fn world_call[T](label string, mut wr WorldRuntime, f fn (mut tx WorldTx) T) ?T {
+pub fn world_call[T](label string, mut wr WorldRuntime, f fn (mut tx WorldTx) T) ?T {
 	if wr.on_actor_thread() {
 		panic('world_call("${label}") from world "${wr.world.name}" actor thread would deadlock; use the WorldTx already in scope')
 	}

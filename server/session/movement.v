@@ -5,6 +5,7 @@ import bedrock_v.protocol.types
 import server.event
 import bedrock_v.protocol.current as proto
 import server.player
+import server.worldrt
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
@@ -57,6 +58,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 		submitted = wr.try_submit(PlayerMoveTask{
 			runtime_id: s.runtime_id
 			epoch:      binding.epoch
+			hub:        s.hub
 		})
 	}
 	if !submitted {
@@ -168,6 +170,10 @@ fn (mut s NetworkSession) clear_movement_scheduled_if_idle() bool {
 struct PlayerMoveTask {
 	runtime_id u64
 	epoch      i64
+	// hub is carried rather than reached for through the transaction: the
+	// world runtime deliberately has no route to a session and this task
+	// still has to find one whose epoch has since moved on.
+	hub &Hub = unsafe { nil }
 }
 
 // run resolves the session through Hub because stale tasks must still clear
@@ -177,8 +183,9 @@ fn (t PlayerMoveTask) name() string {
 	return 'PlayerMoveTask'
 }
 
-fn (t PlayerMoveTask) run(mut tx WorldTx) {
-	mut s := tx.wr.game.hub.session_by_runtime(t.runtime_id) or { return }
+fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
+	mut hub := unsafe { t.hub }
+	mut s := hub.session_by_runtime(t.runtime_id) or { return }
 	for {
 		if s.world_binding().epoch != t.epoch || !tx.wr.entities.is_player_actor(t.runtime_id) {
 			s.movement_mutex.lock()
@@ -194,9 +201,9 @@ fn (t PlayerMoveTask) run(mut tx WorldTx) {
 	}
 }
 
-fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapshot) {
+fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot MovementSnapshot) {
 	position := snapshot.position
-	if s.spawned && tx.wr.game.hub.current_tick() % 40 == 0 {
+	if s.spawned && tx.wr.services.current_tick() % 40 == 0 {
 		s.log.debug('move ${s.player.identity.display_name} pos=(${position.x:.2f}, ${position.y:.2f}, ${position.z:.2f})')
 	}
 	if s.spawned {
@@ -247,7 +254,7 @@ fn fall_damage_amount(fall_distance f32) f32 {
 	return whole
 }
 
-fn (mut s NetworkSession) apply_fall_damage(mut wr WorldRuntime, landed_distance f32) {
+fn (mut s NetworkSession) apply_fall_damage(mut wr worldrt.WorldRuntime, landed_distance f32) {
 	dmg := fall_damage_amount(landed_distance)
 	if dmg > 0 {
 		s.apply_hurt(mut wr, dmg, FallDamageSource{})

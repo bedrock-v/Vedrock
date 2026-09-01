@@ -6,7 +6,6 @@ import server.player.playerdb
 import server.item
 import server.block
 import bedrock_v.protocol.current as proto
-import server.player
 
 const inventory_window_id = 0
 const inventory_slot_count = 36

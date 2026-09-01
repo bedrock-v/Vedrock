@@ -9,6 +9,7 @@ import server.item
 import server.world
 import bedrock_v.protocol.current as proto
 import server.player
+import server.worldrt
 
 // break_fx_interval_ticks is how often the punch particle and the arm swing
 // repeat while a player keeps mining the same block.
@@ -130,7 +131,7 @@ fn (t BlockCrackingTask) name() string {
 	return 'BlockCrackingTask'
 }
 
-fn (t BlockCrackingTask) run(mut tx WorldTx) {
+fn (t BlockCrackingTask) run(mut tx worldrt.WorldTx) {
 	player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
 	broadcast_cracking(mut tx, t.event_id, t.pos, t.data)
 }
@@ -148,7 +149,7 @@ fn (t StartBreakAnimationTask) name() string {
 	return 'StartBreakAnimationTask'
 }
 
-fn (t StartBreakAnimationTask) run(mut tx WorldTx) {
+fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
 	s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
 	if t.crack_speed > 0 {
 		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
@@ -230,7 +231,7 @@ fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
 // tick_breaking advances the block this player is mining by one tick and
 // keeps the client's crack animation in sync, since the client leaves the
 // break timing to the server. It runs on the owning world's thread.
-fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
+fn (mut s NetworkSession) tick_breaking(mut tx worldrt.WorldTx) {
 	original := s.breaking_snapshot() or { return }
 	pos := types.BlockPosition{original.x, original.y, original.z}
 	current_id := block_at(tx, original.x, original.y, original.z)

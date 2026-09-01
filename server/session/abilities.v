@@ -1,7 +1,6 @@
 module session
 
 import bedrock_v.protocol.current as proto
-import server.player
 
 // Bedrock's UpdateAbilitiesPacket.command_permission wire values.
 const command_permission_normal = u8(0)

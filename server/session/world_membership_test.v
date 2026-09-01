@@ -8,6 +8,7 @@ import server.player
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -27,18 +28,18 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn wr_has_player(mut wr WorldRuntime, rid u64) bool {
-	return world_call[bool]('test', mut wr, fn [rid] (mut tx WorldTx) bool {
+fn wr_has_player(mut wr worldrt.WorldRuntime, rid u64) bool {
+	return worldrt.world_call[bool]('test', mut wr, fn [rid] (mut tx worldrt.WorldTx) bool {
 		return tx.wr.entities.is_player_actor(rid)
 	}) or { false }
 }
 
-fn membership_test_session(mut hub Hub, wr &WorldRuntime) &NetworkSession {
+fn membership_test_session(mut hub Hub, wr &worldrt.WorldRuntime) &NetworkSession {
 	mut transport := &FakeTransport{}
 	return membership_test_session_with_transport(mut hub, wr, 'Alex', mut transport)
 }
 
-fn membership_test_session_with_transport(mut hub Hub, wr &WorldRuntime, name string, mut transport FakeTransport) &NetworkSession {
+fn membership_test_session_with_transport(mut hub Hub, wr &worldrt.WorldRuntime, name string, mut transport FakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: name
@@ -121,7 +122,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	mut far_p := membership_test_session_with_transport(mut hub, wr_a, 'Far', mut far_transport)
 	far_p.spawned = true
 	hub.add(far_p)
-	world_call[bool]('test', mut wr_a, fn [far_p] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn [far_p] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, far_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -130,7 +131,7 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	mut near_p := membership_test_session_with_transport(mut hub, wr_b, 'Near', mut near_transport)
 	near_p.spawned = true
 	hub.add(near_p)
-	world_call[bool]('test', mut wr_b, fn [near_p] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_b, fn [near_p] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, near_p)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

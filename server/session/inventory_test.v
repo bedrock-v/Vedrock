@@ -9,6 +9,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) proto.MobEquipmentPacket {
 	return proto.MobEquipmentPacket{
@@ -38,7 +39,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn mob_equipment_test_session(mut hub Hub, mut wr WorldRuntime, name string, transport &FakeTransport) &NetworkSession {
+fn mob_equipment_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, transport &FakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: name
@@ -54,7 +55,7 @@ fn mob_equipment_test_session(mut hub Hub, mut wr WorldRuntime, name string, tra
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -81,7 +82,7 @@ fn test_handle_mob_equipment_selects_hotbar_slot() {
 	s.handle_mob_equipment(mob_equipment_packet(s.runtime_id, stack, 4)) or {
 		panic('handle_mob_equipment failed: ${err}')
 	}
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -117,10 +118,10 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 	actor.handle_mob_equipment(mob_equipment_packet(actor.runtime_id, stack, 4)) or {
 		panic('handle_mob_equipment failed: ${err}')
 	}
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
-	// The world_call barrier only proves the world actor finished
+	// The worldrt.world_call barrier only proves the world actor finished
 	// broadcasting; each observer's own outbound writer still has to drain
 	// that delivery asynchronously afterward.
 	assert wait_for_sent_len(transport_a, 1, 5000)
@@ -170,7 +171,7 @@ fn test_mob_equipment_stale_epoch_produces_no_effect() {
 		}
 	}
 	assert wr_a.submit(task)
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -225,7 +226,7 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 			]
 		},
 	]
-	world_call[[]proto.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
+	worldrt.world_call[[]proto.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx worldrt.WorldTx) []proto.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, rid, epoch, requests)
 	}) or { []proto.ItemStackResponseInfo{} }
 

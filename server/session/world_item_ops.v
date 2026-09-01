@@ -7,9 +7,9 @@ import server.block
 import server.entity
 import server.item
 import bedrock_v.protocol.current as proto
-import server.player
+import server.worldrt
 
-fn spawn_dropped_item_entity(mut wr WorldRuntime, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
+fn spawn_dropped_item_entity(mut wr worldrt.WorldRuntime, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
 	if stack.count <= 0 || stack.id == 0 {
 		return
 	}
@@ -18,11 +18,11 @@ fn spawn_dropped_item_entity(mut wr WorldRuntime, stack types.ItemStack, max_sta
 	e.set_velocity(velocity)
 }
 
-fn spawn_dropped_item_stack(mut wr WorldRuntime, item_name string, count int, pos types.Vector3) {
+fn spawn_dropped_item_stack(mut wr worldrt.WorldRuntime, item_name string, count int, pos types.Vector3) {
 	if count <= 0 {
 		return
 	}
-	id := wr.game.hub.data.item_id(item_name)
+	id := wr.services.game_data().item_id(item_name)
 	if id == 0 {
 		return
 	}
@@ -40,7 +40,7 @@ fn spawn_dropped_item_stack(mut wr WorldRuntime, item_name string, count int, po
 		entity.item_pickup_delay_ticks)
 }
 
-fn drop_player_item(mut wr WorldRuntime, s &NetworkSession, stack types.ItemStack) {
+fn drop_player_item(mut wr worldrt.WorldRuntime, s &NetworkSession, stack types.ItemStack) {
 	feet := s.feet_position()
 	movement := s.player.movement()
 	yaw_rad := f32(movement.yaw) * f32(math.pi) / 180.0
@@ -55,18 +55,18 @@ fn drop_player_item(mut wr WorldRuntime, s &NetworkSession, stack types.ItemStac
 		entity.item_drop_pickup_delay_ticks)
 }
 
-fn block_drop_for(mut wr WorldRuntime, block_id int) (string, int) {
+fn block_drop_for(mut wr worldrt.WorldRuntime, block_id int) (string, int) {
 	identifier := if b := block.get(block_id) { b.identifier() } else { '' }
 	if identifier != '' {
 		if loot := block.loot_for_block(identifier) {
 			return loot.item_name, entity.rand_int_range(loot.min_count, loot.max_count)
 		}
 	}
-	item_id := wr.game.hub.data.item_for_block(block_id)
+	item_id := wr.services.game_data().item_for_block(block_id)
 	if item_id == 0 {
 		return '', 0
 	}
-	return wr.game.hub.data.item_name(item_id), 1
+	return wr.services.game_data().item_name(item_id), 1
 }
 
 fn (mut s NetworkSession) try_collect_item(stack types.ItemStack) int {

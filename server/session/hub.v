@@ -6,7 +6,6 @@ import sync.stdatomic
 import math
 import time
 import bedrock_v.protocol
-import server.event
 import server.player.chat
 import server.scheduler
 import server.entity
@@ -28,7 +27,7 @@ import server.player
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
-// runs no actor of its own. Gameplay work happens on each WorldRuntime's
+// runs no actor of its own. Gameplay work happens on each worldrt.WorldRuntime's
 // own actor instead, Hub is just a mutex/atomic guarded registry and
 // service object. It remains a public type only so Server can hold a
 // reference to it across package boundaries; the field itself and most Hub
@@ -59,7 +58,7 @@ mut:
 	current_tick_bits &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	// world_registry owns loaded world runtimes and their lifecycle. Hub
 	// routes named lookups through it instead of storing raw worlds directly.
-	world_registry &WorldRegistry = unsafe { nil }
+	world_registry &worldrt.WorldRegistry = unsafe { nil }
 	// session_wg tracks sessions from registration until leave completes.
 	// wait_for_sessions_to_leave blocks until every session has finished
 	// leaving including saving player data and removing itself.
@@ -105,7 +104,7 @@ mut:
 // current_tick is the global tick counter, published directly from
 // server.v's tick loop (set_current_tick). See current_tick_bits' own
 // comment for why this is an atomic rather than a plain field.
-fn (mut h Hub) current_tick() i64 {
+pub fn (mut h Hub) current_tick() i64 {
 	return h.current_tick_bits.load()
 }
 
@@ -170,7 +169,7 @@ pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
 		scheduler:            scheduler.new_scheduler()
 		world_factory:        opts.world_factory
 		started_at:           time.now().unix()
-		world_registry:       new_world_registry()
+		world_registry:       worldrt.new_world_registry()
 		player_data_provider: player_data_provider
 		oidc_verifier:        auth_verifier
 	}
@@ -266,11 +265,18 @@ pub fn (h &Hub) uptime_seconds() i64 {
 	return time.now().unix() - h.started_at
 }
 
-// add_world wraps a loaded world in a WorldRuntime (starting its actor) and
+// add_world wraps a loaded world in a worldrt.WorldRuntime (starting its actor) and
 // registers it under its name. The first world added becomes the default
 // unless one is already set.
 fn (mut h Hub) add_world(loaded_world &db.World) {
-	mut wr := new_world_runtime(h, loaded_world)
+	mut wr := worldrt.new_world_runtime(
+		world:      loaded_world
+		services:   h
+		generators: h
+		handler:    h.world_handler
+		players:    SessionPlayerTicker{}
+		entity_host: new_world_entity_host
+	)
 	h.restore_world_entities(mut wr)
 	h.world_registry.add(wr)
 	h.mutex.lock()
@@ -280,7 +286,7 @@ fn (mut h Hub) add_world(loaded_world &db.World) {
 	h.mutex.unlock()
 }
 
-fn (mut h Hub) restore_world_entities(mut wr WorldRuntime) {
+fn (mut h Hub) restore_world_entities(mut wr worldrt.WorldRuntime) {
 	if !wr.world.is_persistent() {
 		return
 	}
@@ -290,13 +296,13 @@ fn (mut h Hub) restore_world_entities(mut wr WorldRuntime) {
 		return
 	}
 	registry := entity.process()
-	world_call[bool]('Hub.restore_world_entities', mut wr, fn [saved, registry] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('Hub.restore_world_entities', mut wr, fn [saved, registry] (mut tx worldrt.WorldTx) bool {
 		tx.wr.entities.restore_from_save(registry, saved)
 		return true
 	}) or {}
 }
 
-fn (mut h Hub) save_world_entities(mut wr WorldRuntime) {
+fn (mut h Hub) save_world_entities(mut wr worldrt.WorldRuntime) {
 	if !wr.world.is_persistent() {
 		return
 	}
@@ -314,7 +320,7 @@ fn (mut h Hub) set_default_world(name string) {
 // world_runtime looks up the named world's runtime. Gameplay packets normally
 // use the session's current binding; named lookup is for world commands and
 // transfers.
-fn (h &Hub) world_runtime(name string) ?&WorldRuntime {
+fn (h &Hub) world_runtime(name string) ?&worldrt.WorldRuntime {
 	mut r := h.world_registry
 	return r.get(name) or { return none }
 }
@@ -375,7 +381,7 @@ fn (mut h Hub) default_world() ?&db.World {
 }
 
 // default_world_runtime is default_world's routing path counterpart.
-fn (mut h Hub) default_world_runtime() ?&WorldRuntime {
+fn (mut h Hub) default_world_runtime() ?&worldrt.WorldRuntime {
 	h.mutex.lock()
 	name := h.default_world_name
 	h.mutex.unlock()
@@ -450,8 +456,8 @@ fn (mut h Hub) world_info(name string) ?WorldInfo {
 }
 
 // world_metrics gathers a runtime health snapshot for the named world or
-// none when it isn't loaded. See WorldRuntime.metrics for what it covers.
-fn (h &Hub) world_metrics(name string) ?WorldMetrics {
+// none when it isn't loaded. See worldrt.WorldRuntime.metrics for what it covers.
+fn (h &Hub) world_metrics(name string) ?worldrt.WorldMetrics {
 	mut wr := h.world_runtime(name) or { return none }
 	return wr.metrics()
 }
@@ -614,7 +620,19 @@ fn (mut h Hub) delete_world(name string) ! {
 	factory.delete(name) or { return error('failed to delete world "${name}": ${err}') }
 }
 
-fn (mut h Hub) allocate_runtime_id() u64 {
+// block_palette exposes the shared palette to world tasks through
+// worldrt.Services. The field itself stays unexported.
+pub fn (h &Hub) block_palette() &blockworld.BlockPalette {
+	return h.palette
+}
+
+// game_data exposes the shared item and block tables to world tasks through
+// worldrt.Services.
+pub fn (h &Hub) game_data() &gamedata.GameData {
+	return &h.data
+}
+
+pub fn (mut h Hub) allocate_runtime_id() u64 {
 	h.mutex.lock()
 	id := h.next_runtime_id
 	h.next_runtime_id++

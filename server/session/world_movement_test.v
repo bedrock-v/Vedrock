@@ -9,8 +9,9 @@ import server.player
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
-fn movement_isolation_test_session(mut hub Hub, mut wr WorldRuntime, pos types.Vector3) &NetworkSession {
+fn movement_isolation_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        player.new_player()
 		hub:           hub
@@ -23,7 +24,7 @@ fn movement_isolation_test_session(mut hub Hub, mut wr WorldRuntime, pos types.V
 	s.player.reset_position(pos)
 	hub.add(s)
 	// PlayerMoveTask requires world membership.
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -39,7 +40,7 @@ fn (t MovementIsolationBarrierTask) name() string {
 	return 'MovementIsolationBarrierTask'
 }
 
-fn (t MovementIsolationBarrierTask) run(mut tx WorldTx) {
+fn (t MovementIsolationBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -76,7 +77,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	// transfer.
 	gen := world_b.make_generator(hub.build_generator(world_b))
 	s.set_world_binding(wr_b, gen)
-	world_call[bool]('test', mut wr_b, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_b, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

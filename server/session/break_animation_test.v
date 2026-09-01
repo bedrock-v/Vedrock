@@ -10,12 +10,13 @@ import server.world.db
 import server.item
 import server.block
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 // A break that never starts shows the player no crack animation and no
 // particles, which is the whole symptom of the server reading a different
 // block than the client was sent.
 
-fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime, generator world.Generator) &NetworkSession {
+fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime, generator world.Generator) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -32,7 +33,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunti
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y) + 1.62, 0.5})
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }

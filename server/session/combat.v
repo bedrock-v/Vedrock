@@ -7,6 +7,7 @@ import server.event
 import server.item
 import bedrock_v.protocol.current as proto
 import server.player
+import server.worldrt
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -32,7 +33,7 @@ fn (t PlayerAttackTask) name() string {
 	return 'PlayerAttackTask'
 }
 
-fn (t PlayerAttackTask) run(mut tx WorldTx) {
+fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 	mut attacker := player_for_epoch(mut tx, t.attacker_runtime_id, t.attacker_epoch) or { return }
 	mut victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
 	if victim_actor.is_dead() {
@@ -64,7 +65,7 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 	if ctx.is_cancelled() {
 		return
 	}
-	damage_held_item(mut tx, mut attacker, 1)
+	damage_held_item(mut attacker, 1)
 	damage_actor(mut tx.wr, t.victim_runtime_id, ctx.val.damage, AttackDamageSource{
 		attacker_name: attacker.player.identity.display_name
 	}, t.attacker_runtime_id, own, ctx.val.knockback_force, ctx.val.knockback_height)
@@ -133,7 +134,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		return
 	}
 	mut wr := binding.world_runtime
-	snap := world_call[EntityInteractSnapshot]('EntityInteract', mut wr, fn [own, target_runtime_id] (mut tx WorldTx) EntityInteractSnapshot {
+	snap := worldrt.world_call[EntityInteractSnapshot]('EntityInteract', mut wr, fn [own, target_runtime_id] (mut tx worldrt.WorldTx) EntityInteractSnapshot {
 		target := tx.wr.entities.by_runtime_id(target_runtime_id) or {
 			return EntityInteractSnapshot{}
 		}
@@ -199,7 +200,7 @@ fn (s &NetworkSession) is_critical() bool {
 // source decides fire resistance immunity and resistance effect reduction
 // (see DamageSource, damage_source.v) and supplies the
 // death message. Effect damage doesn't go through here.
-fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source DamageSource) {
+fn (mut s NetworkSession) apply_hurt(mut wr worldrt.WorldRuntime, amount f32, source DamageSource) {
 	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
@@ -242,7 +243,7 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 
 // apply_death is the single death path for combat, /kill and fatal effect
 // damage.
-fn (mut s NetworkSession) apply_death(mut wr WorldRuntime, message_key string, parameters []string) {
+fn (mut s NetworkSession) apply_death(mut wr worldrt.WorldRuntime, message_key string, parameters []string) {
 	mut ctx := event.new_context(player.DeathData{
 		player:      s
 		message_key: message_key
@@ -280,7 +281,7 @@ fn (t PlayerRespawnTask) name() string {
 	return 'PlayerRespawnTask'
 }
 
-fn (t PlayerRespawnTask) run(mut tx WorldTx) {
+fn (t PlayerRespawnTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	target.apply_respawn(mut tx.wr)
 }
@@ -306,7 +307,7 @@ fn (mut s NetworkSession) request_respawn() {
 	})
 }
 
-fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
+fn (mut s NetworkSession) apply_respawn(mut wr worldrt.WorldRuntime) {
 	if !s.player.is_dead() {
 		return
 	}

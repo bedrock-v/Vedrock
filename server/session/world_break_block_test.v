@@ -11,6 +11,7 @@ import server.world
 import server.world.db
 import server.item
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -33,7 +34,7 @@ fn break_test_hub() &Hub {
 	return hub
 }
 
-fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime) &NetworkSession {
+fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -50,7 +51,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -362,8 +363,8 @@ fn test_standing_player_mines_at_vanilla_speed() {
 
 // tick_world_once runs one simulation step on the owning world actor, the same
 // entry point the tick loop uses.
-fn tick_world_once(mut wr WorldRuntime) {
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+fn tick_world_once(mut wr worldrt.WorldRuntime) {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		mut ticker := SessionPlayerTicker{}
 	ticker.tick_players(mut tx)
 		return true
@@ -414,7 +415,7 @@ fn (t BreakBarrierTask) name() string {
 	return 'BreakBarrierTask'
 }
 
-fn (t BreakBarrierTask) run(mut tx WorldTx) {
+fn (t BreakBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }

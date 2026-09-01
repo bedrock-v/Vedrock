@@ -5,7 +5,7 @@ import bedrock_v.protocol.types
 import server.entity
 import server.world.db
 import bedrock_v.protocol.current as proto
-import server.player
+import server.worldrt
 
 fn chest_dynamic_container_id() int {
 	return int(proto.ContainerID.first)
@@ -59,7 +59,7 @@ fn (mut s NetworkSession) set_open_container_slot_net_id(slot int, net_id int) {
 	s.open_container_mutex.unlock()
 }
 
-fn open_chest_container(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition) {
+fn open_chest_container(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	if old := s.open_container_position() {
 		tx.wr.world.release_container_hold(old.x, old.y, old.z, s.runtime_id)
 		s.set_open_container_position(none)
@@ -100,7 +100,7 @@ fn open_chest_container(mut tx WorldTx, mut s NetworkSession, pos types.BlockPos
 
 // close_chest_container releases s's hold ,if any, and clears its
 // tracked open position. Safe to call even if nothing is open.
-fn (mut s NetworkSession) close_chest_container(mut tx WorldTx) {
+fn (mut s NetworkSession) close_chest_container(mut tx worldrt.WorldTx) {
 	if pos := s.open_container_position() {
 		tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, s.runtime_id)
 	}
@@ -109,7 +109,7 @@ fn (mut s NetworkSession) close_chest_container(mut tx WorldTx) {
 
 // drop_chest_contents spawns every non-empty stored stack at the chest's
 // center, then clears its persisted contents.
-fn drop_chest_contents(mut wr WorldRuntime, mut s NetworkSession, x int, y int, z int) {
+fn drop_chest_contents(mut wr worldrt.WorldRuntime, mut s NetworkSession, x int, y int, z int) {
 	stacks := wr.world.container_slots(x, y, z)
 	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
 	for stack in stacks {

@@ -8,6 +8,7 @@ import server.internal.gamedata
 import server.player
 import server.world
 import server.world.db
+import server.worldrt
 
 fn dst_test_player(name string, health f32, mode player.Gamemode) &player.Player {
 	mut pl := player.new_player()
@@ -19,13 +20,13 @@ fn dst_test_player(name string, health f32, mode player.Gamemode) &player.Player
 	return pl
 }
 
-fn damage_source_test_world(mut hub Hub) &WorldRuntime {
+fn damage_source_test_world(mut hub Hub) &worldrt.WorldRuntime {
 	w := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(w)
 	return hub.world_runtime('world') or { panic('expected world runtime') }
 }
 
-fn damage_source_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32) &NetworkSession {
+fn damage_source_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, health f32) &NetworkSession {
 	mut s := &NetworkSession{
 		player:     dst_test_player(name, health, .survival)
 		runtime_id: hub.allocate_runtime_id()
@@ -33,7 +34,7 @@ fn damage_source_test_session(mut hub Hub, mut wr WorldRuntime, name string, hea
 		conn: &Conn{ transport: &FakeTransport{} }
 	}
 	hub.add(s)
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	register_player(mut tx, s)
@@ -197,7 +198,7 @@ fn test_tick_breath_drains_and_refills_air_supply() {
 		hub.close_worlds()
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -216,7 +217,7 @@ fn test_tick_breath_damages_once_air_runs_out() {
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 	s.player.set_air_supply(0)
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -231,7 +232,7 @@ fn test_tick_burning_lava_contact_damages_once_and_sets_fire() {
 		hub.close_worlds()
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -252,7 +253,7 @@ fn test_tick_burning_water_extinguishes() {
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 	s.player.set_fire_ticks(100)
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -269,7 +270,7 @@ fn test_tick_burning_deals_damage_every_20_ticks_while_burning() {
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 	s.player.set_fire_ticks(21)
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -286,7 +287,7 @@ fn test_tick_effects_applies_damage_when_wired_throu_world_tx() {
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 	s.player.reset_position(types.Vector3{0, void_damage_y - 1, 0})
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 

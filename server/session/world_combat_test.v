@@ -7,8 +7,9 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import server.worldrt
 
-fn combat_world_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32) &NetworkSession {
+fn combat_world_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, health f32) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: name
@@ -25,7 +26,7 @@ fn combat_world_test_session(mut hub Hub, mut wr WorldRuntime, name string, heal
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -76,7 +77,7 @@ fn test_player_attack_event_reaches_only_the_attacker() {
 	bystander.handle(handler_b)
 
 	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -100,7 +101,7 @@ fn test_attack_cross_world_victim_produces_no_effect() {
 	mut victim := combat_world_test_session(mut hub, mut wr_b, 'Steve', 20)
 
 	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -132,7 +133,7 @@ fn test_attack_stale_epoch_produces_no_effect() {
 		damage:              10.0
 	}
 	assert wr_a.submit(task)
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -161,7 +162,7 @@ fn test_kill_stale_epoch_produces_no_effect() {
 		epoch:      stale_epoch
 	}
 	assert wr_a.submit(task)
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -193,7 +194,7 @@ fn test_respawn_stale_epoch_produces_no_effect() {
 		epoch:      stale_epoch
 	}
 	assert wr_a.submit(task)
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -222,7 +223,7 @@ fn test_player_death_event_reaches_only_the_dying_player() {
 	bystander.handle(handler_b)
 
 	s.kill()
-	world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 

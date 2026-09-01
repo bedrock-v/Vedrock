@@ -11,6 +11,7 @@ import server.world.db
 import server.item
 import server.block
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -86,7 +87,7 @@ fn place_test_hub() &Hub {
 	return hub
 }
 
-fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime) &NetworkSession {
+fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -104,7 +105,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	s.player.reset_position(types.Vector3{0.5, 1.62, 0.5})
 	hub.add(s)
 	// PlayerPlaceBlockTask requires world membership.
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -426,7 +427,7 @@ fn test_door_placement_upper_blocked_leaves_both_untouched() {
 	mut blocker := place_test_session(mut hub, mut blocker_transport, mut wr)
 	blocker.player.reset_position(types.Vector3{0.5, 1.0 + player_eye_height, 0.5})
 
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	pos := types.BlockPosition{0, 0, 0}
@@ -455,7 +456,7 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 		hub.close_worlds()
 	}
 
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	pos := types.BlockPosition{0, 0, 0}
@@ -482,7 +483,7 @@ fn test_door_placement_writes_both_halves_atomically_in_same_world() {
 		hub.close_worlds()
 	}
 
-	mut tx := &WorldTx{
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	pos := types.BlockPosition{0, 0, 0}

@@ -1,7 +1,6 @@
 module session
 
 import bedrock_v.protocol.current as proto
-import server.player
 
 fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))

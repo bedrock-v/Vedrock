@@ -7,7 +7,7 @@ import server.world.db
 import server.player
 import server.worldrt
 
-fn entity_test_hub_with_world() (&Hub, &WorldRuntime) {
+fn entity_test_hub_with_world() (&Hub, &worldrt.WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)

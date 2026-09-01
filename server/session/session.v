@@ -14,6 +14,7 @@ import server.event
 import server.form
 import sync
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -67,7 +68,7 @@ mut:
 	world          &db.World       = unsafe { nil }
 	generator      world.Generator = world.VoidGenerator{}
 	// world_runtime is the mutation routing counterpart to world.
-	world_runtime &WorldRuntime = unsafe { nil }
+	world_runtime &worldrt.WorldRuntime = unsafe { nil }
 	// world_epoch increments whenever the session changes runtime. World tasks
 	// capture it at submission and drop stale work after a world switch.
 	world_epoch i64
@@ -158,7 +159,7 @@ fn (s &NetworkSession) current_world() &db.World {
 // world switch states.
 struct WorldBinding {
 	world         &db.World
-	world_runtime &WorldRuntime
+	world_runtime &worldrt.WorldRuntime
 	generator     world.Generator
 	epoch         i64
 }
@@ -166,7 +167,7 @@ struct WorldBinding {
 // set_world_binding bumps world_epoch only during change_world, between
 // deregistration from the old world and registration with the new one.
 // Direct test calls intentionally simulate a completed transfer.
-fn (mut s NetworkSession) set_world_binding(wr &WorldRuntime, generator world.Generator) {
+fn (mut s NetworkSession) set_world_binding(wr &worldrt.WorldRuntime, generator world.Generator) {
 	s.world_mutex.lock()
 	s.world_runtime = wr
 	s.world = wr.world
@@ -186,7 +187,7 @@ fn (s &NetworkSession) world_binding() WorldBinding {
 
 // current_world_runtime returns the runtime for the session's current world,
 // avoiding a second name based lookup through Hub.
-fn (mut s NetworkSession) current_world_runtime() &WorldRuntime {
+fn (mut s NetworkSession) current_world_runtime() &worldrt.WorldRuntime {
 	return s.world_binding().world_runtime
 }
 
@@ -302,7 +303,7 @@ pub fn (mut s NetworkSession) handle_loop() {
 }
 
 // leave deregisters the session from its world before removing it from Hub,
-// ensuring no WorldRuntime player entry outlives the session it references.
+// ensuring no worldrt.WorldRuntime player entry outlives the session it references.
 fn (mut s NetworkSession) leave() {
 	if !s.spawned {
 		s.hub.release_player_name(s.player.identity.display_name)
@@ -317,7 +318,7 @@ fn (mut s NetworkSession) leave() {
 		list_remove_pkt := s.player_list_remove_packet()
 		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		world_call[bool]('Session.leave', mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx worldrt.WorldTx) bool {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
 			s.release_crafting_state()

@@ -4,6 +4,7 @@ import server.internal.gamedata
 import server.world
 import server.world.db
 import time
+import server.worldrt
 
 // ActorIdentityTask reports whether the actor loop's own thread is recognised
 // from inside a running task.
@@ -15,7 +16,7 @@ fn (t ActorIdentityTask) name() string {
 	return 'ActorIdentityTask'
 }
 
-fn (t ActorIdentityTask) run(mut tx WorldTx) {
+fn (t ActorIdentityTask) run(mut tx worldrt.WorldTx) {
 	t.answer <- tx.wr.on_actor_thread()
 }
 
@@ -31,7 +32,7 @@ fn (t YieldingTask) name() string {
 	return 'YieldingTask'
 }
 
-fn (t YieldingTask) run(mut tx WorldTx) {
+fn (t YieldingTask) run(mut tx worldrt.WorldTx) {
 	if t.remaining <= 1 {
 		t.done <- true
 		return
@@ -42,7 +43,7 @@ fn (t YieldingTask) run(mut tx WorldTx) {
 	})
 }
 
-fn actor_identity_runtime(name string) &WorldRuntime {
+fn actor_identity_runtime(name string) &worldrt.WorldRuntime {
 	mut hub := new_hub(gamedata.GameData{})
 	target := db.new_world(name, none, 'void', world.overworld)
 	hub.add_world(target)
@@ -50,7 +51,7 @@ fn actor_identity_runtime(name string) &WorldRuntime {
 }
 
 // test_on_actor_thread_is_true_only_on_the_actor asserts the identity
-// WorldRuntime publishes is the actor's own, not merely non zero. Without it a
+// worldrt.WorldRuntime publishes is the actor's own, not merely non zero. Without it a
 // blocking call made from the actor waits on work only that thread can run,
 // which hangs the world and, because shutdown waits for the active task,
 // blocks shutdown with it.

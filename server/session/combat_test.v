@@ -10,6 +10,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -71,14 +72,14 @@ fn test_handle_attack_rejects_out_of_reach() {
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
 	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
 	assert victim.player.health() == 20
 }
 
-fn combat_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32, mode player.Gamemode) &NetworkSession {
+fn combat_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, health f32, mode player.Gamemode) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        make_combat_test_player(name, health, mode)
 		runtime_id:    hub.allocate_runtime_id()
@@ -89,7 +90,7 @@ fn combat_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32
 		conn: &Conn{ transport: &FakeTransport{} }
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -111,9 +112,9 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	victim.player.reset_position(types.Vector3{1.0, 0.0, 0.0})
 
 	attacker.handle_attack(victim.runtime_id)!
-	// world_call as a synchronization barrier, guarantees the attack task
+	// worldrt.world_call as a synchronization barrier, guarantees the attack task
 	// above has actually landed before checking state.
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -144,7 +145,7 @@ fn test_handle_attack_damages_a_mob() {
 	}, types.Vector3{1.0, 0.0, 0.0})
 
 	attacker.handle_attack(mob.runtime_id)!
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -170,7 +171,7 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 	}, types.Vector3{100.0, 0.0, 0.0})
 
 	attacker.handle_attack(mob.runtime_id)!
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -180,7 +181,7 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 	assert still_alive.health == 20.0
 }
 
-fn apply_hurt_test_world(mut hub Hub) &WorldRuntime {
+fn apply_hurt_test_world(mut hub Hub) &worldrt.WorldRuntime {
 	w := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(w)
 	return hub.world_runtime('world') or { panic('expected world runtime') }

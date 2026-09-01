@@ -8,6 +8,7 @@ import server.block
 import server.item
 import bedrock_v.protocol.current as proto
 import server.player
+import server.worldrt
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -324,14 +325,14 @@ fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
 	s.deliver(&proto.UpdateBlockPacket{
 		block_position:   proto.block_pos(pos)
 		block_runtime_id: u32(s.block_at(pos.x, pos.y, pos.z))
-		flags:            block_update_flags
+		flags:            worldrt.block_update_flags
 		layer:            0
 	})
 }
 
 // apply_consume_held_item mutates only this player's inventory through Player
 // accessors and sends the slot update packet. World owned placement code calls
-// it through WorldTx.consume_held_item.
+// it through worldrt.WorldTx.consume_held_item.
 fn (mut s NetworkSession) apply_consume_held_item() {
 	stack, net := s.inventory_stack_at(s.player.held_slot())
 	if net == 0 || stack.count <= 0 {
@@ -380,7 +381,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		s.send_maybe_queued(&proto.UpdateBlockPacket{
 			block_position:   proto.block_pos(pos)
 			block_runtime_id: u32(old_id)
-			flags:            block_update_flags
+			flags:            worldrt.block_update_flags
 			layer:            0
 		})!
 		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
@@ -426,7 +427,7 @@ fn (t PlayerBreakBlockTask) name() string {
 	return 'PlayerBreakBlockTask'
 }
 
-fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
+fn (t PlayerBreakBlockTask) run(mut tx worldrt.WorldTx) {
 	defer {
 		t.done <- true
 	}
@@ -442,7 +443,7 @@ fn (t PlayerBreakBlockTask) run(mut tx WorldTx) {
 // arrives as a PlayerBreakBlockTask, and a break the server itself finished
 // calls in from tick_breaking, which is the only path that runs when the
 // client has handed block breaking to the server.
-fn complete_block_break(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
+fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
 	air_id := world.air.network_id
 	current_id := block_at(tx, pos.x, pos.y, pos.z)
 	if current_id != old_id {
@@ -464,7 +465,7 @@ fn complete_block_break(mut tx WorldTx, mut s NetworkSession, pos types.BlockPos
 	}
 
 	tx.set_block(pos.x, pos.y, pos.z, air_id)
-	damage_held_item(mut tx, mut s, 1)
+	damage_held_item(mut s, 1)
 
 	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
 		drop_name, drop_count := block_drop_for(mut tx.wr, old_id)
@@ -521,7 +522,7 @@ fn (t PlayerPlaceBlockTask) name() string {
 	return 'PlayerPlaceBlockTask'
 }
 
-fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
+fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
 	mut placed := false
 	defer {
 		t.result <- placed
@@ -544,7 +545,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	}
 
 	mut target := pos
-	if !is_replaceable(tx, clicked_id) {
+	if !is_replaceable(clicked_id) {
 		target = neighbor
 	}
 	dim := tx.world().dimension
@@ -578,7 +579,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx WorldTx) {
 	}
 
 	if placed && !t.is_creative {
-		consume_held_item(mut tx, mut s)
+		consume_held_item(mut s)
 	}
 }
 

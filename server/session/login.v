@@ -6,7 +6,6 @@ import server.internal.encryption
 import server.resourcepack
 import bedrock_v.protocol.serializer
 import bedrock_v.protocol.current as proto
-import server.player
 
 fn login_chain_json(connection_request []u8) !string {
 	mut r := serializer.new_reader(connection_request)

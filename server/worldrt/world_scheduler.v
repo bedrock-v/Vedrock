@@ -1,4 +1,4 @@
-module session
+module worldrt
 
 import sync
 
@@ -9,21 +9,21 @@ import sync
 // Kept separate from the global scheduler.Scheduler on purpose, not
 // unified into a generic Scheduler[T] - see CONTRIBUTING.md:Observed V compiler and language behaviors
 @[heap]
-struct WorldScheduler {
+pub struct WorldScheduler {
 mut:
 	mutex   &sync.Mutex = sync.new_mutex()
 	tasks   map[int]&WorldTaskHandler
 	next_id int = 1
 }
 
-fn new_world_scheduler() &WorldScheduler {
+pub fn new_world_scheduler() &WorldScheduler {
 	return &WorldScheduler{}
 }
 
 // add is the single insertion point. delay <= 0 means "next simulated
 // step"; period <= 0 means "run once". current_tick is the world's own
 // simulated tick, never the global tick.
-fn (mut s WorldScheduler) add(task WorldTask, delay i64, period i64, current_tick i64) &WorldTaskHandler {
+pub fn (mut s WorldScheduler) add(task WorldTask, delay i64, period i64, current_tick i64) &WorldTaskHandler {
 	s.mutex.lock()
 	id := s.next_id
 	s.next_id++
@@ -51,7 +51,7 @@ pub fn (mut s WorldScheduler) cancel(id int) {
 	s.mutex.unlock()
 }
 
-fn (mut s WorldScheduler) heartbeat(mut tx WorldTx, tick i64) {
+pub fn (mut s WorldScheduler) heartbeat(mut tx WorldTx, tick i64) {
 	s.mutex.lock()
 	mut due := []&WorldTaskHandler{}
 	for _, handler in s.tasks {
@@ -109,19 +109,4 @@ pub fn (mut h WorldTaskHandler) cancel() {
 
 pub fn (h &WorldTaskHandler) is_repeating() bool {
 	return h.period > 0
-}
-
-struct WorldClosureTask {
-	callback fn (mut tx WorldTransaction) @[required]
-}
-
-fn (t WorldClosureTask) name() string {
-	return 'WorldClosureTask'
-}
-
-fn (t WorldClosureTask) run(mut tx WorldTx) {
-	mut handle := WorldTransaction(&WorldTxHandle{
-		tx: &tx
-	})
-	t.callback(mut handle)
 }

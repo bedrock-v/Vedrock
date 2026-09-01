@@ -552,7 +552,7 @@ fn (t ChunkDeliveryTask) name() string {
 	return 'ChunkDeliveryTask'
 }
 
-fn (t ChunkDeliveryTask) run(mut tx WorldTx) {
+fn (t ChunkDeliveryTask) run(mut tx worldrt.WorldTx) {
 	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
 	s.send_batch(t.packets) or {}
 }
@@ -724,7 +724,7 @@ fn empty_chunk_result() worldrt.ChunkResult {
 // generated_chunk resolves (cx, cz)'s decoded column through the world's shared
 // chunk service rather than generating it per session. The copy is private to
 // the caller, which is what lets it apply overrides.
-fn (mut s NetworkSession) generated_chunk(wr &WorldRuntime, cx int, cz int) world.Chunk {
+fn (mut s NetworkSession) generated_chunk(wr &worldrt.WorldRuntime, cx int, cz int) world.Chunk {
 	if isnil(wr) {
 		return world.new_chunk()
 	}
@@ -738,7 +738,7 @@ fn (mut s NetworkSession) generated_chunk(wr &WorldRuntime, cx int, cz int) worl
 // This call blocks until that column is ready. For a view radius sweep, use
 // ChunkPipeline so several columns are generated concurrently instead of
 // resolving the sweep one column at a time.
-fn (mut s NetworkSession) generated_chunk_result(wr &WorldRuntime, cx int, cz int) worldrt.ChunkResult {
+fn (mut s NetworkSession) generated_chunk_result(wr &worldrt.WorldRuntime, cx int, cz int) worldrt.ChunkResult {
 	if isnil(wr) {
 		return empty_chunk_result()
 	}
@@ -773,7 +773,7 @@ fn chunk_pipeline_depth() int {
 struct ChunkPipeline {
 	targets []ChunkSendTarget
 mut:
-	runtime &WorldRuntime = unsafe { nil }
+	runtime &worldrt.WorldRuntime = unsafe { nil }
 	// pending is a ring of in flight requests: head is the next to resolve,
 	// count is how many are queued.
 	pending []chan worldrt.ChunkResult
@@ -783,7 +783,7 @@ mut:
 	taken   int
 }
 
-fn (mut s NetworkSession) new_chunk_pipeline(wr_in &WorldRuntime, targets []ChunkSendTarget) ChunkPipeline {
+fn (mut s NetworkSession) new_chunk_pipeline(wr_in &worldrt.WorldRuntime, targets []ChunkSendTarget) ChunkPipeline {
 	mut wr := unsafe { wr_in }
 	mut depth := chunk_pipeline_depth()
 	if depth < 1 {
@@ -852,7 +852,7 @@ fn resolve_chunk_result(ch chan worldrt.ChunkResult) worldrt.ChunkResult {
 // If the chunk has no block overrides, it reuses the cached serialized
 // bytes. Otherwise it applies the current overrides and serializes a fresh
 // chunk so preoverride bytes are never sent for modified terrain.
-fn (mut s NetworkSession) chunk_delivery_packet_from_result(result worldrt.ChunkResult, wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
+fn (mut s NetworkSession) chunk_delivery_packet_from_result(result worldrt.ChunkResult, wr &worldrt.WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	overrides := if isnil(wld) { []db.BlockOverride{} } else { wld.overrides_in_chunk(cx, cz) }
 	if overrides.len == 0 {
 		return level_chunk_packet_from_bytes(dim, cx, cz, result.section_count, result.serialized)
@@ -866,7 +866,7 @@ fn (mut s NetworkSession) chunk_delivery_packet_from_result(result worldrt.Chunk
 //
 // For a view radius sweep, use the pipelined chunk request path instead so
 // multiple columns can be resolved concurrently by the chunk worker pool.
-fn (mut s NetworkSession) chunk_delivery_packet(wr &WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
+fn (mut s NetworkSession) chunk_delivery_packet(wr &worldrt.WorldRuntime, wld &db.World, dim world.Dimension, cx int, cz int) protocol.Packet {
 	result := s.generated_chunk_result(wr, cx, cz)
 	return s.chunk_delivery_packet_from_result(result, wr, wld, dim, cx, cz)
 }
@@ -1015,7 +1015,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		return
 	}
 	s.spawned = true
-	// Must run before anything below: the world_call right after this
+	// Must run before anything below: the worldrt.world_call right after this
 	// registers the session and broadcasts back to it from the world
 	// actor thread, before hub.add ever runs. That's the real first point
 	// this session becomes reachable by another thread, not hub.add and
@@ -1036,7 +1036,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		list_add_pkt := s.player_list_add_packet()
 		add_player_pkt := s.add_player_packet()
 		self := s.self_ref()
-		deliver_packets := world_call[[]protocol.Packet]('PlayerInitialized', mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx WorldTx) []protocol.Packet {
+		deliver_packets := worldrt.world_call[[]protocol.Packet]('PlayerInitialized', mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx worldrt.WorldTx) []protocol.Packet {
 			mut out := []protocol.Packet{}
 			for mut a in tx.wr.entities.player_actors() {
 				if mut a is NetworkSession {

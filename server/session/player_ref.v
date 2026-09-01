@@ -13,6 +13,7 @@ pub struct PlayerRef {
 	epoch      i64
 	name_      string
 	world_     World
+	hub_       &Hub = unsafe { nil }
 }
 
 // player_ref_for builds a PlayerRef for session's current world membership
@@ -23,6 +24,7 @@ fn player_ref_for(s &NetworkSession) PlayerRef {
 		runtime_id: s.runtime_id
 		epoch:      binding.epoch
 		name_:      s.name()
+		hub_:       s.hub
 		world_:     World{
 			runtime: binding.world_runtime
 		}
@@ -47,7 +49,7 @@ pub fn (mut h Hub) player_refs() []PlayerRef {
 }
 
 fn (p PlayerRef) resolve() !&NetworkSession {
-	mut hub := p.world_.runtime.game.hub
+	mut hub := unsafe { p.hub_ }
 	s := hub.session_by_runtime(p.runtime_id) or { return error('player is no longer connected') }
 	if s.world_binding().epoch != p.epoch {
 		return error('player has since left this world')

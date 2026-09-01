@@ -4,6 +4,7 @@ import time
 import server.internal.gamedata
 import server.world
 import server.world.db
+import server.worldrt
 
 struct ConcurrencyBarrierTask {
 	started chan bool
@@ -14,7 +15,7 @@ fn (t ConcurrencyBarrierTask) name() string {
 	return 'ConcurrencyBarrierTask'
 }
 
-fn (t ConcurrencyBarrierTask) run(mut tx WorldTx) {
+fn (t ConcurrencyBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -54,7 +55,7 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 		z: 0
 	})
 	assert ok
-	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier on B rejected - world unexpectedly stopped') } // wait for the placement to land before stalling A
 
@@ -82,7 +83,7 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 	}
 
 	// B's other runtime tasks, not just ticks, still complete throughout.
-	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier on B rejected - world unexpectedly stopped') }
 
@@ -95,6 +96,6 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 	release <- true
 	hub.request_tick_all(i64(500))
 	assert concurrency_wait_until(2000, fn [wr_a] () bool {
-		return wr_a.tick_snapshot() == max_world_catchup_ticks
+		return wr_a.tick_snapshot() == worldrt.max_world_catchup_ticks
 	})
 }

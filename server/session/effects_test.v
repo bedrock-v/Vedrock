@@ -10,6 +10,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn make_effects_test_player(name string, health f32) &player.Player {
 	mut pl := player.new_player()
@@ -20,7 +21,7 @@ fn make_effects_test_player(name string, health f32) &player.Player {
 	return pl
 }
 
-fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, &WorldRuntime) {
+fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, &worldrt.WorldRuntime) {
 	target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -32,15 +33,15 @@ fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, 
 		world_runtime: wr
 	}
 	hub.add(sess)
-	world_call[bool]('test', mut wr, fn [sess] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [sess] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, sess)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return sess, wr
 }
 
-fn add_effect_directly(wr &WorldRuntime, rid u64, e effect.Effect) {
-	mut tx := &WorldTx{
+fn add_effect_directly(wr &worldrt.WorldRuntime, rid u64, e effect.Effect) {
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -51,8 +52,8 @@ fn add_effect_directly(wr &WorldRuntime, rid u64, e effect.Effect) {
 	}.run(mut tx)
 }
 
-fn remove_effect_directly(wr &WorldRuntime, rid u64, typ effect.Type) {
-	mut tx := &WorldTx{
+fn remove_effect_directly(wr &worldrt.WorldRuntime, rid u64, typ effect.Type) {
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
@@ -63,8 +64,8 @@ fn remove_effect_directly(wr &WorldRuntime, rid u64, typ effect.Type) {
 	}.run(mut tx)
 }
 
-fn tick_effects_directly(wr &WorldRuntime) {
-	mut tx := &WorldTx{
+fn tick_effects_directly(wr &worldrt.WorldRuntime) {
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 	mut ticker := SessionPlayerTicker{}

@@ -30,7 +30,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime, pos types.Vector3) &NetworkSession {
+fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -46,7 +46,7 @@ fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut w
 	}
 	s.player.reset_position(pos)
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -104,7 +104,7 @@ fn (t EntityTickBarrierTask) name() string {
 	return 'EntityTickBarrierTask'
 }
 
-fn (t EntityTickBarrierTask) run(mut tx WorldTx) {
+fn (t EntityTickBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -156,7 +156,7 @@ fn test_entity_tick_isolated_to_owning_world() {
 		last_b_steps = wr_b.simulated_steps_count()
 	}
 
-	b_age := world_call[i64]('test', mut wr_b, fn (mut tx WorldTx) i64 {
+	b_age := worldrt.world_call[i64]('test', mut wr_b, fn (mut tx worldrt.WorldTx) i64 {
 		return tx.wr.entities.snapshot()[0].age
 	}) or { panic('sync call on B rejected - world unexpectedly stopped') }
 	assert b_age > 0
@@ -164,9 +164,9 @@ fn test_entity_tick_isolated_to_owning_world() {
 	release <- true
 	hub.request_tick_all(i64(500))
 	assert entity_test_wait_until(2000, fn [wr_a] () bool {
-		return wr_a.tick_snapshot() == max_world_catchup_ticks
+		return wr_a.tick_snapshot() == worldrt.max_world_catchup_ticks
 	})
-	a_age := world_call[i64]('test', mut wr_a, fn (mut tx WorldTx) i64 {
+	a_age := worldrt.world_call[i64]('test', mut wr_a, fn (mut tx worldrt.WorldTx) i64 {
 		return tx.wr.entities.snapshot()[0].age
 	}) or { panic('sync call on A rejected - world unexpectedly stopped') }
 	assert a_age > 0

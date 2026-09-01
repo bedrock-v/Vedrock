@@ -6,21 +6,31 @@ import bedrock_v.protocol.types
 import server.entity
 import server.event
 import server.world
+import server.worldrt
 
 // los_sample_step controls the distance between line of sight samples.
 // Smaller values improve accuracy but require more collision checks.
 const los_sample_step = f32(0.5)
 
-// WorldEntityHost adapts one WorldRuntime to entity.Host, scoping every
+// WorldEntityHost adapts one worldrt.WorldRuntime to entity.Host, scoping every
 // query and broadcast to sessions and blocks in this world only, the same
 // isolation WorldLiquidHost and broadcast_world already give block writes
 // and liquid spread. Its methods run on the owning world actor, since
 // entity.Manager.tick() dispatches into Behaviour.tick() which calls back
 // into these, so returning a live &Entity here is safe. Code outside the
-// actor has to snapshot instead (see world_call usage in combat.v).
+// actor has to snapshot instead (see worldrt.world_call usage in combat.v).
 struct WorldEntityHost {
 mut:
-	wr &WorldRuntime
+	wr &worldrt.WorldRuntime
+}
+
+// new_world_entity_host builds the entity manager's host for wr. The runtime
+// takes it as a function because the host needs the runtime, which does not
+// exist yet when its config is written.
+fn new_world_entity_host(wr &worldrt.WorldRuntime) entity.Host {
+	return WorldEntityHost{
+		wr: unsafe { wr }
+	}
 }
 
 fn (mut h WorldEntityHost) broadcast(p protocol.Packet) {
@@ -46,14 +56,14 @@ fn (mut h WorldEntityHost) broadcast_near(x f32, y f32, z f32, radius f32, p pro
 // and player runtime ids never collide. The one piece that stays global on
 // purpose, matching entity.Host's original contract.
 fn (mut h WorldEntityHost) allocate_runtime_id() u64 {
-	return h.wr.game.hub.allocate_runtime_id()
+	return h.wr.services.allocate_runtime_id()
 }
 
 fn (mut h WorldEntityHost) get_block(x int, y int, z int) int {
 	if id := h.wr.world.block_override(x, y, z) {
 		return id
 	}
-	gen := h.wr.world.make_generator(h.wr.game.hub.build_generator(h.wr.world))
+	gen := h.wr.world.make_generator(h.wr.generators.build_generator(h.wr.world))
 	return gen.block_at(x, y, z)
 }
 
@@ -62,19 +72,19 @@ fn (mut h WorldEntityHost) collision_boxes(x int, y int, z int) []world.AABB {
 	if id == world.air.network_id {
 		return []world.AABB{}
 	}
-	if isnil(h.wr.game.hub.palette) {
+	if isnil(h.wr.services.block_palette()) {
 		return world.absolute_boxes(world.solid_model(), x, y, z)
 	}
-	return world.absolute_boxes_with_neighbors(h.wr.game.hub.palette.model(id), h.neighbor_models(x, y,
+	return world.absolute_boxes_with_neighbors(h.wr.services.block_palette().model(id), h.neighbor_models(x, y,
 		z), x, y, z)
 }
 
 fn (mut h WorldEntityHost) neighbor_models(x int, y int, z int) map[int]world.BlockModel {
 	mut out := map[int]world.BlockModel{}
-	out[2] = h.wr.game.hub.palette.model(h.get_block(x, y, z - 1))
-	out[3] = h.wr.game.hub.palette.model(h.get_block(x, y, z + 1))
-	out[4] = h.wr.game.hub.palette.model(h.get_block(x - 1, y, z))
-	out[5] = h.wr.game.hub.palette.model(h.get_block(x + 1, y, z))
+	out[2] = h.wr.services.block_palette().model(h.get_block(x, y, z - 1))
+	out[3] = h.wr.services.block_palette().model(h.get_block(x, y, z + 1))
+	out[4] = h.wr.services.block_palette().model(h.get_block(x - 1, y, z))
+	out[5] = h.wr.services.block_palette().model(h.get_block(x + 1, y, z))
 	return out
 }
 
@@ -106,7 +116,7 @@ fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id
 	return none
 }
 
-fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
+fn damage_actor(mut wr worldrt.WorldRuntime, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
 	mut a := wr.entities.actor_by_runtime_id(runtime_id) or { return }
 	if mut a is NetworkSession {
 		a.apply_knockback(knockback_from, knockback_force, knockback_height)
@@ -206,7 +216,7 @@ fn (t SpawnEntityTask) name() string {
 	return 'SpawnEntityTask'
 }
 
-fn (t SpawnEntityTask) run(mut tx WorldTx) {
+fn (t SpawnEntityTask) run(mut tx worldrt.WorldTx) {
 	mut spawned := false
 	defer {
 		t.result <- spawned

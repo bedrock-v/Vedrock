@@ -3,7 +3,6 @@ module session
 import bedrock_v.protocol.types
 import server.item
 import bedrock_v.protocol.current as proto
-import server.player
 
 // Book edits are session local inventory work: item lookup uses shared
 // readonly data, and mutation goes through Player's state lock.

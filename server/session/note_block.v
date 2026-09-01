@@ -4,6 +4,7 @@ import bedrock_v.nbt
 import bedrock_v.protocol.types
 import server.world.sound
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 // note_block_pitches is the number of distinct pitches a note block cycles
 // through on right click (0..24 inclusive).
@@ -15,7 +16,7 @@ const note_block_pitches = 25
 //
 // minecraft:noteblock has no per pitch wire palette state, so the pitch
 // must be tracked separately from the block itself.
-fn play_note(mut tx WorldTx, mut s NetworkSession, pos types.BlockPosition) {
+fn play_note(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '0' }
 	pitch := (current.int() + 1) % note_block_pitches
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, pitch.str())

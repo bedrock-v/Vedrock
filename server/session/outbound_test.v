@@ -10,6 +10,7 @@ import server.player
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn text_packet(message string) &proto.TextPacket {
 	return &proto.TextPacket{
@@ -217,7 +218,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	s.world = wr.world
 	s.world_runtime = wr
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -226,7 +227,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 
 	done := chan bool{cap: 1}
 	spawn fn [mut wr, done] () {
-		world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 			tx.wr.broadcast_world(text_packet('hello'))
 			return true
 		}) or {}
@@ -462,7 +463,7 @@ fn test_activation_fails_when_session_is_closing() {
 	assert !s.activate_outbound()
 }
 
-fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut transport BlockingFakeTransport) &NetworkSession {
+fn overflow_world_test_session_blocking(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport BlockingFakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -478,14 +479,14 @@ fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut tr
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
 }
 
-fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeTransport) &NetworkSession {
+fn overflow_world_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport FakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -501,7 +502,7 @@ fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport F
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -538,7 +539,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 
 	done := chan bool{cap: 1}
 	spawn fn [mut wr_a, done] () {
-		world_call[bool]('test', mut wr_a, fn (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 			tx.wr.broadcast_world(text_packet('broadcast'))
 			return true
 		}) or {}
@@ -555,7 +556,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	assert overflowing_session.conn.state == .closed
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
-	world_call[bool]('test', mut wr_b, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {
 		tx.wr.broadcast_world(text_packet('other world'))
 		return true
 	}) or { panic('world b broadcast rejected - unaffected by world a overflow') }

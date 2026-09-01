@@ -2,7 +2,6 @@ module session
 
 import bedrock_v.protocol
 import bedrock_v.protocol.current as proto
-import server.player
 
 // Maximum number of packets a session may have waiting to be sent.
 // A full queue aborts the session instead of blocking the caller or

@@ -6,11 +6,19 @@ import server.world
 import server.world.db
 import server.event
 import server.player
+import server.worldrt
 
-fn new_test_world_runtime() &WorldRuntime {
+fn new_test_world_runtime() &worldrt.WorldRuntime {
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('test', none, 'flat', world.overworld)
-	return new_world_runtime(hub, w)
+	return worldrt.new_world_runtime(
+		world:      w
+		services:   hub
+		generators: hub
+		handler:    hub.world_handler
+		players:    SessionPlayerTicker{}
+		entity_host: new_world_entity_host
+	)
 }
 
 // NoopTask does nothing, used purely as a synchronization/traffic filler.
@@ -20,16 +28,16 @@ fn (t NoopTask) name() string {
 	return 'NoopTask'
 }
 
-fn (t NoopTask) run(mut tx WorldTx) {}
+fn (t NoopTask) run(mut tx worldrt.WorldTx) {}
 
 fn test_submit_runs_task_on_actor_thread() {
 	mut wr := new_test_world_runtime()
 	defer {
 		wr.shutdown()
 	}
-	result := world_call[int]('test', mut wr, fn (mut tx WorldTx) int {
+	result := worldrt.world_call[int]('test', mut wr, fn (mut tx worldrt.WorldTx) int {
 		return 42
-	}) or { panic('world_call was rejected while running') }
+	}) or { panic('worldrt.world_call was rejected while running') }
 	assert result == 42
 }
 
@@ -47,20 +55,20 @@ fn test_submit_and_try_submit_reject_after_shutdown() {
 	wr.shutdown()
 	assert wr.submit(NoopTask{}) == false
 	assert wr.try_submit(NoopTask{}) == false
-	// world_call must not hang forever once the world is stopped either.
-	res := world_call[int]('test', mut wr, fn (mut tx WorldTx) int {
+	// worldrt.world_call must not hang forever once the world is stopped either.
+	res := worldrt.world_call[int]('test', mut wr, fn (mut tx worldrt.WorldTx) int {
 		return 1
 	})
 	assert res == none
 }
 
-fn shutdown_race_submitter(mut wr WorldRuntime, times int) {
+fn shutdown_race_submitter(mut wr worldrt.WorldRuntime, times int) {
 	for _ in 0 .. times {
 		wr.submit(NoopTask{})
 	}
 }
 
-fn shutdown_race_try_submitter(mut wr WorldRuntime, times int) {
+fn shutdown_race_try_submitter(mut wr worldrt.WorldRuntime, times int) {
 	for _ in 0 .. times {
 		wr.try_submit(NoopTask{})
 	}
@@ -131,7 +139,7 @@ fn (t BarrierTask) name() string {
 	return 'BarrierTask'
 }
 
-fn (t BarrierTask) run(mut tx WorldTx) {
+fn (t BarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -173,7 +181,7 @@ fn test_tick_requests_coalesce_while_actor_is_busy() {
 	})
 	assert wr.tick_runs_count() == 1
 	assert wr.requested_tick_snapshot() == 1049
-	assert wr.tick_snapshot() == max_world_catchup_ticks
+	assert wr.tick_snapshot() == worldrt.max_world_catchup_ticks
 }
 
 fn test_advance_tick_bounded_catchup_leaves_the_clock_behind() {
@@ -186,9 +194,9 @@ fn test_advance_tick_bounded_catchup_leaves_the_clock_behind() {
 	assert wait_until(2000, fn [wr] () bool {
 		return wr.tick_runs_count() > 0
 	})
-	assert wr.tick_snapshot() == max_world_catchup_ticks
-	assert wr.simulated_steps_count() == max_world_catchup_ticks
-	assert wr.requested_tick_snapshot() - wr.tick_snapshot() == 500 - max_world_catchup_ticks
+	assert wr.tick_snapshot() == worldrt.max_world_catchup_ticks
+	assert wr.simulated_steps_count() == worldrt.max_world_catchup_ticks
+	assert wr.requested_tick_snapshot() - wr.tick_snapshot() == 500 - worldrt.max_world_catchup_ticks
 }
 
 fn test_sim_debt_is_observable_while_actor_is_busy() {
@@ -206,7 +214,7 @@ fn test_sim_debt_is_observable_while_actor_is_busy() {
 	assert ok
 	_ := <-started // actor is now provably blocked, has not touched tick_wakeup
 
-	// Within max_world_catchup_ticks, so a single drain fully closes the
+	// Within worldrt.max_world_catchup_ticks, so a single drain fully closes the
 	// debt below. This test is about real time observability.
 	wr.request_tick(15)
 
@@ -223,7 +231,7 @@ fn test_sim_debt_is_observable_while_actor_is_busy() {
 	assert wr.requested_tick_snapshot() - wr.tick_snapshot() == 0
 }
 
-fn request_tick_race_caller(mut wr WorldRuntime, base i64, times int) {
+fn request_tick_race_caller(mut wr worldrt.WorldRuntime, base i64, times int) {
 	for i in 0 .. times {
 		wr.request_tick(base + i64(i))
 	}
@@ -241,10 +249,7 @@ fn test_requested_tick_snapshot_stays_consistent_under_concurrent_updates() {
 	}
 	threads.wait()
 
-	wr.tick_mutex.lock()
-	final_latest_tick := wr.latest_tick
-	wr.tick_mutex.unlock()
-	assert wr.requested_tick_snapshot() == final_latest_tick
+	assert wr.requested_tick_snapshot() == wr.requested_tick_locked()
 }
 
 struct EventCounter {
@@ -253,8 +258,8 @@ mut:
 	hits int
 }
 
-fn sync_barrier(mut wr WorldRuntime) {
-	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
+fn sync_barrier(mut wr worldrt.WorldRuntime) {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected - world unexpectedly stopped') }
 }

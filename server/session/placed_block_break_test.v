@@ -6,8 +6,9 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import server.worldrt
 
-fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime) &NetworkSession {
+fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -24,7 +25,7 @@ fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRu
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 5) + 0.62, 2.5})
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected') }

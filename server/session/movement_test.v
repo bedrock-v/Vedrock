@@ -7,6 +7,7 @@ import server.player
 import server.world
 import server.world.db
 import time
+import server.worldrt
 
 // SlowFillerTask blocks a world's runtime on its gate.
 struct SlowFillerTask {
@@ -17,11 +18,11 @@ fn (t SlowFillerTask) name() string {
 	return 'SlowFillerTask'
 }
 
-fn (t SlowFillerTask) run(mut tx WorldTx) {
+fn (t SlowFillerTask) run(mut tx worldrt.WorldTx) {
 	_ := <-t.gate
 }
 
-// FastFillerTask is a no-op WorldTask used purely to occupy queue capacity.
+// FastFillerTask is a no-op worldrt.WorldTask used purely to occupy queue capacity.
 struct FastFillerTask {
 	id int
 }
@@ -30,9 +31,9 @@ fn (t FastFillerTask) name() string {
 	return 'FastFillerTask'
 }
 
-fn (t FastFillerTask) run(mut tx WorldTx) {}
+fn (t FastFillerTask) run(mut tx worldrt.WorldTx) {}
 
-fn movement_test_session(mut hub Hub, mut wr WorldRuntime) &NetworkSession {
+fn movement_test_session(mut hub Hub, mut wr worldrt.WorldRuntime) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        player.new_player()
 		hub:           hub
@@ -43,7 +44,7 @@ fn movement_test_session(mut hub Hub, mut wr WorldRuntime) &NetworkSession {
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
@@ -60,14 +61,14 @@ fn test_movement_coalesces_rapid_updates_into_one_job() {
 	gate := chan bool{cap: 1}
 	wr.submit(SlowFillerTask{ gate: gate })
 	deadline0 := time.now().add(5 * time.second)
-	for time.now() < deadline0 && wr.jobs.len > 0 {
+	for time.now() < deadline0 && wr.metrics().queued_tasks > 0 {
 		time.sleep(1 * time.millisecond)
 	}
 
 	for i in 0 .. 20 {
 		s.update_movement(types.Vector3{0.0, f32(i), 0.0}, 0.0, 0.0, 0.0, false)
 	}
-	assert wr.jobs.len == 1
+	assert wr.metrics().queued_tasks == 1
 
 	gate <- true
 
@@ -99,7 +100,7 @@ fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
 		}
 		filled++
 		if filled > 300 {
-			panic('queue did not saturate - WorldRuntime.jobs cap may have changed')
+			panic('queue did not saturate - worldrt.WorldRuntime.jobs cap may have changed')
 		}
 	}
 
@@ -115,7 +116,7 @@ fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
 
 	gate <- true
 	deadline := time.now().add(5 * time.second)
-	for time.now() < deadline && wr.jobs.len > 0 {
+	for time.now() < deadline && wr.metrics().queued_tasks > 0 {
 		time.sleep(5 * time.millisecond)
 	}
 
@@ -148,11 +149,11 @@ fn test_movement_before_spawn_is_dropped_not_stranded() {
 	s.update_movement(types.Vector3{9.0, 9.0, 9.0}, 0.0, 0.0, 0.0, false)
 	assert s.movement_scheduled == false
 	assert s.pending_movement == none
-	assert wr.jobs.len == 0
+	assert wr.metrics().queued_tasks == 0
 
 	s.spawned = true
 	hub.add(s)
-	world_call[bool]('test', mut wr, fn [s] (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
