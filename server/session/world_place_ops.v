@@ -6,6 +6,7 @@ import server.world
 import server.block
 import server.item
 import bedrock_v.protocol.current as proto
+import server.player
 
 // ObstructionResult is obstructed_by_entity's answer: whether pos is
 // obstructed at all and whether the only body overlapping it is the acting
@@ -273,7 +274,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 	if new_id == clicked_id {
 		return false
 	}
-	mut use_ctx := event.new_context(event.ItemUseData{
+	mut use_ctx := event.new_context(player.ItemUseData{
 		player:    s
 		item_name: name
 		meta:      stack.meta
@@ -282,7 +283,7 @@ fn (mut tx WorldTx) use_item_on_block(mut s NetworkSession, pos types.BlockPosit
 		y:         pos.y
 		z:         pos.z
 	})
-	s.hub.events.item_use(mut use_ctx)
+	s.handler.on_item_use(mut use_ctx)
 	if use_ctx.is_cancelled() {
 		s.resend_block(pos)
 		return true
@@ -312,14 +313,14 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 		}
 		return false
 	}
-	mut ctx := event.new_context(event.BlockPlaceData{
+	mut ctx := event.new_context(player.BlockPlaceData{
 		player:   s
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: runtime_id
 	})
-	tx.wr.game.events.block_place(mut ctx)
+	s.handler.on_block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false
@@ -340,14 +341,14 @@ fn (mut tx WorldTx) place_block_form(mut s NetworkSession, pos types.BlockPositi
 // replace_block_form overwrites an existing replaceable block (e.g. merging
 // into a double slab).
 fn (mut tx WorldTx) replace_block_form(mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
-	mut ctx := event.new_context(event.BlockPlaceData{
+	mut ctx := event.new_context(player.BlockPlaceData{
 		player:   s
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: runtime_id
 	})
-	tx.wr.game.events.block_place(mut ctx)
+	s.handler.on_block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false
@@ -379,14 +380,14 @@ fn (mut tx WorldTx) place_door_pair(mut s NetworkSession, pos types.BlockPositio
 		}
 		return false
 	}
-	mut ctx := event.new_context(event.BlockPlaceData{
+	mut ctx := event.new_context(player.BlockPlaceData{
 		player:   s
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: parts.lower
 	})
-	tx.wr.game.events.block_place(mut ctx)
+	s.handler.on_block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		s.resend_block(above)

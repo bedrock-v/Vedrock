@@ -208,10 +208,10 @@ fn test_place_block_broadcasts_place_sound() {
 }
 
 struct CancelBlockPlaceHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelBlockPlaceHandler) on_block_place(mut ctx event.Context[event.BlockPlaceData]) {
+fn (mut h CancelBlockPlaceHandler) on_block_place(mut ctx event.Context[player.BlockPlaceData]) {
 	ctx.cancel()
 }
 
@@ -221,11 +221,10 @@ fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	// block_place is dispatched on the owning world's own event bus, not
-	// Hub's global one.
-	wr.game.events.register(&CancelBlockPlaceHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr)
+	// block_place is dispatched on the placing player's own handler.
+	s.handle(&CancelBlockPlaceHandler{})
 	give_held_stack(mut s, 500, 3)
 	defer {
 		hub.close_worlds()
@@ -301,12 +300,12 @@ fn test_place_block_ignores_player_in_another_world_for_obstruction() {
 // CountingPlaceHandler records block_place events to prove world scoped event
 // isolation, not just packet isolation.
 struct CountingPlaceHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
 
-fn (mut h CountingPlaceHandler) on_block_place(mut ctx event.Context[event.BlockPlaceData]) {
+fn (mut h CountingPlaceHandler) on_block_place(mut ctx event.Context[player.BlockPlaceData]) {
 	h.hits++
 }
 
@@ -328,11 +327,13 @@ fn test_place_block_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingPlaceHandler{}
 	mut handler_b := &CountingPlaceHandler{}
-	wr_a.game.events.register(handler_a, .normal)
-	wr_b.game.events.register(handler_b, .normal)
 
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr_a)
+	s.handle(handler_a)
+	mut other_transport := &FakeTransport{}
+	mut other := place_test_session(mut hub, mut other_transport, mut wr_b)
+	other.handle(handler_b)
 	give_held_stack(mut s, 500, 1)
 
 	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
@@ -445,11 +446,10 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 	target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	// block_place is dispatched on the owning world's own event bus, not
-	// Hub's global one.
-	wr.game.events.register(&CancelBlockPlaceHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr)
+	// block_place is dispatched on the placing player's own handler.
+	s.handle(&CancelBlockPlaceHandler{})
 	s.player.reset_position(types.Vector3{10.5, 1.62, 10.5})
 	defer {
 		hub.close_worlds()

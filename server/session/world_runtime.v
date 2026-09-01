@@ -53,7 +53,9 @@ struct WorldRuntime {
 mut:
 	// game holds the session side services a world task may need. The actor's
 	// own work never touches it.
-	game  &WorldGame = unsafe { nil }
+	game &WorldGame = unsafe { nil }
+	// handler receives what happens in this world without a player causing it.
+	handler worldrt.Handler = worldrt.NopHandler{}
 	world &db.World  = unsafe { nil }
 	// Guards lifecycle state and in flight submission accounting. It must not
 	// be held during blocking channel operations.
@@ -137,6 +139,7 @@ mut:
 fn new_world_runtime(hub &Hub, w &db.World) &WorldRuntime {
 	mut wr := &WorldRuntime{
 		game:       new_world_game(hub)
+		handler:    hub.world_handler
 		generators: hub
 		world:      w
 	}
@@ -230,6 +233,12 @@ fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
 		flags:            block_update_flags
 		layer:            0
 	}
+}
+
+// handle replaces this world's event handler. Embed worldrt.NopHandler and
+// define only the events the caller cares about.
+pub fn (mut wr WorldRuntime) handle(h worldrt.Handler) {
+	wr.handler = h
 }
 
 // broadcast_world sends p to every player registered with this world.

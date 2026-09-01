@@ -5,6 +5,7 @@ import server.cmd
 import server.event
 import server.world
 import server.world.db
+import server.player
 
 // world_admin wires the /world command's needs onto the Hub. Create/delete
 // only touch the worlds map (never a player's active world), so they run
@@ -30,28 +31,28 @@ fn (mut s NetworkSession) world_create(name string, dimension string, generator 
 		return error('unknown dimension "${dimension}"')
 	}
 	s.hub.create_world(name, dim, generator)!
-	mut load_ctx := event.new_context(event.WorldLoadData{
+	mut load_ctx := event.new_context(player.WorldLoadData{
 		name:   name
 		player: s
 	})
-	s.hub.events.world_load(mut load_ctx)
+	s.handler.on_world_load(mut load_ctx)
 }
 
 fn (mut s NetworkSession) world_load(name string) ! {
 	s.hub.load_world(name)!
-	mut ctx := event.new_context(event.WorldLoadData{
+	mut ctx := event.new_context(player.WorldLoadData{
 		name:   name
 		player: s
 	})
-	s.hub.events.world_load(mut ctx)
+	s.handler.on_world_load(mut ctx)
 }
 
 fn (mut s NetworkSession) world_delete(name string) ! {
-	mut ctx := event.new_context(event.WorldUnloadData{
+	mut ctx := event.new_context(player.WorldUnloadData{
 		name:   name
 		player: s
 	})
-	s.hub.events.world_unload(mut ctx)
+	s.handler.on_world_unload(mut ctx)
 	if ctx.is_cancelled() {
 		return error('world deletion cancelled')
 	}
@@ -84,28 +85,28 @@ fn (mut c ConsoleSender) world_create(name string, dimension string, generator s
 		return error('unknown dimension "${dimension}"')
 	}
 	c.hub.create_world(name, dim, generator)!
-	mut load_ctx := event.new_context(event.WorldLoadData{
+	mut load_ctx := event.new_context(player.WorldLoadData{
 		name:   name
 		player: c
 	})
-	c.hub.events.world_load(mut load_ctx)
+	c.hub.player_handler.on_world_load(mut load_ctx)
 }
 
 fn (mut c ConsoleSender) world_load(name string) ! {
 	c.hub.load_world(name)!
-	mut ctx := event.new_context(event.WorldLoadData{
+	mut ctx := event.new_context(player.WorldLoadData{
 		name:   name
 		player: c
 	})
-	c.hub.events.world_load(mut ctx)
+	c.hub.player_handler.on_world_load(mut ctx)
 }
 
 fn (mut c ConsoleSender) world_delete(name string) ! {
-	mut ctx := event.new_context(event.WorldUnloadData{
+	mut ctx := event.new_context(player.WorldUnloadData{
 		name:   name
 		player: c
 	})
-	c.hub.events.world_unload(mut ctx)
+	c.hub.player_handler.on_world_unload(mut ctx)
 	if ctx.is_cancelled() {
 		return error('world deletion cancelled')
 	}

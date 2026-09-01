@@ -1,6 +1,7 @@
 module session
 
 import bedrock_v.protocol.current as proto
+import server.player
 
 fn player_attribute(id string, min f32, max f32, current f32) proto.AttributeData {
 	return proto.AttributeData{

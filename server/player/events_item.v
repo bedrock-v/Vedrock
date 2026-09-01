@@ -1,6 +1,5 @@
-module event
+module player
 
-import server.player
 
 // ItemUseData is dispatched right before a held item's effect is applied,
 // either in the air (e.g. a goat horn's sound) or on a block (e.g. bone meal
@@ -15,7 +14,7 @@ pub:
 	y         int
 	z         int
 pub mut:
-	player player.View
+	player View
 }
 
 // ItemConsumeData is dispatched right before a held item is consumed (e.g.
@@ -24,5 +23,5 @@ pub struct ItemConsumeData {
 pub:
 	item_name string
 pub mut:
-	player player.View
+	player View
 }

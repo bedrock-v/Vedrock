@@ -7,6 +7,7 @@ import server.block
 import server.entity
 import server.item
 import bedrock_v.protocol.current as proto
+import server.player
 
 fn spawn_dropped_item_entity(mut wr WorldRuntime, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
 	if stack.count <= 0 || stack.id == 0 {

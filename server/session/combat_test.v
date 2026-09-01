@@ -104,9 +104,8 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.game.events.register(&CancelAttackHandler{}, .normal)
-
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
+	attacker.handle(&CancelAttackHandler{})
 	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{1.0, 0.0, 0.0})
@@ -122,10 +121,10 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 }
 
 struct CancelAttackHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelAttackHandler) on_player_attack(mut ctx event.Context[event.AttackData]) {
+fn (mut h CancelAttackHandler) on_player_attack(mut ctx event.Context[player.AttackData]) {
 	ctx.cancel()
 }
 
@@ -231,13 +230,13 @@ fn test_apply_hurt_cancelled_event_prevents_damage() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.game.events.register(&CancelHurtHandler{}, .normal)
 	mut victim := &NetworkSession{
 		player:     make_combat_test_player('Steve', 20, .survival)
 		runtime_id: 2
 		hub:        hub
 	}
 	hub.add(victim)
+	victim.handle(&CancelHurtHandler{})
 
 	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
@@ -245,10 +244,10 @@ fn test_apply_hurt_cancelled_event_prevents_damage() {
 }
 
 struct CancelHurtHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[event.HurtData]) {
+fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[player.HurtData]) {
 	ctx.cancel()
 }
 
@@ -258,13 +257,13 @@ fn test_apply_death_cancelled_prevents_death_entirely() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.game.events.register(&CancelDeathHandler{}, .normal)
 	mut victim := &NetworkSession{
 		player:     make_combat_test_player('Steve', 0, .survival)
 		runtime_id: 2
 		hub:        hub
 	}
 	hub.add(victim)
+	victim.handle(&CancelDeathHandler{})
 
 	victim.apply_death(mut wr, '%death.attack.player', ['Steve', 'Alex'])
 	// Cancelling DeathData now prevents death outright, dead/has_last_death
@@ -275,10 +274,10 @@ fn test_apply_death_cancelled_prevents_death_entirely() {
 }
 
 struct CancelDeathHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelDeathHandler) on_player_death(mut ctx event.Context[event.DeathData]) {
+fn (mut h CancelDeathHandler) on_player_death(mut ctx event.Context[player.DeathData]) {
 	ctx.cancel()
 }
 

@@ -5,6 +5,7 @@ import server.internal.gamedata
 import server.world
 import server.world.db
 import server.event
+import server.player
 
 fn new_test_world_runtime() &WorldRuntime {
 	mut hub := new_hub(gamedata.GameData{})
@@ -247,7 +248,7 @@ fn test_requested_tick_snapshot_stays_consistent_under_concurrent_updates() {
 }
 
 struct EventCounter {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
@@ -256,20 +257,4 @@ fn sync_barrier(mut wr WorldRuntime) {
 	world_call[bool]('test', mut wr, fn (mut tx WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected - world unexpectedly stopped') }
-}
-
-fn test_register_and_unregister_event_go_through_the_actor() {
-	mut wr := new_test_world_runtime()
-	defer {
-		wr.shutdown()
-	}
-
-	handler := &EventCounter{}
-	register_world_event(mut wr, handler, .normal)
-	sync_barrier(mut wr)
-	assert wr.game.events.len() == 1
-
-	unregister_world_event(mut wr, handler)
-	sync_barrier(mut wr)
-	assert wr.game.events.len() == 0
 }

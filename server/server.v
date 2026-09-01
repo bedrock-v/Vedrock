@@ -19,7 +19,8 @@ import server.world
 import server.resourcepack
 import server.permission
 import server.crash
-import server.event
+import server.player
+import server.worldrt
 import server.player.playerdb
 import sync
 import sync.stdatomic
@@ -611,14 +612,18 @@ pub fn (mut s Server) stop() {
 	}
 }
 
-// register_event adds handler to the server's global event bus.
-pub fn (mut s Server) register_event(handler event.Handler, priority event.Priority) {
-	s.hub.register_event(handler, priority)
+// handle_players sets the handler every player who connects from now on
+// starts with. It receives everything a player causes or experiences.
+//
+// A player can be given a different handler individually.
+pub fn (mut s Server) handle_players(handler player.Handler) {
+	s.hub.handle_players(handler)
 }
 
-// unregister_event removes handler from the global event bus.
-pub fn (mut s Server) unregister_event(handler event.Handler) {
-	s.hub.unregister_event(handler)
+// handle_worlds sets the handler every world created from now on starts with.
+// It receives what happens in a world without a player causing it.
+pub fn (mut s Server) handle_worlds(handler worldrt.Handler) {
+	s.hub.handle_worlds(handler)
 }
 
 // register_command adds command to the server's command registry.

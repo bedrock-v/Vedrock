@@ -6,6 +6,7 @@ import server.effect
 import server.event
 import server.item
 import bedrock_v.protocol.current as proto
+import server.player
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -51,7 +52,7 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 			return
 		}
 	}
-	mut ctx := event.new_context(event.AttackData{
+	mut ctx := event.new_context(player.AttackData{
 		player:            attacker
 		victim_runtime_id: t.victim_runtime_id
 		critical:          t.critical
@@ -59,7 +60,7 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 		knockback_force:   t.knockback_force
 		knockback_height:  t.knockback_height
 	})
-	tx.wr.game.events.player_attack(mut ctx)
+	attacker.handler.on_player_attack(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -151,12 +152,12 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 	}
 	stack, name := s.held_stack_and_name()
 	result := item.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
-	mut ctx := event.new_context(event.ItemUseData{
+	mut ctx := event.new_context(player.ItemUseData{
 		player:    s
 		item_name: name
 		meta:      stack.meta
 	})
-	s.hub.events.item_use(mut ctx)
+	s.handler.on_item_use(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -216,12 +217,12 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 	if reduced_amount <= 0 {
 		return
 	}
-	mut ctx := event.new_context(event.HurtData{
+	mut ctx := event.new_context(player.HurtData{
 		player:        s
 		amount:        reduced_amount
 		attacker_name: source.attacker_label()
 	})
-	wr.game.events.player_hurt(mut ctx)
+	s.handler.on_player_hurt(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -242,12 +243,12 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 // apply_death is the single death path for combat, /kill and fatal effect
 // damage.
 fn (mut s NetworkSession) apply_death(mut wr WorldRuntime, message_key string, parameters []string) {
-	mut ctx := event.new_context(event.DeathData{
+	mut ctx := event.new_context(player.DeathData{
 		player:      s
 		message_key: message_key
 		params:      parameters
 	})
-	wr.game.events.player_death(mut ctx)
+	s.handler.on_player_death(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -312,13 +313,13 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 	s.player.set_dead(false)
 	s.player.set_health(20.0)
 	spawn_y := s.generator.spawn_y()
-	mut ctx := event.new_context(event.RespawnData{
+	mut ctx := event.new_context(player.RespawnData{
 		player: s
 		x:      0.0
 		y:      f32(spawn_y) + player_eye_height
 		z:      0.0
 	})
-	wr.game.events.player_respawn(mut ctx)
+	s.handler.on_player_respawn(mut ctx)
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())

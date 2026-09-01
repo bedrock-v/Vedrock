@@ -1,6 +1,5 @@
-module event
+module player
 
-import server.player
 
 // BlockBreakData is dispatched before a block is broken. block_id is the block
 // being removed. Cancelling it leaves the block in place.
@@ -11,7 +10,7 @@ pub:
 	z        int
 	block_id int
 pub mut:
-	player player.View
+	player View
 }
 
 // StartBreakData is dispatched the moment a player left clicks a block
@@ -24,7 +23,7 @@ pub:
 	z    int
 	face int
 pub mut:
-	player player.View
+	player View
 }
 
 // BlockPlaceData is dispatched before a block is placed. block_id is the block
@@ -36,7 +35,7 @@ pub:
 	z        int
 	block_id int
 pub mut:
-	player player.View
+	player View
 }
 
 // InteractData is dispatched when a player right clicks a block, before any
@@ -49,5 +48,5 @@ pub:
 	z    int
 	face int
 pub mut:
-	player player.View
+	player View
 }

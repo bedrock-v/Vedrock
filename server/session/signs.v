@@ -5,6 +5,7 @@ import bedrock_v.nbt
 import bedrock_v.protocol.types
 import server.block
 import bedrock_v.protocol.current as proto
+import server.player
 
 fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) ! {
 	pos := proto.block_pos_from(p.block_position)

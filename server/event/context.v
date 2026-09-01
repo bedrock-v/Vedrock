@@ -1,8 +1,9 @@
 module event
 
-// Context wraps the subject of an event and lets handlers cancel the outcome or
-// mutate the subject in place. Callers dispatch a Context through the Bus, then
-// read back is_cancelled() and the possibly modified val to decide what happens.
+// Context wraps the subject of an event and lets a handler cancel the outcome
+// or mutate the subject in place. A dispatch site builds one, passes it to the
+// handler, then reads back is_cancelled() and the possibly modified val to
+// decide what happens.
 pub struct Context[T] {
 pub mut:
 	cancelled bool
@@ -25,15 +26,4 @@ pub fn (mut c Context[T]) cancel() {
 // is_cancelled reports whether any handler cancelled the event.
 pub fn (c &Context[T]) is_cancelled() bool {
 	return c.cancelled
-}
-
-// Priority orders handlers on the Bus. Lowest runs first so highest and monitor
-// see the final state. Monitor handlers are expected to observe only.
-pub enum Priority {
-	lowest
-	low
-	normal
-	high
-	highest
-	monitor
 }

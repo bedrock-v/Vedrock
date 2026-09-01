@@ -10,6 +10,7 @@ import server.player
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -172,7 +173,7 @@ fn test_entity_tick_isolated_to_owning_world() {
 }
 
 struct CountingEntitySpawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 mut:
 	hits int
 }
@@ -182,7 +183,7 @@ fn (mut h CountingEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[even
 }
 
 struct CancelEntitySpawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 }
 
 fn (mut h CancelEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[event.EntitySpawnData]) {
@@ -203,8 +204,8 @@ fn test_entity_spawn_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingEntitySpawnHandler{}
 	mut handler_b := &CountingEntitySpawnHandler{}
-	wr_a.game.events.register(handler_a, .normal)
-	wr_b.game.events.register(handler_b, .normal)
+	wr_a.handle(handler_a)
+	wr_b.handle(handler_b)
 
 	behaviour := entity.create('pig') or { panic('missing pig behaviour') }
 	task := SpawnEntityTask{
@@ -233,7 +234,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 		hub.close_worlds()
 	}
 
-	wr_a.game.events.register(&CancelEntitySpawnHandler{}, .normal)
+	wr_a.handle(&CancelEntitySpawnHandler{})
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	task_a := SpawnEntityTask{
@@ -259,7 +260,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 }
 
 struct CountingEntityDespawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 mut:
 	hits int
 }
@@ -282,8 +283,8 @@ fn test_entity_despawn_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingEntityDespawnHandler{}
 	mut handler_b := &CountingEntityDespawnHandler{}
-	wr_a.game.events.register(handler_a, .normal)
-	wr_b.game.events.register(handler_b, .normal)
+	wr_a.handle(handler_a)
+	wr_b.handle(handler_b)
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }

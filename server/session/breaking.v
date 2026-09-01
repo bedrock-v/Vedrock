@@ -8,6 +8,7 @@ import server.event
 import server.item
 import server.world
 import bedrock_v.protocol.current as proto
+import server.player
 
 // break_fx_interval_ticks is how often the punch particle and the arm swing
 // repeat while a player keeps mining the same block.
@@ -167,14 +168,14 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 	if !s.within_place_reach(pos) {
 		return
 	}
-	mut ctx := event.new_context(event.StartBreakData{
+	mut ctx := event.new_context(player.StartBreakData{
 		player: s
 		x:      pos.x
 		y:      pos.y
 		z:      pos.z
 		face:   click_face
 	})
-	s.hub.events.start_break(mut ctx)
+	s.handler.on_start_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return

@@ -8,12 +8,12 @@ import server.internal.logger
 import bedrock_v.protocol.current as proto
 
 struct RecordingChatHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	calls int
 }
 
-fn (mut h RecordingChatHandler) on_player_chat(mut ctx event.Context[event.ChatData]) {
+fn (mut h RecordingChatHandler) on_player_chat(mut ctx event.Context[player.ChatData]) {
 	h.calls++
 }
 
@@ -34,7 +34,7 @@ fn test_handle_text_dispatches_to_per_session_handler() {
 	hub.add(s)
 
 	mut per_session := &RecordingChatHandler{}
-	s.set_handler(per_session)
+	s.handle(per_session)
 
 	s.handle_text(proto.TextPacket{
 		message_type: proto.TextChat{

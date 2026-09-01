@@ -5,6 +5,7 @@ import bedrock_v.protocol.types
 import server.entity
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.player
 
 fn chest_dynamic_container_id() int {
 	return int(proto.ContainerID.first)

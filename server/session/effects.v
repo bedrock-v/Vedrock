@@ -4,6 +4,7 @@ import math
 import server.effect
 import server.event
 import bedrock_v.protocol.current as proto
+import server.player
 
 const mob_effect_add = proto.MobEffectEvent.add
 const mob_effect_remove = proto.MobEffectEvent.remove
@@ -69,13 +70,13 @@ fn (mut s NetworkSession) remove_effect(typ effect.Type) {
 // Effect mutation receives the owning runtime explicitly because event
 // dispatch, effect packets and effect damage are world scoped.
 fn (mut s NetworkSession) apply_add_effect(mut wr WorldRuntime, e effect.Effect) {
-	mut ctx := event.new_context(event.EffectAddData{
+	mut ctx := event.new_context(player.EffectAddData{
 		effect_name:    e.effect_type().name
 		level:          e.level()
 		duration_ticks: e.duration_ticks()
 		player:         s
 	})
-	wr.game.events.effect_add(mut ctx)
+	s.handler.on_effect_add(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -93,11 +94,11 @@ fn (mut s NetworkSession) apply_add_effect(mut wr WorldRuntime, e effect.Effect)
 }
 
 fn (mut s NetworkSession) apply_remove_effect(mut wr WorldRuntime, typ effect.Type) {
-	mut ctx := event.new_context(event.EffectRemoveData{
+	mut ctx := event.new_context(player.EffectRemoveData{
 		effect_name: typ.name
 		player:      s
 	})
-	wr.game.events.effect_remove(mut ctx)
+	s.handler.on_effect_remove(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}

@@ -7,6 +7,7 @@ import server.world
 import server.block
 import server.item
 import bedrock_v.protocol.current as proto
+import server.player
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -117,14 +118,14 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
-	mut ictx := event.new_context(event.InteractData{
+	mut ictx := event.new_context(player.InteractData{
 		player: s
 		x:      block_position.x
 		y:      block_position.y
 		z:      block_position.z
 		face:   block_face
 	})
-	s.hub.events.player_interact(mut ictx)
+	s.handler.on_player_interact(mut ictx)
 	if ictx.is_cancelled() {
 		s.resend_block(block_position)
 		return
@@ -234,12 +235,12 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 		s.cooldown_until[name] = s.hub.current_tick() + i64(cooldown)
 	}
 	result := item.use_result(name, stack.meta) or { return }
-	mut use_ctx := event.new_context(event.ItemUseData{
+	mut use_ctx := event.new_context(player.ItemUseData{
 		player:    s
 		item_name: name
 		meta:      stack.meta
 	})
-	s.hub.events.item_use(mut use_ctx)
+	s.handler.on_item_use(mut use_ctx)
 	if use_ctx.is_cancelled() {
 		return
 	}
@@ -337,11 +338,11 @@ fn (mut s NetworkSession) apply_consume_held_item() {
 		return
 	}
 	item_name := s.hub.data.item_name(stack.id)
-	mut ctx := event.new_context(event.ItemConsumeData{
+	mut ctx := event.new_context(player.ItemConsumeData{
 		item_name: item_name
 		player:    s
 	})
-	s.hub.events.item_consume(mut ctx)
+	s.handler.on_item_consume(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -449,14 +450,14 @@ fn (mut tx WorldTx) complete_block_break(mut s NetworkSession, pos types.BlockPo
 		return false
 	}
 
-	mut ctx := event.new_context(event.BlockBreakData{
+	mut ctx := event.new_context(player.BlockBreakData{
 		player:   s
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: old_id
 	})
-	tx.wr.game.events.block_break(mut ctx)
+	s.handler.on_block_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false

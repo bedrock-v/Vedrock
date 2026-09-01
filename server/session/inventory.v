@@ -3,6 +3,7 @@ module session
 import bedrock_v.protocol.types
 import server.item as itemmod
 import bedrock_v.protocol.current as proto
+import server.player
 
 struct SlotChange {
 	container proto.FullContainerName

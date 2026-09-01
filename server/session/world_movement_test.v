@@ -102,17 +102,17 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 }
 
 struct CountingMoveHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
 
-fn (mut h CountingMoveHandler) on_player_move(mut ctx event.Context[event.MoveData]) {
+fn (mut h CountingMoveHandler) on_player_move(mut ctx event.Context[player.MoveData]) {
 	h.hits++
 }
 
-// A handler on world B's event bus must never see movement from world A.
-fn test_player_move_event_isolated_to_owning_world() {
+// A handler on another player must never see this player's movement.
+fn test_player_move_event_reaches_only_the_moving_player() {
 	mut hub := new_hub(gamedata.GameData{})
 	world_a := db.new_world('world-a', none, 'void', world.overworld)
 	hub.add_world(world_a)
@@ -126,10 +126,12 @@ fn test_player_move_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingMoveHandler{}
 	mut handler_b := &CountingMoveHandler{}
-	wr_a.game.events.register(handler_a, .normal)
-	wr_b.game.events.register(handler_b, .normal)
 
 	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
+	s.handle(handler_a)
+	mut other := movement_isolation_test_session(mut hub, mut wr_b, types.Vector3{0, 0, 0})
+	other.handle(handler_b)
+
 	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 
 	deadline := time.now().add(2 * time.second)

@@ -174,10 +174,10 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 }
 
 struct CancelEffectAddHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelEffectAddHandler) on_effect_add(mut ctx event.Context[event.EffectAddData]) {
+fn (mut h CancelEffectAddHandler) on_effect_add(mut ctx event.Context[player.EffectAddData]) {
 	ctx.cancel()
 }
 
@@ -187,7 +187,7 @@ fn test_cancelled_effect_add_rejects_effect() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.game.events.register(&CancelEffectAddHandler{}, .normal)
+	sess.handle(&CancelEffectAddHandler{})
 
 	add_effect_directly(wr, sess.runtime_id, effect.new(effect.regeneration, 1, 5 * time.second))
 
@@ -197,10 +197,10 @@ fn test_cancelled_effect_add_rejects_effect() {
 }
 
 struct CancelEffectRemoveHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelEffectRemoveHandler) on_effect_remove(mut ctx event.Context[event.EffectRemoveData]) {
+fn (mut h CancelEffectRemoveHandler) on_effect_remove(mut ctx event.Context[player.EffectRemoveData]) {
 	ctx.cancel()
 }
 
@@ -215,7 +215,7 @@ fn test_cancelled_effect_remove_keeps_effect() {
 	active := sess.player.effect(effect.regeneration) or { panic('missing effect') }
 	assert active.level() == 1
 
-	wr.game.events.register(&CancelEffectRemoveHandler{}, .normal)
+	sess.handle(&CancelEffectRemoveHandler{})
 
 	remove_effect_directly(wr, sess.runtime_id, effect.regeneration)
 

@@ -112,18 +112,17 @@ mut:
 	chunk_gen_mutex      &sync.Mutex = sync.new_mutex()
 	transfer_mutex       &sync.Mutex = sync.new_mutex()
 	cooldown_until       map[string]i64
-	// handler is a per session attachment point, set via
-	// set_handler(h). It receives the same event.Handler calls as the global
-	// Bus for event dispatch sites that explicitly check it.
-	handler ?event.Handler
+	// handler receives every event this player causes or experiences. It
+	// starts as the Hub's default and is replaced per player with handle().
+	// Never none, so a dispatch site never tests whether anyone is listening.
+	handler player.Handler = player.NopHandler{}
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
 
-// set_handler attaches a per session event.Handler. Only wired into a subset
-// of dispatch sites so far (chat.v's ChatData) as the demonstrated pattern. Not every event type
-// checks it yet.
-fn (mut s NetworkSession) set_handler(h event.Handler) {
+// handle replaces this player's event handler. Passing none of the events is
+// fine: embed player.NopHandler and define only what the caller cares about.
+pub fn (mut s NetworkSession) handle(h player.Handler) {
 	s.handler = h
 }
 
@@ -255,6 +254,7 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 	p.reset_position(types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0})
 	return &NetworkSession{
 		player:             p
+		handler:            hub.player_handler
 		conn:               &Conn{
 			transport: transport
 			bootstrap: true
@@ -284,7 +284,7 @@ pub fn (mut s NetworkSession) handle_loop() {
 			break
 		}
 		for p in packets {
-			s.handle(p) or {
+			s.handle_packet(p) or {
 				if network.is_connection_closed(err) {
 					s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
 					s.log.debug('Connection ${s.conn.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
@@ -334,18 +334,18 @@ fn (mut s NetworkSession) leave() {
 	s.save_player_data()
 	s.hub.remove(s.runtime_id)
 	s.hub.release_player_name(s.player.identity.display_name)
-	mut ctx := event.new_context(event.QuitData{
+	mut ctx := event.new_context(player.QuitData{
 		player:  s
 		message: '§e${s.player.identity.display_name} left the game'
 	})
-	s.hub.events.player_quit(mut ctx)
+	s.handler.on_player_quit(mut ctx)
 	if !ctx.is_cancelled() && ctx.val.message != '' {
 		s.hub.broadcast_message(ctx.val.message)
 	}
 	s.log.info('${s.player.identity.display_name} left the game')
 }
 
-fn (mut s NetworkSession) handle(p protocol.Packet) ! {
+fn (mut s NetworkSession) handle_packet(p protocol.Packet) ! {
 	match s.conn.state {
 		.handshake {
 			if p is proto.RequestNetworkSettingsPacket {

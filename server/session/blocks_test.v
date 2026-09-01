@@ -193,7 +193,7 @@ fn test_place_block_cancelled_resends_skips_write() {
 	hub.add(s)
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	wr.game.events.register(&CancelBlockPlaceHandler{}, .normal)
+	s.handle(&CancelBlockPlaceHandler{})
 	mut tx := &WorldTx{
 		wr: wr
 	}
@@ -208,10 +208,10 @@ fn test_place_block_cancelled_resends_skips_write() {
 }
 
 struct CancelBlockPlaceHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelBlockPlaceHandler) on_block_place(mut ctx event.Context[event.BlockPlaceData]) {
+fn (mut h CancelBlockPlaceHandler) on_block_place(mut ctx event.Context[player.BlockPlaceData]) {
 	ctx.cancel()
 }
 
@@ -294,7 +294,6 @@ fn test_break_block_rejects_out_of_reach() {
 
 fn test_break_block_cancelled_resends_keeps_block() {
 	mut hub := new_hub(gamedata.GameData{})
-	hub.events.register(&CancelBlockBreakHandler{}, .normal)
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
@@ -307,6 +306,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 		generator:  world.FlatGenerator{}
 	}
 	hub.add(s)
+	s.handle(&CancelBlockBreakHandler{})
 
 	pos := types.BlockPosition{0, world.overworld.min_y, 0}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
@@ -324,10 +324,10 @@ fn test_break_block_cancelled_resends_keeps_block() {
 }
 
 struct CancelBlockBreakHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelBlockBreakHandler) on_block_break(mut ctx event.Context[event.BlockBreakData]) {
+fn (mut h CancelBlockBreakHandler) on_block_break(mut ctx event.Context[player.BlockBreakData]) {
 	ctx.cancel()
 }
 
@@ -695,16 +695,15 @@ fn test_empty_hand_interact_places_nothing() {
 }
 
 struct CancelItemConsumeHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelItemConsumeHandler) on_item_consume(mut ctx event.Context[event.ItemConsumeData]) {
+fn (mut h CancelItemConsumeHandler) on_item_consume(mut ctx event.Context[player.ItemConsumeData]) {
 	ctx.cancel()
 }
 
 fn test_cancelled_consume_keeps_stack() {
 	mut hub := new_hub(gamedata.GameData{})
-	hub.events.register(&CancelItemConsumeHandler{}, .normal)
 	mut s := &NetworkSession{
 		player:     &player.Player{
 			identity: auth.Identity{
@@ -715,6 +714,7 @@ fn test_cancelled_consume_keeps_stack() {
 		hub:        hub
 	}
 	hub.add(s)
+	s.handle(&CancelItemConsumeHandler{})
 	stack := types.ItemStack{
 		id:    300
 		count: 1

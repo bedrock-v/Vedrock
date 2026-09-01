@@ -181,7 +181,7 @@ fn (mut h WorldEntityHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 	return best_rid
 }
 
-// notify_entity_despawn dispatches entity_despawn on this world's event bus.
+// notify_entity_despawn dispatches entity_despawn on this world's handler.
 fn (mut h WorldEntityHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
 	mut ctx := event.new_context(event.EntityDespawnData{
 		identifier: identifier
@@ -189,7 +189,7 @@ fn (mut h WorldEntityHost) notify_entity_despawn(identifier string, x f32, y f32
 		y:          y
 		z:          z
 	})
-	h.wr.game.events.entity_despawn(mut ctx)
+	h.wr.handler.on_entity_despawn(mut ctx)
 }
 
 // SpawnEntityTask resolves and, unless the owning world's entity_spawn
@@ -217,7 +217,7 @@ fn (t SpawnEntityTask) run(mut tx WorldTx) {
 		y:          t.y
 		z:          t.z
 	})
-	tx.wr.game.events.entity_spawn(mut ctx)
+	tx.wr.handler.on_entity_spawn(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}

@@ -5,6 +5,7 @@ import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
+import server.player
 
 const crafting_grid_small = [28, 29, 30, 31]
 const crafting_grid_large = [32, 33, 34, 35, 36, 37, 38, 39, 40]

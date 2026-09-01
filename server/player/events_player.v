@@ -1,8 +1,7 @@
-module event
+module player
 
-import server.player
 
-// Every event carries the player it originated from as a player.View (see
+// Every event carries the player it originated from as a View (see
 // server/player/view.v) so handlers can identify and message them without
 // the event package ever importing the session package. Coordinates and ids
 // are plain primitives for the same reason.
@@ -11,14 +10,14 @@ import server.player
 // suppresses the broadcast join message; editing message changes it.
 pub struct JoinData {
 pub mut:
-	player  player.View
+	player  View
 	message string
 }
 
 // QuitData is dispatched when a spawned player leaves. Same rules as JoinData.
 pub struct QuitData {
 pub mut:
-	player  player.View
+	player  View
 	message string
 }
 
@@ -26,7 +25,7 @@ pub mut:
 // message; editing message rewrites what everyone sees.
 pub struct ChatData {
 pub mut:
-	player  player.View
+	player  View
 	message string
 }
 
@@ -34,7 +33,7 @@ pub mut:
 // the command; editing command rewrites what is executed.
 pub struct CommandData {
 pub mut:
-	player  player.View
+	player  View
 	command string
 }
 
@@ -46,13 +45,13 @@ pub:
 	y f32
 	z f32
 pub mut:
-	player player.View
+	player View
 }
 
 // GameModeChangeData is dispatched before a player's gamemode changes. Editing
 // mode changes the target gamemode; cancelling it keeps the current one.
 pub struct GameModeChangeData {
 pub mut:
-	player player.View
-	mode   player.Gamemode
+	player View
+	mode   Gamemode
 }

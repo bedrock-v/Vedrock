@@ -1,6 +1,5 @@
-module event
+module player
 
-import server.player
 
 // WorldLoadData is dispatched after a world is created or loaded and
 // registered. The world already exists by the time this
@@ -9,7 +8,7 @@ pub struct WorldLoadData {
 pub:
 	name string
 pub mut:
-	player player.View
+	player View
 }
 
 // WorldUnloadData is dispatched before a loaded world is unloaded. Cancelling
@@ -18,5 +17,5 @@ pub struct WorldUnloadData {
 pub:
 	name string
 pub mut:
-	player player.View
+	player View
 }

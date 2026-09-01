@@ -11,6 +11,7 @@ import server.world.db
 import server.internal.logger
 import server.worldrt
 import bedrock_v.protocol.current as proto
+import server.player
 
 // The initial spawn stream paces itself so the outbound queue is not filled
 // faster than the writer drains it. A radius 8 view is 289 columns, so the
@@ -1059,11 +1060,11 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	if !isnil(wr) {
 		s.send_active_effects(mut wr)
 	}
-	mut ctx := event.new_context(event.JoinData{
+	mut ctx := event.new_context(player.JoinData{
 		player:  s
 		message: '§e${s.player.identity.display_name} joined the game'
 	})
-	s.hub.events.player_join(mut ctx)
+	s.handler.on_player_join(mut ctx)
 	if !ctx.is_cancelled() && ctx.val.message != '' {
 		s.hub.broadcast_message(ctx.val.message)
 	}

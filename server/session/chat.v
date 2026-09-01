@@ -5,6 +5,7 @@ import server.cmd
 import server.event
 import server.player.chat
 import bedrock_v.protocol.current as proto
+import server.player
 
 // The wire message is an unbounded string, while the vanilla client caps chat
 // at 512 characters and a command line well below that. Without a bound here
@@ -51,14 +52,11 @@ fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
 		s.run_command(message)!
 		return
 	}
-	mut ctx := event.new_context(event.ChatData{
+	mut ctx := event.new_context(player.ChatData{
 		player:  s
 		message: message
 	})
-	s.hub.events.player_chat(mut ctx)
-	if mut h := s.handler {
-		h.on_player_chat(mut ctx)
-	}
+	s.handler.on_player_chat(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -83,11 +81,11 @@ fn (mut s NetworkSession) handle_command_request(p proto.CommandRequestPacket) !
 }
 
 fn (mut s NetworkSession) run_command(line string) ! {
-	mut cctx := event.new_context(event.CommandData{
+	mut cctx := event.new_context(player.CommandData{
 		player:  s
 		command: line
 	})
-	s.hub.events.player_command(mut cctx)
+	s.handler.on_player_command(mut cctx)
 	if cctx.is_cancelled() {
 		return
 	}

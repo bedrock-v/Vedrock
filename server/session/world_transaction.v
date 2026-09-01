@@ -67,7 +67,7 @@ pub fn (mut h WorldTxHandle) spawn_entity(config EntityConfig) !EntityRef {
 		y:          config.pos.y
 		z:          config.pos.z
 	})
-	h.tx.wr.game.events.entity_spawn(mut ctx)
+	h.tx.wr.handler.on_entity_spawn(mut ctx)
 	if ctx.is_cancelled() {
 		return error('entity spawn was cancelled')
 	}

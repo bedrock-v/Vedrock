@@ -1,6 +1,5 @@
-module event
+module player
 
-import server.player
 
 // EffectAddData is dispatched before an effect is applied to a player.
 // Cancelling it rejects the effect entirely. effect_name/level/duration_ticks
@@ -11,7 +10,7 @@ pub:
 	level          int
 	duration_ticks int
 pub mut:
-	player player.View
+	player View
 }
 
 // EffectRemoveData is dispatched before an effect is removed from a player,
@@ -21,5 +20,5 @@ pub struct EffectRemoveData {
 pub:
 	effect_name string
 pub mut:
-	player player.View
+	player View
 }

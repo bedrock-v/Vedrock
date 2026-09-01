@@ -4,6 +4,7 @@ import math
 import bedrock_v.protocol.types
 import server.event
 import bedrock_v.protocol.current as proto
+import server.player
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
@@ -198,14 +199,14 @@ fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapsh
 	if s.spawned && tx.wr.game.hub.current_tick() % 40 == 0 {
 		s.log.debug('move ${s.player.identity.display_name} pos=(${position.x:.2f}, ${position.y:.2f}, ${position.z:.2f})')
 	}
-	if s.spawned && tx.wr.game.events.len() > 0 {
-		mut ctx := event.new_context(event.MoveData{
+	if s.spawned {
+		mut ctx := event.new_context(player.MoveData{
 			player: s
 			x:      position.x
 			y:      position.y
 			z:      position.z
 		})
-		tx.wr.game.events.player_move(mut ctx)
+		s.handler.on_player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
 			mut move_packet := &proto.MovePlayerPacket{

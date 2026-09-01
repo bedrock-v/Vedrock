@@ -24,6 +24,7 @@ import server.internal.auth
 import server.player.playerdb
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import server.player
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
@@ -67,7 +68,11 @@ mut:
 	data               gamedata.GameData
 	lang               &language.Lang               = unsafe { nil }
 	commands           cmd.Registry                 = cmd.new_registry()
-	events             &event.Bus                   = unsafe { nil }
+	// Defaults handed to every player and world this Hub creates. One handler
+	// each, not a list: ordering between several listeners is the caller's to
+	// arrange, in a handler that calls them in the order it wants.
+	player_handler     player.Handler               = player.NopHandler{}
+	world_handler      worldrt.Handler              = worldrt.NopHandler{}
 	scheduler          &scheduler.Scheduler         = unsafe { nil }
 	generators         blockworld.GeneratorRegistry = blockworld.new_generator_registry()
 	started_at         i64
@@ -162,7 +167,6 @@ pub fn new_hub(data gamedata.GameData, opts HubOptions) &Hub {
 		mutex:                sync.new_mutex()
 		data:                 data
 		commands:             commands
-		events:               event.new_bus()
 		scheduler:            scheduler.new_scheduler()
 		world_factory:        opts.world_factory
 		started_at:           time.now().unix()
@@ -811,12 +815,17 @@ pub fn (mut h Hub) disconnect_all(message string) {
 	}
 }
 
-pub fn (mut h Hub) register_event(handler event.Handler, priority event.Priority) {
-	h.events.register(handler, priority)
+// handle_players sets the handler every player created from now on starts
+// with. Players already connected keep the handler they have; change one with
+// NetworkSession.handle.
+pub fn (mut h Hub) handle_players(handler player.Handler) {
+	h.player_handler = handler
 }
 
-pub fn (mut h Hub) unregister_event(handler event.Handler) {
-	h.events.unregister(handler)
+// handle_worlds sets the handler every world runtime created from now on
+// starts with.
+pub fn (mut h Hub) handle_worlds(handler worldrt.Handler) {
+	h.world_handler = handler
 }
 
 // register_command adds command to the shared command registry, available

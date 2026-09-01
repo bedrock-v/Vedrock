@@ -1,6 +1,5 @@
-module event
+module player
 
-import server.player
 
 // AttackData is dispatched when a player attacks an entity. player is the
 // attacker, victim_runtime_id the target. Editing damage changes the hit;
@@ -10,7 +9,7 @@ pub:
 	victim_runtime_id u64
 	critical          bool
 pub mut:
-	player           player.View
+	player           View
 	damage           f32
 	knockback_force  f32
 	knockback_height f32
@@ -23,7 +22,7 @@ pub struct HurtData {
 pub:
 	attacker_name string
 pub mut:
-	player player.View
+	player View
 	amount f32
 }
 
@@ -34,7 +33,7 @@ pub struct DeathData {
 pub:
 	params []string
 pub mut:
-	player      player.View
+	player      View
 	message_key string
 }
 
@@ -42,7 +41,7 @@ pub mut:
 // respawn point by editing x/y/z (e.g. to send players back to a lobby).
 pub struct RespawnData {
 pub mut:
-	player player.View
+	player View
 	x      f32
 	y      f32
 	z      f32

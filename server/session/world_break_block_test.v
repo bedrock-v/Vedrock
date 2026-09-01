@@ -99,10 +99,10 @@ fn test_break_block_damages_held_item_exactly_once() {
 }
 
 struct BreakTestCancelHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h BreakTestCancelHandler) on_block_break(mut ctx event.Context[event.BlockBreakData]) {
+fn (mut h BreakTestCancelHandler) on_block_break(mut ctx event.Context[player.BlockBreakData]) {
 	ctx.cancel()
 }
 
@@ -111,11 +111,10 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	// block_break is dispatched on the owning world's own event bus, not
-	// Hub's global one.
-	wr.game.events.register(&BreakTestCancelHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := break_test_session(mut hub, mut transport, mut wr)
+	// block_break is dispatched on the breaking player's own handler.
+	s.handle(&BreakTestCancelHandler{})
 	give_held_pick(mut s)
 	defer {
 		hub.close_worlds()
@@ -183,18 +182,18 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 // CountingBreakHandler records block_break events to prove world scoped event
 // isolation, not just packet isolation.
 struct CountingBreakHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
 
-fn (mut h CountingBreakHandler) on_block_break(mut ctx event.Context[event.BlockBreakData]) {
+fn (mut h CountingBreakHandler) on_block_break(mut ctx event.Context[player.BlockBreakData]) {
 	h.hits++
 }
 
 // A handler registered on world B's event bus must never observe a block break
 // that happened in world A, and vice versa.
-fn test_break_block_event_isolated_to_owning_world() {
+fn test_break_block_event_reaches_only_the_breaking_player() {
 	mut hub := break_test_hub()
 	world_a := db.new_world('world-a', none, 'flat', world.overworld)
 	hub.add_world(world_a)
@@ -209,11 +208,13 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingBreakHandler{}
 	mut handler_b := &CountingBreakHandler{}
-	wr_a.game.events.register(handler_a, .normal)
-	wr_b.game.events.register(handler_b, .normal)
 
 	mut transport_a := &FakeTransport{}
 	mut s_a := break_test_session(mut hub, mut transport_a, mut wr_a)
+	s_a.handle(handler_a)
+	mut transport_b := &FakeTransport{}
+	mut s_b := break_test_session(mut hub, mut transport_b, mut wr_b)
+	s_b.handle(handler_b)
 	give_held_pick(mut s_a)
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
