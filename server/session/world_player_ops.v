@@ -8,8 +8,9 @@ fn (mut tx WorldTx) damage_held_item(mut s NetworkSession, amount int) {
 	s.damage_held_item(amount)
 }
 
-// consume_held_item consumes the held item directly from an active WorldTask,
-// avoiding the actor submitting wrapper that would deadlock here.
+// consume_held_item consumes the held item directly from an active WorldTask.
+// The mutation touches only this player's inventory which is synchronized
+// internally.
 fn (mut tx WorldTx) consume_held_item(mut s NetworkSession) {
 	s.apply_consume_held_item()
 }
