@@ -8,13 +8,18 @@ import server.player.playerdb
 import bedrock_v.protocol.types
 import sync
 
-// Player holds the gamestate fields that belong to a player as an entity,
-// independent of whichever network connection (if any) is currently driving
-// it. It holds no transport/packet send capability by design.
-//
-// Behavior methods that need to send a packet or broadcast (send_message,
-// teleport, kill, give_item, etc.) stay on NetworkSession, which reads and
-// writes through this struct's accessors for the state they operate on.
+// inventory_window_id is the container id the client uses for the player's
+// own inventory, and inventory_slot_count is how many slots it has.
+pub const inventory_window_id = 0
+pub const inventory_slot_count = 36
+
+// hotbar_size is how many of those slots the client shows on the hotbar.
+pub const hotbar_size = 9
+
+// Player is a player as an entity: the state that belongs to them and the
+// actions they can take. It reaches its own client through a Sink and the
+// rest of the world through a transaction, so nothing here depends on how
+// that client is connected or on there being one.
 @[heap]
 pub struct Player {
 pub mut:
@@ -42,15 +47,18 @@ mut:
 	last_death_pos   types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
-	pos_mutex        &sync.Mutex = sync.new_mutex()
-	position         types.Vector3
-	pitch            f32
-	yaw              f32
-	head_yaw         f32
-	vy               f32
-	prev_y           f32
-	fall_distance    f32
-	grounded         bool
+	// give_next_slot round robins give_item across the hotbar. Only the
+	// world actor touches it, so it is not under state_mutex.
+	give_next_slot int
+	pos_mutex      &sync.Mutex = sync.new_mutex()
+	position       types.Vector3
+	pitch          f32
+	yaw            f32
+	head_yaw       f32
+	vy             f32
+	prev_y         f32
+	fall_distance  f32
+	grounded       bool
 }
 
 // max_air_supply_ticks is the underwater breath meter's full value.
@@ -209,10 +217,6 @@ pub fn (p &Player) snapshot_slot_stacks() map[int]types.ItemStack {
 // track_stack assigns stack a new network ID, stores it and returns that ID.
 pub fn (mut p Player) track_stack(stack types.ItemStack) int {
 	return p.inv.track_stack(stack)
-}
-
-pub fn (mut p Player) clear_inventory() {
-	p.inv.clear()
 }
 
 pub fn (p &Player) pending_creative() ?types.ItemStack {

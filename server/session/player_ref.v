@@ -106,10 +106,11 @@ pub fn (p PlayerRef) position() !types.Vector3 {
 }
 
 // send_message shows message in the player's chat. Same failure mode as
-// position.
+// position. It goes straight to the player rather than through the world
+// actor: the verb touches no world state.
 pub fn (p PlayerRef) send_message(message string) ! {
 	mut s := p.resolve()!
-	s.send_message(message)!
+	s.player.send_message(message)
 }
 
 // teleport moves the player within their current world. Same failure mode as
@@ -129,7 +130,8 @@ pub fn (p PlayerRef) teleport_to(w World, pos types.Vector3) ! {
 }
 
 // give_item adds count of the item named id to the player's inventory.
-// Fails if the player is gone (see position) or their inventory has no room.
+// Fails if the player is gone (see position) or id names nothing the server
+// knows. The item lands on the world actor; this returns once it has.
 pub fn (p PlayerRef) give_item(id string, count int) ! {
 	mut s := p.resolve()!
 	if !s.give_item(id, count) {

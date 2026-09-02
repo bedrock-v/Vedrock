@@ -114,21 +114,11 @@ fn (mut s NetworkSession) run_command(line string) ! {
 // may message another player's session, so the packet goes through deliver;
 // socket failures are handled by the outbound writer.
 fn (mut s NetworkSession) send_message(message string) ! {
-	s.deliver(&proto.TextPacket{
-		message_type: proto.TextRaw{
-			message: message
-		}
-	})
+	s.player.send_message(message)
 }
 
 fn (mut s NetworkSession) send_translation(message string, parameters []string) ! {
-	s.deliver(&proto.TextPacket{
-		localize:     true
-		message_type: proto.TextTranslate{
-			message:        message
-			parameter_list: parameters
-		}
-	})
+	s.player.send_translation(message, parameters)
 }
 
 // subscriber_id identifies this session in a chat channel. The runtime id is

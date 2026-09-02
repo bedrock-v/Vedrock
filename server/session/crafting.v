@@ -6,6 +6,7 @@ import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import server.player
 
 const crafting_grid_small = [28, 29, 30, 31]
 const crafting_grid_large = [32, 33, 34, 35, 36, 37, 38, 39, 40]
@@ -193,7 +194,7 @@ fn (s &NetworkSession) available_ingredient_count(name string) int {
 			}
 		}
 	}
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		net_id := s.player.inv_slot(slot) or { continue }
 		if stack := s.player.inv_stack(net_id) {
 			if s.hub.data.item_name(stack.id) == name {
@@ -235,7 +236,7 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 			container: .crafting_input_container
 		}, i8(slot), left, new_net)
 	}
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		if remaining <= 0 {
 			break
 		}

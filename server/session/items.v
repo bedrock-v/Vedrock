@@ -6,9 +6,8 @@ import server.player.playerdb
 import server.item
 import server.block
 import bedrock_v.protocol.current as proto
+import server.player
 
-const inventory_window_id = 0
-const inventory_slot_count = 36
 const starter_item_count = 9
 
 fn empty_component_nbt() nbt.RootTag {
@@ -198,11 +197,11 @@ fn (mut s NetworkSession) restore_inventory() &proto.InventoryContentPacket {
 	for i in 0 .. s.player.loaded_items_len() {
 		saved := s.player.loaded_item(i)
 		slot := if saved.slot >= 0 { saved.slot } else { i }
-		if slot >= 0 && slot < inventory_slot_count {
+		if slot >= 0 && slot < player.inventory_slot_count {
 			loaded_by_slot[slot] = saved
 		}
 	}
-	for i in 0 .. inventory_slot_count {
+	for i in 0 .. player.inventory_slot_count {
 		if saved := loaded_by_slot[i] {
 			count := s.clamp_stack_count(saved.id, saved.count)
 			if count <= 0 {
@@ -224,7 +223,7 @@ fn (mut s NetworkSession) restore_inventory() &proto.InventoryContentPacket {
 		}
 	}
 	return &proto.InventoryContentPacket{
-		inventory_id:        u32(inventory_window_id)
+		inventory_id:        u32(player.inventory_window_id)
 		slots:               items
 		container_name_data: proto.FullContainerName{
 			container: .inventory_container
@@ -240,7 +239,7 @@ fn (mut s NetworkSession) restore_inventory() &proto.InventoryContentPacket {
 fn (mut s NetworkSession) save_player_data() {
 	mut items := []playerdb.InvItem{}
 	slot_stacks := s.player.snapshot_slot_stacks()
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		stack := slot_stacks[slot] or { continue }
 		count := s.clamp_stack_count(stack.id, stack.count)
 		if count <= 0 {

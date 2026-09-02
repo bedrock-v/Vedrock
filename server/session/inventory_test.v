@@ -298,8 +298,8 @@ fn test_flat_slot_rejects_a_slot_outside_the_inventory() {
 		container: .inventory_container
 	}
 	assert flat_slot(container, 0)? == 0
-	assert flat_slot(container, i8(inventory_slot_count - 1))? == inventory_slot_count - 1
-	if _ := flat_slot(container, i8(inventory_slot_count)) {
+	assert flat_slot(container, i8(player.inventory_slot_count - 1))? == player.inventory_slot_count - 1
+	if _ := flat_slot(container, i8(player.inventory_slot_count)) {
 		assert false, 'expected a slot past the inventory to be rejected'
 	}
 	if _ := flat_slot(container, -1) {

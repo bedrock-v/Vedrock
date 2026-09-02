@@ -30,7 +30,7 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 
 fn test_inventory_content_roundtrip() {
 	sent := &proto.InventoryContentPacket{
-		inventory_id:        u32(inventory_window_id)
+		inventory_id:        u32(player.inventory_window_id)
 		slots:               [
 			proto.item_descriptor_v2(types.ItemStack{ id: 1, count: 64 }),
 		]
@@ -42,7 +42,7 @@ fn test_inventory_content_roundtrip() {
 	assert decode_packet(sent)!.name() == 'InventoryContentPacket'
 	mut decoded := proto.InventoryContentPacket{}
 	decode_into(sent, mut decoded)!
-	assert decoded.inventory_id == u32(inventory_window_id)
+	assert decoded.inventory_id == u32(player.inventory_window_id)
 	assert decoded.slots[0].id == 1
 }
 

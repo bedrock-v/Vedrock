@@ -601,7 +601,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p proto.BlockPickRequestPacke
 	}
 
 	if existing_slot := s.find_inventory_slot(item_id, runtime_id) {
-		if existing_slot < give_hotbar_size {
+		if existing_slot < player.hotbar_size {
 			stack, net := s.inventory_stack_at(existing_slot)
 			s.select_hotbar_slot(existing_slot, wrap_stack_id(stack, net))
 		} else {
@@ -625,7 +625,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p proto.BlockPickRequestPacke
 		s.select_hotbar_slot(held_slot, wrap_stack_id(stack, net_id))
 		return
 	}
-	if empty_slot < give_hotbar_size {
+	if empty_slot < player.hotbar_size {
 		net_id := s.player.track_stack(stack)
 		s.player.set_slot(empty_slot, net_id)
 		wrapped := wrap_stack_id(stack, net_id)
@@ -647,7 +647,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p proto.BlockPickRequestPacke
 }
 
 fn (s &NetworkSession) find_inventory_slot(item_id int, runtime_id int) ?int {
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		net := s.player.inv_slot(slot) or { continue }
 		existing := s.player.inv_stack(net) or { continue }
 		if existing.id == item_id && existing.block_runtime_id == runtime_id {

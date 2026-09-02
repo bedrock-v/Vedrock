@@ -2,15 +2,20 @@ module player
 
 import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
+import server.item
 import server.worldrt
 
-// The player's own actions. Each one takes the transaction for the world the
-// player is in which is both how it reaches the world and the proof that it
-// is running on that world's actor: a transaction only exists inside a task.
+// The player's own actions.
 //
 // A verb speaks to its own client through the sink and to everyone else
-// through the transaction. Both are built from the same state in the same
-// actor turn and cannot disagree.
+// through a transaction. Both are built from the same state in the same actor
+// turn and cannot disagree.
+//
+// A verb that reaches the world, or writes state the world actor owns, takes
+// that world's transaction: it is how the verb gets there and the proof that
+// it is running on the right thread since a transaction only exists inside a
+// task. A verb that only speaks to its own client takes none because it
+// needs neither.
 
 // teleport moves the player to pos, tells its own client to snap there and
 // shows the move to everyone else in the world.
@@ -54,4 +59,101 @@ pub fn (p &Player) move_actor_packet() &proto.MoveActorAbsolutePacket {
 			rotation_y_head:  proto.rotation_byte(current.head_yaw)
 		}
 	}
+}
+
+// send_message shows message in the player's chat.
+pub fn (mut p Player) send_message(message string) {
+	mut sink := p.sink
+	sink.deliver(&proto.TextPacket{
+		message_type: proto.TextRaw{
+			message: message
+		}
+	})
+}
+
+// send_translation shows a client side localised message with parameters
+// filling the placeholders in the entry named by key.
+pub fn (mut p Player) send_translation(key string, parameters []string) {
+	mut sink := p.sink
+	sink.deliver(&proto.TextPacket{
+		localize:     true
+		message_type: proto.TextTranslate{
+			message:        key
+			parameter_list: parameters
+		}
+	})
+}
+
+// send_slot_update keeps the client's view of one inventory slot in sync
+// after the server changed what is in it.
+pub fn (mut p Player) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
+	mut sink := p.sink
+	sink.deliver(&proto.InventorySlotPacket{
+		container_id:        u32(inventory_window_id)
+		slot:                u32(slot)
+		container_name_data: proto.FullContainerName{
+			container: .inventory_container
+		}
+		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
+	})
+}
+
+// clear_inventory empties the player's inventory and shows the empty result
+// to their client. Nobody else can see another player's inventory, so this
+// one only speaks through the sink; it takes the transaction because it
+// writes state the world actor owns.
+pub fn (mut p Player) clear_inventory(mut tx worldrt.WorldTx) {
+	p.inv.clear()
+	mut items := []proto.NetworkItemStackDescriptorV2{}
+	for _ in 0 .. inventory_slot_count {
+		items << proto.item_descriptor_v2(types.ItemStack{})
+	}
+	mut sink := p.sink
+	sink.deliver(&proto.InventoryContentPacket{
+		inventory_id:        u32(inventory_window_id)
+		slots:               items
+		container_name_data: proto.FullContainerName{
+			container: .inventory_container
+		}
+		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
+	})
+}
+
+// give_item puts count of the item named id into the player's inventory and
+// shows the new slot to their client. It reports false when id names nothing
+// the server knows.
+//
+// Which slot it lands in is deliberately simplified: the server doesn't keep
+// a full slot -> stack map in sync with client driven inventory transactions
+// (those are tracked by client assigned network ids), so a
+// "first empty slot" search would risk silently colliding with content the
+// client already has and thinks the server doesn't know about. Round robining
+// across the hotbar via a dedicated counter avoids touching that unrelated
+// bookkeeping; it can still overwrite a hotbar slot's visible content.
+pub fn (mut p Player) give_item(mut tx worldrt.WorldTx, id string, count int) bool {
+	numeric_id := tx.wr.services.game_data().item_id(id)
+	if numeric_id == 0 && id != 'minecraft:air' {
+		return false
+	}
+	mut block_runtime_id := 0
+	if it := item.get(id) {
+		block_runtime_id = it.block_runtime_id()
+	}
+	slot := p.give_next_slot % hotbar_size
+	p.give_next_slot++
+	stack := types.ItemStack{
+		id:               numeric_id
+		meta:             0
+		count:            count
+		block_runtime_id: block_runtime_id
+		raw_extra_data:   []u8{}
+	}
+	net_id := p.inv.track_stack(stack)
+	p.inv.set_slot(slot, net_id)
+	p.send_slot_update(slot, types.ItemStackWrapper{
+		stack_id:         net_id
+		stack_id_variant: 0
+		item_stack:       stack
+	})
+	return true
 }

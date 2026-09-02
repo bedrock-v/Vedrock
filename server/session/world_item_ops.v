@@ -8,6 +8,7 @@ import server.entity
 import server.item
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import server.player
 
 fn spawn_dropped_item_entity(mut wr worldrt.WorldRuntime, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
 	if stack.count <= 0 || stack.id == 0 {
@@ -75,7 +76,7 @@ fn (mut s NetworkSession) try_collect_item(stack types.ItemStack) int {
 	}
 	max := s.max_stack_size_for_numeric(stack.id)
 	mut remaining := stack.count
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		if remaining <= 0 {
 			break
 		}

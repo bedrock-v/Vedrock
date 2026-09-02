@@ -3,7 +3,6 @@ module session
 import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
 import server.internal.logger
-import server.item
 import server.worldrt
 
 // op / deop
@@ -333,115 +332,37 @@ fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, name)
 }
 
-// clear inventory
-
-// PlayerClearInventoryTask is clear_inventory() run through the owning
-// world's actor.
-struct PlayerClearInventoryTask {
-	runtime_id u64
-	epoch      i64
-}
-
-fn (t PlayerClearInventoryTask) name() string {
-	return 'PlayerClearInventoryTask'
-}
-
-fn (t PlayerClearInventoryTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	s.apply_clear_inventory()
-}
-
-fn (mut s NetworkSession) apply_clear_inventory() {
-	s.player.clear_inventory()
-	mut items := []proto.NetworkItemStackDescriptorV2{}
-	for _ in 0 .. inventory_slot_count {
-		items << proto.item_descriptor_v2(types.ItemStack{})
-	}
-	s.deliver(&proto.InventoryContentPacket{
-		inventory_id:        u32(inventory_window_id)
-		slots:               items
-		container_name_data: proto.FullContainerName{
-			container: .inventory_container
-		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
-	})
-}
-
+// clear_inventory empties the player's inventory. It runs on the owning
+// world's actor because the inventory is state that actor owns.
 fn (mut s NetworkSession) clear_inventory() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
 	}
-	wr.submit(PlayerClearInventoryTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-	})
+	rid := s.runtime_id
+	epoch := s.world_binding().epoch
+	worldrt.world_call[bool]('Player.clear_inventory', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+		target.player.clear_inventory(mut tx)
+		return true
+	}) or { false }
 }
 
-// give
-
-// give_slot_count/give_hotbar_next implement a deliberately simplified slot
-// pick for /give: the server doesn't currently keep a full slot->stack map in
-// sync with client-driven inventory transactions (those are tracked by
-// client-assigned network ids, not slot index), so building a "first empty
-// slot" search would risk silently colliding with content the client already
-// has and thinks the server doesn't know about. Round robining across the
-// hotbar (0-8) via a dedicated counter avoids touching that unrelated
-// bookkeeping; it can still overwrite a hotbar slot's visible content.
-const give_hotbar_size = 9
-
-// PlayerGiveItemTask is give_item() run through the owning world's actor.
-struct PlayerGiveItemTask {
-	runtime_id       u64
-	epoch            i64
-	numeric_id       int
-	block_runtime_id int
-	count            int
-}
-
-fn (t PlayerGiveItemTask) name() string {
-	return 'PlayerGiveItemTask'
-}
-
-fn (t PlayerGiveItemTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	s.apply_give_item(t.numeric_id, t.block_runtime_id, t.count)
-}
-
-fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, count int) {
-	slot := s.give_next_slot % give_hotbar_size
-	s.give_next_slot++
-	stack := types.ItemStack{
-		id:               numeric_id
-		meta:             0
-		count:            count
-		block_runtime_id: block_runtime_id
-		raw_extra_data:   []u8{}
-	}
-	net_id := s.player.track_stack(stack)
-	s.player.set_slot(slot, net_id)
-	s.send_slot_update(slot, wrap_stack_id(stack, net_id))
-}
-
+// give_item adds count of the item named id to the player's inventory,
+// reporting whether it landed.
+//
+// It blocks for the same reason submit_teleport does: the caller is told
+// whether the item arrived, so the answer has to describe work that already
+// happened rather than work that was only queued.
 fn (mut s NetworkSession) give_item(id string, count int) bool {
-	numeric_id := s.hub.data.item_id(id)
-	if numeric_id == 0 && id != 'minecraft:air' {
-		return false
-	}
-	mut block_runtime_id := 0
-	if it := item.get(id) {
-		block_runtime_id = it.block_runtime_id()
-	}
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return false
 	}
-	wr.submit(PlayerGiveItemTask{
-		runtime_id:       s.runtime_id
-		epoch:            s.world_binding().epoch
-		numeric_id:       numeric_id
-		block_runtime_id: block_runtime_id
-		count:            count
-	})
-	return true
+	rid := s.runtime_id
+	epoch := s.world_binding().epoch
+	return worldrt.world_call[bool]('Player.give_item', mut wr, fn [rid, epoch, id, count] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+		return target.player.give_item(mut tx, id, count)
+	}) or { false }
 }

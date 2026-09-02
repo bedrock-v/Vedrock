@@ -4,6 +4,7 @@ import bedrock_v.protocol.types
 import server.item as itemmod
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import server.player
 
 struct SlotChange {
 	container proto.FullContainerName
@@ -35,7 +36,7 @@ fn (target &NetworkSession) slot_snapshot_for_net_id(net_id int) SlotSnapshot {
 
 fn (target &NetworkSession) capture_transaction_snapshot() TransactionSnapshot {
 	mut inv := map[int]SlotSnapshot{}
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		net_id := target.player.inv_slot(slot) or { 0 }
 		inv[slot] = target.slot_snapshot_for_net_id(net_id)
 	}
@@ -87,7 +88,7 @@ fn flat_slot(container proto.FullContainerName, slot i8) ?int {
 		.hotbar_container, .combined_hotbar_and_inventory_container, .inventory_container { int(slot) }
 		else { return none }
 	}
-	if flat < 0 || flat >= inventory_slot_count {
+	if flat < 0 || flat >= player.inventory_slot_count {
 		return none
 	}
 	return flat
@@ -165,7 +166,7 @@ fn (mut s NetworkSession) set_slot_stack(container proto.FullContainerName, slot
 }
 
 fn (s &NetworkSession) first_empty_slot() ?int {
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		if !s.player.has_slot(slot) {
 			return slot
 		}
@@ -235,14 +236,7 @@ fn (s &NetworkSession) resolve_request_stack(container proto.FullContainerName, 
 // not the bare item_descriptor_v2. A descriptor with no net id teaches
 // the client nothing about this slot's id.
 fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
-	s.deliver(&proto.InventorySlotPacket{
-		container_id:        u32(inventory_window_id)
-		slot:                u32(slot)
-		container_name_data: proto.FullContainerName{
-			container: .inventory_container
-		}
-		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
-	})
+	s.player.send_slot_update(slot, wrapped)
 }
 
 // PlayerMobEquipmentTask applies held slot changes on the owning world

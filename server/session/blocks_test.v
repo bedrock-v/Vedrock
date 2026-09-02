@@ -806,7 +806,7 @@ fn test_block_pick_request_selects_existing_item_into_hand() {
 	net_id := s.player.track_stack(existing)
 	// A non-hotbar slot, so the pick takes the swap_slot_into_hand path
 	// rather than the plain select_hotbar_slot one.
-	s.player.set_slot(give_hotbar_size, net_id)
+	s.player.set_slot(player.hotbar_size, net_id)
 
 	s.handle_block_pick_request(proto.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
