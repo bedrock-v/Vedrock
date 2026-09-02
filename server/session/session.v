@@ -319,7 +319,7 @@ fn (mut s NetworkSession) leave() {
 		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx worldrt.WorldTx) bool {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
-			s.release_crafting_state()
+			s.release_crafting_state(mut tx)
 			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)

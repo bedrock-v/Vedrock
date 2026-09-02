@@ -23,7 +23,7 @@ fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 			block_position:  proto.block_pos(pos)
 			actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
 		})
-		spawn_dropped_item_stack(mut tx.wr, current, 1, center)
+		spawn_dropped_item_stack(mut tx, current, 1, center)
 		return
 	}
 	_, name := s.held_stack_and_name()
@@ -39,14 +39,14 @@ fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 	play_sound(mut tx, center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
 }
 
-fn drop_jukebox_disc(mut wr worldrt.WorldRuntime, x int, y int, z int) {
-	current := wr.world.tile_text(x, y, z) or { return }
+fn drop_jukebox_disc(mut tx worldrt.WorldTx, x int, y int, z int) {
+	current := tx.wr.world.tile_text(x, y, z) or { return }
 	if current == '' {
 		return
 	}
 	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
-	spawn_dropped_item_stack(mut wr, current, 1, center)
-	wr.world.set_tile_text(x, y, z, '')
+	spawn_dropped_item_stack(mut tx, current, 1, center)
+	tx.wr.world.set_tile_text(x, y, z, '')
 }
 
 fn build_jukebox_nbt(x int, y int, z int, record_item_name string) nbt.RootTag {
