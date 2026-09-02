@@ -196,17 +196,14 @@ pub fn (mut p Player) kill(mut tx worldrt.WorldTx) {
 	p.set_health(0)
 	mut sink := p.sink
 	sink.deliver(p.health_update())
-	p.die(mut tx.wr, '%death.attack.generic', [p.identity.display_name])
+	p.die(mut tx, '%death.attack.generic', [p.identity.display_name])
 }
 
 // die is the one death path: combat, /kill and fatal effect damage all end
 // here. message_key/parameters are the death broadcast. Cancelling DeathData
 // suppresses the death entirely, so a handler that cancels leaves a player
 // standing at whatever health the caller already set.
-//
-// It takes the runtime rather than a transaction because the damage paths
-// that reach it are threading the runtime already.
-pub fn (mut p Player) die(mut wr worldrt.WorldRuntime, message_key string, parameters []string) {
+pub fn (mut p Player) die(mut tx worldrt.WorldTx, message_key string, parameters []string) {
 	mut ctx := event.new_context(DeathData{
 		player:      p
 		message_key: message_key
@@ -219,13 +216,13 @@ pub fn (mut p Player) die(mut wr worldrt.WorldRuntime, message_key string, param
 	p.set_dead(true)
 	mut sink := p.sink
 	rid := sink.runtime_id()
-	wr.broadcast_world_except(rid, &proto.ActorEventPacket{
+	tx.wr.broadcast_world_except(rid, &proto.ActorEventPacket{
 		target_runtime_id: proto.actor_runtime_id(rid)
 		event_id:          proto.ActorEvent.death
 		data:              0
 	})
 	p.set_last_death(p.position())
-	wr.broadcast_world(&proto.TextPacket{
+	tx.wr.broadcast_world(&proto.TextPacket{
 		localize:     true
 		message_type: proto.TextTranslate{
 			message:        ctx.val.message_key

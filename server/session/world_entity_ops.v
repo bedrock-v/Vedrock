@@ -24,6 +24,16 @@ mut:
 	wr &worldrt.WorldRuntime
 }
 
+// tx is how a host method reaches world mutation. entity.Host methods run
+// only while the entity manager is ticking, which happens on the world actor,
+// and entity can't name WorldTx without an import cycle. That's why the transaction
+// is rebuilt here instead of being passed in.
+fn (mut h WorldEntityHost) tx() worldrt.WorldTx {
+	return worldrt.WorldTx{
+		wr: h.wr
+	}
+}
+
 // new_world_entity_host builds the entity manager's host for wr. The runtime
 // takes it as a function because the host needs the runtime, which does not
 // exist yet when its config is written.
@@ -116,17 +126,17 @@ fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id
 	return none
 }
 
-fn damage_actor(mut wr worldrt.WorldRuntime, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
-	mut a := wr.entities.actor_by_runtime_id(runtime_id) or { return }
+fn damage_actor(mut tx worldrt.WorldTx, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
+	mut a := tx.wr.entities.actor_by_runtime_id(runtime_id) or { return }
 	if mut a is NetworkSession {
 		a.apply_knockback(knockback_from, knockback_force, knockback_height)
-		a.apply_hurt(mut wr, amount, source)
+		a.apply_hurt(mut tx, amount, source)
 		return
 	}
 	mut host := WorldEntityHost{
-		wr: wr
+		wr: tx.wr
 	}
-	wr.entities.damage(runtime_id, amount, true, mut host, source_runtime_id)
+	tx.wr.entities.damage(runtime_id, amount, true, mut host, source_runtime_id)
 }
 
 // damage_entity applies mob/projectile-originated damage to a player or
@@ -136,13 +146,15 @@ fn damage_actor(mut wr worldrt.WorldRuntime, runtime_id u64, amount f32, source 
 //
 // Melee damage uses PlayerAttackTask and doesn't pass through this path.
 fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
-	damage_actor(mut h.wr, runtime_id, amount, ProjectileDamageSource{
+	mut tx := h.tx()
+	damage_actor(mut tx, runtime_id, amount, ProjectileDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }
 
 fn (mut h WorldEntityHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
-	damage_actor(mut h.wr, runtime_id, amount, MobAttackDamageSource{
+	mut tx := h.tx()
+	damage_actor(mut tx, runtime_id, amount, MobAttackDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }

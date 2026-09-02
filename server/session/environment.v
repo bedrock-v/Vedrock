@@ -32,7 +32,7 @@ fn (mut s NetworkSession) tick_environmental_damage(mut tx worldrt.WorldTx) {
 
 	if pos.y < void_damage_y {
 		if tick % void_damage_interval_ticks == 0 {
-			s.apply_hurt(mut tx.wr, void_damage_amount, VoidDamageSource{})
+			s.apply_hurt(mut tx, void_damage_amount, VoidDamageSource{})
 		}
 	}
 
@@ -51,7 +51,7 @@ fn (mut s NetworkSession) tick_breath(mut tx worldrt.WorldTx, submerged bool, ti
 			air--
 			s.player.set_air_supply(air)
 		} else if tick % drowning_damage_interval_ticks == 0 {
-			s.apply_hurt(mut tx.wr, drowning_damage_amount, DrowningDamageSource{})
+			s.apply_hurt(mut tx, drowning_damage_amount, DrowningDamageSource{})
 		}
 	} else if air < player.max_air_supply_ticks {
 		air = player.max_air_supply_ticks
@@ -73,7 +73,7 @@ fn (mut s NetworkSession) tick_burning(mut tx worldrt.WorldTx, in_lava bool, in_
 	}
 	if in_lava {
 		if s.player.fire_ticks() <= 0 {
-			s.apply_hurt(mut tx.wr, lava_contact_damage, LavaDamageSource{})
+			s.apply_hurt(mut tx, lava_contact_damage, LavaDamageSource{})
 		}
 		s.player.set_fire_ticks(lava_fire_ticks)
 		return
@@ -85,7 +85,7 @@ fn (mut s NetworkSession) tick_burning(mut tx worldrt.WorldTx, in_lava bool, in_
 	next := remaining - 1
 	s.player.set_fire_ticks(next)
 	if next > 0 && next % fire_tick_interval_ticks == 0 {
-		s.apply_hurt(mut tx.wr, fire_tick_damage, FireDamageSource{})
+		s.apply_hurt(mut tx, fire_tick_damage, FireDamageSource{})
 	}
 }
 

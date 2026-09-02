@@ -20,6 +20,8 @@ fn dst_test_player(name string, health f32, mode player.Gamemode) &player.Player
 	return pl
 }
 
+// As in combat_test.v, these drive the damage path directly and build the
+// transaction the world actor would otherwise have handed it.
 fn damage_source_test_world(mut hub Hub) &worldrt.WorldRuntime {
 	w := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(w)
@@ -108,41 +110,50 @@ fn test_resistance_multiplier_matches_vanilla_20_percent_per_level() {
 fn test_apply_hurt_resistance_reduces_damage() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := damage_source_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
 	mut victim := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 	victim.player.add_effect_result(effect.new(effect.resistance, 3, 5 * time.second)) // 60% reduction
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert approx_eq(victim.player.health(), 16.0) // 20 - (10 * 0.4)
 }
 
 fn test_apply_hurt_fire_resistance_blocks_fire_sources_entirely() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := damage_source_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
 	mut victim := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 	victim.player.add_effect_result(effect.new(effect.fire_resistance, 1, 5 * time.second))
 
-	victim.apply_hurt(mut wr, 10.0, LavaDamageSource{})
+	victim.apply_hurt(mut tx, 10.0, LavaDamageSource{})
 	assert victim.player.health() == 20 // untouched - fire_resistance blocks it before any reduction math
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 10 // fire_resistance has no bearing on non-fire sources
 }
 
 fn test_apply_hurt_void_death_message() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := damage_source_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
 	mut victim := damage_source_test_session(mut hub, mut wr, 'Steve', 4)
 
-	victim.apply_hurt(mut wr, 10.0, VoidDamageSource{}) // not reduced by resistance even if it had any
+	victim.apply_hurt(mut tx, 10.0, VoidDamageSource{}) // not reduced by resistance even if it had any
 	assert victim.player.health() == 0
 	assert victim.player.is_dead()
 }
@@ -175,19 +186,22 @@ fn test_fall_damage_amount_matches_entity_formula_and_safe_distance() {
 fn test_apply_fall_damage_uses_fall_damage_source_and_creative_is_immune() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := damage_source_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
 	mut victim := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
 
-	victim.apply_fall_damage(mut wr, 0)
+	victim.apply_fall_damage(mut tx, 0)
 	assert victim.player.health() == 20
 
-	victim.apply_fall_damage(mut wr, 5.0)
+	victim.apply_fall_damage(mut tx, 5.0)
 	assert victim.player.health() == 18
 
 	victim.player.set_game_mode(.creative)
-	victim.apply_fall_damage(mut wr, 10.0)
+	victim.apply_fall_damage(mut tx, 10.0)
 	assert victim.player.health() == 18
 }
 

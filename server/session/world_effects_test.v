@@ -80,13 +80,13 @@ fn test_effects_tick_isolated_to_owning_world() {
 	rid_a := player_a.runtime_id
 	worldrt.world_call[bool]('test', mut wr_a, fn [rid_a] (mut tx worldrt.WorldTx) bool {
 		mut s := player_for_epoch(mut tx, rid_a, 0) or { return false }
-		s.apply_add_effect(mut tx.wr, effect.new(effect.regeneration, 1, 5 * time.second))
+		s.apply_add_effect(mut tx, effect.new(effect.regeneration, 1, 5 * time.second))
 		return true
 	}) or { panic('sync barrier rejected') }
 	rid_b := player_b.runtime_id
 	worldrt.world_call[bool]('test', mut wr_b, fn [rid_b] (mut tx worldrt.WorldTx) bool {
 		mut s := player_for_epoch(mut tx, rid_b, 0) or { return false }
-		s.apply_add_effect(mut tx.wr, effect.new(effect.regeneration, 1, 5 * time.second))
+		s.apply_add_effect(mut tx, effect.new(effect.regeneration, 1, 5 * time.second))
 		return true
 	}) or { panic('sync barrier rejected') }
 

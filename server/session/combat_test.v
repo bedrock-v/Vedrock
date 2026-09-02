@@ -181,6 +181,9 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 	assert still_alive.health == 20.0
 }
 
+// The damage tests below drive apply_hurt, Player.die and apply_respawn
+// directly rather than through a task, each builds the transaction the
+// world actor would otherwise have handed it.
 fn apply_hurt_test_world(mut hub Hub) &worldrt.WorldRuntime {
 	w := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(w)
@@ -190,6 +193,9 @@ fn apply_hurt_test_world(mut hub Hub) &worldrt.WorldRuntime {
 fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -202,7 +208,7 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 0
 	assert victim.player.is_dead()
 }
@@ -210,6 +216,9 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 fn test_apply_hurt_creative_is_immune() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -220,7 +229,7 @@ fn test_apply_hurt_creative_is_immune() {
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
 	assert !victim.player.is_dead()
 }
@@ -228,6 +237,9 @@ fn test_apply_hurt_creative_is_immune() {
 fn test_apply_hurt_cancelled_event_prevents_damage() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -239,7 +251,7 @@ fn test_apply_hurt_cancelled_event_prevents_damage() {
 	hub.add(victim)
 	victim.handle(&CancelHurtHandler{})
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
 	assert !victim.player.is_dead()
 }
@@ -255,6 +267,9 @@ fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[player.HurtDat
 fn test_die_cancelled_prevents_death_entirely() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -266,7 +281,7 @@ fn test_die_cancelled_prevents_death_entirely() {
 	hub.add(victim)
 	victim.handle(&CancelDeathHandler{})
 
-	victim.player.die(mut wr, '%death.attack.player', ['Steve', 'Alex'])
+	victim.player.die(mut tx, '%death.attack.player', ['Steve', 'Alex'])
 	// Cancelling DeathData now prevents death outright, dead/has_last_death
 	// stay false, and the animation broadcast is skipped along with the
 	// message.
@@ -285,6 +300,9 @@ fn (mut h CancelDeathHandler) on_player_death(mut ctx event.Context[player.Death
 fn test_die_records_last_death_pos_when_not_cancelled() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -296,7 +314,7 @@ fn test_die_records_last_death_pos_when_not_cancelled() {
 	victim.player.reset_position(types.Vector3{3.0, 4.0, 5.0})
 	hub.add(victim)
 
-	victim.player.die(mut wr, '%death.attack.player', ['Steve', 'Alex'])
+	victim.player.die(mut tx, '%death.attack.player', ['Steve', 'Alex'])
 	assert victim.player.is_dead()
 	assert victim.player.has_last_death()
 	assert victim.player.last_death_pos() == types.Vector3{3.0, 4.0, 5.0}
@@ -305,6 +323,9 @@ fn test_die_records_last_death_pos_when_not_cancelled() {
 fn test_apply_respawn_resets_health_and_position() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -328,7 +349,7 @@ fn test_apply_respawn_resets_health_and_position() {
 	victim.player.apply_movement(types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 	hub.add(victim)
 
-	victim.apply_respawn(mut wr)
+	victim.apply_respawn(mut tx)
 	assert !victim.player.is_dead()
 	assert victim.player.health() == 20.0
 	assert victim.player.movement().vy == 0.0
@@ -339,6 +360,9 @@ fn test_apply_respawn_resets_health_and_position() {
 fn test_apply_respawn_is_noop_when_not_dead() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -356,7 +380,7 @@ fn test_apply_respawn_is_noop_when_not_dead() {
 	}
 	hub.add(victim)
 
-	victim.apply_respawn(mut wr)
+	victim.apply_respawn(mut tx)
 	assert victim.player.health() == 20
 }
 

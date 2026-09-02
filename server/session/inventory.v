@@ -385,7 +385,7 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, runtime_id u64, epoch i64
 					target.log.debug('itemstack destroy ${action.source.container_name.container}:${action.source.slot} amount=${action.amount}')
 				}
 				proto.DropAction {
-					changes << target.apply_drop(mut tx.wr, action.source, action.amount)
+					changes << target.apply_drop(mut tx, action.source, action.amount)
 					target.log.debug('itemstack drop ${action.source.container_name.container}:${action.source.slot} amount=${action.amount}')
 				}
 				proto.ConsumeAction {
@@ -393,7 +393,7 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, runtime_id u64, epoch i64
 						&& craft_consumed_crafting_slots[int(action.source.slot)] {
 						target.log.debug('itemstack consume ${action.source.container_name.container}:${action.source.slot} amount=${action.amount} ignored (already consumed by this request\'s own craft)')
 					} else {
-						consumed := target.apply_consume(mut tx.wr, action.source, action.amount)
+						consumed := target.apply_consume(mut tx, action.source, action.amount)
 						if consumed.len == 0 {
 							failed = true
 						} else {
@@ -624,21 +624,21 @@ fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amoun
 	]
 }
 
-fn (mut s NetworkSession) apply_drop(mut wr worldrt.WorldRuntime, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+fn (mut s NetworkSession) apply_drop(mut tx worldrt.WorldTx, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	item := s.resolve_source_stack(src.container_name, src.slot, src.raw_id).stack
 	take := requested_amount(amount, item.count)
 	changes := s.apply_remove(src, amount)
 	if take > 0 && item.id != 0 {
 		mut dropped := item
 		dropped.count = take
-		drop_player_item(mut wr, s, dropped)
+		drop_player_item(mut tx.wr, s, dropped)
 	}
 	return changes
 }
 
-// apply_consume receives the owning runtime explicitly so item effects are
-// dispatched through the same world as the inventory request.
-fn (mut s NetworkSession) apply_consume(mut wr worldrt.WorldRuntime, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+// apply_consume takes the transaction so item effects are dispatched through
+// the same world and the same actor turn as the inventory request.
+fn (mut s NetworkSession) apply_consume(mut tx worldrt.WorldTx, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	stack, net_id := s.resolve_request_stack(src.container_name, src.slot, src.raw_id)
 	if stack.count == 0 {
 		return []SlotChange{}
@@ -646,7 +646,7 @@ fn (mut s NetworkSession) apply_consume(mut wr worldrt.WorldRuntime, src proto.I
 	name := s.hub.data.item_name(stack.id)
 	result := itemmod.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
 	for e in result.effects {
-		s.apply_add_effect(mut wr, e)
+		s.apply_add_effect(mut tx, e)
 	}
 	return s.replace_consumed_stack(src, amount, stack, net_id, result)
 }

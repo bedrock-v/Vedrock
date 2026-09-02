@@ -236,7 +236,7 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 	if s.spawned {
 		tx.wr.broadcast_world_except(s.runtime_id, s.move_actor_packet())
 	}
-	s.apply_fall_damage(mut tx.wr, landed_distance)
+	s.apply_fall_damage(mut tx, landed_distance)
 	s.stream_chunks_if_moved()
 }
 
@@ -254,9 +254,9 @@ fn fall_damage_amount(fall_distance f32) f32 {
 	return whole
 }
 
-fn (mut s NetworkSession) apply_fall_damage(mut wr worldrt.WorldRuntime, landed_distance f32) {
+fn (mut s NetworkSession) apply_fall_damage(mut tx worldrt.WorldTx, landed_distance f32) {
 	dmg := fall_damage_amount(landed_distance)
 	if dmg > 0 {
-		s.apply_hurt(mut wr, dmg, FallDamageSource{})
+		s.apply_hurt(mut tx, dmg, FallDamageSource{})
 	}
 }

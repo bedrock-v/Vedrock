@@ -141,6 +141,9 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -160,7 +163,7 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	net_id := sess.player.track_stack(potion)
 	sess.player.set_slot(0, net_id)
 
-	changes := sess.apply_consume(mut wr, proto.ItemStackRequestSlotInfo{
+	changes := sess.apply_consume(mut tx, proto.ItemStackRequestSlotInfo{
 		container_name: proto.FullContainerName{
 			container: .hotbar_container
 		}
