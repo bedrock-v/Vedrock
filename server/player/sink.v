@@ -15,6 +15,9 @@ mut:
 	// expect_teleport_ack records a position the server sent unilaterally.
 	// Reported movement is discarded until the client confirms it.
 	expect_teleport_ack(pos types.Vector3)
+	// disconnect closes whatever is driving this player, showing message as
+	// the reason where there is somewhere to show it.
+	disconnect(message string)
 }
 
 // NopSink is a player nobody is connected to. Its packets go nowhere which
@@ -28,3 +31,5 @@ pub fn (s &NopSink) runtime_id() u64 {
 pub fn (mut s NopSink) deliver(p protocol.Packet) {}
 
 pub fn (mut s NopSink) expect_teleport_ack(pos types.Vector3) {}
+
+pub fn (mut s NopSink) disconnect(message string) {}

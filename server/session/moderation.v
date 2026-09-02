@@ -93,36 +93,20 @@ fn (mut s NetworkSession) try_refresh_op_state_once() bool {
 
 // kill
 
-// PlayerKillTask forces a player through the normal death path without an
-// attacker.
-struct PlayerKillTask {
-	runtime_id u64
-	epoch      i64
-}
-
-fn (t PlayerKillTask) name() string {
-	return 'PlayerKillTask'
-}
-
-fn (t PlayerKillTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	if target.player.is_dead() {
-		return
-	}
-	target.player.set_health(0)
-	target.deliver(target.health_update())
-	target.apply_death(mut tx.wr, '%death.attack.generic', [target.player.identity.display_name])
-}
-
+// kill takes the player through the normal death path with no attacker. It
+// runs on the owning world's actor, where the death path belongs.
 fn (mut s NetworkSession) kill() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
 	}
-	wr.submit(PlayerKillTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-	})
+	rid := s.runtime_id
+	epoch := s.world_binding().epoch
+	worldrt.world_call[bool]('Player.kill', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+		target.player.kill(mut tx)
+		return true
+	}) or { false }
 }
 
 // teleport

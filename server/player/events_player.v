@@ -10,14 +10,14 @@ module player
 // suppresses the broadcast join message; editing message changes it.
 pub struct JoinData {
 pub mut:
-	player  View
+	player  &Player
 	message string
 }
 
 // QuitData is dispatched when a spawned player leaves. Same rules as JoinData.
 pub struct QuitData {
 pub mut:
-	player  View
+	player  &Player
 	message string
 }
 
@@ -25,7 +25,7 @@ pub mut:
 // message; editing message rewrites what everyone sees.
 pub struct ChatData {
 pub mut:
-	player  View
+	player  &Player
 	message string
 }
 
@@ -33,7 +33,7 @@ pub mut:
 // the command; editing command rewrites what is executed.
 pub struct CommandData {
 pub mut:
-	player  View
+	player  &Player
 	command string
 }
 
@@ -45,13 +45,13 @@ pub:
 	y f32
 	z f32
 pub mut:
-	player View
+	player &Player
 }
 
 // GameModeChangeData is dispatched before a player's gamemode changes. Editing
 // mode changes the target gamemode; cancelling it keeps the current one.
 pub struct GameModeChangeData {
 pub mut:
-	player View
+	player &Player
 	mode   Gamemode
 }

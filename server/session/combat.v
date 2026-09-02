@@ -54,14 +54,14 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 		}
 	}
 	mut ctx := event.new_context(player.AttackData{
-		player:            attacker
+		player:            attacker.player
 		victim_runtime_id: t.victim_runtime_id
 		critical:          t.critical
 		damage:            t.damage
 		knockback_force:   t.knockback_force
 		knockback_height:  t.knockback_height
 	})
-	attacker.handler.on_player_attack(mut ctx)
+	attacker.player.handler.on_player_attack(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -154,11 +154,11 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 	stack, name := s.held_stack_and_name()
 	result := item.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
 	mut ctx := event.new_context(player.ItemUseData{
-		player:    s
+		player:    s.player
 		item_name: name
 		meta:      stack.meta
 	})
-	s.handler.on_item_use(mut ctx)
+	s.player.handler.on_item_use(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -219,11 +219,11 @@ fn (mut s NetworkSession) apply_hurt(mut wr worldrt.WorldRuntime, amount f32, so
 		return
 	}
 	mut ctx := event.new_context(player.HurtData{
-		player:        s
+		player:        s.player
 		amount:        reduced_amount
 		attacker_name: source.attacker_label()
 	})
-	s.handler.on_player_hurt(mut ctx)
+	s.player.handler.on_player_hurt(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -237,36 +237,8 @@ fn (mut s NetworkSession) apply_hurt(mut wr worldrt.WorldRuntime, amount f32, so
 	})
 	if s.player.health() <= 0 {
 		key, params := source.death_message_key(s.player.identity.display_name)
-		s.apply_death(mut wr, key, params)
+		s.player.die(mut wr, key, params)
 	}
-}
-
-// apply_death is the single death path for combat, /kill and fatal effect
-// damage.
-fn (mut s NetworkSession) apply_death(mut wr worldrt.WorldRuntime, message_key string, parameters []string) {
-	mut ctx := event.new_context(player.DeathData{
-		player:      s
-		message_key: message_key
-		params:      parameters
-	})
-	s.handler.on_player_death(mut ctx)
-	if ctx.is_cancelled() {
-		return
-	}
-	s.player.set_dead(true)
-	wr.broadcast_world_except(s.runtime_id, &proto.ActorEventPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		event_id:          proto.ActorEvent.death
-		data:              0
-	})
-	s.player.set_last_death(s.current_position())
-	wr.broadcast_world(&proto.TextPacket{
-		localize:     true
-		message_type: proto.TextTranslate{
-			message:        ctx.val.message_key
-			parameter_list: parameters
-		}
-	})
 }
 
 // PlayerRespawnTask respawns a player on the owning world runtime. Respawn
@@ -315,12 +287,12 @@ fn (mut s NetworkSession) apply_respawn(mut wr worldrt.WorldRuntime) {
 	s.player.set_health(20.0)
 	spawn_y := s.generator.spawn_y()
 	mut ctx := event.new_context(player.RespawnData{
-		player: s
+		player: s.player
 		x:      0.0
 		y:      f32(spawn_y) + player_eye_height
 		z:      0.0
 	})
-	s.handler.on_player_respawn(mut ctx)
+	s.player.handler.on_player_respawn(mut ctx)
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())

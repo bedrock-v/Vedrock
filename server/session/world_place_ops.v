@@ -276,7 +276,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 		return false
 	}
 	mut use_ctx := event.new_context(player.ItemUseData{
-		player:    s
+		player:    s.player
 		item_name: name
 		meta:      stack.meta
 		on_block:  true
@@ -284,7 +284,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 		y:         pos.y
 		z:         pos.z
 	})
-	s.handler.on_item_use(mut use_ctx)
+	s.player.handler.on_item_use(mut use_ctx)
 	if use_ctx.is_cancelled() {
 		s.resend_block(pos)
 		return true
@@ -315,13 +315,13 @@ fn place_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 		return false
 	}
 	mut ctx := event.new_context(player.BlockPlaceData{
-		player:   s
+		player:   s.player
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: runtime_id
 	})
-	s.handler.on_block_place(mut ctx)
+	s.player.handler.on_block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false
@@ -343,13 +343,13 @@ fn place_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 // into a double slab).
 fn replace_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
 	mut ctx := event.new_context(player.BlockPlaceData{
-		player:   s
+		player:   s.player
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: runtime_id
 	})
-	s.handler.on_block_place(mut ctx)
+	s.player.handler.on_block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false
@@ -382,13 +382,13 @@ fn place_door_pair(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Block
 		return false
 	}
 	mut ctx := event.new_context(player.BlockPlaceData{
-		player:   s
+		player:   s.player
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: parts.lower
 	})
-	s.handler.on_block_place(mut ctx)
+	s.player.handler.on_block_place(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		s.resend_block(above)

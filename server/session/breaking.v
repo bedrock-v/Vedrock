@@ -170,13 +170,13 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 		return
 	}
 	mut ctx := event.new_context(player.StartBreakData{
-		player: s
+		player: s.player
 		x:      pos.x
 		y:      pos.y
 		z:      pos.z
 		face:   click_face
 	})
-	s.handler.on_start_break(mut ctx)
+	s.player.handler.on_start_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return

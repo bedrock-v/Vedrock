@@ -10,7 +10,7 @@ pub:
 	level          int
 	duration_ticks int
 pub mut:
-	player View
+	player &Player
 }
 
 // EffectRemoveData is dispatched before an effect is removed from a player,
@@ -20,5 +20,5 @@ pub struct EffectRemoveData {
 pub:
 	effect_name string
 pub mut:
-	player View
+	player &Player
 }

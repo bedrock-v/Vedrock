@@ -34,26 +34,26 @@ fn (mut s NetworkSession) world_create(name string, dimension string, generator 
 	s.hub.create_world(name, dim, generator)!
 	mut load_ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: s
+		sender: s
 	})
-	s.handler.on_world_load(mut load_ctx)
+	s.player.handler.on_world_load(mut load_ctx)
 }
 
 fn (mut s NetworkSession) world_load(name string) ! {
 	s.hub.load_world(name)!
 	mut ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: s
+		sender: s
 	})
-	s.handler.on_world_load(mut ctx)
+	s.player.handler.on_world_load(mut ctx)
 }
 
 fn (mut s NetworkSession) world_delete(name string) ! {
 	mut ctx := event.new_context(player.WorldUnloadData{
 		name:   name
-		player: s
+		sender: s
 	})
-	s.handler.on_world_unload(mut ctx)
+	s.player.handler.on_world_unload(mut ctx)
 	if ctx.is_cancelled() {
 		return error('world deletion cancelled')
 	}
@@ -88,7 +88,7 @@ fn (mut c ConsoleSender) world_create(name string, dimension string, generator s
 	c.hub.create_world(name, dim, generator)!
 	mut load_ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: c
+		sender: c
 	})
 	c.hub.player_handler.on_world_load(mut load_ctx)
 }
@@ -97,7 +97,7 @@ fn (mut c ConsoleSender) world_load(name string) ! {
 	c.hub.load_world(name)!
 	mut ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: c
+		sender: c
 	})
 	c.hub.player_handler.on_world_load(mut ctx)
 }
@@ -105,7 +105,7 @@ fn (mut c ConsoleSender) world_load(name string) ! {
 fn (mut c ConsoleSender) world_delete(name string) ! {
 	mut ctx := event.new_context(player.WorldUnloadData{
 		name:   name
-		player: c
+		sender: c
 	})
 	c.hub.player_handler.on_world_unload(mut ctx)
 	if ctx.is_cancelled() {

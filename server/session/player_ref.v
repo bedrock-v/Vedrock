@@ -148,13 +148,23 @@ pub fn (p PlayerRef) game_mode() !player.Gamemode {
 // set_gamemode changes the player's game mode. Same failure mode as
 // position.
 pub fn (p PlayerRef) set_gamemode(mode player.Gamemode) ! {
-	mut s := p.resolve()!
-	s.set_gamemode(mode)
+	p.exec('PlayerRef.set_gamemode', fn [mode] (mut tx worldrt.WorldTx, mut pl player.Player) {
+		pl.set_gamemode(mut tx, mode)
+	})!
 }
 
-// disconnect kicks the player with message shown as the reason. Same
-// failure mode as position.
+// kill takes the player through the normal death path with no attacker.
+// Same failure mode as position.
+pub fn (p PlayerRef) kill() ! {
+	p.exec('PlayerRef.kill', fn (mut tx worldrt.WorldTx, mut pl player.Player) {
+		pl.kill(mut tx)
+	})!
+}
+
+// disconnect kicks the player with message shown as the reason. Same failure
+// mode as position. Like send_message it skips the world actor: closing the
+// connection is the sink's business.
 pub fn (p PlayerRef) disconnect(message string) ! {
 	mut s := p.resolve()!
-	s.disconnect(message)
+	s.player.disconnect(message)
 }

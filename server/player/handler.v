@@ -60,3 +60,9 @@ pub fn (mut h NopHandler) on_effect_add(mut ctx event.Context[EffectAddData]) {}
 pub fn (mut h NopHandler) on_effect_remove(mut ctx event.Context[EffectRemoveData]) {}
 pub fn (mut h NopHandler) on_world_load(mut ctx event.Context[WorldLoadData]) {}
 pub fn (mut h NopHandler) on_world_unload(mut ctx event.Context[WorldUnloadData]) {}
+
+// handle replaces this player's event handler. Defining none of the events is
+// fine: embed NopHandler and define only what the caller cares about.
+pub fn (mut p Player) handle(h Handler) {
+	p.handler = h
+}

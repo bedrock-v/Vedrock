@@ -105,6 +105,7 @@ fn test_update_abilities_roundtrip() {
 		player:     player.new_player()
 		runtime_id: 7
 	}
+	s.player.sink = s
 	s.player.set_game_mode(.creative)
 	sent := &proto.UpdateAbilitiesPacket{
 		data: s.build_abilities()
@@ -114,7 +115,7 @@ fn test_update_abilities_roundtrip() {
 	decode_into(sent, mut decoded)!
 	assert decoded.data.target_player_raw_id == 7
 	assert decoded.data.layers.len == 1
-	assert decoded.data.layers[0].ability_values & ability_bit(proto.ability_may_fly) != 0
+	assert decoded.data.layers[0].ability_values & player.ability_bit(proto.ability_may_fly) != 0
 }
 
 fn test_block_update_flags_match_reference_servers() {

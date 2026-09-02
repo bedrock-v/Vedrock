@@ -10,7 +10,7 @@ pub:
 	z        int
 	block_id int
 pub mut:
-	player View
+	player &Player
 }
 
 // StartBreakData is dispatched the moment a player left clicks a block
@@ -23,7 +23,7 @@ pub:
 	z    int
 	face int
 pub mut:
-	player View
+	player &Player
 }
 
 // BlockPlaceData is dispatched before a block is placed. block_id is the block
@@ -35,7 +35,7 @@ pub:
 	z        int
 	block_id int
 pub mut:
-	player View
+	player &Player
 }
 
 // InteractData is dispatched when a player right clicks a block, before any
@@ -48,5 +48,5 @@ pub:
 	z    int
 	face int
 pub mut:
-	player View
+	player &Player
 }

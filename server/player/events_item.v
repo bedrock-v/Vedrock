@@ -14,7 +14,7 @@ pub:
 	y         int
 	z         int
 pub mut:
-	player View
+	player &Player
 }
 
 // ItemConsumeData is dispatched right before a held item is consumed (e.g.
@@ -23,5 +23,5 @@ pub struct ItemConsumeData {
 pub:
 	item_name string
 pub mut:
-	player View
+	player &Player
 }

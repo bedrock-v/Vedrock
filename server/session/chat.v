@@ -53,10 +53,10 @@ fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
 		return
 	}
 	mut ctx := event.new_context(player.ChatData{
-		player:  s
+		player:  s.player
 		message: message
 	})
-	s.handler.on_player_chat(mut ctx)
+	s.player.handler.on_player_chat(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -82,10 +82,10 @@ fn (mut s NetworkSession) handle_command_request(p proto.CommandRequestPacket) !
 
 fn (mut s NetworkSession) run_command(line string) ! {
 	mut cctx := event.new_context(player.CommandData{
-		player:  s
+		player:  s.player
 		command: line
 	})
-	s.handler.on_player_command(mut cctx)
+	s.player.handler.on_player_command(mut cctx)
 	if cctx.is_cancelled() {
 		return
 	}

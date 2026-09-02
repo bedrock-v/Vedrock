@@ -120,13 +120,13 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		return
 	}
 	mut ictx := event.new_context(player.InteractData{
-		player: s
+		player: s.player
 		x:      block_position.x
 		y:      block_position.y
 		z:      block_position.z
 		face:   block_face
 	})
-	s.handler.on_player_interact(mut ictx)
+	s.player.handler.on_player_interact(mut ictx)
 	if ictx.is_cancelled() {
 		s.resend_block(block_position)
 		return
@@ -237,11 +237,11 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	}
 	result := item.use_result(name, stack.meta) or { return }
 	mut use_ctx := event.new_context(player.ItemUseData{
-		player:    s
+		player:    s.player
 		item_name: name
 		meta:      stack.meta
 	})
-	s.handler.on_item_use(mut use_ctx)
+	s.player.handler.on_item_use(mut use_ctx)
 	if use_ctx.is_cancelled() {
 		return
 	}
@@ -341,9 +341,9 @@ fn (mut s NetworkSession) apply_consume_held_item() {
 	item_name := s.hub.data.item_name(stack.id)
 	mut ctx := event.new_context(player.ItemConsumeData{
 		item_name: item_name
-		player:    s
+		player:    s.player
 	})
-	s.handler.on_item_consume(mut ctx)
+	s.player.handler.on_item_consume(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -452,13 +452,13 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	}
 
 	mut ctx := event.new_context(player.BlockBreakData{
-		player:   s
+		player:   s.player
 		x:        pos.x
 		y:        pos.y
 		z:        pos.z
 		block_id: old_id
 	})
-	s.handler.on_block_break(mut ctx)
+	s.player.handler.on_block_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return false

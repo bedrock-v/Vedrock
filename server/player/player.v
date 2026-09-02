@@ -29,6 +29,10 @@ pub mut:
 	// claims the player, a verb never has to check whether anyone is
 	// listening.
 	sink Sink = NopSink{}
+	// handler receives every event this player causes or experiences. It is
+	// never none, so a dispatch site never has to test whether anyone is
+	// listening.
+	handler Handler = NopHandler{}
 mut:
 	// state_mutex guards the mutable player state below, excluding fields
 	// covered by their own mutexes. State accessors must hold this lock because

@@ -113,10 +113,6 @@ mut:
 	chunk_gen_mutex      &sync.Mutex = sync.new_mutex()
 	transfer_mutex       &sync.Mutex = sync.new_mutex()
 	cooldown_until       map[string]i64
-	// handler receives every event this player causes or experiences. It
-	// starts as the Hub's default and is replaced per player with handle().
-	// Never none, so a dispatch site never tests whether anyone is listening.
-	handler player.Handler = player.NopHandler{}
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
@@ -124,7 +120,7 @@ pub mut:
 // handle replaces this player's event handler. Passing none of the events is
 // fine: embed player.NopHandler and define only what the caller cares about.
 pub fn (mut s NetworkSession) handle(h player.Handler) {
-	s.handler = h
+	s.player.handle(h)
 }
 
 fn (s &NetworkSession) has_permission(name string) bool {
@@ -252,10 +248,10 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		generator = spawn_world.make_generator(hub.build_generator(spawn_world))
 	}
 	mut p := player.new_player()
+	p.handle(hub.player_handler)
 	p.reset_position(types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0})
-	return &NetworkSession{
+	mut s := &NetworkSession{
 		player:             p
-		handler:            hub.player_handler
 		conn:               &Conn{
 			transport: transport
 			bootstrap: true
@@ -271,6 +267,8 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		chunk_gen_mutex:    sync.new_mutex()
 		log:                log
 	}
+	s.player.sink = s
+	return s
 }
 
 // A read error or a is_connection_closed write error both mean the
@@ -336,10 +334,10 @@ fn (mut s NetworkSession) leave() {
 	s.hub.remove(s.runtime_id)
 	s.hub.release_player_name(s.player.identity.display_name)
 	mut ctx := event.new_context(player.QuitData{
-		player:  s
+		player:  s.player
 		message: '§e${s.player.identity.display_name} left the game'
 	})
-	s.handler.on_player_quit(mut ctx)
+	s.player.handler.on_player_quit(mut ctx)
 	if !ctx.is_cancelled() && ctx.val.message != '' {
 		s.hub.broadcast_message(ctx.val.message)
 	}

@@ -2,6 +2,7 @@ module player
 
 import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
+import server.event
 import server.item
 import server.worldrt
 
@@ -156,4 +157,79 @@ pub fn (mut p Player) give_item(mut tx worldrt.WorldTx, id string, count int) bo
 		item_stack:       stack
 	})
 	return true
+}
+
+// disconnect kicks the player, showing message as the reason. It takes no
+// transaction because closing the connection is the sink's business, not the
+// world's.
+pub fn (mut p Player) disconnect(message string) {
+	mut sink := p.sink
+	sink.disconnect(message)
+}
+
+// set_gamemode changes the player's game mode and resends what the client is
+// allowed to do under it. Cancelling GameModeChangeData leaves the mode alone;
+// editing it changes what the player ends up in.
+pub fn (mut p Player) set_gamemode(mut tx worldrt.WorldTx, mode Gamemode) {
+	mut ctx := event.new_context(GameModeChangeData{
+		player: p
+		mode:   mode
+	})
+	p.handler.on_gamemode_change(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
+	p.set_game_mode(ctx.val.mode)
+	mut sink := p.sink
+	sink.deliver(&proto.SetPlayerGameTypePacket{
+		player_game_type: proto.game_type(gamemode_to_wire(p.game_mode()))
+	})
+	p.refresh_abilities()
+}
+
+// kill takes the player straight to the death path with no attacker, as
+// /kill does.
+pub fn (mut p Player) kill(mut tx worldrt.WorldTx) {
+	if p.is_dead() {
+		return
+	}
+	p.set_health(0)
+	mut sink := p.sink
+	sink.deliver(p.health_update())
+	p.die(mut tx.wr, '%death.attack.generic', [p.identity.display_name])
+}
+
+// die is the one death path: combat, /kill and fatal effect damage all end
+// here. message_key/parameters are the death broadcast. Cancelling DeathData
+// suppresses the death entirely, so a handler that cancels leaves a player
+// standing at whatever health the caller already set.
+//
+// It takes the runtime rather than a transaction because the damage paths
+// that reach it are threading the runtime already.
+pub fn (mut p Player) die(mut wr worldrt.WorldRuntime, message_key string, parameters []string) {
+	mut ctx := event.new_context(DeathData{
+		player:      p
+		message_key: message_key
+		params:      parameters
+	})
+	p.handler.on_player_death(mut ctx)
+	if ctx.is_cancelled() {
+		return
+	}
+	p.set_dead(true)
+	mut sink := p.sink
+	rid := sink.runtime_id()
+	wr.broadcast_world_except(rid, &proto.ActorEventPacket{
+		target_runtime_id: proto.actor_runtime_id(rid)
+		event_id:          proto.ActorEvent.death
+		data:              0
+	})
+	p.set_last_death(p.position())
+	wr.broadcast_world(&proto.TextPacket{
+		localize:     true
+		message_type: proto.TextTranslate{
+			message:        ctx.val.message_key
+			parameter_list: parameters
+		}
+	})
 }

@@ -75,9 +75,9 @@ fn (mut s NetworkSession) apply_add_effect(mut wr worldrt.WorldRuntime, e effect
 		effect_name:    e.effect_type().name
 		level:          e.level()
 		duration_ticks: e.duration_ticks()
-		player:         s
+		player:         s.player
 	})
-	s.handler.on_effect_add(mut ctx)
+	s.player.handler.on_effect_add(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -97,9 +97,9 @@ fn (mut s NetworkSession) apply_add_effect(mut wr worldrt.WorldRuntime, e effect
 fn (mut s NetworkSession) apply_remove_effect(mut wr worldrt.WorldRuntime, typ effect.Type) {
 	mut ctx := event.new_context(player.EffectRemoveData{
 		effect_name: typ.name
-		player:      s
+		player:      s.player
 	})
-	s.handler.on_effect_remove(mut ctx)
+	s.player.handler.on_effect_remove(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -232,7 +232,7 @@ fn (mut s NetworkSession) heal(amount f32) {
 
 // apply_damage_from_effect handles damage caused by effects. Poison style
 // non-fatal damage floors at one health; fatal effects may kill and use
-// apply_death so all deaths share one path. Effect damage has no attacker, so
+// Player.die so all deaths share one path. Effect damage has no attacker, so
 // it does not dispatch player_hurt.
 fn (mut s NetworkSession) apply_damage_from_effect(mut wr worldrt.WorldRuntime, amount f32, fatal bool) {
 	if s.player.is_dead() || amount <= 0 || !s.player.game_mode().allows_taking_damage() {
@@ -256,7 +256,7 @@ fn (mut s NetworkSession) apply_damage_from_effect(mut wr worldrt.WorldRuntime, 
 	}
 	if s.player.health() <= 0 {
 		key, params := MagicDamageSource{}.death_message_key(s.player.identity.display_name)
-		s.apply_death(mut wr, key, params)
+		s.player.die(mut wr, key, params)
 	}
 }
 

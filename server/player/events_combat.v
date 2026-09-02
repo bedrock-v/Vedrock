@@ -9,7 +9,7 @@ pub:
 	victim_runtime_id u64
 	critical          bool
 pub mut:
-	player           View
+	player           &Player
 	damage           f32
 	knockback_force  f32
 	knockback_height f32
@@ -22,7 +22,7 @@ pub struct HurtData {
 pub:
 	attacker_name string
 pub mut:
-	player View
+	player &Player
 	amount f32
 }
 
@@ -33,7 +33,7 @@ pub struct DeathData {
 pub:
 	params []string
 pub mut:
-	player      View
+	player      &Player
 	message_key string
 }
 
@@ -41,7 +41,7 @@ pub mut:
 // respawn point by editing x/y/z (e.g. to send players back to a lobby).
 pub struct RespawnData {
 pub mut:
-	player View
+	player &Player
 	x      f32
 	y      f32
 	z      f32

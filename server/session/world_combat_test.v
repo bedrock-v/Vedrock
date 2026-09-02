@@ -157,15 +157,14 @@ fn test_kill_stale_epoch_produces_no_effect() {
 	stale_epoch := s.world_binding().epoch
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
 
-	task := PlayerKillTask{
-		runtime_id: s.runtime_id
-		epoch:      stale_epoch
-	}
-	assert wr_a.submit(task)
-	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
+	rid := s.runtime_id
+	killed := worldrt.world_call[bool]('test.kill', mut wr_a, fn [rid, stale_epoch] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_epoch(mut tx, rid, stale_epoch) or { return false }
+		target.player.kill(mut tx)
 		return true
-	}) or { panic('sync barrier rejected') }
+	}) or { panic('stale kill rejected') }
 
+	assert !killed
 	assert s.player.health() == 20
 	assert !s.player.is_dead()
 }

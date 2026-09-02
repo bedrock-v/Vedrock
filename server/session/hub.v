@@ -641,9 +641,8 @@ pub fn (mut h Hub) allocate_runtime_id() u64 {
 }
 
 fn (mut h Hub) add(target &NetworkSession) {
-	// The player acts through the session driving it. Wired here because this
-	// is the one point every session passes through including the ones tests
-	// build by hand.
+	// Sessions built by hand, as tests do, never went through session.new and
+	// have no sink yet. Wiring it again here is harmless for the rest.
 	mut claimed := unsafe { target }
 	claimed.player.sink = claimed
 	h.mutex.lock()

@@ -208,12 +208,12 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 	}
 	if s.spawned {
 		mut ctx := event.new_context(player.MoveData{
-			player: s
+			player: s.player
 			x:      position.x
 			y:      position.y
 			z:      position.z
 		})
-		s.handler.on_player_move(mut ctx)
+		s.player.handler.on_player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
 			mut move_packet := &proto.MovePlayerPacket{

@@ -252,7 +252,7 @@ fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[player.HurtDat
 	ctx.cancel()
 }
 
-fn test_apply_death_cancelled_prevents_death_entirely() {
+fn test_die_cancelled_prevents_death_entirely() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
 	defer {
@@ -266,7 +266,7 @@ fn test_apply_death_cancelled_prevents_death_entirely() {
 	hub.add(victim)
 	victim.handle(&CancelDeathHandler{})
 
-	victim.apply_death(mut wr, '%death.attack.player', ['Steve', 'Alex'])
+	victim.player.die(mut wr, '%death.attack.player', ['Steve', 'Alex'])
 	// Cancelling DeathData now prevents death outright, dead/has_last_death
 	// stay false, and the animation broadcast is skipped along with the
 	// message.
@@ -282,7 +282,7 @@ fn (mut h CancelDeathHandler) on_player_death(mut ctx event.Context[player.Death
 	ctx.cancel()
 }
 
-fn test_apply_death_recs_last_death_pos_when_not_cancelled() {
+fn test_die_records_last_death_pos_when_not_cancelled() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
 	defer {
@@ -296,7 +296,7 @@ fn test_apply_death_recs_last_death_pos_when_not_cancelled() {
 	victim.player.reset_position(types.Vector3{3.0, 4.0, 5.0})
 	hub.add(victim)
 
-	victim.apply_death(mut wr, '%death.attack.player', ['Steve', 'Alex'])
+	victim.player.die(mut wr, '%death.attack.player', ['Steve', 'Alex'])
 	assert victim.player.is_dead()
 	assert victim.player.has_last_death()
 	assert victim.player.last_death_pos() == types.Vector3{3.0, 4.0, 5.0}
