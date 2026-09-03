@@ -26,6 +26,13 @@ pub const mining_exhaustion = f32(0.005)
 pub const damage_exhaustion = f32(0.1)
 pub const regeneration_exhaustion = f32(6.0)
 
+// regeneration_interval_ticks and starvation_interval_ticks are how many
+// consecutive ticks a player has to spend eligible before a point of health
+// moves, and passive_feed_interval_ticks how often peaceful refills the bar.
+pub const regeneration_interval_ticks = 80
+pub const starvation_interval_ticks = 80
+pub const passive_feed_interval_ticks = 20
+
 // HungerState is a snapshot of the whole bar, for the callers that need to
 // read it as one consistent set rather than field by field.
 pub struct HungerState {
@@ -73,15 +80,104 @@ pub fn (mut p Player) reset_hunger() {
 	})
 }
 
-// advance_hunger_clock counts this player through one hunger tick and returns
-// the new count.
-pub fn (mut p Player) advance_hunger_clock() i64 {
+// advance_regeneration counts one tick spent well fed enough to heal, and
+// reports whether that was the tick a point of health comes back on.
+//
+// The counter only runs while the condition holds and resets the moment it
+// stops, so a player who has just eaten waits the full interval rather than
+// inheriting wherever a shared clock happened to be.
+pub fn (mut p Player) advance_regeneration(eligible bool) bool {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
 	}
-	p.hunger_clock++
-	return p.hunger_clock
+	if !eligible {
+		p.regeneration_ticks = 0
+		return false
+	}
+	p.regeneration_ticks++
+	if p.regeneration_ticks < regeneration_interval_ticks {
+		return false
+	}
+	p.regeneration_ticks = 0
+	return true
+}
+
+// advance_starvation is the same counter for an empty bar.
+pub fn (mut p Player) advance_starvation(eligible bool) bool {
+	p.state_mutex.lock()
+	defer {
+		p.state_mutex.unlock()
+	}
+	if !eligible {
+		p.starvation_ticks = 0
+		return false
+	}
+	p.starvation_ticks++
+	if p.starvation_ticks < starvation_interval_ticks {
+		return false
+	}
+	p.starvation_ticks = 0
+	return true
+}
+
+// advance_passive_feed paces the refill on peaceful the same way.
+pub fn (mut p Player) advance_passive_feed() bool {
+	p.state_mutex.lock()
+	defer {
+		p.state_mutex.unlock()
+	}
+	p.passive_feed_ticks++
+	if p.passive_feed_ticks < passive_feed_interval_ticks {
+		return false
+	}
+	p.passive_feed_ticks = 0
+	return true
+}
+
+// charge_movement bills the ground covered since the last sample at the rate
+// the player is moving at now, and reports whether the visible bar moved.
+//
+// Every caller that changes how movement is paid for settles the outstanding
+// distance through here first, so a segment is always charged at the rate that
+// was actually true while it was being travelled. Sprinting for ten metres and
+// then stopping costs the sprint rate for those ten metres, not the walking
+// one, and starting to sprint does not retroactively bill the walk before it.
+pub fn (mut p Player) charge_movement(pos types.Vector3) bool {
+	p.state_mutex.lock()
+	defer {
+		p.state_mutex.unlock()
+	}
+	previous := p.hunger_position
+	had_sample := p.has_hunger_position
+	p.hunger_position = pos
+	p.has_hunger_position = true
+	if !had_sample {
+		return false
+	}
+	rate := p.movement_exhaustion_rate()
+	if rate <= 0 {
+		return false
+	}
+	dx := pos.x - previous.x
+	dz := pos.z - previous.z
+	distance := math.sqrtf(dx * dx + dz * dz)
+	if distance <= 0 {
+		return false
+	}
+	return p.spend_exhaustion(rate * distance)
+}
+
+// movement_exhaustion_rate is what a metre costs in the player's current
+// state. The caller must already hold state_mutex.
+fn (p &Player) movement_exhaustion_rate() f32 {
+	if p.sprinting {
+		return sprint_exhaustion_per_metre
+	}
+	if p.swimming {
+		return swim_exhaustion_per_metre
+	}
+	return 0
 }
 
 // hunger_position is where the player was when their movement was last
@@ -114,10 +210,17 @@ pub fn (p &Player) sprinting() bool {
 	return p.sprinting
 }
 
-pub fn (mut p Player) set_sprinting(value bool) {
+// set_sprinting settles what has been travelled so far before the rate
+// changes, so the distance already covered is billed at the old rate.
+pub fn (mut p Player) set_sprinting(pos types.Vector3, value bool) bool {
+	if p.sprinting() == value {
+		return false
+	}
+	changed := p.charge_movement(pos)
 	p.state_mutex.lock()
 	p.sprinting = value
 	p.state_mutex.unlock()
+	return changed
 }
 
 pub fn (p &Player) swimming() bool {
@@ -129,10 +232,17 @@ pub fn (p &Player) swimming() bool {
 	return p.swimming
 }
 
-pub fn (mut p Player) set_swimming(value bool) {
+// set_swimming settles the outstanding distance the same way set_sprinting
+// does.
+pub fn (mut p Player) set_swimming(pos types.Vector3, value bool) bool {
+	if p.swimming() == value {
+		return false
+	}
+	changed := p.charge_movement(pos)
 	p.state_mutex.lock()
 	p.swimming = value
 	p.state_mutex.unlock()
+	return changed
 }
 
 // exhaust adds amount to the exhaustion counter and spends whatever whole
@@ -145,6 +255,15 @@ pub fn (mut p Player) exhaust(amount f32) bool {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
+	}
+	return p.spend_exhaustion(amount)
+}
+
+// spend_exhaustion is exhaust's body, for the callers that already hold
+// state_mutex.
+fn (mut p Player) spend_exhaustion(amount f32) bool {
+	if amount <= 0 {
+		return false
 	}
 	before_food := p.food_level
 	before_saturation := p.saturation

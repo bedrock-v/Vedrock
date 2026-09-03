@@ -59,10 +59,13 @@ mut:
 	// exhaustion runs on the world actor, not on the packet.
 	sprinting bool
 	swimming  bool
-	// hunger_clock paces regeneration, starvation and the passive refill off
-	// the number of hunger ticks a player has actually had, not off the world
-	// clock: a player who joins late must not inherit someone else's phase.
-	hunger_clock i64
+	// These count consecutive ticks spent under one condition - well fed
+	// enough to heal, starving, or waiting on peaceful's refill - and reset
+	// the moment it stops holding. A timer that ran off a shared clock would
+	// let a player inherit whatever phase it was already in.
+	regeneration_ticks int
+	starvation_ticks   int
+	passive_feed_ticks int
 	// hunger_position is where movement was last charged for. It only starts
 	// counting once there is a sample to measure against, so a join or a
 	// teleport is not billed as distance travelled.

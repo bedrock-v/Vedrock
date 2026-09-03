@@ -35,25 +35,57 @@ fn test_only_survival_gets_hungry() {
 
 fn test_walking_is_free_but_sprinting_is_not() {
 	mut pl := player.new_player()
-	mut s := &NetworkSession{
-		player: pl
-	}
-	s.player.set_game_mode(.survival)
-	s.player.reset_position(vector_at(0))
-	// The first step only records where the player is.
-	assert !s.exhaust_movement()
-	s.player.reset_position(vector_at(100))
-	assert !s.exhaust_movement()
-	assert s.player.hunger().exhaustion == 0
+	// The first sample only records where the player is.
+	assert !pl.charge_movement(vector_at(0))
+	assert !pl.charge_movement(vector_at(100))
+	assert pl.hunger().exhaustion == 0
 
-	s.player.set_sprinting(true)
-	s.player.reset_position(vector_at(200))
-	s.exhaust_movement()
+	pl.set_sprinting(vector_at(100), true)
+	pl.charge_movement(vector_at(200))
 	// 100 metres sprinted is 10 exhaustion, which is two whole units spent and
 	// a remainder left over.
-	state := s.player.hunger()
+	state := pl.hunger()
 	assert state.saturation == player.initial_saturation - 2.0
 	assert state.exhaustion > 1.99 && state.exhaustion < 2.01
+}
+
+fn test_a_segment_is_billed_at_the_rate_it_was_travelled_at() {
+	mut pl := player.new_player()
+	pl.charge_movement(vector_at(0))
+	// Ten metres walked while the sprint flag is still off.
+	pl.set_sprinting(vector_at(10), true)
+	assert pl.hunger().exhaustion == 0
+
+	// Ten more sprinted, then the flag drops: only the sprinted stretch is
+	// billed, and stopping does not retroactively charge the walk.
+	pl.set_sprinting(vector_at(20), false)
+	sprinted := pl.hunger().exhaustion
+	assert sprinted > 0.99 && sprinted < 1.01
+
+	pl.charge_movement(vector_at(120))
+	assert pl.hunger().exhaustion == sprinted
+}
+
+fn test_regeneration_waits_a_full_interval_after_becoming_eligible() {
+	mut pl := player.new_player()
+	// Ineligible ticks never bring the timer closer to firing.
+	for _ in 0 .. 500 {
+		assert !pl.advance_regeneration(false)
+	}
+	for _ in 0 .. player.regeneration_interval_ticks - 1 {
+		assert !pl.advance_regeneration(true)
+	}
+	assert pl.advance_regeneration(true)
+}
+
+fn test_an_interrupted_condition_starts_the_wait_again() {
+	mut pl := player.new_player()
+	for _ in 0 .. player.starvation_interval_ticks - 1 {
+		pl.advance_starvation(true)
+	}
+	// One tick spent fed resets it, so the next one does not fire.
+	pl.advance_starvation(false)
+	assert !pl.advance_starvation(true)
 }
 
 fn test_swimming_costs_less_than_sprinting() {
