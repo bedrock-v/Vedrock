@@ -63,7 +63,7 @@ mut:
 	// breaking_mutex guards breaking, written by the session thread and
 	// advanced by the owning world thread once per tick.
 	breaking_mutex &sync.Mutex = sync.new_mutex()
-	hub            &Hub = unsafe { nil }
+	hub            &Hub        = unsafe { nil }
 	cfg            conf.Config
 	world          &db.World       = unsafe { nil }
 	generator      world.Generator = world.VoidGenerator{}
@@ -80,9 +80,9 @@ mut:
 	open_container_pos          ?types.BlockPosition
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
-	crafting_slot_net_ids   map[int]int
-	crafting_workbench_open bool
-	crafting_mutex          &sync.Mutex = sync.new_mutex()
+	crafting_slot_net_ids       map[int]int
+	crafting_workbench_open     bool
+	crafting_mutex              &sync.Mutex = sync.new_mutex()
 	// cursor_net_id tracks whatever the client holds on its cursor
 	// (FullContainerName.cursor_container)
 	cursor_net_id      int
@@ -90,6 +90,10 @@ mut:
 	movement_mutex     &sync.Mutex = sync.new_mutex()
 	pending_movement   ?MovementSnapshot
 	movement_scheduled bool
+	// last_movement_ms is when the owning world actor last accepted a movement
+	// report, which is what the next one's travel budget is measured from.
+	// Only that actor touches it, so it needs no lock of its own.
+	last_movement_ms i64
 	// pending_teleport_ack is the position the server last told this client
 	// to snap to (see expect_teleport_ack in movement.v). Client reported
 	// movement is discarded until a report lands within

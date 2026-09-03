@@ -45,7 +45,7 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 	dx := own.x - vp.x
 	dy := own.y - vp.y
 	dz := own.z - vp.z
-	if dx * dx + dy * dy + dz * dz > max_attack_reach_sq {
+	if dx * dx + dy * dy + dz * dz > attack_reach_sq(attacker.player.game_mode()) {
 		return
 	}
 	if mut victim_actor is NetworkSession {
@@ -78,10 +78,6 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 			victim_actor.current_position(), -1, 'minecraft:player', victim_actor.runtime_id()))
 	}
 }
-
-// max_attack_reach_sq caps how far an attack/entity interaction can land,
-// measured from the attacker to the target.
-const max_attack_reach_sq = f32(8.0 * 8.0)
 
 fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	if s.player.is_dead() || target_runtime_id == s.runtime_id {
@@ -134,7 +130,8 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		return
 	}
 	mut wr := binding.world_runtime
-	snap := worldrt.world_call[EntityInteractSnapshot]('EntityInteract', mut wr, fn [own, target_runtime_id] (mut tx worldrt.WorldTx) EntityInteractSnapshot {
+	reach_sq := attack_reach_sq(s.player.game_mode())
+	snap := worldrt.world_call[EntityInteractSnapshot]('EntityInteract', mut wr, fn [own, reach_sq, target_runtime_id] (mut tx worldrt.WorldTx) EntityInteractSnapshot {
 		target := tx.wr.entities.by_runtime_id(target_runtime_id) or {
 			return EntityInteractSnapshot{}
 		}
@@ -143,7 +140,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		dz := own.z - target.pos.z
 		return EntityInteractSnapshot{
 			found:      true
-			in_reach:   dx * dx + dy * dy + dz * dz <= max_attack_reach_sq
+			in_reach:   dx * dx + dy * dy + dz * dz <= reach_sq
 			identifier: target.identifier
 			pos:        target.pos
 		}

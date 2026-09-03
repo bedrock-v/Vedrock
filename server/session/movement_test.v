@@ -65,18 +65,20 @@ fn test_movement_coalesces_rapid_updates_into_one_job() {
 		time.sleep(1 * time.millisecond)
 	}
 
+	// Small steps: the point is that only the last one lands, not that a
+	// player can cross twenty blocks in a tick.
 	for i in 0 .. 20 {
-		s.update_movement(types.Vector3{0.0, f32(i), 0.0}, 0.0, 0.0, 0.0, false)
+		s.update_movement(types.Vector3{0.0, f32(i) * 0.1, 0.0}, 0.0, 0.0, 0.0, false)
 	}
 	assert wr.metrics().queued_tasks == 1
 
 	gate <- true
 
 	deadline := time.now().add(5 * time.second)
-	for time.now() < deadline && s.player.position().y != 19.0 {
+	for time.now() < deadline && s.player.position().y != f32(19) * 0.1 {
 		time.sleep(5 * time.millisecond)
 	}
-	assert s.player.position().y == 19.0
+	assert s.player.position().y == f32(19) * 0.1
 }
 
 fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
@@ -122,7 +124,7 @@ fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
 
 	// A later packet (the retry mechanism, per design) picks the snapshot
 	// back up now that the queue has room.
-	want := types.Vector3{4.0, 5.0, 6.0}
+	want := types.Vector3{0.4, 0.6, 0.8}
 	s.update_movement(want, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(5 * time.second)
 	for time.now() < deadline2 && s.player.position() != want {
@@ -158,7 +160,7 @@ fn test_movement_before_spawn_is_dropped_not_stranded() {
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
-	want := types.Vector3{10.0, 11.0, 12.0}
+	want := types.Vector3{1.0, 1.5, 2.0}
 	s.update_movement(want, 0.0, 0.0, 0.0, false)
 	deadline := time.now().add(5 * time.second)
 	for time.now() < deadline && s.player.position() != want {
@@ -174,9 +176,11 @@ fn test_movement_scheduling_survives_actor_draining_at_full_speed() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut s := movement_test_session(mut hub, mut wr)
 
+	// Steps a player could actually take: the point of the test is that the
+	// last report always lands, however fast the actor drains.
 	mut last := types.Vector3{}
 	for i in 0 .. 500 {
-		last = types.Vector3{f32(i), 0.0, 0.0}
+		last = types.Vector3{f32(i) * 0.001, 0.0, 0.0}
 		s.update_movement(last, 0.0, 0.0, 0.0, false)
 	}
 
@@ -187,7 +191,7 @@ fn test_movement_scheduling_survives_actor_draining_at_full_speed() {
 	assert s.player.position() == last
 	assert s.movement_scheduled == false
 
-	final := types.Vector3{999.0, 0.0, 0.0}
+	final := types.Vector3{1.0, 0.0, 0.0}
 	s.update_movement(final, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(5 * time.second)
 	for time.now() < deadline2 && s.player.position() != final {

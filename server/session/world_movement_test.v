@@ -93,7 +93,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	assert s.movement_scheduled == false
 	assert s.player.position() != stale_pos
 
-	fresh_pos := types.Vector3{1.0, 2.0, 3.0}
+	fresh_pos := types.Vector3{0.4, 0.6, 0.8}
 	s.update_movement(fresh_pos, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(2 * time.second)
 	for time.now() < deadline2 && s.player.position() != fresh_pos {
@@ -133,7 +133,7 @@ fn test_player_move_event_reaches_only_the_moving_player() {
 	mut other := movement_isolation_test_session(mut hub, mut wr_b, types.Vector3{0, 0, 0})
 	other.handle(handler_b)
 
-	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
+	s.update_movement(types.Vector3{0.5, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 
 	deadline := time.now().add(2 * time.second)
 	for time.now() < deadline && s.movement_scheduled {
@@ -155,7 +155,7 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 		hub.close_worlds()
 	}
 
-	target_pos := types.Vector3{5.0, 0.0, 0.0}
+	target_pos := types.Vector3{0.5, 0.0, 0.0}
 	mut observer_a := movement_isolation_test_session(mut hub, mut wr_a, target_pos)
 	mut observer_b := movement_isolation_test_session(mut hub, mut wr_b, target_pos)
 	mut a_transport := &FakeTransport{}

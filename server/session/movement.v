@@ -203,6 +203,10 @@ fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
 
 fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot MovementSnapshot) {
 	position := snapshot.position
+	if !s.validate_movement(position, movement_clock_ms()) {
+		s.reject_movement()
+		return
+	}
 	if s.spawned && tx.wr.services.current_tick() % 40 == 0 {
 		s.log.debug('move ${s.player.identity.display_name} pos=(${position.x:.2f}, ${position.y:.2f}, ${position.z:.2f})')
 	}
@@ -215,19 +219,7 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 		})
 		s.player.handler.on_player_move(mut ctx)
 		if ctx.is_cancelled() {
-			current := s.player.movement()
-			mut move_packet := &proto.MovePlayerPacket{
-				player_runtime_id: proto.actor_runtime_id(s.runtime_id)
-				y_head_rotation:   current.head_yaw
-				position_mode:     proto.PlayerPositionMode.respawn
-				on_ground:         false
-			}
-			move_packet.position[0] = current.position.x
-			move_packet.position[1] = current.position.y
-			move_packet.position[2] = current.position.z
-			move_packet.rotation[0] = current.pitch
-			move_packet.rotation[1] = current.yaw
-			s.deliver(move_packet)
+			s.reject_movement()
 			return
 		}
 	}
@@ -259,4 +251,24 @@ fn (mut s NetworkSession) apply_fall_damage(mut tx worldrt.WorldTx, landed_dista
 	if dmg > 0 {
 		s.apply_hurt(mut tx, dmg, FallDamageSource{})
 	}
+}
+
+// reject_movement sends the client back to the position the server still
+// believes in. Both a handler cancelling a move and a report the server does
+// not accept end here, since the client has to be corrected either way.
+fn (mut s NetworkSession) reject_movement() {
+	current := s.player.movement()
+	mut move_packet := &proto.MovePlayerPacket{
+		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		y_head_rotation:   current.head_yaw
+		position_mode:     proto.PlayerPositionMode.respawn
+		on_ground:         false
+	}
+	move_packet.position[0] = current.position.x
+	move_packet.position[1] = current.position.y
+	move_packet.position[2] = current.position.z
+	move_packet.rotation[0] = current.pitch
+	move_packet.rotation[1] = current.yaw
+	s.deliver(move_packet)
+	s.expect_teleport_ack(current.position)
 }
