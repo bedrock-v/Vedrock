@@ -110,3 +110,58 @@ fn strip_formatting(message string) string {
 	}
 	return out.string()
 }
+
+// The console shares the server's scoreboard: these are the same registry the
+// player sessions reach, since none of it belongs to any one player.
+
+fn (mut c ConsoleSender) scoreboard_objectives() []cmd.ObjectiveInfo {
+	return c.hub.objective_infos()
+}
+
+fn (mut c ConsoleSender) scoreboard_add_objective(name string, display_name string) bool {
+	return c.hub.add_objective(name, display_name)
+}
+
+fn (mut c ConsoleSender) scoreboard_remove_objective(name string) bool {
+	return c.hub.remove_objective(name)
+}
+
+fn (mut c ConsoleSender) scoreboard_set_display(slot string, objective string) bool {
+	return c.hub.set_display(slot, objective)
+}
+
+fn (mut c ConsoleSender) scoreboard_set_score(objective string, entry string, value int) bool {
+	return c.hub.set_score(objective, entry, value)
+}
+
+fn (mut c ConsoleSender) scoreboard_add_score(objective string, entry string, delta int) ?int {
+	return c.hub.add_score(objective, entry, delta)
+}
+
+fn (mut c ConsoleSender) scoreboard_reset_score(entry string) {
+	c.hub.reset_score(entry)
+}
+
+fn (mut c ConsoleSender) scoreboard_teams() []cmd.TeamInfo {
+	return c.hub.team_infos()
+}
+
+fn (mut c ConsoleSender) scoreboard_add_team(name string, display_name string) bool {
+	return c.hub.add_team(name, display_name)
+}
+
+fn (mut c ConsoleSender) scoreboard_remove_team(name string) bool {
+	return c.hub.remove_team(name)
+}
+
+fn (mut c ConsoleSender) scoreboard_team_join(team string, entry string) bool {
+	return c.hub.team_join(team, entry)
+}
+
+fn (mut c ConsoleSender) scoreboard_team_leave(entry string) bool {
+	return c.hub.team_leave(entry)
+}
+
+fn (mut c ConsoleSender) scoreboard_team_option(team string, option string, value string) bool {
+	return c.hub.team_option(team, option, value)
+}

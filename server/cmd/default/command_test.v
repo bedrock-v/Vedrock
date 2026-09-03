@@ -32,38 +32,45 @@ fn base_ctx() cmd.Context {
 
 struct RecordingSender {
 mut:
-	messages         []string
-	broadcasts       []string
-	gamemode         ?player.Gamemode
-	perm             permission.Permissible
-	peers            map[string]cmd.Sender
-	sender_name      string = 'Steve'
-	killed           bool
-	disconnected     bool
-	disconnect_msg   string
-	pos_x            f32
-	pos_y            f32
-	pos_z            f32
-	cleared          bool
-	given_id         string
-	given_count      int
-	given_ok         bool = true
-	whitelisted      []string
-	whitelist_on     bool
-	difficulty_value int
-	shown_title      string
-	broadcast_titles []string
-	is_player_val    bool = true
-	sent_form        ?form.Form
-	worlds           []string
-	unloaded_worlds  []string
-	created_dim      string
-	created_gen      string
-	tp_world         string
-	bossbar_text     string
-	scoreboard_title string
-	scoreboard_lines []string
-	scoreboard_shown bool
+	messages          []string
+	broadcasts        []string
+	gamemode          ?player.Gamemode
+	perm              permission.Permissible
+	peers             map[string]cmd.Sender
+	sender_name       string = 'Steve'
+	killed            bool
+	disconnected      bool
+	disconnect_msg    string
+	pos_x             f32
+	pos_y             f32
+	pos_z             f32
+	cleared           bool
+	given_id          string
+	objectives        map[string]string
+	scores            map[string]int
+	teams             map[string]string
+	team_members      map[string]string
+	team_options      map[string]string
+	display_slot      string
+	display_objective string
+	given_count       int
+	given_ok          bool = true
+	whitelisted       []string
+	whitelist_on      bool
+	difficulty_value  int
+	shown_title       string
+	broadcast_titles  []string
+	is_player_val     bool = true
+	sent_form         ?form.Form
+	worlds            []string
+	unloaded_worlds   []string
+	created_dim       string
+	created_gen       string
+	tp_world          string
+	bossbar_text      string
+	scoreboard_title  string
+	scoreboard_lines  []string
+	scoreboard_shown  bool
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -121,6 +128,119 @@ fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 
 fn (mut s RecordingSender) clear_inventory() {
 	s.cleared = true
+}
+
+fn (mut s RecordingSender) scoreboard_objectives() []cmd.ObjectiveInfo {
+	mut out := []cmd.ObjectiveInfo{}
+	for name, display in s.objectives {
+		out << cmd.ObjectiveInfo{
+			name:         name
+			display_name: display
+		}
+	}
+	return out
+}
+
+fn (mut s RecordingSender) scoreboard_add_objective(name string, display_name string) bool {
+	if name in s.objectives {
+		return false
+	}
+	s.objectives[name] = display_name
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_remove_objective(name string) bool {
+	if name !in s.objectives {
+		return false
+	}
+	s.objectives.delete(name)
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_set_display(slot string, objective string) bool {
+	if slot !in ['sidebar', 'list', 'belowname'] {
+		return false
+	}
+	s.display_slot = slot
+	s.display_objective = objective
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_set_score(objective string, entry string, value int) bool {
+	if objective !in s.objectives {
+		return false
+	}
+	s.scores['${objective}/${entry}'] = value
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_add_score(objective string, entry string, delta int) ?int {
+	if objective !in s.objectives {
+		return none
+	}
+	key := '${objective}/${entry}'
+	updated := (s.scores[key] or { 0 }) + delta
+	s.scores[key] = updated
+	return updated
+}
+
+fn (mut s RecordingSender) scoreboard_reset_score(entry string) {
+	for key, _ in s.scores.clone() {
+		if key.all_after('/') == entry {
+			s.scores.delete(key)
+		}
+	}
+}
+
+fn (mut s RecordingSender) scoreboard_teams() []cmd.TeamInfo {
+	mut out := []cmd.TeamInfo{}
+	for name, display in s.teams {
+		out << cmd.TeamInfo{
+			name:         name
+			display_name: display
+		}
+	}
+	return out
+}
+
+fn (mut s RecordingSender) scoreboard_add_team(name string, display_name string) bool {
+	if name in s.teams {
+		return false
+	}
+	s.teams[name] = display_name
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_remove_team(name string) bool {
+	if name !in s.teams {
+		return false
+	}
+	s.teams.delete(name)
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_team_join(team string, entry string) bool {
+	if team !in s.teams {
+		return false
+	}
+	s.team_members[entry] = team
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_team_leave(entry string) bool {
+	if entry !in s.team_members {
+		return false
+	}
+	s.team_members.delete(entry)
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_team_option(team string, option string, value string) bool {
+	if team !in s.teams {
+		return false
+	}
+	s.team_options['${team}/${option}'] = value
+	return true
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -390,7 +510,7 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 14
+	assert pkt.commands.len == 15
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := proto.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
@@ -398,7 +518,7 @@ fn test_available_commands_roundtrip() {
 	assert decoded.name() == 'AvailableCommandsPacket'
 	mut available := proto.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 14
+	assert available.commands.len == 15
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }
@@ -540,4 +660,93 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
 	protocol.read_packet_header(mut r)!
 	out.decode_payload(mut r)!
+}
+
+fn test_scoreboard_objectives_are_added_and_listed() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard objectives add kills Kills', mut sender, base_ctx())!
+	assert sender.objectives['kills'] == 'Kills'
+	assert sender.messages[0].contains("Added new objective 'kills'")
+
+	r.dispatch('/scoreboard objectives add kills Kills', mut sender, base_ctx())!
+	assert sender.messages[1].contains('already exists')
+
+	r.dispatch('/scoreboard objectives list', mut sender, base_ctx())!
+	assert sender.messages[2].contains('There are 1 objective(s)')
+}
+
+fn test_scoreboard_setdisplay_and_clear() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
+	r.dispatch('/scoreboard objectives setdisplay sidebar kills', mut sender, base_ctx())!
+	assert sender.display_slot == 'sidebar'
+	assert sender.display_objective == 'kills'
+
+	r.dispatch('/scoreboard objectives setdisplay sidebar', mut sender, base_ctx())!
+	assert sender.display_objective == ''
+	assert sender.messages.last().contains('Cleared objective display slot')
+}
+
+fn test_scoreboard_scores_are_set_and_added() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
+	r.dispatch('/scoreboard players set Alex kills 3', mut sender, base_ctx())!
+	assert sender.scores['kills/Alex'] == 3
+
+	r.dispatch('/scoreboard players add Alex kills 2', mut sender, base_ctx())!
+	assert sender.scores['kills/Alex'] == 5
+	assert sender.messages.last().contains('now 5')
+
+	r.dispatch('/scoreboard players reset Alex', mut sender, base_ctx())!
+	assert 'kills/Alex' !in sender.scores
+}
+
+fn test_scoreboard_scores_need_an_objective() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard players set Alex missing 1', mut sender, base_ctx())!
+	assert sender.messages[0].contains('No objective was found')
+}
+
+fn test_scoreboard_teams_are_managed() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard teams add red Red', mut sender, base_ctx())!
+	assert sender.teams['red'] == 'Red'
+
+	r.dispatch('/scoreboard teams join red Alex', mut sender, base_ctx())!
+	assert sender.team_members['Alex'] == 'red'
+
+	r.dispatch('/scoreboard teams option red friendlyFire false', mut sender, base_ctx())!
+	assert sender.team_options['red/friendlyFire'] == 'false'
+
+	r.dispatch('/scoreboard teams leave Alex', mut sender, base_ctx())!
+	assert 'Alex' !in sender.team_members
+
+	r.dispatch('/scoreboard teams remove red', mut sender, base_ctx())!
+	assert 'red' !in sender.teams
+}
+
+fn test_scoreboard_reports_an_unknown_team() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard teams join blue Alex', mut sender, base_ctx())!
+	assert sender.messages[0].contains('No team was found')
+}
+
+fn test_scoreboard_denied_without_op() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
+	assert sender.objectives.len == 0
+	assert sender.messages[0].contains('permission')
 }

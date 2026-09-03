@@ -133,6 +133,69 @@ other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
 [cmd.give.received]
 other = "§aYou received {{.Count}}x {{.Item}}§r"
 
+[cmd.scoreboard.usage]
+other = "Usage: /scoreboard <objectives|players|teams> ..."
+
+[cmd.scoreboard.objective_exists]
+other = "An objective already exists by that name"
+
+[cmd.scoreboard.objective_not_found]
+other = "No objective was found by the name '{{.Objective}}'"
+
+[cmd.scoreboard.team_exists]
+other = "A team already exists by that name"
+
+[cmd.scoreboard.team_not_found]
+other = "No team was found by the name '{{.Team}}'"
+
+[cmd.scoreboard.objectives.add]
+other = "Added new objective '{{.Objective}}' successfully"
+
+[cmd.scoreboard.objectives.remove]
+other = "Removed objective '{{.Objective}}' successfully"
+
+[cmd.scoreboard.objectives.list]
+other = "There are {{.Count}} objective(s) on the scoreboard:"
+
+[cmd.scoreboard.objectives.list_empty]
+other = "There are no objectives on the scoreboard"
+
+[cmd.scoreboard.setdisplay.success]
+other = "Set display slot {{.Slot}} to show objective {{.Objective}}"
+
+[cmd.scoreboard.setdisplay.cleared]
+other = "Cleared objective display slot {{.Slot}}"
+
+[cmd.scoreboard.players.set]
+other = "Set score of {{.Objective}} for player {{.Name}} to {{.Score}}"
+
+[cmd.scoreboard.players.add]
+other = "Added {{.Amount}} to {{.Objective}} for player {{.Name}} (now {{.Score}})"
+
+[cmd.scoreboard.players.reset]
+other = "Reset all scores of player {{.Name}}"
+
+[cmd.scoreboard.teams.add]
+other = "Added new team '{{.Team}}' successfully"
+
+[cmd.scoreboard.teams.remove]
+other = "Removed team {{.Team}}"
+
+[cmd.scoreboard.teams.join]
+other = "Added {{.Name}} to team {{.Team}}"
+
+[cmd.scoreboard.teams.leave]
+other = "Removed {{.Name}} from their teams"
+
+[cmd.scoreboard.teams.option]
+other = "Set option {{.Option}} for team {{.Team}} to {{.Value}}"
+
+[cmd.scoreboard.teams.list]
+other = "There are {{.Count}} team(s) on the scoreboard:"
+
+[cmd.scoreboard.teams.list_empty]
+other = "There are no teams on the scoreboard"
+
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
 

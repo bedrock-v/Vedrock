@@ -24,6 +24,7 @@ import server.player.playerdb
 import bedrock_v.protocol.current as proto
 import server.worldrt
 import server.player
+import server.player.scoreboard
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
@@ -62,11 +63,13 @@ mut:
 	// session_wg tracks sessions from registration until leave completes.
 	// wait_for_sessions_to_leave blocks until every session has finished
 	// leaving including saving player data and removing itself.
-	session_wg         &sync.WaitGroup = sync.new_waitgroup()
-	oidc_verifier      auth.Verifier
-	data               gamedata.GameData
-	lang               &language.Lang               = unsafe { nil }
-	commands           cmd.Registry                 = cmd.new_registry()
+	session_wg    &sync.WaitGroup = sync.new_waitgroup()
+	oidc_verifier auth.Verifier
+	data          gamedata.GameData
+	lang          &language.Lang = unsafe { nil }
+	commands      cmd.Registry   = cmd.new_registry()
+	// scoreboards holds this server's objectives, scores and teams.
+	scoreboards &scoreboard.Registry = scoreboard.new_registry()
 	// Defaults handed to every player and world this Hub creates. One handler
 	// each, not a list: ordering between several listeners is the caller's to
 	// arrange, in a handler that calls them in the order it wants.
@@ -270,11 +273,11 @@ pub fn (h &Hub) uptime_seconds() i64 {
 // unless one is already set.
 fn (mut h Hub) add_world(loaded_world &db.World) {
 	mut wr := worldrt.new_world_runtime(
-		world:      loaded_world
-		services:   h
-		generators: h
-		handler:    h.world_handler
-		players:    SessionPlayerTicker{}
+		world:       loaded_world
+		services:    h
+		generators:  h
+		handler:     h.world_handler
+		players:     SessionPlayerTicker{}
 		entity_host: new_world_entity_host
 	)
 	h.restore_world_entities(mut wr)
