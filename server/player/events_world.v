@@ -9,7 +9,7 @@ pub struct WorldLoadData {
 pub:
 	name string
 pub mut:
-	sender View
+	sender CommandSource
 }
 
 // WorldUnloadData is dispatched before a loaded world is unloaded. Cancelling
@@ -18,5 +18,5 @@ pub struct WorldUnloadData {
 pub:
 	name string
 pub mut:
-	sender View
+	sender CommandSource
 }

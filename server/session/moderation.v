@@ -38,6 +38,8 @@ fn (mut h Hub) is_op(name string) bool {
 	return h.ops.is_op(name)
 }
 
+// set_operator grants or revokes operator status. Hub owns the op list,
+// this is a handoff rather than a bridge onto a world actor.
 fn (mut s NetworkSession) set_operator(value bool) {
 	s.hub.set_operator(mut s, value)
 }
@@ -91,10 +93,16 @@ fn (mut s NetworkSession) try_refresh_op_state_once() bool {
 	return <-task.result
 }
 
-// kill
-
-// kill takes the player through the normal death path with no attacker. It
-// runs on the owning world's actor, where the death path belongs.
+// kill takes the player through the normal death path with no attacker.
+//
+// It is one of the command entry bridges in this file. A command runs on the
+// session thread and holds no transaction, so it can't reach a Player verb
+// directly: each bridge enters the owning world's actor, reresolves the
+// player against the membership epoch it started from and calls the verb
+// there. They stay tx-less on purpose.
+//
+// Taking a transaction would push the requirement back onto a caller that has
+// no way to be holding one.
 fn (mut s NetworkSession) kill() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
@@ -109,8 +117,8 @@ fn (mut s NetworkSession) kill() {
 	}) or { false }
 }
 
-// teleport
-
+// position is where the player is right now. It reads session state rather
+// than entering the world actor and it is not one of the bridges.
 fn (mut s NetworkSession) position() types.Vector3 {
 	return s.current_position()
 }
@@ -304,6 +312,9 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	return true
 }
 
+// teleport moves the player within the world they are already in. The actor
+// work and the blocking are request_teleport's; this is the name a command
+// reaches it by.
 fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, '')
 }
@@ -316,7 +327,8 @@ fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
 }
 
 // clear_inventory empties the player's inventory. It runs on the owning
-// world's actor because the inventory is state that actor owns.
+// world's actor because the inventory is state that actor owns. Bridge, in the
+// sense kill describes.
 fn (mut s NetworkSession) clear_inventory() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
@@ -335,7 +347,7 @@ fn (mut s NetworkSession) clear_inventory() {
 }
 
 // give_item adds count of the item named id to the player's inventory,
-// reporting whether it landed.
+// reporting whether it landed. Bridge, in the sense kill describes.
 //
 // It blocks for the same reason submit_teleport does: the caller is told
 // whether the item arrived, so the answer has to describe work that already

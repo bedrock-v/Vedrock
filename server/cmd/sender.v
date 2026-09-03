@@ -1,19 +1,44 @@
 module cmd
 
+import bedrock_v.protocol.types
+import server.form
 import server.player
+import server.player.bossbar
+import server.player.scoreboard
+import server.player.title
 
-// Sender is the live connection that issued a cmd. Context carries
-// read-only stats for building output; anything a Command needs to send
-// back or mutate goes through Sender instead. Embeds player.View for the
-// part that's genuinely about a specific player (identity, messaging,
-// movement, inventory, UI, etc.) and adds only what's actually about running
-// commands: whitelist/difficulty/broadcast/world management apply to the
-// server, not to whichever player happens to be the sender.
+// Sender is the live connection that issued a cmd. Context carries read-only
+// stats for building output; anything a Command needs to send back or mutate
+// goes through Sender instead.
+//
+// It embeds player.CommandSource for the part that is only about identifying
+// the sender and answering them which the console satisfies as readily as a
+// player does. Everything else is declared here because it is a statement
+// about running commands rather than about being a player: the player facing
+// verbs are the tx-less entry points a command reaches from the session
+// thread and the server facing ones (whitelist, difficulty, broadcast, world
+// management) apply to the server, not to whoever happens to be the sender.
 pub interface Sender {
-	player.View
+	player.CommandSource
+	has_permission(name string) bool
 	whitelist_enabled() bool
 	whitelist_names() []string
 mut:
+	// The player a command acts on. A ConsoleSender implements these as
+	// noops: find_player never resolves to one, so nothing reaches them.
+	set_gamemode(mode player.Gamemode)
+	kill()
+	disconnect(message string)
+	position() types.Vector3
+	teleport(x f32, y f32, z f32)
+	clear_inventory()
+	give_item(id string, count int) bool
+	send_form(f form.Form) !
+	send_scoreboard(board &scoreboard.Scoreboard)
+	remove_scoreboard()
+	send_title(t title.Title)
+	send_bossbar(bar bossbar.BossBar)
+	remove_bossbar()
 	find_player(name string) ?Sender
 	set_operator(value bool)
 	// place_water sets a water source at the block position and starts its spread.
