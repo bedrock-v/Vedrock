@@ -133,6 +133,15 @@ other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
 [cmd.give.received]
 other = "§aYou received {{.Count}}x {{.Item}}§r"
 
+[cmd.xp.usage]
+other = "Usage: /xp <amount: int> [player: target] OR /xp <amount: int>L [player: target]"
+
+[cmd.xp.success]
+other = "Given {{.Amount}} experience to {{.Name}}"
+
+[cmd.xp.success_levels]
+other = "Given {{.Amount}} levels to {{.Name}}"
+
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
 

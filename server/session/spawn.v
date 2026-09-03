@@ -133,6 +133,15 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 		pitch = data.pitch
 		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
+		s.player.set_hunger(player.HungerState{
+			food_level: data.food_level
+			saturation: data.saturation
+			exhaustion: data.exhaustion
+		})
+		s.player.set_experience(player.ExperienceState{
+			level:    data.experience_level
+			progress: data.experience_progress
+		})
 		s.player.set_game_mode(player.gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
@@ -1059,7 +1068,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	}
 	s.hub.add(s)
 	if !isnil(wr) {
-		s.send_active_effects(mut wr)
+		s.player.send_active_effects(mut wr)
 	}
 	mut ctx := event.new_context(player.JoinData{
 		player:  s.player
@@ -1071,6 +1080,8 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	}
 	inventory_packet := s.restore_inventory()
 	s.send_packet(inventory_packet)!
+	s.send_packet(s.armor_content_packet())!
+	s.broadcast_armor()
 	s.refresh_available_commands()
 	s.log.debug('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }

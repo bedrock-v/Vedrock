@@ -75,6 +75,7 @@ fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransact
 
 fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
 	on_ground := proto.PlayerAuthInputData.vertical_collision in p.input_data
+	s.apply_input_state(p.input_data)
 	s.update_movement(proto.vec3_from_array(p.player_position), p.player_rotation[0],
 		p.player_rotation[1], p.player_head_rotation, on_ground)
 	if tx := p.item_use_transaction {
@@ -466,13 +467,15 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 
 	tx.set_block(pos.x, pos.y, pos.z, air_id)
 	damage_held_item(mut s, 1)
+	s.exhaust_and_sync(player.mining_exhaustion)
 
 	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
+		center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 		drop_name, drop_count := block_drop_for(tx.wr.services.game_data(), old_id)
 		if drop_name != '' {
-			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 			spawn_dropped_item_stack(mut tx, drop_name, drop_count, center)
 		}
+		drop_block_experience(mut tx, mut s, old_id, drop_name, center)
 	}
 
 	if b := block.get(old_id) {

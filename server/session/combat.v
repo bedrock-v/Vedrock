@@ -210,6 +210,12 @@ fn (mut s NetworkSession) apply_hurt(mut tx worldrt.WorldTx, amount f32, source 
 		}
 	}
 	mut reduced_amount := amount
+	// Armor comes off the raw hit first: resistance then applies to what is
+	// left, so the two stack the way they do in game rather than competing.
+	if source.reduced_by_armor() {
+		reduced_amount = armor_reduced(reduced_amount, s.armor_protection())
+		s.damage_armor(amount)
+	}
 	if source.reduced_by_resistance() {
 		if res := s.player.effect(effect.resistance) {
 			reduced_amount *= resistance_multiplier(res.level())
@@ -227,6 +233,7 @@ fn (mut s NetworkSession) apply_hurt(mut tx worldrt.WorldTx, amount f32, source 
 	if ctx.is_cancelled() {
 		return
 	}
+	s.exhaust_and_sync(player.damage_exhaustion)
 	new_health := s.player.health() - ctx.val.amount
 	s.player.set_health(if new_health < 0 { f32(0) } else { new_health })
 	s.deliver(s.health_update())
@@ -285,6 +292,8 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	}
 	s.player.set_dead(false)
 	s.player.set_health(20.0)
+	s.player.reset_hunger()
+	s.send_hunger()
 	spawn_y := s.generator.spawn_y()
 	mut ctx := event.new_context(player.RespawnData{
 		player: s.player

@@ -29,6 +29,8 @@ mut:
 	last_mob_attack_runtime_id    u64
 	last_mob_attack_amount        f32
 	visible                       bool = true
+	granted_experience            map[u64]int
+	dropped_experience            int
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
 	players              map[u64]types.Vector3
@@ -151,6 +153,15 @@ fn (mut h FakeHost) notify_item_taken(item_runtime_id u64, taker_runtime_id u64)
 	h.take_notify_calls++
 	h.last_take_item_rid = item_runtime_id
 	h.last_take_taker_rid = taker_runtime_id
+}
+
+fn (mut h FakeHost) grant_experience(runtime_id u64, amount int) bool {
+	h.granted_experience[runtime_id] += amount
+	return runtime_id in h.players
+}
+
+fn (mut h FakeHost) spawn_experience_orbs(amount int, pos types.Vector3) {
+	h.dropped_experience += amount
 }
 
 fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {

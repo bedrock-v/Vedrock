@@ -36,7 +36,7 @@ fn (target &NetworkSession) slot_snapshot_for_net_id(net_id int) SlotSnapshot {
 
 fn (target &NetworkSession) capture_transaction_snapshot() TransactionSnapshot {
 	mut inv := map[int]SlotSnapshot{}
-	for slot in 0 .. player.inventory_slot_count {
+	for slot in 0 .. player.tracked_slot_count {
 		net_id := target.player.inv_slot(slot) or { 0 }
 		inv[slot] = target.slot_snapshot_for_net_id(net_id)
 	}
@@ -84,6 +84,12 @@ fn (mut target NetworkSession) restore_transaction_snapshot(snap TransactionSnap
 // sees but that still holds items. Anything outside the real inventory is
 // rejected here, as is an unsupported container.
 fn flat_slot(container proto.FullContainerName, slot i8) ?int {
+	if container.container == .armor_container {
+		if slot < 0 || int(slot) >= player.armor_slot_count {
+			return none
+		}
+		return player.armor_slot(int(slot))
+	}
 	flat := match container.container {
 		.hotbar_container, .combined_hotbar_and_inventory_container, .inventory_container { int(slot) }
 		else { return none }
@@ -456,6 +462,9 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, runtime_id u64, epoch i64
 			continue
 		}
 		persist_container_changes(mut tx, mut target, changes)
+		if changes_touch_armor(changes) {
+			target.broadcast_armor()
+		}
 		target.log.debug('itemstack request ${request.client_request_id} -> success (${changes.len} slot changes)')
 		out << proto.ItemStackResponseInfo{
 			result:            proto.ItemStackNetResult.success
@@ -646,8 +655,9 @@ fn (mut s NetworkSession) apply_consume(mut tx worldrt.WorldTx, src proto.ItemSt
 	name := s.hub.data.item_name(stack.id)
 	result := itemmod.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
 	for e in result.effects {
-		s.apply_add_effect(mut tx, e)
+		s.player.add_effect(mut tx, e)
 	}
+	s.eat_item(name)
 	return s.replace_consumed_stack(src, amount, stack, net_id, result)
 }
 

@@ -118,6 +118,11 @@ pub fn (mut p Player) clear_inventory(mut tx worldrt.WorldTx) {
 		}
 		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
 	})
+	// The worn pieces live in the same stack map, so clearing it took them
+	// too - the client has to be told about its own armor window separately.
+	for index in 0 .. armor_slot_count {
+		p.send_armor_slot_update(index, types.ItemStackWrapper{})
+	}
 }
 
 // give_item puts count of the item named id into the player's inventory and
@@ -157,6 +162,24 @@ pub fn (mut p Player) give_item(mut tx worldrt.WorldTx, id string, count int) bo
 		item_stack:       stack
 	})
 	return true
+}
+
+// heal raises the player's health by amount, up to the twenty point maximum,
+// and tells their client the new value. It takes no transaction because
+// nobody else sees another player's health bar.
+pub fn (mut p Player) heal(amount f32) {
+	if p.is_dead() || amount <= 0 {
+		return
+	}
+	old := p.health()
+	mut new_health := old + amount
+	if new_health > 20 {
+		new_health = 20
+	}
+	p.set_health(new_health)
+	if new_health != old {
+		p.send_health()
+	}
 }
 
 // disconnect kicks the player, showing message as the reason. It takes no
@@ -222,6 +245,7 @@ pub fn (mut p Player) die(mut tx worldrt.WorldTx, message_key string, parameters
 		data:              0
 	})
 	p.set_last_death(p.position())
+	p.drop_experience(mut tx)
 	tx.wr.broadcast_world(&proto.TextPacket{
 		localize:     true
 		message_type: proto.TextTranslate{

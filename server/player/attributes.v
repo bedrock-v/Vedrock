@@ -30,19 +30,36 @@ pub fn (p &Player) health_update() &proto.UpdateAttributesPacket {
 	}
 }
 
+// send_health pushes the current health to the player's own client. A client
+// that has not spawned yet has no health bar to correct, so there is nothing
+// to send it.
+pub fn (mut p Player) send_health() {
+	mut sink := p.sink
+	if !sink.is_spawned() {
+		return
+	}
+	sink.deliver(p.health_update())
+}
+
 // update_attributes is the player's full attribute set, sent once on spawn.
 pub fn (p &Player) update_attributes() &proto.UpdateAttributesPacket {
 	mut sink := p.sink
+	hunger := p.hunger()
+	experience := p.experience()
 	return &proto.UpdateAttributesPacket{
 		target_runtime_id:       proto.actor_runtime_id(sink.runtime_id())
 		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, p.health()),
 			player_attribute('minecraft:movement', 0.0, 3.4028235e38, 0.1),
-			player_attribute('minecraft:player.hunger', 0.0, 20.0, 20.0),
-			player_attribute('minecraft:player.saturation', 0.0, 20.0, 20.0),
-			player_attribute('minecraft:player.exhaustion', 0.0, 5.0, 0.0),
-			player_attribute('minecraft:player.level', 0.0, 24791.0, 0.0),
-			player_attribute('minecraft:player.experience', 0.0, 1.0, 0.0),
+			player_attribute('minecraft:player.hunger', 0.0, f32(max_food_level),
+				f32(hunger.food_level)),
+			player_attribute('minecraft:player.saturation', 0.0, f32(max_food_level),
+				hunger.saturation),
+			player_attribute('minecraft:player.exhaustion', 0.0, exhaustion_threshold,
+				hunger.exhaustion),
+			player_attribute('minecraft:player.level', 0.0, max_experience_level,
+				f32(experience.level)),
+			player_attribute('minecraft:player.experience', 0.0, 1.0, experience.progress),
 		]
 		ticks_since_sim_started: 0
 	}

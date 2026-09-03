@@ -123,16 +123,20 @@ fn test_block_update_flags_match_reference_servers() {
 }
 
 fn test_mob_effect_packet_roundtrip() {
-	s := &NetworkSession{
+	mut s := &NetworkSession{
 		player:     player.new_player()
 		runtime_id: 7
 	}
-	sent := s.mob_effect_packet(effect.new(effect.regeneration, 2, 5 * time.second), mob_effect_add)
+	// The packet names the player by the sink's runtime id, so the session has
+	// to be wired up as the sink before it reports anything but zero.
+	s.player.sink = s
+	sent := s.player.mob_effect_packet(effect.new(effect.regeneration, 2, 5 * time.second),
+		proto.MobEffectEvent.add)
 	assert roundtrip_packet(sent)!.name() == 'MobEffectPacket'
 	mut decoded := proto.MobEffectPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.target_runtime_id.value == 7
-	assert decoded.event_id == mob_effect_add
+	assert decoded.event_id == proto.MobEffectEvent.add
 	assert decoded.effect_id == effect.regeneration.id
 	assert decoded.effect_amplifier == 1
 	assert decoded.effect_duration_ticks == 100

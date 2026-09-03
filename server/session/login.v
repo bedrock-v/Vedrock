@@ -196,10 +196,11 @@ fn (mut s NetworkSession) start_resource_packs() ! {
 	if !isnil(s.hub.packs) {
 		for pack in s.hub.packs.packs {
 			entries << proto.ResourcePackEntry{
-				id:      proto.uuid_from_bytes(pack.uuid_bytes())
-				version: pack.version
-				size:    u64(pack.size)
-				cdn_url: pack.cdn_url
+				id:          proto.uuid_from_bytes(pack.uuid_bytes())
+				version:     pack.version
+				size:        u64(pack.size)
+				content_key: pack.content_key
+				cdn_url:     pack.cdn_url
 			}
 		}
 	}
