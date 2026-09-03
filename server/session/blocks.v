@@ -479,6 +479,10 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 		if b is block.ChestBlock {
 			drop_chest_contents(mut tx, mut s, pos.x, pos.y, pos.z)
 		}
+		if _ := block.furnace_variant(b.identifier()) {
+			drop_chest_contents(mut tx, mut s, pos.x, pos.y, pos.z)
+			tx.wr.world.clear_furnace_state(pos.x, pos.y, pos.z)
+		}
 		if b is block.JukeboxBlock {
 			drop_jukebox_disc(mut tx, pos.x, pos.y, pos.z)
 		}
