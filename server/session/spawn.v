@@ -133,6 +133,9 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
 		s.player.set_game_mode(player.gamemode_from_wire(data.gamemode))
+		if data.has_spawn_point {
+			s.player.set_spawn_point(types.Vector3{data.spawn_x, data.spawn_y, data.spawn_z})
+		}
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
 		}

@@ -84,6 +84,8 @@ fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
 	return false
 }
 
+fn (mut c ConsoleSender) set_spawn_point(_ f32, _ f32, _ f32) {}
+
 fn (mut c ConsoleSender) send_form(_ form.Form) ! {
 	return error('the console cannot display forms')
 }

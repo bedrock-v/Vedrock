@@ -49,6 +49,10 @@ mut:
 	effects          effect.Manager
 	has_last_death   bool
 	last_death_pos   types.Vector3
+	// spawn_point is where this player respawns. Unset until they sleep in a
+	// bed or an operator places it, and the world spawn answers until then.
+	has_spawn_point  bool
+	spawn_point      types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
 	// give_next_slot round robins give_item across the hotbar. Only the

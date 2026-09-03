@@ -46,6 +46,10 @@ mut:
 	pos_z            f32
 	cleared          bool
 	given_id         string
+	spawn_x          f32
+	spawn_y          f32
+	spawn_z          f32
+	spawn_set        bool
 	given_count      int
 	given_ok         bool = true
 	whitelisted      []string
@@ -121,6 +125,13 @@ fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 
 fn (mut s RecordingSender) clear_inventory() {
 	s.cleared = true
+}
+
+fn (mut s RecordingSender) set_spawn_point(x f32, y f32, z f32) {
+	s.spawn_x = x
+	s.spawn_y = y
+	s.spawn_z = z
+	s.spawn_set = true
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -390,7 +401,7 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 14
+	assert pkt.commands.len == 15
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := proto.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
@@ -398,7 +409,7 @@ fn test_available_commands_roundtrip() {
 	assert decoded.name() == 'AvailableCommandsPacket'
 	mut available := proto.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 14
+	assert available.commands.len == 15
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }
@@ -540,4 +551,46 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
 	protocol.read_packet_header(mut r)!
 	out.decode_payload(mut r)!
+}
+
+fn test_spawnpoint_defaults_to_the_senders_position() {
+	r := full_registry()
+	mut sender := RecordingSender{
+		pos_x: 10
+		pos_y: 64
+		pos_z: -3
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/spawnpoint', mut sender, base_ctx())!
+	assert sender.spawn_set
+	assert sender.spawn_x == 10
+	assert sender.spawn_y == 64
+	assert sender.spawn_z == -3
+}
+
+fn test_spawnpoint_takes_explicit_coordinates() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/spawnpoint Alex 1 2 3', mut sender, base_ctx())!
+	assert target.spawn_set
+	assert target.spawn_x == 1
+	assert target.spawn_y == 2
+	assert target.spawn_z == 3
+	assert !sender.spawn_set
+}
+
+fn test_spawnpoint_denied_without_op() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	r.dispatch('/spawnpoint', mut sender, base_ctx())!
+	assert !sender.spawn_set
+	assert sender.messages[0].contains('permission')
 }
