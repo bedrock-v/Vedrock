@@ -19,10 +19,10 @@ struct ObstructionResult {
 }
 
 // obstructed_by_entity reports whether pos overlaps a player registered in
-// wr, including the acting player's own current or pending body position.
-// Actor only: reads the world's actor registry directly, so must only be
-// called from within a worldrt.WorldTx operation.
-fn obstructed_by_entity(mut wr worldrt.WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
+// the world, including the acting player's own current or pending body
+// position. It walks the live actor registry, so it takes the transaction:
+// that registry is the world actor's to read.
+fn obstructed_by_entity(mut tx worldrt.WorldTx, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
 	block_min_x := f32(pos.x)
 	block_max_x := f32(pos.x) + 1
 	block_min_y := f32(pos.y)
@@ -30,7 +30,7 @@ fn obstructed_by_entity(mut wr worldrt.WorldRuntime, pos types.BlockPosition, ac
 	block_min_z := f32(pos.z)
 	block_max_z := f32(pos.z) + 1
 	mut obstructed := false
-	for mut a in wr.entities.player_actors() {
+	for mut a in tx.wr.entities.player_actors() {
 		if mut a is NetworkSession {
 			tp := if a.runtime_id == acting_runtime_id {
 				a.effective_position()
@@ -307,7 +307,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 // cancellable block_place event, then commits.
 fn place_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
 	occupied := block_at(tx, pos.x, pos.y, pos.z) != world.air.network_id
-	obstruction := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
+	obstruction := obstructed_by_entity(mut tx, pos, s.runtime_id)
 	if occupied || obstruction.obstructed {
 		if occupied || !obstruction.self_only {
 			s.resend_block(pos)
@@ -370,8 +370,8 @@ fn replace_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bl
 // before either half is written.
 fn place_door_pair(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
 	above := face_offset(pos, 1)
-	lower := obstructed_by_entity(mut tx.wr, pos, s.runtime_id)
-	upper := obstructed_by_entity(mut tx.wr, above, s.runtime_id)
+	lower := obstructed_by_entity(mut tx, pos, s.runtime_id)
+	upper := obstructed_by_entity(mut tx, above, s.runtime_id)
 	if lower.obstructed || upper.obstructed {
 		if !lower.self_only {
 			s.resend_block(pos)

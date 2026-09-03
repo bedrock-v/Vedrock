@@ -109,8 +109,8 @@ fn (mut s NetworkSession) close_chest_container(mut tx worldrt.WorldTx) {
 
 // drop_chest_contents spawns every non-empty stored stack at the chest's
 // center, then clears its persisted contents.
-fn drop_chest_contents(mut wr worldrt.WorldRuntime, mut s NetworkSession, x int, y int, z int) {
-	stacks := wr.world.container_slots(x, y, z)
+fn drop_chest_contents(mut tx worldrt.WorldTx, mut s NetworkSession, x int, y int, z int) {
+	stacks := tx.wr.world.container_slots(x, y, z)
 	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
 	for stack in stacks {
 		if stack.count <= 0 || stack.id == 0 {
@@ -122,8 +122,7 @@ fn drop_chest_contents(mut wr worldrt.WorldRuntime, mut s NetworkSession, x int,
 			y: 0.2
 			z: (rand.f32() * 0.2) - 0.1
 		}
-		spawn_dropped_item_entity(mut wr, stack, max_stack, center, velocity,
-			entity.item_pickup_delay_ticks)
+		spawn_dropped_item_entity(mut tx, stack, max_stack, center, velocity, entity.item_pickup_delay_ticks)
 	}
-	wr.world.clear_container(x, y, z)
+	tx.wr.world.clear_container(x, y, z)
 }

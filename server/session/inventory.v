@@ -631,7 +631,7 @@ fn (mut s NetworkSession) apply_drop(mut tx worldrt.WorldTx, src proto.ItemStack
 	if take > 0 && item.id != 0 {
 		mut dropped := item
 		dropped.count = take
-		drop_player_item(mut tx.wr, s, dropped)
+		drop_player_item(mut tx, s, dropped)
 	}
 	return changes
 }

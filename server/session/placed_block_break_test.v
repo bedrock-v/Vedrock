@@ -105,7 +105,7 @@ fn test_survival_mined_drop_can_be_replaced_and_broken() {
 	mined_id := s.block_at(0, world.overworld.min_y + 2, 0)
 	assert mined_id == world.dirt.network_id
 
-	drop_name, drop_count := block_drop_for(mut wr, mined_id)
+	drop_name, drop_count := block_drop_for(wr.services.game_data(), mined_id)
 	assert drop_name != ''
 	assert drop_count > 0
 

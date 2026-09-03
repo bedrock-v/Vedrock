@@ -31,12 +31,6 @@ git clone https://github.com/bedrock-v/Vedrock.git
 cd Vedrock
 
 v install
-
-# VPM does not currently support organization packages.
-v install --git https://github.com/bedrock-v/protocol.git
-v install --git https://github.com/bedrock-v/nbt.git
-v install --git https://github.com/bedrock-v/nethernet.git
-v install --git https://github.com/bedrock-v/webrtc-v.git
 ```
 
 You can develop a server directly inside the cloned repository or place one or more projects beneath it:
@@ -49,14 +43,13 @@ Vedrock/
 
 V resolves Vedrock modules from the parent directory in this layout.
 
-To use Vedrock from projects located elsewhere, clone it into your V modules path:
+To use Vedrock from projects located elsewhere, install it into your V modules path:
 
 ```bash
-git clone https://github.com/bedrock-v/Vedrock.git \
-  "$VMODULES_PATH/bedrockv/vedrock"
+v install bedrock-v.vedrock
 ```
 
-Vedrock modules can then be imported normally from any V project. (via bedrockv.vedrock.*)
+Vedrock modules can then be imported normally from any V project. (via bedrock_v.vedrock.*)
 
 ## Contributing
 

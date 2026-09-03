@@ -334,7 +334,7 @@ fn (mut h CancelBlockBreakHandler) on_block_break(mut ctx event.Context[player.B
 
 fn probe_obstructed_by_entity(mut wr worldrt.WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
 	return worldrt.world_call[ObstructionResult]('test', mut wr, fn [pos, acting_runtime_id] (mut tx worldrt.WorldTx) ObstructionResult {
-		return obstructed_by_entity(mut tx.wr, pos, acting_runtime_id)
+		return obstructed_by_entity(mut tx, pos, acting_runtime_id)
 	}) or { panic('sync barrier rejected') }
 }
 

@@ -311,7 +311,7 @@ fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 
 // return_or_drop_stack gives stack back to an inventory slot if one's
 // free, otherwise drops it at the player's feet. Never silently discards.
-fn (mut s NetworkSession) return_or_drop_stack(stack types.ItemStack) {
+fn (mut s NetworkSession) return_or_drop_stack(mut tx worldrt.WorldTx, stack types.ItemStack) {
 	if dest := s.first_empty_slot() {
 		returned_net := s.player.track_stack(stack)
 		s.player.set_slot(dest, returned_net)
@@ -321,16 +321,13 @@ fn (mut s NetworkSession) return_or_drop_stack(stack types.ItemStack) {
 		})
 		return
 	}
-	mut wr := s.current_world_runtime()
-	if !isnil(wr) {
-		center := s.player.position()
-		spawn_dropped_item_stack(mut wr, s.hub.data.item_name(stack.id), stack.count, center)
-	}
+	center := s.player.position()
+	spawn_dropped_item_stack(mut tx, s.hub.data.item_name(stack.id), stack.count, center)
 }
 
 // release_crafting_grid_slots returns whatever the given slots hold and
 // clears their tracking. Safe on an already empty grid.
-fn (mut s NetworkSession) release_crafting_grid_slots(slots []int) {
+fn (mut s NetworkSession) release_crafting_grid_slots(mut tx worldrt.WorldTx, slots []int) {
 	for slot in slots {
 		net_id := s.crafting_slot_net_id(slot)
 		if net_id == 0 {
@@ -342,11 +339,11 @@ fn (mut s NetworkSession) release_crafting_grid_slots(slots []int) {
 		}
 		s.player.delete_stack(net_id)
 		s.set_crafting_slot_net_id(slot, 0)
-		s.return_or_drop_stack(stack)
+		s.return_or_drop_stack(mut tx, stack)
 	}
 }
 
-fn (mut s NetworkSession) release_cursor() {
+fn (mut s NetworkSession) release_cursor(mut tx worldrt.WorldTx) {
 	net_id := s.cursor_slot_net_id()
 	if net_id == 0 {
 		return
@@ -357,23 +354,23 @@ fn (mut s NetworkSession) release_cursor() {
 	}
 	s.player.delete_stack(net_id)
 	s.set_cursor_slot_net_id(0)
-	s.return_or_drop_stack(stack)
+	s.return_or_drop_stack(mut tx, stack)
 }
 
 // release_crafting_state returns everything the grid and cursor hold, the
 // full cleanup a disconnect needs, since the client isn't guaranteed to
 // send a clean ContainerClose first.
-fn (mut s NetworkSession) release_crafting_state() {
-	s.release_crafting_grid_slots(crafting_grid_small)
-	s.release_crafting_grid_slots(crafting_grid_large)
-	s.release_cursor()
+fn (mut s NetworkSession) release_crafting_state(mut tx worldrt.WorldTx) {
+	s.release_crafting_grid_slots(mut tx, crafting_grid_small)
+	s.release_crafting_grid_slots(mut tx, crafting_grid_large)
+	s.release_cursor(mut tx)
 }
 
-fn (mut s NetworkSession) close_workbench() {
+fn (mut s NetworkSession) close_workbench(mut tx worldrt.WorldTx) {
 	if !s.workbench_open() {
 		return
 	}
-	s.release_crafting_grid_slots(crafting_grid_large)
+	s.release_crafting_grid_slots(mut tx, crafting_grid_large)
 	s.set_workbench_open(false)
 }
 
@@ -388,7 +385,7 @@ fn (t CloseWorkbenchTask) name() string {
 
 fn (t CloseWorkbenchTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	target.close_workbench()
+	target.close_workbench(mut tx)
 }
 
 fn (mut s NetworkSession) release_workbench() {

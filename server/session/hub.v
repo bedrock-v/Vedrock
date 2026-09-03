@@ -286,6 +286,10 @@ fn (mut h Hub) add_world(loaded_world &db.World) {
 	h.mutex.unlock()
 }
 
+// restore_world_entities loads a world's saved entities back into it. It runs
+// on whichever thread is adding the world, before anyone else can reach the
+// runtime. It takes the runtime and enters the actor itself rather than
+// taking a transaction it has no way to already hold.
 fn (mut h Hub) restore_world_entities(mut wr worldrt.WorldRuntime) {
 	if !wr.world.is_persistent() {
 		return
@@ -302,6 +306,10 @@ fn (mut h Hub) restore_world_entities(mut wr worldrt.WorldRuntime) {
 	}) or {}
 }
 
+// save_world_entities writes a world's entities to disk. Both callers run it
+// after wr.shutdown() has stopped and joined the actor thread, which is why it
+// can read the entity manager directly: there is no longer an actor to race
+// with and no longer one to hand it a transaction either.
 fn (mut h Hub) save_world_entities(mut wr worldrt.WorldRuntime) {
 	if !wr.world.is_persistent() {
 		return
