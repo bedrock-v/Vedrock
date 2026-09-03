@@ -227,6 +227,7 @@ pub fn (mut p Player) die(mut tx worldrt.WorldTx, message_key string, parameters
 		data:              0
 	})
 	p.set_last_death(p.position())
+	p.drop_experience(mut tx)
 	tx.wr.broadcast_world(&proto.TextPacket{
 		localize:     true
 		message_type: proto.TextTranslate{

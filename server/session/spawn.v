@@ -137,6 +137,10 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 			saturation: data.saturation
 			exhaustion: data.exhaustion
 		})
+		s.player.set_experience(player.ExperienceState{
+			level:    data.experience_level
+			progress: data.experience_progress
+		})
 		s.player.set_game_mode(player.gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})

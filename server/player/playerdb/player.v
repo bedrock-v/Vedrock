@@ -22,20 +22,22 @@ pub mut:
 
 pub struct PlayerData {
 pub mut:
-	x              f32
-	y              f32
-	z              f32
-	yaw            f32
-	pitch          f32
-	gamemode       int
-	items          []InvItem
-	food_level     int = max_food_level
-	saturation     f32 = initial_saturation
-	exhaustion     f32
-	has_last_death bool
-	last_death_x   f32
-	last_death_y   f32
-	last_death_z   f32
+	x                   f32
+	y                   f32
+	z                   f32
+	yaw                 f32
+	pitch               f32
+	gamemode            int
+	items               []InvItem
+	food_level          int = max_food_level
+	saturation          f32 = initial_saturation
+	exhaustion          f32
+	experience_level    int
+	experience_progress f32
+	has_last_death      bool
+	last_death_x        f32
+	last_death_y        f32
+	last_death_z        f32
 }
 
 // safe_key strips anything that could let a key (which may come from an

@@ -51,9 +51,15 @@ mut:
 	last_death_pos   types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
-	food_level       int = max_food_level
-	saturation       f32 = initial_saturation
-	exhaustion       f32
+	// experience_level is the level reached and experience_points how many
+	// points into it the player is. Keeping the two apart means awarding a
+	// few points costs only the boundaries actually crossed, rather than
+	// rebuilding the level curve from zero every time.
+	experience_level  int
+	experience_points int
+	food_level        int = max_food_level
+	saturation        f32 = initial_saturation
+	exhaustion        f32
 	// sprinting/swimming are reported by the client and decide what moving a
 	// metre costs. They are state, not events: the tick that spends the
 	// exhaustion runs on the world actor, not on the packet.

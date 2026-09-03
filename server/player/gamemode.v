@@ -60,3 +60,10 @@ pub fn gamemode_from_name(name string) Gamemode {
 		else { .creative }
 	}
 }
+
+// collects_experience reports whether this mode picks experience up at all.
+// Spectators pass through the world without touching it; every other mode
+// collects, since experience is not damage and does not follow its rules.
+pub fn (g Gamemode) collects_experience() bool {
+	return g != .spectator
+}
