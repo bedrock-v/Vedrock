@@ -69,7 +69,7 @@ fn test_local_pack_reads_key_file() {
 		eprintln('skip: cannot build zip: ${err}')
 		return
 	}
-	assert is_encrypted(path)
+	assert is_encrypted(path) or { false }
 	if _ := new_local_pack(path) {
 		assert false, 'encrypted pack loaded without a key file'
 	}
@@ -82,7 +82,7 @@ fn test_local_pack_reads_key_file() {
 		return
 	}
 	assert pack.content_key == test_key
-	assert pack.is_encrypted()
+	assert pack.has_content_key()
 }
 
 fn test_local_pack_rejects_malformed_key() {
@@ -118,13 +118,32 @@ fn test_plain_pack_has_no_key() {
 		eprintln('skip: cannot build zip: ${err}')
 		return
 	}
-	assert !is_encrypted(path)
+	assert !(is_encrypted(path) or { true })
 	pack := new_local_pack(path) or {
 		assert false, 'load failed: ${err}'
 		return
 	}
 	assert pack.content_key == ''
-	assert !pack.is_encrypted()
+	assert !pack.has_content_key()
+}
+
+fn test_unreadable_pack_fails_rather_than_loading_unkeyed() {
+	dir := os.join_path(os.temp_dir(), 'vedrock_rp_broken_test')
+	os.mkdir_all(dir) or {}
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	path := os.join_path(dir, 'broken.mcpack')
+	os.write_file(path, 'not a zip') or {
+		assert false, 'cannot write file'
+		return
+	}
+	if _ := is_encrypted(path) {
+		assert false, 'unreadable pack reported an encryption verdict'
+	}
+	if _ := new_local_pack(path) {
+		assert false, 'unreadable pack loaded'
+	}
 }
 
 fn test_with_content_key() {

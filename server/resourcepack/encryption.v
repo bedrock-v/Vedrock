@@ -18,8 +18,8 @@ const contents_header = [u8(0xfc), 0xb9, 0xcf, 0x9b]
 
 const contents_entry = 'contents.json'
 
-// has_content_key reports whether a key file exists beside the pack file.
-pub fn has_content_key(pack_path string) bool {
+// has_key_file reports whether a key file exists beside the pack file.
+pub fn has_key_file(pack_path string) bool {
 	return os.is_file(pack_path + key_file_suffix)
 }
 
@@ -37,14 +37,17 @@ pub fn read_content_key(pack_path string) !string {
 }
 
 // is_encrypted reports whether the pack file at path carries encrypted content.
-pub fn is_encrypted(pack_path string) bool {
-	mut z := szip.open(pack_path, .no_compression, .read_only) or { return false }
+// A pack whose contents cannot be inspected fails rather than answering false:
+// the caller decides from this whether serving the pack unkeyed is safe, and a
+// read failure is no evidence that it is.
+pub fn is_encrypted(pack_path string) !bool {
+	mut z := szip.open(pack_path, .no_compression, .read_only)!
 	defer {
 		z.close()
 	}
-	total := z.total() or { return false }
+	total := z.total()!
 	for i in 0 .. total {
-		z.open_entry_by_index(i) or { return false }
+		z.open_entry_by_index(i)!
 		name := z.name()
 		if name != contents_entry && !name.ends_with('/' + contents_entry) {
 			z.close_entry()
@@ -58,7 +61,7 @@ pub fn is_encrypted(pack_path string) bool {
 		mut buf := []u8{len: size}
 		z.read_entry_buf(buf.data, size) or {
 			z.close_entry()
-			return false
+			return err
 		}
 		z.close_entry()
 		return buf[4..8] == contents_header

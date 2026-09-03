@@ -37,8 +37,8 @@ pub fn (p &ResourcePack) is_cdn() bool {
 	return p.cdn_url != ''
 }
 
-// is_encrypted reports whether the pack is served with a content key.
-pub fn (p &ResourcePack) is_encrypted() bool {
+// has_content_key reports whether the pack is served under a content key.
+pub fn (p &ResourcePack) has_content_key() bool {
 	return p.content_key != ''
 }
 
@@ -114,10 +114,10 @@ pub fn new_local_pack(path string) !&ResourcePack {
 }
 
 fn local_content_key(path string) !string {
-	if has_content_key(path) {
+	if has_key_file(path) {
 		return read_content_key(path)!
 	}
-	if is_encrypted(path) {
+	if is_encrypted(path)! {
 		return error('${path} has encrypted content but no ${path}${key_file_suffix} beside it')
 	}
 	return ''

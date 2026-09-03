@@ -131,7 +131,7 @@ fn load_resource_packs(cfg conf.Config, log &logger.Logger, lang &language.Lang)
 		path := os.join_path(cfg.resource_packs_dir, name)
 		if pack := resourcepack.new_local_pack(path) {
 			reg.add(pack)
-			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes, encrypted=${pack.is_encrypted()})')
+			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes, encrypted=${pack.has_content_key()})')
 		} else {
 			log.warn('Failed to load resource pack ${name}: ${err}')
 		}
