@@ -1,11 +1,10 @@
 module player
 
-
 // Every event carries the player it originated from as a &Player, so handlers
 // reach the same verbs the server does without the event package ever
 // importing the session package. Coordinates and ids are plain primitives for
 // the same reason. The world events are the exception: their source may be the
-// console. They carry a CommandSource instead (see command_source.v).
+// console. They carry an event.CommandSource instead (see events_world.v).
 
 // JoinData is dispatched right after a player finishes spawning. Cancelling it
 // suppresses the broadcast join message; editing message changes it.

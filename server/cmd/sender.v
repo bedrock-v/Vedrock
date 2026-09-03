@@ -1,6 +1,7 @@
 module cmd
 
 import bedrock_v.protocol.types
+import server.event
 import server.form
 import server.player
 import server.player.bossbar
@@ -11,7 +12,7 @@ import server.player.title
 // stats for building output; anything a Command needs to send back or mutate
 // goes through Sender instead.
 //
-// It embeds player.CommandSource for the part that is only about identifying
+// It embeds event.CommandSource for the part that is only about identifying
 // the sender and answering them which the console satisfies as readily as a
 // player does. Everything else is declared here because it is a statement
 // about running commands rather than about being a player: the player facing
@@ -19,7 +20,7 @@ import server.player.title
 // thread and the server facing ones (whitelist, difficulty, broadcast, world
 // management) apply to the server, not to whoever happens to be the sender.
 pub interface Sender {
-	player.CommandSource
+	event.CommandSource
 	has_permission(name string) bool
 	whitelist_enabled() bool
 	whitelist_names() []string
