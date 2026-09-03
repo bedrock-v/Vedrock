@@ -208,7 +208,7 @@ pub fn (s StarvationDamageSource) reduced_by_resistance() bool {
 	return false
 }
 
-pub fn (s StarvationDamageSource) reduced_by_armour() bool {
+pub fn (s StarvationDamageSource) reduced_by_armor() bool {
 	return false
 }
 
