@@ -132,6 +132,11 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 		pitch = data.pitch
 		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
+		s.player.set_hunger(player.HungerState{
+			food_level: data.food_level
+			saturation: data.saturation
+			exhaustion: data.exhaustion
+		})
 		s.player.set_game_mode(player.gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})

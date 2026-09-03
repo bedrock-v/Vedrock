@@ -51,6 +51,23 @@ mut:
 	last_death_pos   types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
+	food_level       int = max_food_level
+	saturation       f32 = initial_saturation
+	exhaustion       f32
+	// sprinting/swimming are reported by the client and decide what moving a
+	// metre costs. They are state, not events: the tick that spends the
+	// exhaustion runs on the world actor, not on the packet.
+	sprinting bool
+	swimming  bool
+	// hunger_clock paces regeneration, starvation and the passive refill off
+	// the number of hunger ticks a player has actually had, not off the world
+	// clock: a player who joins late must not inherit someone else's phase.
+	hunger_clock i64
+	// hunger_position is where movement was last charged for. It only starts
+	// counting once there is a sample to measure against, so a join or a
+	// teleport is not billed as distance travelled.
+	has_hunger_position bool
+	hunger_position     types.Vector3
 	// give_next_slot round robins give_item across the hotbar. Only the
 	// world actor touches it, so it is not under state_mutex.
 	give_next_slot int

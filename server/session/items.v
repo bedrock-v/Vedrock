@@ -255,6 +255,7 @@ fn (mut s NetworkSession) save_player_data() {
 		}
 	}
 	current := s.player.movement()
+	hunger := s.player.hunger()
 	mut provider := s.hub.player_data_provider
 	provider.save(s.player_key(), playerdb.PlayerData{
 		x:              current.position.x
@@ -264,6 +265,9 @@ fn (mut s NetworkSession) save_player_data() {
 		pitch:          current.pitch
 		gamemode:       player.gamemode_to_wire(s.player.game_mode())
 		items:          items
+		food_level:     hunger.food_level
+		saturation:     hunger.saturation
+		exhaustion:     hunger.exhaustion
 		has_last_death: s.player.has_last_death()
 		last_death_x:   s.player.last_death_pos().x
 		last_death_y:   s.player.last_death_pos().y
