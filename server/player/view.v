@@ -25,6 +25,8 @@ mut:
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool
+	// set_spawn_point moves where this player comes back after dying.
+	set_spawn_point(x f32, y f32, z f32)
 	send_form(f form.Form) !
 	send_scoreboard(board &scoreboard.Scoreboard)
 	remove_scoreboard()

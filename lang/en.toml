@@ -133,6 +133,12 @@ other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
 [cmd.give.received]
 other = "§aYou received {{.Count}}x {{.Item}}§r"
 
+[cmd.spawnpoint.usage]
+other = "Usage: /spawnpoint [player: target] [spawnPos: x y z]"
+
+[cmd.spawnpoint.success]
+other = "Set {{.Name}}'s spawnpoint to {{.X}}, {{.Y}}, {{.Z}}"
+
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
 

@@ -255,18 +255,24 @@ fn (mut s NetworkSession) save_player_data() {
 		}
 	}
 	current := s.player.movement()
+	spawn_point := s.player.spawn_point()
+	saved_spawn := spawn_point or { types.Vector3{} }
 	mut provider := s.hub.player_data_provider
 	provider.save(s.player_key(), playerdb.PlayerData{
-		x:              current.position.x
-		y:              current.position.y
-		z:              current.position.z
-		yaw:            current.yaw
-		pitch:          current.pitch
-		gamemode:       player.gamemode_to_wire(s.player.game_mode())
-		items:          items
-		has_last_death: s.player.has_last_death()
-		last_death_x:   s.player.last_death_pos().x
-		last_death_y:   s.player.last_death_pos().y
-		last_death_z:   s.player.last_death_pos().z
+		x:               current.position.x
+		y:               current.position.y
+		z:               current.position.z
+		yaw:             current.yaw
+		pitch:           current.pitch
+		gamemode:        player.gamemode_to_wire(s.player.game_mode())
+		items:           items
+		has_spawn_point: spawn_point != none
+		spawn_x:         saved_spawn.x
+		spawn_y:         saved_spawn.y
+		spawn_z:         saved_spawn.z
+		has_last_death:  s.player.has_last_death()
+		last_death_x:    s.player.last_death_pos().x
+		last_death_y:    s.player.last_death_pos().y
+		last_death_z:    s.player.last_death_pos().z
 	}) or { s.log.warn('Failed to save player ${s.player_key()}: ${err}') }
 }

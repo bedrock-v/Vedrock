@@ -88,7 +88,8 @@ fn merged_slab(tx &worldrt.WorldTx, existing_id int, placing_id int, click_face 
 	if existing_id == world.air.network_id || isnil(tx.wr.services.block_palette()) {
 		return none
 	}
-	return tx.wr.services.block_palette().merged_slab(existing_id, placing_id, click_face, click_y, clicked)
+	return tx.wr.services.block_palette().merged_slab(existing_id, placing_id, click_face, click_y,
+		clicked)
 }
 
 fn door_placement(mut tx worldrt.WorldTx, runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
@@ -217,6 +218,9 @@ fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 			interact_jukebox(mut tx, mut s, pos)
 			return true
 		}
+	}
+	if is_bed(old_id) {
+		return use_bed(mut tx, mut s, pos)
 	}
 	if isnil(tx.wr.services.block_palette()) {
 		return false

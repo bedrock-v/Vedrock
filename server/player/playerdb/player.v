@@ -15,17 +15,21 @@ pub mut:
 
 pub struct PlayerData {
 pub mut:
-	x              f32
-	y              f32
-	z              f32
-	yaw            f32
-	pitch          f32
-	gamemode       int
-	items          []InvItem
-	has_last_death bool
-	last_death_x   f32
-	last_death_y   f32
-	last_death_z   f32
+	x               f32
+	y               f32
+	z               f32
+	yaw             f32
+	pitch           f32
+	gamemode        int
+	items           []InvItem
+	has_spawn_point bool
+	spawn_x         f32
+	spawn_y         f32
+	spawn_z         f32
+	has_last_death  bool
+	last_death_x    f32
+	last_death_y    f32
+	last_death_z    f32
 }
 
 // safe_key strips anything that could let a key (which may come from an
