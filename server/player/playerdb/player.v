@@ -3,6 +3,13 @@ module playerdb
 import os
 import json2
 
+// A save written before hunger existed has neither field, so both default to
+// what a fresh player starts with rather than to a starving one. They live
+// here because the save format is the lower layer: player builds its own
+// constants on top of these, not the other way round.
+pub const max_food_level = 20
+pub const initial_saturation = f32(5.0)
+
 pub struct InvItem {
 pub mut:
 	slot             int = -1
@@ -22,6 +29,9 @@ pub mut:
 	pitch          f32
 	gamemode       int
 	items          []InvItem
+	food_level     int = max_food_level
+	saturation     f32 = initial_saturation
+	exhaustion     f32
 	has_last_death bool
 	last_death_x   f32
 	last_death_y   f32

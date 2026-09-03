@@ -657,6 +657,7 @@ fn (mut s NetworkSession) apply_consume(mut tx worldrt.WorldTx, src proto.ItemSt
 	for e in result.effects {
 		s.apply_add_effect(mut tx, e)
 	}
+	s.eat_item(name)
 	return s.replace_consumed_stack(src, amount, stack, net_id, result)
 }
 

@@ -197,6 +197,29 @@ pub fn (s DrowningDamageSource) death_message_key(victim_name string) (string, [
 	return '%death.attack.drown', [victim_name]
 }
 
+// StarvationDamageSource is damage from an empty hunger bar.
+pub struct StarvationDamageSource {}
+
+pub fn (s StarvationDamageSource) ignored_by_fire_resistance() bool {
+	return false
+}
+
+pub fn (s StarvationDamageSource) reduced_by_resistance() bool {
+	return false
+}
+
+pub fn (s StarvationDamageSource) reduced_by_armour() bool {
+	return false
+}
+
+pub fn (s StarvationDamageSource) attacker_label() string {
+	return ''
+}
+
+pub fn (s StarvationDamageSource) death_message_key(victim_name string) (string, []string) {
+	return '%death.attack.starve', [victim_name]
+}
+
 // FireDamageSource is damage from burning while on fire.
 pub struct FireDamageSource {}
 

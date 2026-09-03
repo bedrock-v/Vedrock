@@ -63,7 +63,7 @@ mut:
 	// breaking_mutex guards breaking, written by the session thread and
 	// advanced by the owning world thread once per tick.
 	breaking_mutex &sync.Mutex = sync.new_mutex()
-	hub            &Hub = unsafe { nil }
+	hub            &Hub        = unsafe { nil }
 	cfg            conf.Config
 	world          &db.World       = unsafe { nil }
 	generator      world.Generator = world.VoidGenerator{}
@@ -80,9 +80,9 @@ mut:
 	open_container_pos          ?types.BlockPosition
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
-	crafting_slot_net_ids   map[int]int
-	crafting_workbench_open bool
-	crafting_mutex          &sync.Mutex = sync.new_mutex()
+	crafting_slot_net_ids       map[int]int
+	crafting_workbench_open     bool
+	crafting_mutex              &sync.Mutex = sync.new_mutex()
 	// cursor_net_id tracks whatever the client holds on its cursor
 	// (FullContainerName.cursor_container)
 	cursor_net_id      int
