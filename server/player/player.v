@@ -296,7 +296,9 @@ pub fn (mut p Player) add_effect_result(e effect.Effect) effect.AddResult {
 	return p.effects.add_result(e)
 }
 
-pub fn (mut p Player) remove_effect(typ effect.Type) ?effect.Effect {
+// take_effect drops typ from the manager and hands back what was there. It is
+// the raw state change; remove_effect in effects.v is the verb around it.
+pub fn (mut p Player) take_effect(typ effect.Type) ?effect.Effect {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -304,7 +306,10 @@ pub fn (mut p Player) remove_effect(typ effect.Type) ?effect.Effect {
 	return p.effects.remove(typ)
 }
 
-pub fn (mut p Player) tick_effects() effect.TickResult {
+// advance_effects moves every active effect on one tick and reports what is
+// still running and what expired. It is the raw state change; tick_effects in
+// effects.v is the verb around it.
+pub fn (mut p Player) advance_effects() effect.TickResult {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()

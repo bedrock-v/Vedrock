@@ -30,6 +30,17 @@ pub fn (p &Player) health_update() &proto.UpdateAttributesPacket {
 	}
 }
 
+// send_health pushes the current health to the player's own client. A client
+// that has not spawned yet has no health bar to correct, so there is nothing
+// to send it.
+pub fn (mut p Player) send_health() {
+	mut sink := p.sink
+	if !sink.is_spawned() {
+		return
+	}
+	sink.deliver(p.health_update())
+}
+
 // update_attributes is the player's full attribute set, sent once on spawn.
 pub fn (p &Player) update_attributes() &proto.UpdateAttributesPacket {
 	mut sink := p.sink

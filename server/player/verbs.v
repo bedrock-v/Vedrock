@@ -164,6 +164,24 @@ pub fn (mut p Player) give_item(mut tx worldrt.WorldTx, id string, count int) bo
 	return true
 }
 
+// heal raises the player's health by amount, up to the twenty point maximum,
+// and tells their client the new value. It takes no transaction because
+// nobody else sees another player's health bar.
+pub fn (mut p Player) heal(amount f32) {
+	if p.is_dead() || amount <= 0 {
+		return
+	}
+	old := p.health()
+	mut new_health := old + amount
+	if new_health > 20 {
+		new_health = 20
+	}
+	p.set_health(new_health)
+	if new_health != old {
+		p.send_health()
+	}
+}
+
 // disconnect kicks the player, showing message as the reason. It takes no
 // transaction because closing the connection is the sink's business, not the
 // world's.

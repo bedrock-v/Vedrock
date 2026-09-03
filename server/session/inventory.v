@@ -655,7 +655,7 @@ fn (mut s NetworkSession) apply_consume(mut tx worldrt.WorldTx, src proto.ItemSt
 	name := s.hub.data.item_name(stack.id)
 	result := itemmod.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
 	for e in result.effects {
-		s.apply_add_effect(mut tx, e)
+		s.player.add_effect(mut tx, e)
 	}
 	s.eat_item(name)
 	return s.replace_consumed_stack(src, amount, stack, net_id, result)

@@ -199,6 +199,12 @@ fn (s &NetworkSession) runtime_id() u64 {
 	return s.runtime_id
 }
 
+// is_spawned reports the session's own spawn flag to the player.Sink. The
+// field cannot serve as the method, the two are named apart.
+fn (s &NetworkSession) is_spawned() bool {
+	return s.spawned
+}
+
 fn (s &NetworkSession) is_dead() bool {
 	return s.player.is_dead()
 }

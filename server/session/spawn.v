@@ -1067,7 +1067,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	}
 	s.hub.add(s)
 	if !isnil(wr) {
-		s.send_active_effects(mut wr)
+		s.player.send_active_effects(mut wr)
 	}
 	mut ctx := event.new_context(player.JoinData{
 		player:  s.player
