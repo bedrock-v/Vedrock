@@ -25,10 +25,27 @@ mut:
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool
+	// held_item_name is the id of whatever the player is holding, empty for an
+	// empty hand.
+	held_item_name() string
+	// enchant_held_item puts an enchantment on whatever the player is holding
+	// and reports what happened, so a caller can say which of the ways it
+	// failed applies.
+	enchant_held_item(name string, level int) EnchantResult
 	send_form(f form.Form) !
 	send_scoreboard(board &scoreboard.Scoreboard)
 	remove_scoreboard()
 	send_title(t title.Title)
 	send_bossbar(bar bossbar.BossBar)
 	remove_bossbar()
+}
+
+// EnchantResult is the outcome of trying to enchant what a player holds.
+pub enum EnchantResult {
+	applied
+	// no_item is an empty hand, and cannot_combine an enchantment the held
+	// item will not take, or a level it does not go up to.
+	no_item
+	cannot_combine
+	not_found
 }
