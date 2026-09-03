@@ -134,7 +134,9 @@ fn test_metrics_reports_player_and_entity_counts() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{
+			transport: transport
+		}
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -203,10 +205,11 @@ fn test_metrics_liquid_backlog_matches_actor_owned_state_after_a_tick() {
 		hub.close_worlds()
 	}
 
-	assert wr.submit(PlaceWaterTask{
-		x: 0
-		y: 60
-		z: 0
+	assert wr.submit(PlaceLiquidTask{
+		kind: .water
+		x:    0
+		y:    60
+		z:    0
 	})
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
@@ -286,7 +289,9 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{
+			transport: transport
+		}
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr

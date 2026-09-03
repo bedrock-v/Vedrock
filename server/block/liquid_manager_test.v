@@ -34,7 +34,7 @@ fn run_ticks(mut m LiquidManager, n int) {
 
 // water_depth returns the internal depth at a cell, or 0 if it isn't water.
 fn depth_at(mut m LiquidManager, x int, y int, z int) int {
-	w := m.water_at(x, y, z) or { return 0 }
+	w := m.liquid_of_kind_at(.water, x, y, z) or { return 0 }
 	return w.depth
 }
 
@@ -50,11 +50,11 @@ fn test_source_spreads_to_horizontal_neighbours() {
 	m.place_source(0, 0, 0)
 	run_ticks(mut m, 20)
 
-	assert m.is_water(0, 0, 0)
-	assert m.is_water(1, 0, 0)
-	assert m.is_water(-1, 0, 0)
-	assert m.is_water(0, 0, 1)
-	assert m.is_water(0, 0, -1)
+	assert m.is_liquid_of_kind(.water, 0, 0, 0)
+	assert m.is_liquid_of_kind(.water, 1, 0, 0)
+	assert m.is_liquid_of_kind(.water, -1, 0, 0)
+	assert m.is_liquid_of_kind(.water, 0, 0, 1)
+	assert m.is_liquid_of_kind(.water, 0, 0, -1)
 }
 
 fn test_flowing_depth_decays_with_distance() {
@@ -84,9 +84,9 @@ fn test_water_flows_down() {
 	m.place_source(0, 5, 0)
 	run_ticks(mut m, 20)
 
-	assert m.is_water(0, 4, 0)
-	assert m.is_water(0, 3, 0)
-	below := m.water_at(0, 4, 0) or { WaterState{} }
+	assert m.is_liquid_of_kind(.water, 0, 4, 0)
+	assert m.is_liquid_of_kind(.water, 0, 3, 0)
+	below := m.liquid_of_kind_at(.water, 0, 4, 0) or { LiquidState{} }
 	assert below.falling
 }
 
@@ -100,16 +100,16 @@ fn test_flowing_dries_up_when_source_removed() {
 	mut m := new_manager(wld)
 	m.place_source(0, 0, 0)
 	run_ticks(mut m, 30)
-	assert m.is_water(1, 0, 0)
+	assert m.is_liquid_of_kind(.water, 1, 0, 0)
 
 	// Remove the source and re-notify the region.
 	wld.set_block_id(world.air.network_id, 0, 0, 0)
 	m.on_block_changed(0, 0, 0)
 	run_ticks(mut m, 60)
 
-	assert !m.is_water(1, 0, 0)
-	assert !m.is_water(2, 0, 0)
-	assert !m.is_water(0, 0, 0)
+	assert !m.is_liquid_of_kind(.water, 1, 0, 0)
+	assert !m.is_liquid_of_kind(.water, 2, 0, 0)
+	assert !m.is_liquid_of_kind(.water, 0, 0, 0)
 }
 
 fn test_two_sources_form_new_source() {
@@ -126,7 +126,7 @@ fn test_two_sources_form_new_source() {
 	m.place_source(2, 0, 0)
 	run_ticks(mut m, 40)
 
-	mid := m.water_at(1, 0, 0) or { WaterState{} }
+	mid := m.liquid_of_kind_at(.water, 1, 0, 0) or { LiquidState{} }
 	assert mid.is_source()
 }
 
@@ -147,11 +147,121 @@ fn test_per_tick_cap_is_respected() {
 fn test_falling_column_survives_weaker_horizontal_spread() {
 	mut wld := &FakeWorld{}
 	mut m := new_manager(wld)
-	m.set_water(new_falling(), 0, 0, 0)
+	m.set_liquid(new_falling(), 0, 0, 0)
 
 	m.flow_into(new_flowing(3), 0, 0, 0)
 
-	after := m.water_at(0, 0, 0) or { panic('expected water') }
+	after := m.liquid_of_kind_at(.water, 0, 0, 0) or { panic('expected water') }
 	assert after.falling
 	assert after.depth == source_depth
+}
+
+// lava_depth_at returns the internal depth of a lava cell, or 0 if the block
+// there is not lava.
+fn lava_depth_at(mut m LiquidManager, x int, y int, z int) int {
+	l := m.liquid_of_kind_at(.lava, x, y, z) or { return 0 }
+	return l.depth
+}
+
+fn solid_floor(mut wld FakeWorld) {
+	for dx in -8 .. 9 {
+		for dz in -8 .. 9 {
+			wld.set_solid(dx, -1, dz)
+		}
+	}
+}
+
+fn test_lava_spreads_less_far_than_water() {
+	mut wld := &FakeWorld{}
+	solid_floor(mut wld)
+	mut m := new_manager(wld)
+	m.place_liquid_source(.lava, 0, 0, 0)
+	run_ticks(mut m, 200)
+
+	// Decay is 2 per step, so a source at depth 8 reaches three cells out.
+	assert lava_depth_at(mut m, 1, 0, 0) == 6
+	assert lava_depth_at(mut m, 2, 0, 0) == 4
+	assert lava_depth_at(mut m, 3, 0, 0) == 2
+	assert lava_depth_at(mut m, 4, 0, 0) == 0
+}
+
+fn test_lava_moves_slower_than_water() {
+	mut wld := &FakeWorld{}
+	solid_floor(mut wld)
+	mut m := new_manager(wld)
+	m.place_liquid_source(.lava, 0, 0, 0)
+	// One tick is not enough for lava: it is held over until its own slower
+	// rate comes round.
+	m.tick()
+	assert !m.is_liquid_of_kind(.lava, 1, 0, 0)
+	assert m.pending_count() > 0
+	for _ in 0 .. lava_tick_divisor {
+		m.tick()
+	}
+	assert m.is_liquid_of_kind(.lava, 1, 0, 0)
+}
+
+fn test_lava_arriving_in_water_makes_stone() {
+	mut wld := &FakeWorld{}
+	mut m := new_manager(wld)
+	m.set_liquid(new_liquid_source(.water), 1, 0, 0)
+	m.flow_into(new_liquid_flowing(.lava, 6), 1, 0, 0)
+
+	assert wld.get_block(1, 0, 0) == world.stone.network_id
+}
+
+fn test_water_pouring_onto_a_lava_source_makes_obsidian() {
+	mut wld := &FakeWorld{}
+	mut m := new_manager(wld)
+	m.set_liquid(new_liquid_source(.lava), 0, 0, 0)
+	m.set_liquid(new_liquid_falling(.water), 0, 1, 0)
+	m.process(0, 0, 0)
+
+	assert wld.get_block(0, 0, 0) == world.obsidian.network_id
+}
+
+fn test_water_reaching_a_lava_source_makes_obsidian() {
+	mut wld := &FakeWorld{}
+	solid_floor(mut wld)
+	mut m := new_manager(wld)
+	m.set_liquid(new_liquid_source(.lava), 1, 0, 0)
+	m.place_source(0, 0, 0)
+	run_ticks(mut m, 200)
+
+	assert wld.get_block(1, 0, 0) == world.obsidian.network_id
+}
+
+fn test_water_reaching_flowing_lava_makes_cobblestone() {
+	mut wld := &FakeWorld{}
+	solid_floor(mut wld)
+	mut m := new_manager(wld)
+	m.set_liquid(new_liquid_flowing(.lava, 4), 1, 0, 0)
+	m.place_source(0, 0, 0)
+	run_ticks(mut m, 200)
+
+	assert wld.get_block(1, 0, 0) == world.cobblestone.network_id
+}
+
+fn test_lava_never_forms_a_new_source_between_two_of_them() {
+	mut wld := &FakeWorld{}
+	solid_floor(mut wld)
+	mut m := new_manager(wld)
+	m.place_liquid_source(.lava, -1, 0, 0)
+	m.place_liquid_source(.lava, 1, 0, 0)
+	run_ticks(mut m, 200)
+
+	middle := m.liquid_of_kind_at(.lava, 0, 0, 0) or {
+		assert false, 'lava did not reach the gap'
+		return
+	}
+	assert !middle.is_source()
+}
+
+fn test_fluid_ids_are_recognised_by_kind() {
+	assert is_lava_id(new_liquid_source(.lava).network_id())
+	assert is_lava_id(new_liquid_flowing(.lava, 3).network_id())
+	assert !is_lava_id(new_source().network_id())
+	assert is_water_id(new_flowing(3).network_id())
+	assert !is_water_id(world.stone.network_id)
+	assert liquid_at_id(world.stone.network_id) == none
 }

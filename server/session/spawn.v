@@ -6,6 +6,7 @@ import bedrock_v.protocol
 import bedrock_v.protocol.types
 import bedrock_v.nbt
 import server.event
+import server.block
 import server.world
 import server.world.db
 import server.internal.logger
@@ -48,7 +49,7 @@ fn saved_body_clear(id int) bool {
 }
 
 fn saved_floor_solid(id int) bool {
-	return id != world.air.network_id && id != world.water.network_id && id != world.lava.network_id
+	return id != world.air.network_id && block.liquid_at_id(id) == none
 }
 
 fn safe_player_position(gen world.Generator, pos types.Vector3) bool {
