@@ -191,36 +191,49 @@ fn (s &NetworkSession) creative_content() &proto.CreativeContentPacket {
 	}
 }
 
+// restore_saved_slot puts one saved stack back into slot under a fresh network
+// id and returns the descriptor for it, empty if the save no longer holds a
+// usable stack.
+fn (mut s NetworkSession) restore_saved_slot(slot int, saved playerdb.InvItem) proto.NetworkItemStackDescriptorV2 {
+	count := s.clamp_stack_count(saved.id, saved.count)
+	if count <= 0 {
+		return proto.item_descriptor_v2(types.ItemStack{})
+	}
+	stack := types.ItemStack{
+		id:               saved.id
+		meta:             saved.meta
+		count:            count
+		block_runtime_id: saved.block_runtime_id
+		raw_extra_data:   saved.raw_extra_data.clone()
+	}
+	net_id := s.player.track_stack(stack)
+	s.player.set_slot(slot, net_id)
+	return proto.item_descriptor_v2_tracked(stack, net_id)
+}
+
 fn (mut s NetworkSession) restore_inventory() &proto.InventoryContentPacket {
 	mut items := []proto.NetworkItemStackDescriptorV2{}
 	mut loaded_by_slot := map[int]playerdb.InvItem{}
 	for i in 0 .. s.player.loaded_items_len() {
 		saved := s.player.loaded_item(i)
 		slot := if saved.slot >= 0 { saved.slot } else { i }
-		if slot >= 0 && slot < player.inventory_slot_count {
+		if slot >= 0 && slot < player.tracked_slot_count {
 			loaded_by_slot[slot] = saved
 		}
 	}
 	for i in 0 .. player.inventory_slot_count {
 		if saved := loaded_by_slot[i] {
-			count := s.clamp_stack_count(saved.id, saved.count)
-			if count <= 0 {
-				items << proto.item_descriptor_v2(types.ItemStack{})
-				continue
-			}
-			stack := types.ItemStack{
-				id:               saved.id
-				meta:             saved.meta
-				count:            count
-				block_runtime_id: saved.block_runtime_id
-				raw_extra_data:   saved.raw_extra_data.clone()
-			}
-			net_id := s.player.track_stack(stack)
-			s.player.set_slot(i, net_id)
-			items << proto.item_descriptor_v2_tracked(stack, net_id)
+			items << s.restore_saved_slot(i, saved)
 		} else {
 			items << proto.item_descriptor_v2(types.ItemStack{})
 		}
+	}
+	// The worn pieces are tracked here too but leave the inventory window
+	// alone; they go out on their own container (see armour_content_packet).
+	for index in 0 .. player.armour_slot_count {
+		slot := player.armour_slot(index)
+		saved := loaded_by_slot[slot] or { continue }
+		s.restore_saved_slot(slot, saved)
 	}
 	return &proto.InventoryContentPacket{
 		inventory_id:        u32(player.inventory_window_id)
@@ -239,7 +252,7 @@ fn (mut s NetworkSession) restore_inventory() &proto.InventoryContentPacket {
 fn (mut s NetworkSession) save_player_data() {
 	mut items := []playerdb.InvItem{}
 	slot_stacks := s.player.snapshot_slot_stacks()
-	for slot in 0 .. player.inventory_slot_count {
+	for slot in 0 .. player.tracked_slot_count {
 		stack := slot_stacks[slot] or { continue }
 		count := s.clamp_stack_count(stack.id, stack.count)
 		if count <= 0 {
