@@ -210,6 +210,12 @@ fn (mut s NetworkSession) apply_hurt(mut tx worldrt.WorldTx, amount f32, source 
 		}
 	}
 	mut reduced_amount := amount
+	// Armor comes off the raw hit first: resistance then applies to what is
+	// left, so the two stack the way they do in game rather than competing.
+	if source.reduced_by_armor() {
+		reduced_amount = armor_reduced(reduced_amount, s.armor_protection())
+		s.damage_armor(amount)
+	}
 	if source.reduced_by_resistance() {
 		if res := s.player.effect(effect.resistance) {
 			reduced_amount *= resistance_multiplier(res.level())
