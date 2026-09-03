@@ -473,7 +473,7 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 		if drop_name != '' {
 			spawn_dropped_item_stack(mut tx, drop_name, drop_count, center)
 		}
-		drop_block_experience(mut tx, old_id, center)
+		drop_block_experience(mut tx, mut s, old_id, drop_name, center)
 	}
 
 	if b := block.get(old_id) {

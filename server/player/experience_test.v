@@ -82,3 +82,47 @@ fn test_reset_empties_the_bar() {
 	assert state.level == 0
 	assert state.progress == 0
 }
+
+fn test_awarding_points_only_crosses_the_boundaries_it_reaches() {
+	mut p := new_player()
+	p.set_experience(ExperienceState{
+		level: 30
+	})
+	// One orb's worth from a deep level lands in that level, not somewhere
+	// rebuilt from zero.
+	p.add_experience(5)
+	state := p.experience()
+	assert state.level == 30
+	assert state.progress > 0.04 && state.progress < 0.05
+}
+
+fn test_many_small_awards_add_up_the_same_as_one_big_one() {
+	mut incremental := new_player()
+	for _ in 0 .. 40 {
+		incremental.add_experience(3)
+	}
+	mut at_once := new_player()
+	at_once.add_experience(120)
+	assert incremental.experience_level() == at_once.experience_level()
+	assert incremental.experience().progress == at_once.experience().progress
+}
+
+fn test_levels_are_capped_by_what_the_new_level_holds() {
+	mut p := new_player()
+	p.set_experience(ExperienceState{
+		level:    30
+		progress: 0.99
+	})
+	// Level 0 holds 7 points, so dropping to it cannot keep level 30's worth.
+	p.add_experience_levels(-30)
+	state := p.experience()
+	assert state.level == 0
+	assert state.progress < 1.0
+}
+
+fn test_spectators_are_the_only_mode_that_does_not_collect() {
+	assert Gamemode.survival.collects_experience()
+	assert Gamemode.creative.collects_experience()
+	assert Gamemode.adventure.collects_experience()
+	assert !Gamemode.spectator.collects_experience()
+}

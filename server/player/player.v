@@ -51,10 +51,12 @@ mut:
 	last_death_pos   types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
-	// experience_level is the level reached and experience_progress how far
-	// into the next one the player is, as the fraction the client draws.
-	experience_level    int
-	experience_progress f32
+	// experience_level is the level reached and experience_points how many
+	// points into it the player is. Keeping the two apart means awarding a
+	// few points costs only the boundaries actually crossed, rather than
+	// rebuilding the level curve from zero every time.
+	experience_level  int
+	experience_points int
 	// give_next_slot round robins give_item across the hotbar. Only the
 	// world actor touches it, so it is not under state_mutex.
 	give_next_slot int

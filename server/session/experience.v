@@ -8,8 +8,13 @@ import server.worldrt
 
 // award_experience gives the player points and shows them the new bar. It is
 // the one entry point: every source of experience goes through here.
+//
+// Only spectators are turned away. Taking damage and collecting experience are
+// separate things - a creative player throwing a bottle of enchanting still
+// gets what it is worth - so this asks whether the player can pick anything
+// up rather than whether they can be hurt.
 fn (mut s NetworkSession) award_experience(points int) {
-	if points <= 0 || !s.player.game_mode().allows_taking_damage() {
+	if points <= 0 || !s.player.game_mode().collects_experience() {
 		return
 	}
 	s.player.add_experience(points)
@@ -106,7 +111,16 @@ fn (mut s NetworkSession) submit_experience(points int, levels int) {
 }
 
 // drop_block_experience leaves what a mined block was worth on the ground.
-fn drop_block_experience(mut tx worldrt.WorldTx, block_id int, pos types.Vector3) {
+//
+// An ore only pays out when it was actually broken down into something else.
+// A drop that is the ore's own block form means it came up whole - which is
+// what Silk Touch does to it - and a whole ore has not given up its experience
+// yet. Nothing carries Silk Touch on this branch, so today the check only ever
+// passes; it is here so the rule holds the moment something does.
+fn drop_block_experience(mut tx worldrt.WorldTx, mut s NetworkSession, block_id int, drop_name string, pos types.Vector3) {
+	if drop_name == '' || drop_name == s.block_item_name(block_id) {
+		return
+	}
 	b := block.get(block_id) or { return }
 	reward := block.experience_for_block(b.identifier()) or { return }
 	amount := entity.rand_int_range(reward.min_amount, reward.max_amount)
@@ -114,4 +128,14 @@ fn drop_block_experience(mut tx worldrt.WorldTx, block_id int, pos types.Vector3
 		return
 	}
 	spawn_experience_orbs(mut tx, amount, pos)
+}
+
+// block_item_name is the item a block turns into when it comes up whole, empty
+// when it has no item form at all.
+fn (s &NetworkSession) block_item_name(block_id int) string {
+	item_id := s.hub.data.item_for_block(block_id)
+	if item_id == 0 {
+		return ''
+	}
+	return s.hub.data.item_name(item_id)
 }
