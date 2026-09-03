@@ -52,6 +52,10 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 		if !victim_actor.spawned || !victim_actor.player.game_mode().allows_taking_damage() {
 			return
 		}
+		if !attacker.hub.friendly_fire_allowed(attacker.player.identity.display_name,
+			victim_actor.player.identity.display_name) {
+			return
+		}
 	}
 	mut ctx := event.new_context(player.AttackData{
 		player:            attacker.player

@@ -72,7 +72,7 @@ fn visible_name_metadata(name string) []proto.DataItem {
 fn (s &NetworkSession) set_actor_data() &proto.SetActorDataPacket {
 	return &proto.SetActorDataPacket{
 		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		actor_data:        visible_name_metadata(s.player.identity.display_name)
+		actor_data:        visible_name_metadata(s.shown_name())
 		synced_properties: proto.PropertySyncData{}
 		tick:              0
 	}

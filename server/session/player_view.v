@@ -154,7 +154,7 @@ fn (s &NetworkSession) add_player_packet() &proto.AddPlayerPacket {
 		y_head_rotation:   current.head_yaw
 		carried_item:      proto.item_descriptor(s.player.held_item().item_stack)
 		player_game_type:  proto.game_type(player.gamemode_to_wire(s.player.game_mode()))
-		entity_data:       visible_name_metadata(s.player.identity.display_name)
+		entity_data:       visible_name_metadata(s.shown_name())
 		synced_properties: proto.PropertySyncData{}
 		abilities_data:    s.build_abilities()
 		actor_links:       []proto.ActorLink{}
