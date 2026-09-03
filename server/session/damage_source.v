@@ -12,6 +12,10 @@ pub interface DamageSource {
 	// reduced_by_resistance reports whether the resistance effect's damage
 	// multiplier applies to this source.
 	reduced_by_resistance() bool
+	// reduced_by_armor reports whether worn armor takes a share of this
+	// damage. Sources that reach past armor entirely (drowning, the void,
+	// potion damage) answer false and leave equipment untouched.
+	reduced_by_armor() bool
 	// attacker_label is the display string used for the player_hurt event's
 	// informational attacker_name field. Empty for sources with no
 	// attacker (fall, void, drowning, fire, lava).
@@ -35,6 +39,10 @@ pub fn (s AttackDamageSource) reduced_by_resistance() bool {
 	return true
 }
 
+pub fn (s AttackDamageSource) reduced_by_armor() bool {
+	return true
+}
+
 pub fn (s AttackDamageSource) attacker_label() string {
 	return s.attacker_name
 }
@@ -54,6 +62,10 @@ pub fn (s ProjectileDamageSource) ignored_by_fire_resistance() bool {
 }
 
 pub fn (s ProjectileDamageSource) reduced_by_resistance() bool {
+	return true
+}
+
+pub fn (s ProjectileDamageSource) reduced_by_armor() bool {
 	return true
 }
 
@@ -80,6 +92,10 @@ pub fn (s MobAttackDamageSource) reduced_by_resistance() bool {
 	return true
 }
 
+pub fn (s MobAttackDamageSource) reduced_by_armor() bool {
+	return true
+}
+
 pub fn (s MobAttackDamageSource) attacker_label() string {
 	return s.attacker_name
 }
@@ -100,6 +116,10 @@ pub fn (s MagicDamageSource) reduced_by_resistance() bool {
 	return true
 }
 
+pub fn (s MagicDamageSource) reduced_by_armor() bool {
+	return false
+}
+
 pub fn (s MagicDamageSource) attacker_label() string {
 	return ''
 }
@@ -116,6 +136,10 @@ pub fn (s FallDamageSource) ignored_by_fire_resistance() bool {
 }
 
 pub fn (s FallDamageSource) reduced_by_resistance() bool {
+	return true
+}
+
+pub fn (s FallDamageSource) reduced_by_armor() bool {
 	return true
 }
 
@@ -138,6 +162,10 @@ pub fn (s VoidDamageSource) reduced_by_resistance() bool {
 	return false
 }
 
+pub fn (s VoidDamageSource) reduced_by_armor() bool {
+	return false
+}
+
 pub fn (s VoidDamageSource) attacker_label() string {
 	return ''
 }
@@ -154,6 +182,10 @@ pub fn (s DrowningDamageSource) ignored_by_fire_resistance() bool {
 }
 
 pub fn (s DrowningDamageSource) reduced_by_resistance() bool {
+	return false
+}
+
+pub fn (s DrowningDamageSource) reduced_by_armor() bool {
 	return false
 }
 
@@ -199,6 +231,10 @@ pub fn (s FireDamageSource) reduced_by_resistance() bool {
 	return true
 }
 
+pub fn (s FireDamageSource) reduced_by_armor() bool {
+	return true
+}
+
 pub fn (s FireDamageSource) attacker_label() string {
 	return ''
 }
@@ -215,6 +251,10 @@ pub fn (s LavaDamageSource) ignored_by_fire_resistance() bool {
 }
 
 pub fn (s LavaDamageSource) reduced_by_resistance() bool {
+	return true
+}
+
+pub fn (s LavaDamageSource) reduced_by_armor() bool {
 	return true
 }
 
