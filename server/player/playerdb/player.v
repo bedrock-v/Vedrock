@@ -22,6 +22,7 @@ pub mut:
 	pitch          f32
 	gamemode       int
 	items          []InvItem
+	ender_items    []InvItem
 	has_last_death bool
 	last_death_x   f32
 	last_death_y   f32

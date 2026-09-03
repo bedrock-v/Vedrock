@@ -47,6 +47,9 @@ mut:
 	pending_creative ?types.ItemStack
 	loaded_items     []playerdb.InvItem
 	effects          effect.Manager
+	// ender_items is the player's ender chest, keyed by slot. It belongs to
+	// them rather than to any of the blocks that show it.
+	ender_items      map[int]types.ItemStack
 	has_last_death   bool
 	last_death_pos   types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks

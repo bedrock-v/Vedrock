@@ -35,7 +35,7 @@ fn (mut s NetworkSession) handle_container_close(p proto.ContainerClosePacket) !
 		if s.workbench_open() {
 			s.release_workbench()
 		} else {
-			s.release_open_chest_container()
+			s.release_open_container()
 		}
 	}
 	s.send_maybe_queued(&proto.ContainerClosePacket{
@@ -45,31 +45,31 @@ fn (mut s NetworkSession) handle_container_close(p proto.ContainerClosePacket) !
 	})!
 }
 
-// release_open_chest_container runs close_chest_container on the owning
-// world's actor.
-fn (mut s NetworkSession) release_open_chest_container() {
+// release_open_container runs close_open_container on the owning world's
+// actor.
+fn (mut s NetworkSession) release_open_container() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
 	}
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
-	wr.submit(CloseChestContainerTask{
+	wr.submit(CloseContainerTask{
 		runtime_id: rid
 		epoch:      epoch
 	})
 }
 
-struct CloseChestContainerTask {
+struct CloseContainerTask {
 	runtime_id u64
 	epoch      i64
 }
 
-fn (t CloseChestContainerTask) name() string {
-	return 'CloseChestContainerTask'
+fn (t CloseContainerTask) name() string {
+	return 'CloseContainerTask'
 }
 
-fn (t CloseChestContainerTask) run(mut tx worldrt.WorldTx) {
+fn (t CloseContainerTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	target.close_chest_container(mut tx)
+	target.close_open_container(mut tx)
 }

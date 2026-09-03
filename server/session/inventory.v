@@ -113,7 +113,7 @@ fn requested_amount(amount i8, available int) int {
 // SlotChange already contains everything needed, so inventory operations
 // remain independent of container types.
 fn persist_container_changes(mut tx worldrt.WorldTx, mut target NetworkSession, changes []SlotChange) {
-	pos := target.open_container_position() or { return }
+	container := target.open_container() or { return }
 	for change in changes {
 		if change.container.container != .dynamic_container {
 			continue
@@ -128,7 +128,7 @@ fn persist_container_changes(mut tx worldrt.WorldTx, mut target NetworkSession, 
 		} else {
 			types.ItemStack{}
 		}
-		tx.wr.world.set_container_slot(pos.x, pos.y, pos.z, slot, stack)
+		target.store_container_slot(mut tx, container, slot, stack)
 		target.set_open_container_slot_net_id(slot, net_id)
 	}
 }

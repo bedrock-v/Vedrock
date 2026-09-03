@@ -252,7 +252,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			return true
 		}) or {}
 	}
-	s.set_open_container_position(none)
+	s.set_open_container(none)
 
 	s.set_world_binding(target_wr, gen)
 	// Position must be updated before the join packets below are built, so
@@ -303,7 +303,6 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	}
 	return true
 }
-
 
 fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, '')
