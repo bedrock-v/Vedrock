@@ -468,11 +468,12 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	damage_held_item(mut s, 1)
 
 	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
+		center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 		drop_name, drop_count := block_drop_for(tx.wr.services.game_data(), old_id)
 		if drop_name != '' {
-			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 			spawn_dropped_item_stack(mut tx, drop_name, drop_count, center)
 		}
+		drop_block_experience(mut tx, old_id, center)
 	}
 
 	if b := block.get(old_id) {

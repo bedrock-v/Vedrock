@@ -25,6 +25,10 @@ mut:
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool
+	// give_experience awards points, and give_experience_levels whole levels.
+	give_experience(points int)
+	give_experience_levels(levels int)
+	experience_level() int
 	send_form(f form.Form) !
 	send_scoreboard(board &scoreboard.Scoreboard)
 	remove_scoreboard()

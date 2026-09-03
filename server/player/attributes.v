@@ -33,6 +33,7 @@ pub fn (p &Player) health_update() &proto.UpdateAttributesPacket {
 // update_attributes is the player's full attribute set, sent once on spawn.
 pub fn (p &Player) update_attributes() &proto.UpdateAttributesPacket {
 	mut sink := p.sink
+	experience := p.experience()
 	return &proto.UpdateAttributesPacket{
 		target_runtime_id:       proto.actor_runtime_id(sink.runtime_id())
 		attribute_list:          [
@@ -41,8 +42,9 @@ pub fn (p &Player) update_attributes() &proto.UpdateAttributesPacket {
 			player_attribute('minecraft:player.hunger', 0.0, 20.0, 20.0),
 			player_attribute('minecraft:player.saturation', 0.0, 20.0, 20.0),
 			player_attribute('minecraft:player.exhaustion', 0.0, 5.0, 0.0),
-			player_attribute('minecraft:player.level', 0.0, 24791.0, 0.0),
-			player_attribute('minecraft:player.experience', 0.0, 1.0, 0.0),
+			player_attribute('minecraft:player.level', 0.0, max_experience_level,
+				f32(experience.level)),
+			player_attribute('minecraft:player.experience', 0.0, 1.0, experience.progress),
 		]
 		ticks_since_sim_started: 0
 	}

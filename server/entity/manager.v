@@ -61,6 +61,12 @@ mut:
 	collect_item(runtime_id u64, stack types.ItemStack) int
 	// notify_item_taken lets viewers see the pickup animation.
 	notify_item_taken(item_runtime_id u64, taker_runtime_id u64)
+	// grant_experience awards amount to the player at runtime_id and reports
+	// whether anyone was there to take it.
+	grant_experience(runtime_id u64, amount int) bool
+	// spawn_experience_orbs drops amount of experience at pos, split across as
+	// many orbs as it takes.
+	spawn_experience_orbs(amount int, pos types.Vector3)
 }
 
 // Manager stores every live actor in a world, keyed by runtime ID.
