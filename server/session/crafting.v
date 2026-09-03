@@ -299,7 +299,7 @@ fn attempt_auto_craft(mut s NetworkSession, recipe_network_id u32, number_of_cra
 
 fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	s.log.debug('open_workbench: opening at ${pos}')
-	s.close_chest_container(mut tx)
+	s.close_open_container(mut tx)
 	s.set_workbench_open(true)
 	s.deliver(&proto.ContainerOpenPacket{
 		container_id:    proto.ContainerID.first

@@ -264,6 +264,7 @@ fn (mut s NetworkSession) save_player_data() {
 		pitch:          current.pitch
 		gamemode:       player.gamemode_to_wire(s.player.game_mode())
 		items:          items
+		ender_items:    s.player.ender_items_for_save()
 		has_last_death: s.player.has_last_death()
 		last_death_x:   s.player.last_death_pos().x
 		last_death_y:   s.player.last_death_pos().y
