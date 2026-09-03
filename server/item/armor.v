@@ -64,7 +64,7 @@ pub fn (i ArmorItem) armor_points() int {
 	return i.defense
 }
 
-// armor_toughness is how much of an incoming hit's armour-piercing this piece
+// armor_toughness is how much of an incoming hit's armor-piercing this piece
 // cancels out. Only the two hardest tiers have any.
 pub fn (i ArmorItem) armor_toughness() int {
 	return i.toughness

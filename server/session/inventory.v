@@ -85,10 +85,10 @@ fn (mut target NetworkSession) restore_transaction_snapshot(snap TransactionSnap
 // rejected here, as is an unsupported container.
 fn flat_slot(container proto.FullContainerName, slot i8) ?int {
 	if container.container == .armor_container {
-		if slot < 0 || int(slot) >= player.armour_slot_count {
+		if slot < 0 || int(slot) >= player.armor_slot_count {
 			return none
 		}
-		return player.armour_slot(int(slot))
+		return player.armor_slot(int(slot))
 	}
 	flat := match container.container {
 		.hotbar_container, .combined_hotbar_and_inventory_container, .inventory_container { int(slot) }
@@ -462,8 +462,8 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, runtime_id u64, epoch i64
 			continue
 		}
 		persist_container_changes(mut tx, mut target, changes)
-		if changes_touch_armour(changes) {
-			target.broadcast_armour()
+		if changes_touch_armor(changes) {
+			target.broadcast_armor()
 		}
 		target.log.debug('itemstack request ${request.client_request_id} -> success (${changes.len} slot changes)')
 		out << proto.ItemStackResponseInfo{

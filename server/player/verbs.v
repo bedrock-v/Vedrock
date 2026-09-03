@@ -119,9 +119,9 @@ pub fn (mut p Player) clear_inventory(mut tx worldrt.WorldTx) {
 		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
 	})
 	// The worn pieces live in the same stack map, so clearing it took them
-	// too - the client has to be told about its own armour window separately.
-	for index in 0 .. armour_slot_count {
-		p.send_armour_slot_update(index, types.ItemStackWrapper{})
+	// too - the client has to be told about its own armor window separately.
+	for index in 0 .. armor_slot_count {
+		p.send_armor_slot_update(index, types.ItemStackWrapper{})
 	}
 }
 

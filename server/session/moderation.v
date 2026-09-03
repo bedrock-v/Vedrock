@@ -304,7 +304,6 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	return true
 }
 
-
 fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, '')
 }
@@ -328,6 +327,9 @@ fn (mut s NetworkSession) clear_inventory() {
 	worldrt.world_call[bool]('Player.clear_inventory', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
 		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
 		target.player.clear_inventory(mut tx)
+		// The worn pieces went with the rest of the inventory, so everyone
+		// else has to be told or they keep rendering the old set.
+		target.broadcast_armor()
 		return true
 	}) or { false }
 }

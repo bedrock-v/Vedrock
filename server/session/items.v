@@ -229,9 +229,9 @@ fn (mut s NetworkSession) restore_inventory() &proto.InventoryContentPacket {
 		}
 	}
 	// The worn pieces are tracked here too but leave the inventory window
-	// alone; they go out on their own container (see armour_content_packet).
-	for index in 0 .. player.armour_slot_count {
-		slot := player.armour_slot(index)
+	// alone; they go out on their own container (see armor_content_packet).
+	for index in 0 .. player.armor_slot_count {
+		slot := player.armor_slot(index)
 		saved := loaded_by_slot[slot] or { continue }
 		s.restore_saved_slot(slot, saved)
 	}
