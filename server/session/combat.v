@@ -26,7 +26,10 @@ struct PlayerAttackTask {
 	damage              f32
 	knockback_force     f32 = knockback_horizontal
 	knockback_height    f32 = knockback_vertical
-	critical            bool
+	// fire_ticks is how long the attacker's Fire Aspect sets the victim
+	// burning for, 0 when the weapon does not carry it.
+	fire_ticks i64
+	critical   bool
 }
 
 fn (t PlayerAttackTask) name() string {
@@ -66,6 +69,9 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 		return
 	}
 	damage_held_item(mut attacker, 1)
+	if mut victim_session := as_network_session(mut victim_actor) {
+		ignite_victim(mut victim_session, t.fire_ticks)
+	}
 	damage_actor(mut tx, t.victim_runtime_id, ctx.val.damage, AttackDamageSource{
 		attacker_name: attacker.player.identity.display_name
 	}, t.attacker_runtime_id, own, ctx.val.knockback_force, ctx.val.knockback_height)
@@ -91,7 +97,7 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	// client-supplied held item - otherwise a client could claim a weapon it
 	// does not own to inflate damage.
 	_, weapon_name := s.held_stack_and_name()
-	mut damage := s.weapon_damage(weapon_name)
+	mut damage := s.enchanted_attack_damage(s.weapon_damage(weapon_name))
 	critical := s.is_critical()
 	if critical {
 		damage *= critical_multiplier
@@ -106,6 +112,8 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 		attacker_epoch:      s.world_binding().epoch
 		victim_runtime_id:   target_runtime_id
 		damage:              damage
+		knockback_force:     s.enchanted_knockback(knockback_horizontal)
+		fire_ticks:          s.fire_aspect_ticks()
 		critical:            critical
 	})
 }

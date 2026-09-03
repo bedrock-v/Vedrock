@@ -202,6 +202,9 @@ fn (mut s NetworkSession) damage_held_item(amount int) {
 	if net == 0 {
 		return
 	}
+	if survives_unbreaking(item.enchantment_level(stack.raw_extra_data, 'unbreaking')) {
+		return
+	}
 	it := item.get(s.hub.data.item_name(stack.id)) or { return }
 	result := item.damage_item(it, stack.meta, amount)
 	if result.broken {
@@ -468,10 +471,9 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	damage_held_item(mut s, 1)
 
 	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
-		drop_name, drop_count := block_drop_for(tx.wr.services.game_data(), old_id)
+		drop_name, drop_count := s.harvested_drop(tx.wr.services.game_data(), old_id)
 		if drop_name != '' {
-			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
-			spawn_dropped_item_stack(mut tx, drop_name, drop_count, center)
+			spawn_dropped_item_stack(mut tx, drop_name, drop_count, block_center(pos))
 		}
 	}
 

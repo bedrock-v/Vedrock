@@ -133,6 +133,21 @@ other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
 [cmd.give.received]
 other = "§aYou received {{.Count}}x {{.Item}}§r"
 
+[cmd.enchant.usage]
+other = "Usage: /enchant <player: target> <enchantmentName: EnchantmentName> [level: int]"
+
+[cmd.enchant.no_item]
+other = "The target doesn't hold an item"
+
+[cmd.enchant.not_found]
+other = "There is no such enchantment with ID {{.Enchantment}}"
+
+[cmd.enchant.cant_combine]
+other = "{{.Enchantment}} can't be combined with {{.Item}}"
+
+[cmd.enchant.success]
+other = "Enchanting succeeded"
+
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
 

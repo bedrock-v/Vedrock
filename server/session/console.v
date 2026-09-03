@@ -84,6 +84,14 @@ fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
 	return false
 }
 
+fn (c ConsoleSender) held_item_name() string {
+	return ''
+}
+
+fn (mut c ConsoleSender) enchant_held_item(_ string, _ int) player.EnchantResult {
+	return .no_item
+}
+
 fn (mut c ConsoleSender) send_form(_ form.Form) ! {
 	return error('the console cannot display forms')
 }

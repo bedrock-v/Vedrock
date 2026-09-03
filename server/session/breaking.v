@@ -301,8 +301,8 @@ fn (s &NetworkSession) can_harvest(runtime_id int) bool {
 
 // break_progress_per_tick is the fraction of the block broken each tick. The
 // base time comes from the block's hardness and the held tool, then the
-// player's own state scales it, mirroring vanilla. Efficiency and aqua
-// affinity enchantments are not modelled yet.
+// player's own state scales it, mirroring vanilla. Aqua Affinity is not
+// modelled yet.
 fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
 	info := block.break_info(runtime_id)
 	if !info.breakable() {
@@ -347,7 +347,7 @@ fn mining_fatigue_multiplier(level int) f32 {
 fn (s &NetworkSession) held_mining_stats() (int, int, f32) {
 	_, name := s.held_stack_and_name()
 	held := item.get(name) or { return block.tool_type_none, block.harvest_level_none, f32(1.0) }
-	efficiency := held.mining_speed()
+	efficiency := held.mining_speed() + efficiency_bonus(s.held_enchantment_level('efficiency'))
 	if held is item.MiningTool {
 		return held.block_tool_type(), held.harvest_level(), efficiency
 	}
