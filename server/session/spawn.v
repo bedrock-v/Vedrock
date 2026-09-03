@@ -132,6 +132,11 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 		pitch = data.pitch
 		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
+		s.player.set_hunger(player.HungerState{
+			food_level: data.food_level
+			saturation: data.saturation
+			exhaustion: data.exhaustion
+		})
 		s.player.set_experience(player.ExperienceState{
 			level:    data.experience_level
 			progress: data.experience_progress
@@ -1074,6 +1079,8 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	}
 	inventory_packet := s.restore_inventory()
 	s.send_packet(inventory_packet)!
+	s.send_packet(s.armor_content_packet())!
+	s.broadcast_armor()
 	s.refresh_available_commands()
 	s.log.debug('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }

@@ -57,6 +57,26 @@ mut:
 	// rebuilding the level curve from zero every time.
 	experience_level  int
 	experience_points int
+	food_level        int = max_food_level
+	saturation        f32 = initial_saturation
+	exhaustion        f32
+	// sprinting/swimming are reported by the client and decide what moving a
+	// metre costs. They are state, not events: the tick that spends the
+	// exhaustion runs on the world actor, not on the packet.
+	sprinting bool
+	swimming  bool
+	// These count consecutive ticks spent under one condition - well fed
+	// enough to heal, starving, or waiting on peaceful's refill - and reset
+	// the moment it stops holding. A timer that ran off a shared clock would
+	// let a player inherit whatever phase it was already in.
+	regeneration_ticks int
+	starvation_ticks   int
+	passive_feed_ticks int
+	// hunger_position is where movement was last charged for. It only starts
+	// counting once there is a sample to measure against, so a join or a
+	// teleport is not billed as distance travelled.
+	has_hunger_position bool
+	hunger_position     types.Vector3
 	// give_next_slot round robins give_item across the hotbar. Only the
 	// world actor touches it, so it is not under state_mutex.
 	give_next_slot int
