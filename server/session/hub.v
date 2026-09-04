@@ -653,6 +653,7 @@ fn (mut h Hub) add(target &NetworkSession) {
 	// have no sink yet. Wiring it again here is harmless for the rest.
 	mut claimed := unsafe { target }
 	claimed.player.sink = claimed
+	claimed.player.runtime_id = claimed.runtime_id
 	h.mutex.lock()
 	h.sessions[target.runtime_id] = target
 	h.pending_names.delete(normal_player_name(target.player.identity.display_name))

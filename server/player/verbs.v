@@ -1,6 +1,5 @@
 module player
 
-import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
 import server.event
 import server.item
@@ -18,85 +17,34 @@ import server.worldrt
 // task. A verb that only speaks to its own client takes none because it
 // needs neither.
 
-// teleport moves the player to pos, tells its own client to snap there and
-// shows the move to everyone else in the world.
+// teleport moves the player to pos and shows the arrival to everyone who can
+// see them, their own client included. What each of them is sent differs but
+// that is the viewer's decision, not this verb's.
 pub fn (mut p Player) teleport(mut tx worldrt.WorldTx, pos types.Vector3) {
 	p.reset_position(pos)
-	current := p.movement()
-	mut sink := p.sink
-	rid := sink.runtime_id()
-
-	mut move_packet := &proto.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(rid)
-		y_head_rotation:   current.head_yaw
-		position_mode:     proto.PlayerPositionMode.teleport
-		teleport_data:     proto.MovePlayerTeleportData{}
-		on_ground:         false
-	}
-	move_packet.position[0] = current.position.x
-	move_packet.position[1] = current.position.y
-	move_packet.position[2] = current.position.z
-	move_packet.rotation[0] = current.pitch
-	move_packet.rotation[1] = current.yaw
-	sink.deliver(move_packet)
-	sink.expect_teleport_ack(current.position)
-
-	tx.wr.broadcast_world_except(rid, p.move_actor_packet())
-}
-
-// move_actor_packet is this player's position as other clients see it.
-pub fn (p &Player) move_actor_packet() &proto.MoveActorAbsolutePacket {
-	current := p.movement()
-	mut sink := p.sink
-	return &proto.MoveActorAbsolutePacket{
-		move_data: proto.MoveActorAbsoluteData{
-			actor_runtime_id: proto.actor_runtime_id(sink.runtime_id())
-			header:           i8(proto.move_actor_flag_on_ground)
-			position_x:       current.position.x
-			position_y:       current.position.y
-			position_z:       current.position.z
-			rotation_x:       proto.rotation_byte(current.pitch)
-			rotation_y:       proto.rotation_byte(current.yaw)
-			rotation_y_head:  proto.rotation_byte(current.head_yaw)
-		}
+	for mut v in p.viewers(mut tx) {
+		v.view_teleport(p, pos)
 	}
 }
 
 // send_message shows message in the player's chat.
 pub fn (mut p Player) send_message(message string) {
 	mut sink := p.sink
-	sink.deliver(&proto.TextPacket{
-		message_type: proto.TextRaw{
-			message: message
-		}
-	})
+	sink.show_message(message)
 }
 
 // send_translation shows a client side localised message with parameters
 // filling the placeholders in the entry named by key.
 pub fn (mut p Player) send_translation(key string, parameters []string) {
 	mut sink := p.sink
-	sink.deliver(&proto.TextPacket{
-		localize:     true
-		message_type: proto.TextTranslate{
-			message:        key
-			parameter_list: parameters
-		}
-	})
+	sink.show_translation(key, parameters)
 }
 
 // send_slot_update keeps the client's view of one inventory slot in sync
 // after the server changed what is in it.
 pub fn (mut p Player) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
 	mut sink := p.sink
-	sink.deliver(&proto.InventorySlotPacket{
-		container_id:        u32(inventory_window_id)
-		slot:                u32(slot)
-		container_name_data: proto.FullContainerName{
-			container: .inventory_container
-		}
-		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
-	})
+	sink.send_slot_update(slot, wrapped)
 }
 
 // clear_inventory empties the player's inventory and shows the empty result
@@ -105,19 +53,8 @@ pub fn (mut p Player) send_slot_update(slot int, wrapped types.ItemStackWrapper)
 // writes state the world actor owns.
 pub fn (mut p Player) clear_inventory(mut tx worldrt.WorldTx) {
 	p.inv.clear()
-	mut items := []proto.NetworkItemStackDescriptorV2{}
-	for _ in 0 .. inventory_slot_count {
-		items << proto.item_descriptor_v2(types.ItemStack{})
-	}
 	mut sink := p.sink
-	sink.deliver(&proto.InventoryContentPacket{
-		inventory_id:        u32(inventory_window_id)
-		slots:               items
-		container_name_data: proto.FullContainerName{
-			container: .inventory_container
-		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
-	})
+	sink.send_inventory_cleared()
 	// The worn pieces live in the same stack map, so clearing it took them
 	// too - the client has to be told about its own armor window separately.
 	for index in 0 .. armor_slot_count {
@@ -204,9 +141,7 @@ pub fn (mut p Player) set_gamemode(mut tx worldrt.WorldTx, mode Gamemode) {
 	}
 	p.set_game_mode(ctx.val.mode)
 	mut sink := p.sink
-	sink.deliver(&proto.SetPlayerGameTypePacket{
-		player_game_type: proto.game_type(gamemode_to_wire(p.game_mode()))
-	})
+	sink.send_game_mode(p.game_mode())
 	p.refresh_abilities()
 }
 
@@ -217,8 +152,7 @@ pub fn (mut p Player) kill(mut tx worldrt.WorldTx) {
 		return
 	}
 	p.set_health(0)
-	mut sink := p.sink
-	sink.deliver(p.health_update())
+	p.send_health()
 	p.die(mut tx, '%death.attack.generic', [p.identity.display_name])
 }
 
@@ -237,20 +171,29 @@ pub fn (mut p Player) die(mut tx worldrt.WorldTx, message_key string, parameters
 		return
 	}
 	p.set_dead(true)
-	mut sink := p.sink
-	rid := sink.runtime_id()
-	tx.wr.broadcast_world_except(rid, &proto.ActorEventPacket{
-		target_runtime_id: proto.actor_runtime_id(rid)
-		event_id:          proto.ActorEvent.death
-		data:              0
-	})
 	p.set_last_death(p.position())
 	p.drop_experience(mut tx)
-	tx.wr.broadcast_world(&proto.TextPacket{
-		localize:     true
-		message_type: proto.TextTranslate{
-			message:        ctx.val.message_key
-			parameter_list: parameters
-		}
-	})
+	for mut v in p.viewers(mut tx) {
+		v.view_death(p, ctx.val.message_key, parameters)
+	}
+}
+
+// send_health, refresh_abilities and the other resends below reach only the
+// player's own client, so they go through the sink rather than the world.
+
+// send_health pushes the current health to the player's own client. A client
+// that has not spawned yet has no health bar to correct.
+pub fn (mut p Player) send_health() {
+	mut sink := p.sink
+	if !sink.is_spawned() {
+		return
+	}
+	sink.send_health()
+}
+
+// refresh_abilities resends what the client is allowed to do after something
+// that changes it such as a game mode change or an op grant.
+pub fn (mut p Player) refresh_abilities() {
+	mut sink := p.sink
+	sink.send_abilities()
 }

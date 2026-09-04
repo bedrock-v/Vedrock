@@ -21,13 +21,6 @@ fn (mut s NetworkSession) award_experience(points int) {
 	s.send_experience()
 }
 
-fn (mut s NetworkSession) send_experience() {
-	if !s.spawned {
-		return
-	}
-	s.deliver(s.player.experience_update())
-}
-
 // spawn_experience_orbs drops amount at pos, split across as many orbs as it
 // takes and scattered so they do not land in one stack.
 fn spawn_experience_orbs(mut tx worldrt.WorldTx, amount int, pos types.Vector3) {
@@ -59,8 +52,7 @@ fn (mut h WorldEntityHost) spawn_experience_orbs(amount int, pos types.Vector3) 
 // PlayerExperienceTask awards experience on the owning world runtime, for the
 // callers that reach a player from outside their own session thread.
 struct PlayerExperienceTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	points     int
 	levels     int
 }
@@ -70,7 +62,7 @@ fn (t PlayerExperienceTask) name() string {
 }
 
 fn (t PlayerExperienceTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	if t.levels != 0 {
 		target.player.add_experience_levels(t.levels)
 	}
@@ -101,12 +93,10 @@ fn (mut s NetworkSession) submit_experience(points int, levels int) {
 	if isnil(wr) {
 		return
 	}
-	binding := s.world_binding()
 	wr.submit(PlayerExperienceTask{
-		runtime_id: s.runtime_id
-		epoch:      binding.epoch
-		points:     points
-		levels:     levels
+		id:     s.actor_id()
+		points: points
+		levels: levels
 	})
 }
 

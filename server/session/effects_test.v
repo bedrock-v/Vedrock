@@ -5,6 +5,7 @@ import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.internal.gamedata
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
@@ -46,9 +47,8 @@ fn add_effect_directly(wr &worldrt.WorldRuntime, rid u64, e effect.Effect) {
 	}
 
 	PlayerAddEffectTask{
-		runtime_id: rid
-		epoch:      0
-		effect:     e
+		id:     entity.new_actor_id(rid, 0)
+		effect: e
 	}.run(mut tx)
 }
 
@@ -58,9 +58,8 @@ fn remove_effect_directly(wr &worldrt.WorldRuntime, rid u64, typ effect.Type) {
 	}
 
 	PlayerRemoveEffectTask{
-		runtime_id: rid
-		epoch:      0
-		typ:        typ
+		id:  entity.new_actor_id(rid, 0)
+		typ: typ
 	}.run(mut tx)
 }
 

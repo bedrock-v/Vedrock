@@ -3,7 +3,6 @@ module player
 import math
 import rand
 import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
 import server.entity
 import server.worldrt
 
@@ -130,21 +129,6 @@ pub fn (p &Player) dropped_experience() int {
 	return math.min(experience_death_cap, p.experience_level() * experience_dropped_per_level)
 }
 
-// experience_update is the experience bar alone, for the common case where
-// nothing else about the player changed.
-pub fn (p &Player) experience_update() &proto.UpdateAttributesPacket {
-	state := p.experience()
-	mut sink := p.sink
-	return &proto.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(sink.runtime_id())
-		attribute_list:          [
-			player_attribute('minecraft:player.level', 0.0, max_experience_level, f32(state.level)),
-			player_attribute('minecraft:player.experience', 0.0, 1.0, state.progress),
-		]
-		ticks_since_sim_started: 0
-	}
-}
-
 // drop_experience leaves the player's experience on the ground where they
 // fell and empties their bar. Dying is the only thing that calls it, and it
 // takes the transaction because the orbs are the world's.
@@ -152,7 +136,7 @@ pub fn (mut p Player) drop_experience(mut tx worldrt.WorldTx) {
 	dropped := p.dropped_experience()
 	p.reset_experience()
 	mut sink := p.sink
-	sink.deliver(p.experience_update())
+	sink.send_experience()
 	if dropped <= 0 {
 		return
 	}

@@ -277,7 +277,7 @@ fn (mut s NetworkSession) save_player_data() {
 		z:                   current.position.z
 		yaw:                 current.yaw
 		pitch:               current.pitch
-		gamemode:            player.gamemode_to_wire(s.player.game_mode())
+		gamemode:            gamemode_to_wire(s.player.game_mode())
 		items:               items
 		food_level:          hunger.food_level
 		saturation:          hunger.saturation

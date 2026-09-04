@@ -57,10 +57,9 @@ fn recompute_neighbor_blocks(mut tx worldrt.WorldTx, pos types.BlockPosition) {
 // broadcast_swing sends the acting session's arm swing animation to every
 // other session in this transaction's world.
 fn broadcast_swing(mut tx worldrt.WorldTx, s &NetworkSession) {
-	tx.wr.broadcast_world_except(s.runtime_id, &proto.AnimatePacket{
-		action:            proto.AnimatePacketAction.swing
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-	})
+	for mut v in viewers_except(mut tx, s.runtime_id) {
+		v.view_actor_swing(s.runtime_id)
+	}
 }
 
 // broadcast_destroy_particles sends the block break particle effect to every

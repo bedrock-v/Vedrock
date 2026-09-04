@@ -4,6 +4,7 @@ import time
 import server.effect
 import server.internal.gamedata
 import server.internal.logger
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
@@ -79,13 +80,13 @@ fn test_effects_tick_isolated_to_owning_world() {
 
 	rid_a := player_a.runtime_id
 	worldrt.world_call[bool]('test', mut wr_a, fn [rid_a] (mut tx worldrt.WorldTx) bool {
-		mut s := player_for_epoch(mut tx, rid_a, 0) or { return false }
+		mut s := player_for_id(mut tx, entity.new_actor_id(rid_a, 0)) or { return false }
 		s.player.add_effect(mut tx, effect.new(effect.regeneration, 1, 5 * time.second))
 		return true
 	}) or { panic('sync barrier rejected') }
 	rid_b := player_b.runtime_id
 	worldrt.world_call[bool]('test', mut wr_b, fn [rid_b] (mut tx worldrt.WorldTx) bool {
-		mut s := player_for_epoch(mut tx, rid_b, 0) or { return false }
+		mut s := player_for_id(mut tx, entity.new_actor_id(rid_b, 0)) or { return false }
 		s.player.add_effect(mut tx, effect.new(effect.regeneration, 1, 5 * time.second))
 		return true
 	}) or { panic('sync barrier rejected') }

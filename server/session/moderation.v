@@ -3,6 +3,7 @@ module session
 import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
 import server.internal.logger
+import server.entity
 import server.worldrt
 
 // op / deop
@@ -47,8 +48,7 @@ fn (mut s NetworkSession) set_operator(value bool) {
 // PlayerOpRefreshTask resends commands and abilities on the target's owning
 // world.
 struct PlayerOpRefreshTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	result     chan bool = chan bool{cap: 1}
 }
 
@@ -61,9 +61,9 @@ fn (t PlayerOpRefreshTask) run(mut tx worldrt.WorldTx) {
 	defer {
 		t.result <- applied
 	}
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	target.refresh_available_commands()
-	target.refresh_abilities()
+	target.player.refresh_abilities()
 	applied = true
 }
 
@@ -84,8 +84,7 @@ fn (mut s NetworkSession) try_refresh_op_state_once() bool {
 		return false
 	}
 	task := PlayerOpRefreshTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
+		id: s.actor_id()
 	}
 	if !wr.submit(task) {
 		return false
@@ -108,10 +107,9 @@ fn (mut s NetworkSession) kill() {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
-	worldrt.world_call[bool]('Player.kill', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
-		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+	id := s.actor_id()
+	worldrt.world_call[bool]('Player.kill', mut wr, fn [id] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
 		target.player.kill(mut tx)
 		return true
 	}) or { false }
@@ -161,11 +159,10 @@ fn (mut s NetworkSession) submit_teleport(x f32, y f32, z f32) {
 		return
 	}
 	pos := types.Vector3{x, y, z}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
+	id := s.actor_id()
 	s.expect_teleport_ack(pos)
-	moved := worldrt.world_call[bool]('Player.teleport', mut wr, fn [rid, epoch, pos] (mut tx worldrt.WorldTx) bool {
-		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+	moved := worldrt.world_call[bool]('Player.teleport', mut wr, fn [id, pos] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
 		target.player.teleport(mut tx, pos)
 		return true
 	}) or { false }
@@ -247,16 +244,16 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	rid := s.runtime_id
 	mut previous_wr := binding.world_runtime
 	if !isnil(previous_wr) {
-		remove_pkt := s.remove_actor_packet()
-		list_remove_pkt := s.player_list_remove_packet()
 		held_container := s.open_container_position()
-		worldrt.world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx worldrt.WorldTx) bool {
+		leaving := s.player
+		worldrt.world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, leaving, held_container] (mut tx worldrt.WorldTx) bool {
 			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}
-			tx.wr.broadcast_world_except(rid, remove_pkt)
-			tx.wr.broadcast_world_except(rid, list_remove_pkt)
+			for mut v in viewers_except(mut tx, rid) {
+				v.view_player_removed(leaving)
+			}
 			return true
 		}) or {}
 	}
@@ -268,13 +265,12 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	// than a stale pre transfer position.
 	s.player.reset_position(types.Vector3{x, y, z})
 
-	list_add_pkt := s.player_list_add_packet()
-	add_player_pkt := s.add_player_packet()
 	self := s.self_ref()
-	registered := worldrt.world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx worldrt.WorldTx) bool {
+	registered := worldrt.world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, self)
-		tx.wr.broadcast_world_except(rid, list_add_pkt)
-		tx.wr.broadcast_world_except(rid, add_player_pkt)
+		for mut v in viewers_except(mut tx, rid) {
+			v.view_player_added(self.player)
+		}
 		return true
 	}) or { false }
 	if !registered {
@@ -334,10 +330,9 @@ fn (mut s NetworkSession) clear_inventory() {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
-	worldrt.world_call[bool]('Player.clear_inventory', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
-		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+	id := s.actor_id()
+	worldrt.world_call[bool]('Player.clear_inventory', mut wr, fn [id] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
 		target.player.clear_inventory(mut tx)
 		// The worn pieces went with the rest of the inventory, so everyone
 		// else has to be told or they keep rendering the old set.
@@ -357,10 +352,8 @@ fn (mut s NetworkSession) give_item(id string, count int) bool {
 	if isnil(wr) {
 		return false
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
-	return worldrt.world_call[bool]('Player.give_item', mut wr, fn [rid, epoch, id, count] (mut tx worldrt.WorldTx) bool {
-		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+	return worldrt.world_call[bool]('Player.give_item', mut wr, fn [actor, id, count] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, actor) or { return false }
 		return target.player.give_item(mut tx, id, count)
 	}) or { false }
 }

@@ -25,6 +25,9 @@ pub struct Player {
 pub mut:
 	identity auth.Identity
 	perm     permission.Permissible
+	// runtime_id is the id this player is known by inside the server. It is
+	// the player's identity.
+	runtime_id u64
 	// sink is whatever drives this player. It is a NopSink until a session
 	// claims the player, a verb never has to check whether anyone is
 	// listening.

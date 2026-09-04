@@ -123,7 +123,7 @@ fn (mut s NetworkSession) send_hunger() {
 	if !s.spawned {
 		return
 	}
-	s.deliver(s.player.hunger_update())
+	s.deliver(s.hunger_update())
 }
 
 // jump_exhaustion_for is what leaving the ground costs, which sprinting makes
