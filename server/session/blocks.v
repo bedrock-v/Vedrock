@@ -7,6 +7,7 @@ import server.world
 import server.block
 import server.item
 import bedrock_v.protocol.current as proto
+import server.entity
 import server.player
 import server.worldrt
 
@@ -75,6 +76,7 @@ fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransact
 
 fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
 	on_ground := proto.PlayerAuthInputData.vertical_collision in p.input_data
+	s.apply_input_state(p.input_data)
 	s.update_movement(proto.vec3_from_array(p.player_position), p.player_rotation[0],
 		p.player_rotation[1], p.player_head_rotation, on_ground)
 	if tx := p.item_use_transaction {
@@ -148,16 +150,15 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 	mut wr := binding.world_runtime
 	now := time.now().unix_milli()
 	task := PlayerPlaceBlockTask{
-		session_runtime_id: s.runtime_id
-		epoch:              binding.epoch
-		click_pos:          block_position
-		click_face:         block_face
-		clicked_y:          clicked_y
-		runtime_id:         runtime_id
-		yaw:                s.player.movement().yaw
-		now_ms:             now
-		last_place_ms:      s.last_place_ms
-		is_creative:        s.player.game_mode() == .creative
+		id:            s.actor_id()
+		click_pos:     block_position
+		click_face:    block_face
+		clicked_y:     clicked_y
+		runtime_id:    runtime_id
+		yaw:           s.player.movement().yaw
+		now_ms:        now
+		last_place_ms: s.last_place_ms
+		is_creative:   s.player.game_mode() == .creative
 	}
 	if wr.submit(task) {
 		placed := <-task.result
@@ -399,12 +400,11 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 	}
 	mut wr := binding.world_runtime
 	task := PlayerBreakBlockTask{
-		session_runtime_id: s.runtime_id
-		epoch:              binding.epoch
-		x:                  pos.x
-		y:                  pos.y
-		z:                  pos.z
-		old_id:             old_id
+		id:     s.actor_id()
+		x:      pos.x
+		y:      pos.y
+		z:      pos.z
+		old_id: old_id
 	}
 	if wr.submit(task) {
 		_ := <-task.done
@@ -414,8 +414,7 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 // PlayerBreakBlockTask performs the validated break operation on the owning
 // world actor. It is discarded if the block changed or the player switched worlds.
 struct PlayerBreakBlockTask {
-	session_runtime_id u64
-	epoch              i64
+	id entity.ActorId
 	x                  int
 	y                  int
 	z                  int
@@ -431,7 +430,7 @@ fn (t PlayerBreakBlockTask) run(mut tx worldrt.WorldTx) {
 	defer {
 		t.done <- true
 	}
-	mut s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return }
 	complete_block_break(mut tx, mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
@@ -466,13 +465,15 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 
 	tx.set_block(pos.x, pos.y, pos.z, air_id)
 	damage_held_item(mut s, 1)
+	s.exhaust_and_sync(player.mining_exhaustion)
 
 	if s.player.game_mode() != .creative && s.can_harvest(old_id) {
+		center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 		drop_name, drop_count := block_drop_for(tx.wr.services.game_data(), old_id)
 		if drop_name != '' {
-			center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 			spawn_dropped_item_stack(mut tx, drop_name, drop_count, center)
 		}
+		drop_block_experience(mut tx, mut s, old_id, drop_name, center)
 	}
 
 	if b := block.get(old_id) {
@@ -509,8 +510,7 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 // owning world actor, avoiding races between branch selection and commit.
 // Placement timing is captured by the session thread before submission.
 struct PlayerPlaceBlockTask {
-	session_runtime_id u64
-	epoch              i64
+	id entity.ActorId
 	click_pos          types.BlockPosition
 	click_face         int
 	clicked_y          f32
@@ -531,7 +531,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
 	defer {
 		t.result <- placed
 	}
-	mut s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return }
 	pos := t.click_pos
 	neighbor := face_offset(pos, t.click_face)
 	clicked_id := block_at(tx, pos.x, pos.y, pos.z)

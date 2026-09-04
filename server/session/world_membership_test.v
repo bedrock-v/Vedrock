@@ -54,14 +54,17 @@ fn membership_test_session_with_transport(mut hub Hub, wr &worldrt.WorldRuntime,
 		world_runtime: wr
 		log:           logger.new(.info)
 	}
+	s.player.sink = s
+	s.player.runtime_id = s.runtime_id
 	return s
 }
 
-fn add_player_packet_count(transport &FakeTransport, runtime_id u64) int {
+fn add_player_packet_count(mut viewer NetworkSession, transport &FakeTransport, actor u64) int {
 	mut count := 0
 	for p in transport.sent {
 		if p is proto.AddPlayerPacket {
-			if p.target_runtime_id.value == runtime_id {
+			named := viewer.actor_for_wire_id(p.target_runtime_id.value) or { continue }
+			if named == actor {
 				count++
 			}
 		}
@@ -146,10 +149,10 @@ fn test_initial_join_exchanges_player_view_only_with_current_world() {
 	assert wait_for_sent_len(joining_transport, 1, 2000)
 	assert wait_for_sent_len(near_transport, 1, 2000)
 
-	assert add_player_packet_count(joining_transport, far_p.runtime_id) == 0
-	assert add_player_packet_count(joining_transport, near_p.runtime_id) == 1
-	assert add_player_packet_count(far_transport, joining.runtime_id) == 0
-	assert add_player_packet_count(near_transport, joining.runtime_id) == 1
+	assert add_player_packet_count(mut joining, joining_transport, far_p.runtime_id) == 0
+	assert add_player_packet_count(mut joining, joining_transport, near_p.runtime_id) == 1
+	assert add_player_packet_count(mut far_p, far_transport, joining.runtime_id) == 0
+	assert add_player_packet_count(mut near_p, near_transport, joining.runtime_id) == 1
 }
 
 // A -> B: the source world must lose the membership and the destination

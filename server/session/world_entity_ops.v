@@ -1,7 +1,6 @@
 module session
 
 import math
-import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.entity
 import server.event
@@ -43,23 +42,29 @@ fn new_world_entity_host(wr &worldrt.WorldRuntime) entity.Host {
 	}
 }
 
-fn (mut h WorldEntityHost) broadcast(p protocol.Packet) {
-	h.wr.broadcast_world(p)
+fn (mut h WorldEntityHost) viewers() []entity.Viewer {
+	return h.wr.viewers()
 }
 
-fn (mut h WorldEntityHost) broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet) {
+// viewers_near is everyone close enough to a point to be shown something
+// happening there. It is the only distance filter in the viewer path; the
+// world wide one doesn't have it.
+fn (mut h WorldEntityHost) viewers_near(x f32, y f32, z f32, radius f32) []entity.Viewer {
 	r2 := radius * radius
+	mut out := []entity.Viewer{}
 	for mut a in h.wr.entities.player_actors() {
 		pos := a.current_position()
 		dx := pos.x - x
 		dy := pos.y - y
 		dz := pos.z - z
-		if dx * dx + dy * dy + dz * dz <= r2 {
-			if mut a is NetworkSession {
-				a.deliver(p)
-			}
+		if dx * dx + dy * dy + dz * dz > r2 {
+			continue
+		}
+		if mut a is NetworkSession {
+			out << a
 		}
 	}
+	return out
 }
 
 // allocate_runtime_id is shared across every world through Hub, so entity

@@ -275,6 +275,15 @@ pub fn (mut wr WorldRuntime) handle(h Handler) {
 	wr.handler = h
 }
 
+// viewers returns every player registered with this world as something that
+// can be shown what happened rather than handed a finished packet.
+//
+// Call it only from this world's runtime thread for the same reason
+// broadcast_world says: the actor registry is not protected by a lock.
+pub fn (mut wr WorldRuntime) viewers() []entity.Viewer {
+	return wr.entities.player_viewers()
+}
+
 // broadcast_world sends p to every player registered with this world.
 // Call it only from this world's runtime thread, usually inside a WorldTx
 // or world_call because the actor registry is not protected by a lock.

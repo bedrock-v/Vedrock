@@ -1,6 +1,7 @@
 module session
 
 import bedrock_v.protocol.types
+import server.entity
 import server.player
 import server.worldrt
 
@@ -10,11 +11,10 @@ import server.worldrt
 // Operations fail if the player disconnects or changes worlds, preventing
 // stale references from resolving to another session or membership.
 pub struct PlayerRef {
-	runtime_id u64
-	epoch      i64
-	name_      string
-	world_     World
-	hub_       &Hub = unsafe { nil }
+	id     entity.ActorId
+	name_  string
+	world_ World
+	hub_   &Hub = unsafe { nil }
 }
 
 // player_ref_for builds a PlayerRef for session's current world membership
@@ -22,11 +22,10 @@ pub struct PlayerRef {
 fn player_ref_for(s &NetworkSession) PlayerRef {
 	binding := s.world_binding()
 	return PlayerRef{
-		runtime_id: s.runtime_id
-		epoch:      binding.epoch
-		name_:      s.name()
-		hub_:       s.hub
-		world_:     World{
+		id:     s.actor_id()
+		name_:  s.name()
+		hub_:   s.hub
+		world_: World{
 			runtime: binding.world_runtime
 		}
 	}
@@ -51,8 +50,8 @@ pub fn (mut h Hub) player_refs() []PlayerRef {
 
 fn (p PlayerRef) resolve() !&NetworkSession {
 	mut hub := unsafe { p.hub_ }
-	s := hub.session_by_runtime(p.runtime_id) or { return error('player is no longer connected') }
-	if s.world_binding().epoch != p.epoch {
+	s := hub.session_by_runtime(p.id.value) or { return error('player is no longer connected') }
+	if s.world_binding().epoch != p.id.epoch {
 		return error('player has since left this world')
 	}
 	return s
@@ -80,10 +79,9 @@ pub fn (p PlayerRef) world() World {
 // PlayerRef was created for or if that world is shutting down.
 pub fn (p PlayerRef) exec(label string, f fn (mut tx worldrt.WorldTx, mut pl player.Player)) ! {
 	mut wr := p.world_.runtime
-	rid := p.runtime_id
-	epoch := p.epoch
-	ran := worldrt.world_call[bool](label, mut wr, fn [f, rid, epoch] (mut tx worldrt.WorldTx) bool {
-		mut s := player_for_epoch(mut tx, rid, epoch) or { return false }
+	id := p.id
+	ran := worldrt.world_call[bool](label, mut wr, fn [f, id] (mut tx worldrt.WorldTx) bool {
+		mut s := player_for_id(mut tx, id) or { return false }
 		f(mut tx, mut s.player)
 		return true
 	}) or { return error('world "${p.world_.name()}" is shutting down') }

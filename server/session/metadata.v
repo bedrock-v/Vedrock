@@ -1,6 +1,7 @@
 module session
 
 import bedrock_v.protocol.current as proto
+import server.player
 
 fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
@@ -69,10 +70,10 @@ fn visible_name_metadata(name string) []proto.DataItem {
 	]
 }
 
-fn (s &NetworkSession) set_actor_data() &proto.SetActorDataPacket {
+fn (mut s NetworkSession) set_actor_data(p &player.Player) &proto.SetActorDataPacket {
 	return &proto.SetActorDataPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		actor_data:        visible_name_metadata(s.player.identity.display_name)
+		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
+		actor_data:        visible_name_metadata(p.identity.display_name)
 		synced_properties: proto.PropertySyncData{}
 		tick:              0
 	}
