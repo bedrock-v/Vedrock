@@ -352,6 +352,8 @@ fn (mut s NetworkSession) give_item(id string, count int) bool {
 	if isnil(wr) {
 		return false
 	}
+	// Named actor rather than id: the item's name is already called id here.
+	actor := s.actor_id()
 	return worldrt.world_call[bool]('Player.give_item', mut wr, fn [actor, id, count] (mut tx worldrt.WorldTx) bool {
 		mut target := player_for_id(mut tx, actor) or { return false }
 		return target.player.give_item(mut tx, id, count)
