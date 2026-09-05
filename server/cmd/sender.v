@@ -46,8 +46,10 @@ mut:
 	remove_bossbar()
 	find_player(name string) ?Sender
 	set_operator(value bool)
-	// place_water sets a water source at the block position and starts its spread.
+	// place_water and place_lava set a source of that fluid at the block
+	// position and start its spread.
 	place_water(x int, y int, z int)
+	place_lava(x int, y int, z int)
 	whitelist_add(name string)
 	whitelist_remove(name string)
 	whitelist_set_enabled(value bool)

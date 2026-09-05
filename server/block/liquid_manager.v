@@ -214,16 +214,19 @@ fn (mut m LiquidManager) solidified_by_contact(cur LiquidState, x int, y int, z 
 		return false
 	}
 	solid := if cur.is_source() { world.obsidian } else { world.cobblestone }
-	m.host.set_block_id(solid.network_id, x, y, z)
-	m.enqueue_neighbours(x, y, z)
+	m.harden(solid.network_id, Pos{x, y, z})
 	return true
 }
 
-// water_touching reports whether any face neighbour of a cell holds water.
+// water_touching reports whether water sits beside or above a cell.
+//
+// The cell directly below is deliberately not counted. Lava resting on water
+// pours down into it and turns that water to stone which it cannot do if the
+// water underneath hardens it where it stands first.
 fn (mut m LiquidManager) water_touching(x int, y int, z int) bool {
 	return m.is_liquid_of_kind(.water, x + 1, y, z) || m.is_liquid_of_kind(.water, x - 1, y, z)
 		|| m.is_liquid_of_kind(.water, x, y, z + 1) || m.is_liquid_of_kind(.water, x, y, z - 1)
-		|| m.is_liquid_of_kind(.water, x, y + 1, z) || m.is_liquid_of_kind(.water, x, y - 1, z)
+		|| m.is_liquid_of_kind(.water, x, y + 1, z)
 }
 
 // spread_outwards flows the decayed liquid into each horizontal neighbour.
@@ -262,19 +265,21 @@ fn (mut m LiquidManager) flow_into(l LiquidState, x int, y int, z int) {
 	m.enqueue(x, y, z)
 }
 
-// mix_into resolves one fluid arriving where the other already is. Lava
-// arriving in water sets into stone; water arriving in lava makes obsidian of
-// a source and cobblestone of anything flowing.
+// mix_into resolves one fluid arriving where the other already is.
 fn (mut m LiquidManager) mix_into(arriving LiquidState, existing LiquidState, x int, y int, z int) {
-	solid := if arriving.kind == .lava {
-		world.stone
-	} else if existing.is_source() {
-		world.obsidian
-	} else {
-		world.cobblestone
+	if arriving.kind == .lava {
+		m.harden(world.stone.network_id, Pos{x, y, z})
+		return
 	}
-	m.host.set_block_id(solid.network_id, x, y, z)
-	m.enqueue_neighbours(x, y, z)
+	solid := if existing.is_source() { world.obsidian } else { world.cobblestone }
+	m.harden(solid.network_id, Pos{x, y, z})
+}
+
+// harden writes the rock a fluid contact made and wakes the cells around it
+// which may now be unfed or free to flow.
+fn (mut m LiquidManager) harden(id int, at Pos) {
+	m.host.set_block_id(id, at.x, at.y, at.z)
+	m.enqueue_neighbours(at.x, at.y, at.z)
 }
 
 // source_around reports whether a horizontally adjacent or overhead cell of the

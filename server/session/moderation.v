@@ -123,9 +123,14 @@ fn (mut s NetworkSession) position() types.Vector3 {
 	return s.current_position()
 }
 
-// place_water targets the default world through Hub's block API.
+// place_water and place_lava target the default world through Hub's block API.
+
 fn (mut s NetworkSession) place_water(x int, y int, z int) {
 	s.hub.place_water(x, y, z)
+}
+
+fn (mut s NetworkSession) place_lava(x int, y int, z int) {
+	s.hub.place_lava(x, y, z)
 }
 
 // request_teleport completes the binding and position update synchronously.

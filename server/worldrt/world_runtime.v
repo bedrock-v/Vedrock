@@ -44,15 +44,13 @@ pub interface WorldTask {
 	name() string
 }
 
+// block_update_flags is the UpdateBlockPacket flag set every block change is
+// sent with: neighbours plus network.
+pub const block_update_flags = 11
+
 // WorldRuntime owns one world's actor and serializes its simulation state.
 // External callers submit WorldTasks; task code accesses the world through
 // WorldTx. Actor owned fields must not be accessed directly from other threads.
-
-// block_update_flags is the UpdateBlockPacket flag set every block change is
-// sent with: neighbours plus network.
-@[heap]
-pub const block_update_flags = 11
-
 @[heap]
 pub struct WorldRuntime {
 pub mut:

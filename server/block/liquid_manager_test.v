@@ -201,13 +201,16 @@ fn test_lava_moves_slower_than_water() {
 	assert m.is_liquid_of_kind(.lava, 1, 0, 0)
 }
 
-fn test_lava_arriving_in_water_makes_stone() {
+fn test_lava_falling_onto_water_makes_stone() {
 	mut wld := &FakeWorld{}
+	solid_floor(mut wld)
 	mut m := new_manager(wld)
-	m.set_liquid(new_liquid_source(.water), 1, 0, 0)
-	m.flow_into(new_liquid_flowing(.lava, 6), 1, 0, 0)
+	m.place_liquid_source(.water, 0, 0, 0)
+	m.place_liquid_source(.lava, 0, 1, 0)
+	run_ticks(mut m, 200)
 
-	assert wld.get_block(1, 0, 0) == world.stone.network_id
+	assert wld.get_block(0, 0, 0) == world.stone.network_id
+	assert is_lava_id(wld.get_block(0, 1, 0))
 }
 
 fn test_water_pouring_onto_a_lava_source_makes_obsidian() {
