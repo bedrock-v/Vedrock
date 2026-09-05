@@ -766,6 +766,39 @@ pub fn (w &World) tracks_furnace(x int, y int, z int) bool {
 	return override_key(x, y, z) in w.furnace_states
 }
 
+// override_positions_of lists every stored block override holding one of the
+// given ids. It exists so a world can be asked where its furnaces are without
+// this package having to know what a furnace is.
+pub fn (w &World) override_positions_of(ids []int) []TickPosition {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	mut out := []TickPosition{}
+	for key, id in w.overrides {
+		if id !in ids {
+			continue
+		}
+		pos := position_from_key(key) or { continue }
+		out << pos
+	}
+	return out
+}
+
+// position_from_key reads back the coordinates an override key was built from.
+fn position_from_key(key string) ?TickPosition {
+	parts := key.split(':')
+	if parts.len != 3 {
+		return none
+	}
+	return TickPosition{
+		x: parts[0].int()
+		y: parts[1].int()
+		z: parts[2].int()
+	}
+}
+
 // burning_furnaces lists the positions with progress to advance, so the tick
 // only visits furnaces that are actually doing something.
 pub fn (w &World) burning_furnaces() []TickPosition {
@@ -776,15 +809,8 @@ pub fn (w &World) burning_furnaces() []TickPosition {
 	}
 	mut out := []TickPosition{cap: w.furnace_states.len}
 	for key, _ in w.furnace_states {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		out << TickPosition{
-			x: parts[0].int()
-			y: parts[1].int()
-			z: parts[2].int()
-		}
+		pos := position_from_key(key) or { continue }
+		out << pos
 	}
 	return out
 }

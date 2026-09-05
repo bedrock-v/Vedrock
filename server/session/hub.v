@@ -279,6 +279,7 @@ fn (mut h Hub) add_world(loaded_world &db.World) {
 		entity_host:    new_world_entity_host
 	)
 	h.restore_world_entities(mut wr)
+	h.revisit_lit_furnaces(mut wr)
 	h.world_registry.add(wr)
 	h.mutex.lock()
 	if h.default_world_name == '' {

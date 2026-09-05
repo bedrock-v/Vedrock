@@ -48,7 +48,7 @@ fn tick_furnace(mut tx worldrt.WorldTx, x int, y int, z int) {
 		burn_total: before.burn_total
 		cook_ticks: before.cook_ticks
 	}
-	smeltable := furnace_can_cook(mut tx, x, y, z)
+	smeltable := furnace_can_cook(mut tx, x, y, z, variant)
 	if state.burn_ticks <= 0 && smeltable {
 		state = light_furnace(mut tx, x, y, z, state)
 	}
@@ -89,14 +89,17 @@ fn furnace_slot(mut tx worldrt.WorldTx, x int, y int, z int, slot int) types.Ite
 	return slots[slot]
 }
 
-// furnace_can_cook reports whether the input smelts into something the output
-// slot still has room for.
-fn furnace_can_cook(mut tx worldrt.WorldTx, x int, y int, z int) bool {
+// furnace_can_cook reports whether the input smelts into something this
+// variant will cook and the output slot still has room for.
+fn furnace_can_cook(mut tx worldrt.WorldTx, x int, y int, z int, variant block.FurnaceVariant) bool {
 	input := furnace_slot(mut tx, x, y, z, block.furnace_slot_input)
 	if input.count <= 0 || input.id == 0 {
 		return false
 	}
 	recipe := item.smelting_recipe(tx.wr.services.game_data().item_name(input.id)) or {
+		return false
+	}
+	if !variant_cooks(variant, recipe) {
 		return false
 	}
 	result_id := tx.wr.services.game_data().item_id(recipe.output)
@@ -113,20 +116,48 @@ fn furnace_can_cook(mut tx worldrt.WorldTx, x int, y int, z int) bool {
 	return output.count < item.max_stack_size(recipe.output)
 }
 
+// variant_cooks reports whether a cooking block will take a recipe at all. A
+// smoker only cooks food and a blast furnace only ores; a plain furnace takes
+// whatever smelts.
+fn variant_cooks(variant block.FurnaceVariant, recipe item.SmeltingRecipe) bool {
+	return match variant {
+		.furnace { true }
+		.smoker { recipe.food }
+		.blast_furnace { recipe.ores }
+	}
+}
+
 // light_furnace consumes one piece of fuel, if there is any.
 fn light_furnace(mut tx worldrt.WorldTx, x int, y int, z int, state db.FurnaceState) db.FurnaceState {
 	fuel := furnace_slot(mut tx, x, y, z, block.furnace_slot_fuel)
 	if fuel.count <= 0 || fuel.id == 0 {
 		return state
 	}
-	burn := item.fuel_burn_ticks(tx.wr.services.game_data().item_name(fuel.id)) or { return state }
-	mut remaining := fuel
-	remaining.count--
-	tx.wr.world.set_container_slot(x, y, z, block.furnace_slot_fuel, remaining)
+	burning := item.fuel(tx.wr.services.game_data().item_name(fuel.id)) or { return state }
+	tx.wr.world.set_container_slot(x, y, z, block.furnace_slot_fuel, spent_fuel(mut tx,
+		fuel, burning))
 	return db.FurnaceState{
-		burn_ticks: burn
-		burn_total: burn
+		burn_ticks: burning.burn_ticks
+		burn_total: burning.burn_ticks
 		cook_ticks: state.cook_ticks
+	}
+}
+
+fn spent_fuel(mut tx worldrt.WorldTx, fuel types.ItemStack, burning item.Fuel) types.ItemStack {
+	if burning.residue == '' {
+		mut remaining := fuel
+		remaining.count--
+		return remaining
+	}
+	residue_id := tx.wr.services.game_data().item_id(burning.residue)
+	if residue_id == 0 {
+		mut remaining := fuel
+		remaining.count--
+		return remaining
+	}
+	return types.ItemStack{
+		id:    residue_id
+		count: 1
 	}
 }
 
@@ -202,7 +233,8 @@ fn wake_furnace(mut tx worldrt.WorldTx, x int, y int, z int) {
 	if tx.wr.world.tracks_furnace(x, y, z) {
 		return
 	}
-	if !furnace_can_cook(mut tx, x, y, z) {
+	_, variant := furnace_at(tx, x, y, z) or { return }
+	if !furnace_can_cook(mut tx, x, y, z, variant) {
 		return
 	}
 	tx.wr.world.set_furnace_state(x, y, z, db.FurnaceState{})
@@ -258,4 +290,23 @@ fn furnace_screen(variant block.FurnaceVariant) proto.ContainerType {
 		.blast_furnace { proto.ContainerType.blast_furnace }
 		.smoker { proto.ContainerType.smoker }
 	}
+}
+
+// revisit_lit_furnaces queues every furnace a world loaded in its burning form
+// for one tick.
+fn (mut h Hub) revisit_lit_furnaces(mut wr worldrt.WorldRuntime) {
+	mut lit_ids := []int{cap: block.furnace_unlit_ids.len}
+	for id, _ in block.furnace_unlit_ids {
+		lit_ids << id
+	}
+	positions := wr.world.override_positions_of(lit_ids)
+	if positions.len == 0 {
+		return
+	}
+	worldrt.world_call[bool]('Hub.revisit_lit_furnaces', mut wr, fn [positions] (mut tx worldrt.WorldTx) bool {
+		for pos in positions {
+			tx.wr.world.set_furnace_state(pos.x, pos.y, pos.z, db.FurnaceState{})
+		}
+		return true
+	}) or {}
 }
