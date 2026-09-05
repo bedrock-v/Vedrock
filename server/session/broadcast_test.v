@@ -259,3 +259,4 @@ fn test_set_time_packet_roundtrip() {
 	decode_into(sent, mut decoded)!
 	assert decoded.time == 6000
 }
+

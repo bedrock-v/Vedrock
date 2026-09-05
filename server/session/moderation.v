@@ -300,7 +300,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			status: proto.PlayStatus.player_spawn
 		})
 		s.deliver(&proto.PlayerActionPacket{
-			player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+			player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 			action:            proto.PlayerActionType.change_dimension_ack
 		})
 		s.expect_teleport_ack(types.Vector3{x, y, z})

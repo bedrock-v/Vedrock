@@ -3,7 +3,6 @@ module session
 import bedrock_v.nbt
 import bedrock_v.protocol.types
 import server.world.sound
-import bedrock_v.protocol.current as proto
 import server.worldrt
 
 const music_disc_prefix = 'minecraft:music_disc_'
@@ -19,10 +18,7 @@ fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '' }
 	if current != '' {
 		tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-		tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-			block_position:  proto.block_pos(pos)
-			actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
-		})
+		broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, ''))
 		spawn_dropped_item_stack(mut tx, current, 1, center)
 		return
 	}
@@ -32,10 +28,7 @@ fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 	}
 	consume_held_item(mut s)
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, name)
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, name)
-	})
+	broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, name))
 	play_sound(mut tx, center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
 }
 

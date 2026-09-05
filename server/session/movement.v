@@ -216,7 +216,7 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 		if ctx.is_cancelled() {
 			current := s.player.movement()
 			mut move_packet := &proto.MovePlayerPacket{
-				player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+				player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 				y_head_rotation:   current.head_yaw
 				position_mode:     proto.PlayerPositionMode.respawn
 				on_ground:         false
