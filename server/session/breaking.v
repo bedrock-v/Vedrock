@@ -8,6 +8,7 @@ import server.event
 import server.item
 import server.world
 import bedrock_v.protocol.current as proto
+import server.entity
 import server.player
 import server.worldrt
 
@@ -107,11 +108,10 @@ fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPositi
 	}
 	mut wr := binding.world_runtime
 	wr.submit(BlockCrackingTask{
-		session_runtime_id: s.runtime_id
-		epoch:              binding.epoch
-		event_id:           event_id
-		pos:                pos
-		data:               data
+		id:       s.actor_id()
+		event_id: event_id
+		pos:      pos
+		data:     data
 	})
 }
 
@@ -120,8 +120,7 @@ fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPositi
 // an event queued just before a world change is discarded instead of animating
 // a block in a world the player has already left.
 struct BlockCrackingTask {
-	session_runtime_id u64
-	epoch              i64
+	id entity.ActorId
 	event_id           int
 	pos                types.BlockPosition
 	data               int
@@ -132,15 +131,14 @@ fn (t BlockCrackingTask) name() string {
 }
 
 fn (t BlockCrackingTask) run(mut tx worldrt.WorldTx) {
-	player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
+	player_for_id(mut tx, t.id) or { return }
 	broadcast_cracking(mut tx, t.event_id, t.pos, t.data)
 }
 
 // StartBreakAnimationTask emits both animations a mining start produces - the
 // initial crack and the arm swing - in one pass over the world's players.
 struct StartBreakAnimationTask {
-	session_runtime_id u64
-	epoch              i64
+	id entity.ActorId
 	pos                types.BlockPosition
 	crack_speed        int
 }
@@ -150,7 +148,7 @@ fn (t StartBreakAnimationTask) name() string {
 }
 
 fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
-	s := player_for_epoch(mut tx, t.session_runtime_id, t.epoch) or { return }
+	s := player_for_id(mut tx, t.id) or { return }
 	if t.crack_speed > 0 {
 		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
 	}
@@ -205,10 +203,9 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 	}
 	mut wr := binding.world_runtime
 	wr.submit(StartBreakAnimationTask{
-		session_runtime_id: s.runtime_id
-		epoch:              binding.epoch
-		pos:                pos
-		crack_speed:        int(break_crack_scale * speed)
+		id:          s.actor_id()
+		pos:         pos
+		crack_speed: int(break_crack_scale * speed)
 	})
 }
 

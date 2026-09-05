@@ -1,7 +1,6 @@
 module player
 
 import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
 
 // armor_slot_count is how many pieces a player wears, ordered helmet,
 // chestplate, leggings, boots - the order the client sends them in.
@@ -43,12 +42,5 @@ pub fn (p &Player) armor_stack(index int) ?types.ItemStack {
 // after the server changed it.
 pub fn (mut p Player) send_armor_slot_update(index int, wrapped types.ItemStackWrapper) {
 	mut sink := p.sink
-	sink.deliver(&proto.InventorySlotPacket{
-		container_id:        u32(armor_window_id)
-		slot:                u32(index)
-		container_name_data: proto.FullContainerName{
-			container: .armor_container
-		}
-		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
-	})
+	sink.send_armor_slot_update(index, wrapped)
 }

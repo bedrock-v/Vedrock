@@ -12,6 +12,7 @@ import server.world.db
 import server.internal.logger
 import server.worldrt
 import bedrock_v.protocol.current as proto
+import server.entity
 import server.player
 
 // The initial spawn stream paces itself so the outbound queue is not filled
@@ -142,7 +143,7 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 			level:    data.experience_level
 			progress: data.experience_progress
 		})
-		s.player.set_game_mode(player.gamemode_from_wire(data.gamemode))
+		s.player.set_game_mode(gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
 		}
@@ -170,9 +171,9 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 		proto.PlayerPermissionLevel.member
 	}
 	mut start_packet := &proto.StartGamePacket{
-		target_actor_id:                       proto.actor_unique_id(i64(s.runtime_id))
-		target_runtime_id:                     proto.actor_runtime_id(s.runtime_id)
-		actor_game_type:                       proto.game_type(player.gamemode_to_wire(s.player.game_mode()))
+		target_actor_id:                       proto.actor_unique_id(i64(self_entity_runtime_id))
+		target_runtime_id:                     proto.actor_runtime_id(self_entity_runtime_id)
+		actor_game_type:                       proto.game_type(gamemode_to_wire(s.player.game_mode()))
 		settings:                              proto.LevelSettings{
 			seed:                                         0
 			spawn_settings:                               proto.SpawnSettings{
@@ -181,7 +182,7 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 				dimension:               i32(spawn_state.dimension_id)
 			}
 			generator_type:                               spawn_state.generator_type
-			game_type:                                    proto.game_type(player.gamemode_to_wire(s.player.game_mode()))
+			game_type:                                    proto.game_type(gamemode_to_wire(s.player.game_mode()))
 			is_hardcore_enabled:                          false
 			game_difficulty:                              unsafe { proto.Difficulty(s.hub.difficulty_value()) }
 			default_spawn_block_position:                 proto.NetworkBlockPosition{
@@ -297,7 +298,7 @@ fn (mut s NetworkSession) start_game() ! {
 	})!
 	s.conn.transport.send(adventure_settings())!
 	s.conn.transport.send(s.update_attributes())!
-	s.conn.transport.send(s.set_actor_data())!
+	s.conn.transport.send(s.set_actor_data(s.player))!
 	s.log.info('${s.player.identity.display_name} joined the game')
 	s.conn.state = .play
 	if s.pending_radius > 0 {
@@ -543,9 +544,8 @@ fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []proto
 	}
 	mut wr := binding.world_runtime
 	return wr.try_submit(ChunkDeliveryTask{
-		runtime_id: s.runtime_id
-		epoch:      binding.epoch
-		packets:    batch
+		id:      s.actor_id()
+		packets: batch
 	})
 }
 
@@ -553,8 +553,7 @@ fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []proto
 // captured world binding, then queues it for delivery. Chunk streaming only
 // runs for spawned players, so normal send_batch is sufficient here.
 struct ChunkDeliveryTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	packets    []protocol.Packet
 }
 
@@ -563,7 +562,7 @@ fn (t ChunkDeliveryTask) name() string {
 }
 
 fn (t ChunkDeliveryTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return }
 	s.send_batch(t.packets) or {}
 }
 
@@ -1043,32 +1042,29 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		// share one world actor call. Existing players are collected before
 		// registration so the joining player is never included in its own list.
 		// Later transfers use change_world's deregister/rebind/register path.
-		list_add_pkt := s.player_list_add_packet()
-		add_player_pkt := s.add_player_packet()
-		self := s.self_ref()
-		deliver_packets := worldrt.world_call[[]protocol.Packet]('PlayerInitialized', mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx worldrt.WorldTx) []protocol.Packet {
-			mut out := []protocol.Packet{}
+		mut self := s.self_ref()
+		// The joining session is shown everyone already here and everyone
+		// already here is shown the joiner. Both directions are built by the
+		// viewer being shown because the id in each packet is that viewer's
+		// own numbering.
+		worldrt.world_call[bool]('PlayerInitialized', mut wr, fn [mut self] (mut tx worldrt.WorldTx) bool {
 			for mut a in tx.wr.entities.player_actors() {
-				if mut a is NetworkSession {
-					out << a.player_list_add_packet()
-					out << a.add_player_packet()
-				}
+				mut other := as_network_session(mut a) or { continue }
+				self.view_player_added(other.player)
 			}
 			register_player(mut tx, self)
-			tx.wr.broadcast_world(list_add_pkt)
-			tx.wr.broadcast_world_except(self.runtime_id, add_player_pkt)
-			for e in tx.wr.entities.snapshot() {
-				out << e.spawn_packet()
+			for mut v in viewers_except(mut tx, self.runtime_id) {
+				v.view_player_added(self.player)
 			}
-			return out
-		}) or { []protocol.Packet{} }
-		for pkt in deliver_packets {
-			s.deliver(pkt)
-		}
+			for e in tx.wr.entities.snapshot() {
+				self.view_entity_spawn(e)
+			}
+			return true
+		}) or { false }
 	}
 	s.hub.add(s)
 	if !isnil(wr) {
-		s.player.send_active_effects(mut wr)
+		s.player.show_active_effects(mut wr)
 	}
 	mut ctx := event.new_context(player.JoinData{
 		player:  s.player
@@ -1094,4 +1090,15 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 fn (mut s NetworkSession) refresh_available_commands() {
 	available := s.hub.commands.available_commands(s)
 	s.deliver(available)
+}
+
+// adventure_settings is the world wide movement and name tag policy, sent once
+// on spawn. It says nothing about the player so it takes none.
+fn adventure_settings() &proto.UpdateAdventureSettingsPacket {
+	return &proto.UpdateAdventureSettingsPacket{
+		adventure_settings: proto.AdventureSettings{
+			show_name_tags: true
+			auto_jump:      true
+		}
+	}
 }

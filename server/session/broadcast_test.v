@@ -101,11 +101,7 @@ fn test_raw_text_packet_roundtrip() {
 }
 
 fn test_update_abilities_roundtrip() {
-	mut s := &NetworkSession{
-		player:     player.new_player()
-		runtime_id: 7
-	}
-	s.player.sink = s
+	mut s := named_session('Alex', 7)
 	s.player.set_game_mode(.creative)
 	sent := &proto.UpdateAbilitiesPacket{
 		data: s.build_abilities()
@@ -113,9 +109,11 @@ fn test_update_abilities_roundtrip() {
 	assert roundtrip_packet(sent)!.name() == 'UpdateAbilitiesPacket'
 	mut decoded := proto.UpdateAbilitiesPacket{}
 	decode_into(sent, mut decoded)!
-	assert decoded.data.target_player_raw_id == 7
+	// A session's own abilities name it by the self id, not by its server
+	// wide runtime id.
+	assert decoded.data.target_player_raw_id == i64(self_entity_runtime_id)
 	assert decoded.data.layers.len == 1
-	assert decoded.data.layers[0].ability_values & player.ability_bit(proto.ability_may_fly) != 0
+	assert decoded.data.layers[0].ability_values & ability_bit(proto.ability_may_fly) != 0
 }
 
 fn test_block_update_flags_match_reference_servers() {
@@ -123,19 +121,13 @@ fn test_block_update_flags_match_reference_servers() {
 }
 
 fn test_mob_effect_packet_roundtrip() {
-	mut s := &NetworkSession{
-		player:     player.new_player()
-		runtime_id: 7
-	}
-	// The packet names the player by the sink's runtime id, so the session has
-	// to be wired up as the sink before it reports anything but zero.
-	s.player.sink = s
-	sent := s.player.mob_effect_packet(effect.new(effect.regeneration, 2, 5 * time.second),
+	mut s := named_session('Alex', 7)
+	sent := s.mob_effect_packet(s.player, effect.new(effect.regeneration, 2, 5 * time.second),
 		proto.MobEffectEvent.add)
 	assert roundtrip_packet(sent)!.name() == 'MobEffectPacket'
 	mut decoded := proto.MobEffectPacket{}
 	decode_into(sent, mut decoded)!
-	assert decoded.target_runtime_id.value == 7
+	assert decoded.target_runtime_id.value == self_entity_runtime_id
 	assert decoded.event_id == proto.MobEffectEvent.add
 	assert decoded.effect_id == effect.regeneration.id
 	assert decoded.effect_amplifier == 1
@@ -175,33 +167,57 @@ fn test_player_list_add_roundtrip_with_skin() {
 	}
 }
 
-fn test_add_player_roundtrip() {
-	s := &NetworkSession{
+fn named_session(name string, runtime_id u64) &NetworkSession {
+	mut s := &NetworkSession{
 		player:     &player.Player{
 			identity: auth.Identity{
-				display_name: 'Alex'
+				display_name: name
 			}
 		}
-		runtime_id: 9
+		runtime_id: runtime_id
 	}
-	sent := s.add_player_packet()
+	s.player.sink = s
+	s.player.runtime_id = runtime_id
+	return s
+}
+
+fn test_add_player_roundtrip() {
+	mut subject := named_session('Alex', 9)
+	mut viewer := named_session('Bob', 4)
+
+	sent := viewer.add_player_packet(subject.player)
 	assert roundtrip_packet(sent)!.name() == 'AddPlayerPacket'
 	mut decoded := proto.AddPlayerPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.player_name == 'Alex'
-	assert decoded.target_runtime_id.value == 9
+	assert decoded.target_runtime_id.value == self_entity_runtime_id + 1
+}
+
+fn test_runtime_ids_are_per_viewer() {
+	mut subject := named_session('Alex', 9)
+	mut first := named_session('Bob', 4)
+	mut second := named_session('Cara', 7)
+
+	// second has already been shown someone else, so its numbering has moved
+	// on before it ever sees subject.
+	second.wire_id_for(4)
+
+	assert first.wire_id_for(subject.runtime_id) != second.wire_id_for(subject.runtime_id)
+	assert first.wire_id_for(first.runtime_id) == self_entity_runtime_id
+	assert second.wire_id_for(second.runtime_id) == self_entity_runtime_id
+	// Asking twice hands back the same number or a client would see the
+	// player it is watching jump to a new actor every packet.
+	assert first.wire_id_for(subject.runtime_id) == first.wire_id_for(subject.runtime_id)
+	// A world change drops the numbering; it means nothing on the other side.
+	before := first.wire_id_for(subject.runtime_id)
+	first.forget_wire_ids()
+	assert first.wire_id_for(99) == before
 }
 
 fn test_add_player_visible_nametag_metadata() {
-	s := &NetworkSession{
-		player:     &player.Player{
-			identity: auth.Identity{
-				display_name: 'Alex'
-			}
-		}
-		runtime_id: 9
-	}
-	p := s.add_player_packet()
+	mut subject := named_session('Alex', 9)
+	mut viewer := named_session('Bob', 4)
+	p := viewer.add_player_packet(subject.player)
 	assert p.entity_data.len == 9
 	assert p.entity_data[0].data_item_id == proto.meta_key_flags
 	assert p.entity_data[2].data_item_id == proto.meta_key_name

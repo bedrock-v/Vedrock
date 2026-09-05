@@ -1,10 +1,8 @@
 module entity
 
-import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.world
 import server.effect
-import bedrock_v.protocol.current as proto
 
 // gravity and drag are applied per tick to any entity that is not marked
 // no_gravity. Values are in blocks/tick, matching Bedrock's ~0.08 gravity and
@@ -12,7 +10,7 @@ import bedrock_v.protocol.current as proto
 const gravity = f32(0.08)
 const drag = f32(0.02)
 
-const mob_max_health = f32(20.0)
+pub const mob_max_health = f32(20.0)
 
 const fall_damage_safe_distance = f32(3.0)
 
@@ -101,12 +99,12 @@ pub fn (mut e Entity) hurt(mut host Host, amount f32, fatal bool, source_runtime
 	if e.health < 0 {
 		e.health = 0
 	}
-	host.broadcast(&proto.ActorEventPacket{
-		target_runtime_id: proto.actor_runtime_id(e.runtime_id)
-		event_id:          proto.ActorEvent.hurt
-		data:              0
-	})
-	host.broadcast(e.health_update_packet())
+	for mut v in host.viewers() {
+		v.view_entity_hurt(e)
+	}
+	for mut v in host.viewers() {
+		v.view_entity_health(e)
+	}
 	if e.health <= 0 {
 		e.kill()
 		if mut e.behaviour is DeathBehaviour {
@@ -127,7 +125,9 @@ pub fn (mut e Entity) heal(mut host Host, amount f32) {
 	if e.health > mob_max_health {
 		e.health = mob_max_health
 	}
-	host.broadcast(e.health_update_packet())
+	for mut v in host.viewers() {
+		v.view_entity_health(e)
+	}
 }
 
 // teleport moves the entity to pos and resets its ground clamp there.
@@ -372,147 +372,3 @@ fn math_floor(v f32) f32 {
 
 // spawn_packet builds the packet that makes this entity appear for a
 // viewer. Public so the session layer can send it to players joining late.
-pub fn (e &Entity) spawn_packet() protocol.Packet {
-	if e.behaviour is ItemBehaviour {
-		item_stack := e.behaviour.stack
-		mut packet := &proto.AddItemActorPacket{
-			target_actor_id:   proto.actor_unique_id(e.unique_id)
-			target_runtime_id: proto.actor_runtime_id(e.runtime_id)
-			item:              proto.item_descriptor(item_stack)
-			entity_data:       e.metadata_entries()
-			from_fishing:      false
-		}
-		packet.position[0] = e.pos.x
-		packet.position[1] = e.pos.y
-		packet.position[2] = e.pos.z
-		packet.velocity[0] = e.velocity.x
-		packet.velocity[1] = e.velocity.y
-		packet.velocity[2] = e.velocity.z
-		return packet
-	}
-	mut packet := &proto.AddActorPacket{
-		target_actor_id:   proto.actor_unique_id(e.unique_id)
-		target_runtime_id: proto.actor_runtime_id(e.runtime_id)
-		actor_type:        e.identifier
-		y_head_rotation:   e.head_yaw
-		y_body_rotation:   e.yaw
-		attributes:        e.attribute_entries()
-		actor_data:        e.metadata_entries()
-		synced_properties: proto.PropertySyncData{}
-		actor_links:       []proto.ActorLink{}
-	}
-	packet.position[0] = e.pos.x
-	packet.position[1] = e.pos.y
-	packet.position[2] = e.pos.z
-	packet.velocity[0] = e.velocity.x
-	packet.velocity[1] = e.velocity.y
-	packet.velocity[2] = e.velocity.z
-	packet.rotation[0] = e.pitch
-	packet.rotation[1] = e.yaw
-	return packet
-}
-
-// attribute_entries builds the health attribute the client needs at spawn
-// time.
-fn (e &Entity) attribute_entries() proto.AttributeEntries {
-	return [
-		proto.AttributeEntry{
-			attribute_name: 'minecraft:health'
-			min_value:      0.0
-			current_value:  e.health
-			max_value:      mob_max_health
-		},
-	]
-}
-
-// health_update_packet reports the current health attribute to observers.
-// Used whenever health changes after spawn (hurt/heal) so a client watching
-// this entity's health bar actually sees the new value.
-fn (e &Entity) health_update_packet() &proto.UpdateAttributesPacket {
-	return &proto.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(e.runtime_id)
-		attribute_list:          [
-			proto.AttributeData{
-				min_value:           0.0
-				max_value:           mob_max_health
-				current_value:       e.health
-				default_min:         0.0
-				default_max:         mob_max_health
-				default_value:       mob_max_health
-				attribute_name:      'minecraft:health'
-				attribute_modifiers: []proto.AttributeModifier{}
-			},
-		]
-		ticks_since_sim_started: 0
-	}
-}
-
-// entity_flag_bit computes the metadata flag bitmask contribution for the
-// flag at index.
-fn entity_flag_bit(index int) i64 {
-	return i64(u64(1) << u64(index))
-}
-
-fn (e &Entity) metadata_entries() []proto.DataItem {
-	mut flags := i64(0)
-	if e.dimensions.has_collision {
-		flags |= entity_flag_bit(proto.entity_flag_has_collision)
-	}
-	if !e.no_gravity {
-		flags |= entity_flag_bit(proto.entity_flag_affected_by_gravity)
-	}
-	return [
-		proto.DataItem{
-			data_item_id:   proto.meta_key_flags
-			data_item_type: proto.DataItemInt64{
-				value: flags
-			}
-		},
-		proto.DataItem{
-			data_item_id:   proto.meta_key_scale
-			data_item_type: proto.DataItemFloat{
-				value: f32(1.0)
-			}
-		},
-		proto.DataItem{
-			data_item_id:   proto.meta_key_width
-			data_item_type: proto.DataItemFloat{
-				value: e.dimensions.width
-			}
-		},
-		proto.DataItem{
-			data_item_id:   proto.meta_key_height
-			data_item_type: proto.DataItemFloat{
-				value: e.dimensions.height
-			}
-		},
-	]
-}
-
-// move_packet builds the movement update broadcast each tick the entity moves.
-pub fn (e &Entity) move_packet() &proto.MoveActorAbsolutePacket {
-	mut flags := 0
-	if e.on_ground {
-		flags = proto.move_actor_flag_on_ground
-	}
-	return &proto.MoveActorAbsolutePacket{
-		move_data: proto.MoveActorAbsoluteData{
-			actor_runtime_id: proto.actor_runtime_id(e.runtime_id)
-			header:           i8(flags)
-			position_x:       e.pos.x
-			position_y:       e.pos.y
-			position_z:       e.pos.z
-			rotation_x:       proto.rotation_byte(e.pitch)
-			rotation_y:       proto.rotation_byte(e.yaw)
-			rotation_y_head:  proto.rotation_byte(e.head_yaw)
-		}
-	}
-}
-
-// despawn_packet builds the RemoveActorPacket that removes this entity from a
-// viewer.
-pub fn (e &Entity) despawn_packet() &proto.RemoveActorPacket {
-	return &proto.RemoveActorPacket{
-		target_actor_id: proto.actor_unique_id(e.unique_id)
-	}
-}

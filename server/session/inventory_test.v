@@ -4,6 +4,7 @@ import time
 import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.internal.logger
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
@@ -160,8 +161,7 @@ fn test_mob_equipment_stale_epoch_produces_no_effect() {
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
 
 	task := PlayerMobEquipmentTask{
-		runtime_id:  s.runtime_id
-		epoch:       stale_epoch
+		id:          entity.new_actor_id(s.runtime_id, stale_epoch)
 		hotbar_slot: 4
 		item:        types.ItemStackWrapper{
 			item_stack: types.ItemStack{
@@ -227,7 +227,7 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 		},
 	]
 	worldrt.world_call[[]proto.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx worldrt.WorldTx) []proto.ItemStackResponseInfo {
-		return process_item_stack_requests(mut tx, rid, epoch, requests)
+		return process_item_stack_requests(mut tx, entity.new_actor_id(rid, epoch), requests)
 	}) or { []proto.ItemStackResponseInfo{} }
 
 	_, net := s.inventory_stack_at(0)

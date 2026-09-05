@@ -4,13 +4,11 @@ import sync
 import sync.stdatomic
 import time
 import rand
-import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.block
 import server.entity
 import server.world.db
 import server.internal.logger
-import bedrock_v.protocol.current as proto
 
 // max_world_catchup_ticks bounds how many simulation steps a WorldRuntime
 // replays in a single run_due_tick call. Debt beyond this is not skipped by
@@ -252,17 +250,16 @@ pub fn (mut tx WorldTx) on_block_changed(x int, y int, z int) {
 }
 
 pub fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
-	tx.wr.broadcast_world(update_block_packet(x, y, z, id))
+	tx.wr.show_block(x, y, z, id)
 }
 
-// update_block_packet builds the packet both WorldTx.broadcast_block and
-// WorldLiquidHost.set_block_id send, avoiding duplicating the field list.
-fn update_block_packet(x int, y int, z int, id int) &proto.UpdateBlockPacket {
-	return &proto.UpdateBlockPacket{
-		block_position:   proto.block_pos(types.BlockPosition{x, y, z})
-		block_runtime_id: u32(id)
-		flags:            block_update_flags
-		layer:            0
+// show_block tells every player in this world which block now stands at the
+// position. Both WorldTx.broadcast_block and WorldLiquidHost.set_block_id
+// report the same thing, and neither decides what it looks like on the wire.
+fn (mut wr WorldRuntime) show_block(x int, y int, z int, id int) {
+	pos := types.BlockPosition{x, y, z}
+	for mut v in wr.entities.player_viewers() {
+		v.view_block_update(pos, id)
 	}
 }
 
@@ -272,23 +269,26 @@ pub fn (mut wr WorldRuntime) handle(h Handler) {
 	wr.handler = h
 }
 
-// broadcast_world sends p to every player registered with this world.
-// Call it only from this world's runtime thread, usually inside a WorldTx
-// or world_call because the actor registry is not protected by a lock.
-pub fn (mut wr WorldRuntime) broadcast_world(p protocol.Packet) {
-	for mut v in wr.entities.player_viewers() {
-		v.deliver(p)
-	}
+// viewers returns every player registered with this world as something that
+// can be shown what happened.
+//
+// Call it only from this world's runtime thread: the actor registry is not
+// protected by a lock.
+pub fn (mut wr WorldRuntime) viewers() []entity.Viewer {
+	return wr.entities.player_viewers()
 }
 
-// broadcast_world_except sends p to every player in this world except the
-// given runtime ID. Call it only from this world's runtime thread.
-pub fn (mut wr WorldRuntime) broadcast_world_except(except_runtime_id u64, p protocol.Packet) {
+// viewers_except returns every player registered with this world but the one
+// with the given runtime ID for the events whose cause renders them itself.
+// It carries the same threading rule as viewers.
+pub fn (mut wr WorldRuntime) viewers_except(except_runtime_id u64) []entity.Viewer {
+	mut list := []entity.Viewer{}
 	for mut v in wr.entities.player_viewers() {
 		if v.runtime_id() != except_runtime_id {
-			v.deliver(p)
+			list << v
 		}
 	}
+	return list
 }
 
 // WorldLiquidHost adapts one WorldRuntime to block.Host. Its methods run on
@@ -308,7 +308,7 @@ fn (mut h WorldLiquidHost) get_block(x int, y int, z int) int {
 
 fn (mut h WorldLiquidHost) set_block_id(id int, x int, y int, z int) {
 	h.wr.world.set_block(x, y, z, id)
-	h.wr.broadcast_world(update_block_packet(x, y, z, id))
+	h.wr.show_block(x, y, z, id)
 }
 
 pub fn (mut wr WorldRuntime) submit(task WorldTask) bool {

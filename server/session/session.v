@@ -73,7 +73,15 @@ mut:
 	// capture it at submission and drop stale work after a world switch.
 	world_epoch i64
 	// world_mutex guards world/generator/world_runtime/world_epoch.
-	world_mutex                 &sync.Mutex = sync.new_mutex()
+	world_mutex &sync.Mutex = sync.new_mutex()
+	// wire_ids/wire_actors are this session's own numbering for the actors it
+	// has been shown in both directions. See wire_ids.v; they are touched
+	// from the world actor while it renders and from the session thread while
+	// it decodes. So they take a lock.
+	wire_ids                    map[u64]u64
+	wire_actors                 map[u64]u64
+	next_wire_id                u64         = self_entity_runtime_id
+	wire_id_mutex               &sync.Mutex = sync.new_mutex()
 	runtime_id                  u64
 	spawned                     bool
 	inv_opened                  bool
@@ -170,6 +178,7 @@ fn (mut s NetworkSession) set_world_binding(wr &worldrt.WorldRuntime, generator 
 	s.generator = generator
 	s.world_epoch++
 	s.world_mutex.unlock()
+	s.forget_wire_ids()
 }
 
 fn (s &NetworkSession) world_binding() WorldBinding {
@@ -197,6 +206,14 @@ fn (s &NetworkSession) is_player() bool {
 
 fn (s &NetworkSession) runtime_id() u64 {
 	return s.runtime_id
+}
+
+// actor_id names this session for as long as it stays in the world it is bound
+// to now. Work submitted with it stops resolving the moment the session changes
+// worlds which is the point: the runtime id alone would still find them in a
+// world the work was never meant for.
+fn (s &NetworkSession) actor_id() entity.ActorId {
+	return entity.new_actor_id(s.runtime_id, s.world_binding().epoch)
 }
 
 // is_spawned reports the session's own spawn flag to the player.Sink. The
@@ -274,6 +291,7 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		log:                log
 	}
 	s.player.sink = s
+	s.player.runtime_id = s.runtime_id
 	return s
 }
 
@@ -319,10 +337,8 @@ fn (mut s NetworkSession) leave() {
 	mut wr := s.current_world_runtime()
 	if !isnil(wr) {
 		rid := s.runtime_id
-		list_remove_pkt := s.player_list_remove_packet()
-		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx worldrt.WorldTx) bool {
+		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, held_container] (mut tx worldrt.WorldTx) bool {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
 			s.release_crafting_state(mut tx)
@@ -330,8 +346,9 @@ fn (mut s NetworkSession) leave() {
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}
-			tx.wr.broadcast_world(list_remove_pkt)
-			tx.wr.broadcast_world(remove_pkt)
+			for mut v in viewers_of(mut tx) {
+				v.view_player_removed(s.player)
+			}
 			return true
 		}) or {}
 	}

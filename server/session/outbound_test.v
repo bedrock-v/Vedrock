@@ -8,6 +8,8 @@ import server.internal.auth
 import server.internal.logger
 import server.player
 import server.world
+import server.world.sound
+import bedrock_v.protocol.types
 import server.world.db
 import bedrock_v.protocol.current as proto
 import server.worldrt
@@ -228,7 +230,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	done := chan bool{cap: 1}
 	spawn fn [mut wr, done] () {
 		worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
-			tx.wr.broadcast_world(text_packet('hello'))
+			play_sound(mut tx, types.Vector3{}, sound.Click{})
 			return true
 		}) or {}
 		done <- true
@@ -540,7 +542,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	done := chan bool{cap: 1}
 	spawn fn [mut wr_a, done] () {
 		worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
-			tx.wr.broadcast_world(text_packet('broadcast'))
+			play_sound(mut tx, types.Vector3{}, sound.Click{})
 			return true
 		}) or {}
 		done <- true
@@ -557,7 +559,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
 	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {
-		tx.wr.broadcast_world(text_packet('other world'))
+		play_sound(mut tx, types.Vector3{}, sound.Click{})
 		return true
 	}) or { panic('world b broadcast rejected - unaffected by world a overflow') }
 	assert wait_for_sent_len(other_world_transport, 1, 2000)

@@ -1,6 +1,7 @@
 module session
 
 import server.effect
+import server.entity
 import server.worldrt
 
 // Effects live on player.Player. What is left here is the way into them: a
@@ -13,8 +14,7 @@ import server.worldrt
 // player_for_epoch so a stale request (submitted before a world switch)
 // produces zero side effects, same as the block-write tasks.
 struct PlayerAddEffectTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	effect     effect.Effect
 }
 
@@ -23,13 +23,12 @@ fn (t PlayerAddEffectTask) name() string {
 }
 
 fn (t PlayerAddEffectTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return }
 	s.player.add_effect(mut tx, t.effect)
 }
 
 struct PlayerRemoveEffectTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	typ        effect.Type
 }
 
@@ -38,7 +37,7 @@ fn (t PlayerRemoveEffectTask) name() string {
 }
 
 fn (t PlayerRemoveEffectTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return }
 	s.player.remove_effect(mut tx, t.typ)
 }
 
@@ -48,9 +47,8 @@ fn (mut s NetworkSession) add_effect(e effect.Effect) {
 		return
 	}
 	wr.submit(PlayerAddEffectTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-		effect:     e
+		id:     s.actor_id()
+		effect: e
 	})
 }
 
@@ -60,8 +58,7 @@ fn (mut s NetworkSession) remove_effect(typ effect.Type) {
 		return
 	}
 	wr.submit(PlayerRemoveEffectTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-		typ:        typ
+		id:  s.actor_id()
+		typ: typ
 	})
 }

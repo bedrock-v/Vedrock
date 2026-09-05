@@ -1,13 +1,9 @@
 module player
 
 import math
-import bedrock_v.protocol.current as proto
 import server.effect
 import server.event
 import server.worldrt
-
-const mob_effect_add = proto.MobEffectEvent.add
-const mob_effect_remove = proto.MobEffectEvent.remove
 
 // The player's status effects.
 //
@@ -41,7 +37,7 @@ pub fn (mut p Player) add_effect(mut tx worldrt.WorldTx, e effect.Effect) {
 			p.apply_effect_tick(mut tx, result.effect)
 		}
 	}
-	p.send_effect(mut tx.wr, result.effect)
+	p.show_effect(mut tx, result.effect)
 }
 
 // remove_effect strips typ from the player early, before it would have run
@@ -57,7 +53,7 @@ pub fn (mut p Player) remove_effect(mut tx worldrt.WorldTx, typ effect.Type) {
 	}
 	removed := p.take_effect(typ) or { return }
 	p.apply_effect_end(removed)
-	p.send_effect_removal(mut tx.wr, typ)
+	p.show_effect_removal(mut tx, typ)
 }
 
 // tick_effects advances the player's active effects one tick during the owning
@@ -70,59 +66,51 @@ pub fn (mut p Player) tick_effects(mut tx worldrt.WorldTx) {
 	}
 	for e in result.expired {
 		p.apply_effect_end(e)
-		p.send_effect_removal(mut tx.wr, e.effect_type())
+		p.show_effect_removal(mut tx, e.effect_type())
 	}
 }
 
-// send_active_effects replays every effect the player is already under, for a
-// client that has just arrived and knows about none of them.
-pub fn (mut p Player) send_active_effects(mut wr worldrt.WorldRuntime) {
-	for e in p.active_effects() {
-		p.send_effect(mut wr, e)
-	}
-}
-
-// send_effect shows e on the player. The removal first clears whatever the
-// clients are already drawing for that effect, so a refreshed duration or a
-// raised level replaces the old one rather than stacking with it.
-pub fn (mut p Player) send_effect(mut wr worldrt.WorldRuntime, e effect.Effect) {
-	p.send_effect_removal(mut wr, e.effect_type())
-	p.send_mob_effect(mut wr, e, mob_effect_add)
-}
-
-// Effect packets are visible only to players in the same world.
-pub fn (mut p Player) send_effect_removal(mut wr worldrt.WorldRuntime, typ effect.Type) {
+// show_effect and show_effect_removal put one effect on or off the player for
+// everyone who can see them. A client that has not spawned is not in the world
+// yet and has nobody to show it to.
+fn (mut p Player) show_effect(mut tx worldrt.WorldTx, e effect.Effect) {
 	mut sink := p.sink
 	if !sink.is_spawned() {
 		return
 	}
-	wr.broadcast_world(&proto.MobEffectPacket{
-		target_runtime_id: proto.actor_runtime_id(sink.runtime_id())
-		event_id:          mob_effect_remove
-		effect_id:         typ.id
-	})
+	for mut v in p.viewers(mut tx) {
+		v.view_effect_added(p, e)
+	}
 }
 
-pub fn (mut p Player) send_mob_effect(mut wr worldrt.WorldRuntime, e effect.Effect, event_id proto.MobEffectEvent) {
+fn (mut p Player) show_effect_removal(mut tx worldrt.WorldTx, typ effect.Type) {
 	mut sink := p.sink
 	if !sink.is_spawned() {
 		return
 	}
-	wr.broadcast_world(p.mob_effect_packet(e, event_id))
+	for mut v in p.viewers(mut tx) {
+		v.view_effect_removed(p, typ)
+	}
 }
 
-// mob_effect_packet is one effect as the other clients in the world see it.
-pub fn (p &Player) mob_effect_packet(e effect.Effect, event_id proto.MobEffectEvent) &proto.MobEffectPacket {
-	mut sink := p.sink
-	return &proto.MobEffectPacket{
-		target_runtime_id:     proto.actor_runtime_id(sink.runtime_id())
-		event_id:              event_id
-		effect_id:             e.effect_type().id
-		effect_amplifier:      e.level() - 1
-		show_particles:        !e.particles_hidden()
-		effect_duration_ticks: e.duration_ticks()
-		tick:                  u64(e.tick())
-		ambient:               e.ambient()
+// show_active_effects replays every effect the player is already under to
+// everyone in the world, for a player who has just joined and whose effects
+// nobody has been told about yet.
+//
+// It takes the runtime rather than a transaction because it is called on the
+// session thread as the join completes which is where it was called from
+// before the viewers existed.
+pub fn (mut p Player) show_active_effects(mut wr worldrt.WorldRuntime) {
+	active := p.active_effects()
+	if active.len == 0 {
+		return
+	}
+	for mut v in wr.viewers() {
+		if mut v is Viewer {
+			for e in active {
+				v.view_effect_added(p, e)
+			}
+		}
 	}
 }
 
@@ -202,11 +190,9 @@ fn (mut p Player) damage_from_effect(mut tx worldrt.WorldTx, amount f32, fatal b
 	p.send_health()
 	mut sink := p.sink
 	if sink.is_spawned() {
-		tx.wr.broadcast_world(&proto.ActorEventPacket{
-			target_runtime_id: proto.actor_runtime_id(sink.runtime_id())
-			event_id:          proto.ActorEvent.hurt
-			data:              0
-		})
+		for mut v in p.viewers(mut tx) {
+			v.view_hurt(p)
+		}
 	}
 	if p.health() <= 0 {
 		p.die(mut tx, '%death.attack.magic', [p.identity.display_name])

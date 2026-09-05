@@ -2,7 +2,6 @@ module player
 
 import math
 import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
 import server.player.playerdb
 
 // max_food_level is a full hunger bar, and initial_saturation is what a fresh
@@ -317,21 +316,3 @@ fn clamp_saturation(value f32, food_level int) f32 {
 	return math.min(math.max(f32(0), value), f32(food_level))
 }
 
-// hunger_update is the hunger bar alone, for the common case where nothing
-// else about the player changed.
-pub fn (p &Player) hunger_update() &proto.UpdateAttributesPacket {
-	state := p.hunger()
-	mut sink := p.sink
-	return &proto.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(sink.runtime_id())
-		attribute_list:          [
-			player_attribute('minecraft:player.hunger', 0.0, f32(max_food_level),
-				f32(state.food_level)),
-			player_attribute('minecraft:player.saturation', 0.0, f32(max_food_level),
-				state.saturation),
-			player_attribute('minecraft:player.exhaustion', 0.0, exhaustion_threshold,
-				state.exhaustion),
-		]
-		ticks_since_sim_started: 0
-	}
-}
