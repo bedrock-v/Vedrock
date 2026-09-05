@@ -42,24 +42,23 @@ pub interface WorldTask {
 	name() string
 }
 
-// WorldRuntime owns one world's actor and serializes its simulation state.
-// External callers submit WorldTasks; task code accesses the world through
-// WorldTx. Actor owned fields must not be accessed directly from other threads.
-@[heap]
 // block_update_flags is the UpdateBlockPacket flag set every block change is
 // sent with: neighbours plus network.
 pub const block_update_flags = 11
 
+// WorldRuntime owns one world's actor and serializes its simulation state.
+// External callers submit WorldTasks; task code accesses the world through
+// WorldTx. Actor owned fields must not be accessed directly from other threads.
 @[heap]
 pub struct WorldRuntime {
 pub mut:
 	// The shared substrate a world task works on. Public because gameplay code
 	// outside this module runs on the actor and needs them; everything below
 	// belongs to the actor alone and stays private to it.
-	world          &db.World = unsafe { nil }
-	entities       &entity.Manager = unsafe { nil }
+	world          &db.World          = unsafe { nil }
+	entities       &entity.Manager    = unsafe { nil }
 	chunk_service  &WorldChunkService = unsafe { nil }
-	task_scheduler &WorldScheduler = unsafe { nil }
+	task_scheduler &WorldScheduler    = unsafe { nil }
 	// services is the slice of the surrounding server a world task may need.
 	// The actor's own work never touches it.
 	services Services
@@ -68,7 +67,7 @@ pub mut:
 	// sessions through it.
 	generators GeneratorFactory
 	// handler receives what happens in this world without a player causing it.
-	handler Handler = NopHandler{}
+	handler Handler              = NopHandler{}
 	liquids &block.LiquidManager = unsafe { nil }
 mut:
 	// players advances the players in this world once per simulated step. The
@@ -113,7 +112,6 @@ mut:
 	// simulation debt (requested - simulated) without taking tick_mutex.
 	published_latest_tick &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 
-
 	// Cross thread metric snapshots. The world thread publishes simulation
 	// values, session threads publish outbound values and other threads only
 	// read them.
@@ -131,13 +129,13 @@ mut:
 	// actor owned and must not be read from another thread. The list is
 	// deliberately unbounded (see its own comment), so depth is the only
 	// signal that a task is rescheduling itself without making progress.
-	published_continuation_depth      &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
-	published_continuation_peak       &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_continuation_depth &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+	published_continuation_peak  &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	// actor_thread identifies the thread running run_jobs, published once
 	// before the loop starts. Other threads read it to detect a call that
 	// would block waiting for the actor it is already running on. It reads as
 	// 0 until the actor starts, so the check fails open rather than wrong.
-	actor_thread 					  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
+	actor_thread &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	// longest_task_name uses the runtime mutex because V atomics can't store
 	// strings. It is updated only when a task sets a new duration record.
 	longest_task_name string
@@ -240,7 +238,11 @@ pub fn (mut tx WorldTx) set_block(x int, y int, z int, id int) {
 }
 
 pub fn (mut tx WorldTx) place_water(x int, y int, z int) {
-	tx.wr.liquids.place_source(x, y, z)
+	tx.wr.liquids.place_liquid_source(.water, x, y, z)
+}
+
+pub fn (mut tx WorldTx) place_lava(x int, y int, z int) {
+	tx.wr.liquids.place_liquid_source(.lava, x, y, z)
 }
 
 pub fn (mut tx WorldTx) on_block_changed(x int, y int, z int) {
@@ -648,8 +650,8 @@ pub:
 	// Continuation backlog now and at its high water mark. Continuations are
 	// actor owned follow up work for tasks that yielded; a depth that keeps
 	// climbing means something is rescheduling itself faster than it retires.
-	continuation_depth 			   i64
-	continuation_peak  			   i64
+	continuation_depth i64
+	continuation_peak  i64
 }
 
 pub fn (mut wr WorldRuntime) metrics() WorldMetrics {

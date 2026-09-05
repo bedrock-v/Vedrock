@@ -38,6 +38,10 @@ struct Pos {
 	z int
 }
 
+// lava_tick_divisor is how many liquid ticks pass between two steps of a lava
+// cell. Lava crawls where water runs, and this is the whole difference.
+pub const lava_tick_divisor = 6
+
 // LiquidManager owns the set of block positions that still need a liquid
 // update and processes them on the actor thread each tick. It holds no world
 // of its own - the Host it is handed reads and writes blocks.
@@ -46,28 +50,17 @@ pub struct LiquidManager {
 mut:
 	host    Host
 	pending map[string]Pos
-	// water_states maps every known water network id to its resolved cell so the
-	// manager can tell water apart from other blocks when it reads the world.
-	water_states map[int]WaterState
-	air_id       int
+	air_id  int
+	// ticks counts the liquid ticks this manager has run, so lava can be held
+	// back to its own slower rate without a second queue.
+	ticks i64
 }
 
-// new_manager builds a LiquidManager bound to host and precomputes the water id
-// table (all source, flowing and falling states) once.
+// new_manager builds a LiquidManager bound to host.
 pub fn new_manager(host Host) &LiquidManager {
-	mut states := map[int]WaterState{}
-	src := new_source()
-	states[src.network_id()] = src
-	fall := new_falling()
-	states[fall.network_id()] = fall
-	for depth := 1; depth <= max_flow_depth; depth++ {
-		w := new_flowing(depth)
-		states[w.network_id()] = w
-	}
 	return &LiquidManager{
-		host:         host
-		water_states: states
-		air_id:       world.air.network_id
+		host:   host
+		air_id: world.air.network_id
 	}
 }
 
@@ -77,7 +70,13 @@ fn key(x int, y int, z int) string {
 
 // place_source sets a water source at the position and queues it for spreading.
 pub fn (mut m LiquidManager) place_source(x int, y int, z int) {
-	m.host.set_block_id(new_source().network_id(), x, y, z)
+	m.place_liquid_source(.water, x, y, z)
+}
+
+// place_liquid_source sets a source of the given fluid and queues it for
+// spreading.
+pub fn (mut m LiquidManager) place_liquid_source(kind LiquidKind, x int, y int, z int) {
+	m.host.set_block_id(new_liquid_source(kind).network_id(), x, y, z)
 	m.enqueue(x, y, z)
 }
 
@@ -99,37 +98,48 @@ pub fn (m &LiquidManager) pending_count() int {
 	return m.pending.len
 }
 
-// water_at returns the resolved water cell at a position, or none if the block
-// there is not water.
-fn (mut m LiquidManager) water_at(x int, y int, z int) ?WaterState {
-	id := m.host.get_block(x, y, z)
-	return m.water_states[id] or { return none }
+// liquid_at returns the resolved liquid cell at a position, or none if the
+// block there is not a liquid.
+fn (mut m LiquidManager) liquid_at(x int, y int, z int) ?LiquidState {
+	return liquid_at_id(m.host.get_block(x, y, z))
 }
 
-// is_water reports whether the block at a position is any water cell.
-fn (mut m LiquidManager) is_water(x int, y int, z int) bool {
-	if _ := m.water_at(x, y, z) {
+// liquid_of_kind_at returns the cell at a position only when it holds the
+// fluid asked for.
+fn (mut m LiquidManager) liquid_of_kind_at(kind LiquidKind, x int, y int, z int) ?LiquidState {
+	state := m.liquid_at(x, y, z) or { return none }
+	if state.kind != kind {
+		return none
+	}
+	return state
+}
+
+// is_liquid_of_kind reports whether the block at a position is that fluid.
+fn (mut m LiquidManager) is_liquid_of_kind(kind LiquidKind, x int, y int, z int) bool {
+	if _ := m.liquid_of_kind_at(kind, x, y, z) {
 		return true
 	}
 	return false
 }
 
-// can_flow_into reports whether water may spread into the cell. For now only
-// air and existing water are replaceable - solid terrain blocks the flow.
+// can_flow_into reports whether a liquid may spread into the cell. Air and any
+// liquid are replaceable - solid terrain blocks the flow.
 fn (mut m LiquidManager) can_flow_into(x int, y int, z int) bool {
 	id := m.host.get_block(x, y, z)
 	if id == m.air_id {
 		return true
 	}
-	return id in m.water_states
+	return id in liquid_states
 }
 
 // tick drains up to max_cells_per_tick queued cells and processes each. Cells a
 // processed cell touches (neighbours it fills, or itself when it changes) are
 // re-queued for the next call, so the flow advances one ring per call. The
 // world runtime only calls this every few ticks, which is what sets the vanilla
-// flow rate. Runs on the owning world's actor thread.
+// flow rate. Lava is held back further, to its own slower rate. Runs on the
+// owning world's actor thread.
 pub fn (mut m LiquidManager) tick() {
+	m.ticks++
 	if m.pending.len == 0 {
 		return
 	}
@@ -143,7 +153,14 @@ pub fn (mut m LiquidManager) tick() {
 	for p in batch {
 		m.pending.delete(key(p.x, p.y, p.z))
 	}
+	lava_moves := m.ticks % lava_tick_divisor == 0
 	for p in batch {
+		if !lava_moves && m.is_liquid_of_kind(.lava, p.x, p.y, p.z) {
+			// Hold the cell over rather than dropping it: lava still has to
+			// move, just not on this tick.
+			m.enqueue(p.x, p.y, p.z)
+			continue
+		}
 		m.process(p.x, p.y, p.z)
 	}
 }
@@ -151,83 +168,134 @@ pub fn (mut m LiquidManager) tick() {
 // process runs one cell's flow step: dry up if unfed, fall straight down, then
 // spread outwards with decayed depth.
 fn (mut m LiquidManager) process(x int, y int, z int) {
-	cur := m.water_at(x, y, z) or { return }
+	cur := m.liquid_at(x, y, z) or { return }
+	if m.solidified_by_contact(cur, x, y, z) {
+		return
+	}
 
 	// A flowing cell with no feeding source nearby dries up toward air.
 	if !cur.is_source() && !m.source_around(cur, x, y, z) {
+		decay := cur.spread_decay()
 		mut next_depth := 0
-		if cur.depth - 2 * spread_decay > 0 {
-			next_depth = cur.depth - 2 * spread_decay
+		if cur.depth - 2 * decay > 0 {
+			next_depth = cur.depth - 2 * decay
 		}
 		if next_depth <= 0 {
 			m.set_air(x, y, z)
 		} else {
-			m.set_water(new_flowing(next_depth), x, y, z)
+			m.set_liquid(new_liquid_flowing(cur.kind, next_depth), x, y, z)
 			m.enqueue_neighbours(x, y, z)
 		}
 		return
 	}
 
-	// Falling: pour straight down into air/water below.
+	// Falling: pour straight down into air/liquid below.
 	below_falls := m.can_flow_into(x, y - 1, z)
 	if below_falls {
-		m.flow_into(new_falling(), x, y - 1, z)
+		m.flow_into(new_liquid_falling(cur.kind), x, y - 1, z)
 	}
 
 	// Once resting on ground (or a source), spread outwards with decayed depth.
 	if cur.is_source() || !below_falls {
-		spread_depth := cur.depth - spread_decay
+		spread_depth := cur.depth - cur.spread_decay()
 		if spread_depth <= 0 {
 			return
 		}
-		m.spread_outwards(new_flowing(spread_depth), x, y, z)
+		m.spread_outwards(new_liquid_flowing(cur.kind, spread_depth), x, y, z)
 	}
 }
 
-// spread_outwards flows the decayed water into each horizontal neighbour.
-fn (mut m LiquidManager) spread_outwards(w WaterState, x int, y int, z int) {
-	m.flow_into(w, x + 1, y, z)
-	m.flow_into(w, x - 1, y, z)
-	m.flow_into(w, x, y, z + 1)
-	m.flow_into(w, x, y, z - 1)
+// solidified_by_contact turns a lava cell that has met water into the rock the
+// contact makes, and reports whether it did. A lava source becomes obsidian, a
+// flowing one cobblestone - the same two outcomes as in game, decided by which
+// of the two the lava was.
+fn (mut m LiquidManager) solidified_by_contact(cur LiquidState, x int, y int, z int) bool {
+	if cur.kind != .lava || !m.water_touching(x, y, z) {
+		return false
+	}
+	solid := if cur.is_source() { world.obsidian } else { world.cobblestone }
+	m.harden(solid.network_id, Pos{x, y, z})
+	return true
 }
 
-// flow_into writes w into the target cell if it may flow there and the target
-// isn't already an equal-or-fuller water cell, then queues the target.
-fn (mut m LiquidManager) flow_into(w WaterState, x int, y int, z int) {
+// water_touching reports whether water sits beside or above a cell.
+//
+// The cell directly below is deliberately not counted. Lava resting on water
+// pours down into it and turns that water to stone which it cannot do if the
+// water underneath hardens it where it stands first.
+fn (mut m LiquidManager) water_touching(x int, y int, z int) bool {
+	return m.is_liquid_of_kind(.water, x + 1, y, z) || m.is_liquid_of_kind(.water, x - 1, y, z)
+		|| m.is_liquid_of_kind(.water, x, y, z + 1) || m.is_liquid_of_kind(.water, x, y, z - 1)
+		|| m.is_liquid_of_kind(.water, x, y + 1, z)
+}
+
+// spread_outwards flows the decayed liquid into each horizontal neighbour.
+fn (mut m LiquidManager) spread_outwards(l LiquidState, x int, y int, z int) {
+	m.flow_into(l, x + 1, y, z)
+	m.flow_into(l, x - 1, y, z)
+	m.flow_into(l, x, y, z + 1)
+	m.flow_into(l, x, y, z - 1)
+}
+
+// flow_into writes l into the target cell if it may flow there and the target
+// isn't already an equal-or-fuller cell of the same fluid, then queues the
+// target. Flowing into the opposite fluid makes rock instead.
+fn (mut m LiquidManager) flow_into(l LiquidState, x int, y int, z int) {
 	if !m.can_flow_into(x, y, z) {
 		return
 	}
-	if existing := m.water_at(x, y, z) {
+	if existing := m.liquid_at(x, y, z) {
+		if existing.kind != l.kind {
+			m.mix_into(l, existing, x, y, z)
+			return
+		}
 		// Don't overwrite an equal or fuller cell and never demote a source or
 		// a falling column
 		if existing.is_source() {
 			return
 		}
-		if existing.falling && !w.falling {
+		if existing.falling && !l.falling {
 			return
 		}
-		if !w.falling && existing.depth >= w.depth && !existing.falling {
+		if !l.falling && existing.depth >= l.depth && !existing.falling {
 			return
 		}
 	}
-	m.set_water(w, x, y, z)
+	m.set_liquid(l, x, y, z)
 	m.enqueue(x, y, z)
 }
 
-// source_around reports whether a horizontally adjacent or overhead water cell
-// feeds this one. A cell fed from above (falling) or by a fuller neighbour stays
-// wet; otherwise it dries up. Also counts adjacent sources for source-forming.
-fn (mut m LiquidManager) source_around(cur WaterState, x int, y int, z int) bool {
-	// Water directly above feeds this cell (it is falling into it).
-	if m.is_water(x, y + 1, z) {
+// mix_into resolves one fluid arriving where the other already is.
+fn (mut m LiquidManager) mix_into(arriving LiquidState, existing LiquidState, x int, y int, z int) {
+	if arriving.kind == .lava {
+		m.harden(world.stone.network_id, Pos{x, y, z})
+		return
+	}
+	solid := if existing.is_source() { world.obsidian } else { world.cobblestone }
+	m.harden(solid.network_id, Pos{x, y, z})
+}
+
+// harden writes the rock a fluid contact made and wakes the cells around it
+// which may now be unfed or free to flow.
+fn (mut m LiquidManager) harden(id int, at Pos) {
+	m.host.set_block_id(id, at.x, at.y, at.z)
+	m.enqueue_neighbours(at.x, at.y, at.z)
+}
+
+// source_around reports whether a horizontally adjacent or overhead cell of the
+// same fluid feeds this one. A cell fed from above (falling) or by a fuller
+// neighbour stays wet; otherwise it dries up. Also counts adjacent sources for
+// source-forming, which only water does.
+fn (mut m LiquidManager) source_around(cur LiquidState, x int, y int, z int) bool {
+	// Liquid directly above feeds this cell (it is falling into it).
+	if m.is_liquid_of_kind(cur.kind, x, y + 1, z) {
 		return true
 	}
 	mut adjacent_sources := 0
 	mut fed := false
 	offsets := [[1, 0], [-1, 0], [0, 1], [0, -1]]
 	for o in offsets {
-		side := m.water_at(x + o[0], y, z + o[1]) or { continue }
+		side := m.liquid_of_kind_at(cur.kind, x + o[0], y, z + o[1]) or { continue }
 		if side.is_source() {
 			adjacent_sources++
 		}
@@ -235,9 +303,11 @@ fn (mut m LiquidManager) source_around(cur WaterState, x int, y int, z int) bool
 			fed = true
 		}
 	}
-	// Two adjacent sources form a new source here if there is solid ground below.
-	if adjacent_sources >= min_adjacent_sources && !m.can_flow_into(x, y - 1, z) {
-		m.set_water(new_source(), x, y, z)
+	// Two adjacent water sources form a new source here if there is solid
+	// ground below. Lava never does this.
+	if cur.kind == .water && adjacent_sources >= min_adjacent_sources
+		&& !m.can_flow_into(x, y - 1, z) {
+		m.set_liquid(new_liquid_source(cur.kind), x, y, z)
 		m.enqueue_neighbours(x, y, z)
 		return true
 	}
@@ -254,8 +324,8 @@ fn (mut m LiquidManager) enqueue_neighbours(x int, y int, z int) {
 	m.enqueue(x, y - 1, z)
 }
 
-fn (mut m LiquidManager) set_water(w WaterState, x int, y int, z int) {
-	m.host.set_block_id(w.network_id(), x, y, z)
+fn (mut m LiquidManager) set_liquid(l LiquidState, x int, y int, z int) {
+	m.host.set_block_id(l.network_id(), x, y, z)
 }
 
 fn (mut m LiquidManager) set_air(x int, y int, z int) {
