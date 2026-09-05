@@ -1,10 +1,6 @@
 module entity
 
 import server.effect
-import bedrock_v.protocol.current as proto
-
-const mob_effect_add = proto.MobEffectEvent.add
-const mob_effect_remove = proto.MobEffectEvent.remove
 
 // add_effect stores ef on e and syncs it to viewers.
 pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
@@ -15,17 +11,17 @@ pub fn (mut e Entity) add_effect(mut host Host, ef effect.Effect) {
 	if !result.stored {
 		e.apply_effect_tick(mut host, result.effect)
 	}
-	host.broadcast(e.mob_effect_packet(result.effect, mob_effect_add))
+	for mut v in host.viewers() {
+		v.view_entity_effect_added(e, result.effect)
+	}
 }
 
 // remove_effect strips typ from e, if present, and tells viewers.
 pub fn (mut e Entity) remove_effect(mut host Host, typ effect.Type) {
 	e.effects.remove(typ) or { return }
-	host.broadcast(&proto.MobEffectPacket{
-		target_runtime_id: proto.actor_runtime_id(e.runtime_id)
-		event_id:          mob_effect_remove
-		effect_id:         typ.id
-	})
+	for mut v in host.viewers() {
+		v.view_entity_effect_removed(e, typ)
+	}
 }
 
 // active_effects lists every effect currently active on e.
@@ -41,24 +37,9 @@ fn (mut e Entity) tick_effects(mut host Host) {
 		e.apply_effect_tick(mut host, ef)
 	}
 	for ef in result.expired {
-		host.broadcast(&proto.MobEffectPacket{
-			target_runtime_id: proto.actor_runtime_id(e.runtime_id)
-			event_id:          mob_effect_remove
-			effect_id:         ef.effect_type().id
-		})
-	}
-}
-
-fn (e &Entity) mob_effect_packet(ef effect.Effect, event_id proto.MobEffectEvent) &proto.MobEffectPacket {
-	return &proto.MobEffectPacket{
-		target_runtime_id:     proto.actor_runtime_id(e.runtime_id)
-		event_id:              event_id
-		effect_id:             ef.effect_type().id
-		effect_amplifier:      ef.level() - 1
-		show_particles:        !ef.particles_hidden()
-		effect_duration_ticks: ef.duration_ticks()
-		tick:                  u64(ef.tick())
-		ambient:               ef.ambient()
+		for mut v in host.viewers() {
+			v.view_entity_effect_removed(e, ef.effect_type())
+		}
 	}
 }
 

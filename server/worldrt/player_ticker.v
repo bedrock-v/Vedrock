@@ -9,3 +9,15 @@ pub interface PlayerTicker {
 mut:
 	tick_players(mut tx WorldTx)
 }
+
+// BlockEntityTicker advances the blocks in a world that keep running state of
+// their own - a furnace part way through cooking, and whatever else comes to
+// need it.
+//
+// It exists for the same reason PlayerTicker does: the world runtime owns the
+// clock, but what a furnace does with a tick is gameplay the runtime cannot
+// reach.
+pub interface BlockEntityTicker {
+mut:
+	tick_block_entities(mut tx WorldTx)
+}

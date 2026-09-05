@@ -168,7 +168,7 @@ enabled = ${cfg.resource_packs}
 dir = "${cfg.resource_packs_dir}"
 force = ${cfg.force_resource_packs}
 allow-client-packs = ${cfg.allow_client_packs}
-# cdn-packs format: uuid,version,url,size ; separated by ";"
+# cdn-packs format: uuid,version,url,size,content-key ; separated by ";"
 cdn-packs = "${cfg.cdn_packs}"
 
 [paths]

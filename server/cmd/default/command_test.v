@@ -32,38 +32,40 @@ fn base_ctx() cmd.Context {
 
 struct RecordingSender {
 mut:
-	messages         []string
-	broadcasts       []string
-	gamemode         ?player.Gamemode
-	perm             permission.Permissible
-	peers            map[string]cmd.Sender
-	sender_name      string = 'Steve'
-	killed           bool
-	disconnected     bool
-	disconnect_msg   string
-	pos_x            f32
-	pos_y            f32
-	pos_z            f32
-	cleared          bool
-	given_id         string
-	given_count      int
-	given_ok         bool = true
-	whitelisted      []string
-	whitelist_on     bool
-	difficulty_value int
-	shown_title      string
-	broadcast_titles []string
-	is_player_val    bool = true
-	sent_form        ?form.Form
-	worlds           []string
-	unloaded_worlds  []string
-	created_dim      string
-	created_gen      string
-	tp_world         string
-	bossbar_text     string
-	scoreboard_title string
-	scoreboard_lines []string
-	scoreboard_shown bool
+	messages                []string
+	broadcasts              []string
+	gamemode                ?player.Gamemode
+	perm                    permission.Permissible
+	peers                   map[string]cmd.Sender
+	sender_name             string = 'Steve'
+	killed                  bool
+	disconnected            bool
+	disconnect_msg          string
+	pos_x                   f32
+	pos_y                   f32
+	pos_z                   f32
+	cleared                 bool
+	given_id                string
+	given_experience        int
+	given_experience_levels int
+	given_count             int
+	given_ok                bool = true
+	whitelisted             []string
+	whitelist_on            bool
+	difficulty_value        int
+	shown_title             string
+	broadcast_titles        []string
+	is_player_val           bool = true
+	sent_form               ?form.Form
+	worlds                  []string
+	unloaded_worlds         []string
+	created_dim             string
+	created_gen             string
+	tp_world                string
+	bossbar_text            string
+	scoreboard_title        string
+	scoreboard_lines        []string
+	scoreboard_shown        bool
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -113,6 +115,8 @@ fn (mut s RecordingSender) position() types.Vector3 {
 
 fn (mut s RecordingSender) place_water(x int, y int, z int) {}
 
+fn (mut s RecordingSender) place_lava(x int, y int, z int) {}
+
 fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 	s.pos_x = x
 	s.pos_y = y
@@ -121,6 +125,18 @@ fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 
 fn (mut s RecordingSender) clear_inventory() {
 	s.cleared = true
+}
+
+fn (mut s RecordingSender) give_experience(points int) {
+	s.given_experience += points
+}
+
+fn (mut s RecordingSender) give_experience_levels(levels int) {
+	s.given_experience_levels += levels
+}
+
+fn (s RecordingSender) experience_level() int {
+	return s.given_experience_levels
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -390,7 +406,7 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 14
+	assert pkt.commands.len == 15
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := proto.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
@@ -398,7 +414,7 @@ fn test_available_commands_roundtrip() {
 	assert decoded.name() == 'AvailableCommandsPacket'
 	mut available := proto.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 14
+	assert available.commands.len == 15
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }
@@ -540,4 +556,55 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
 	protocol.read_packet_header(mut r)!
 	out.decode_payload(mut r)!
+}
+
+fn test_xp_command_gives_points_to_the_sender() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/xp 30', mut sender, base_ctx())!
+	assert sender.given_experience == 30
+	assert sender.given_experience_levels == 0
+}
+
+fn test_xp_command_reads_the_level_suffix() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/xp 5L', mut sender, base_ctx())!
+	assert sender.given_experience_levels == 5
+	assert sender.given_experience == 0
+}
+
+fn test_xp_command_targets_another_player() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/xp 12 Alex', mut sender, base_ctx())!
+	assert target.given_experience == 12
+	assert sender.given_experience == 0
+}
+
+fn test_xp_command_rejects_a_malformed_amount() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/xp lots', mut sender, base_ctx())!
+	assert sender.given_experience == 0
+	assert sender.messages[0].contains('Usage')
+}
+
+fn test_xp_command_denied_without_op() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	r.dispatch('/xp 10', mut sender, base_ctx())!
+	assert sender.given_experience == 0
+	assert sender.messages[0].contains('permission')
 }
