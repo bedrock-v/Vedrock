@@ -6,6 +6,7 @@ import bedrock_v.protocol
 import bedrock_v.protocol.types
 import bedrock_v.nbt
 import server.event
+import server.block
 import server.world
 import server.world.db
 import server.internal.logger
@@ -49,7 +50,7 @@ fn saved_body_clear(id int) bool {
 }
 
 fn saved_floor_solid(id int) bool {
-	return id != world.air.network_id && id != world.water.network_id && id != world.lava.network_id
+	return id != world.air.network_id && block.liquid_at_id(id) == none
 }
 
 fn safe_player_position(gen world.Generator, pos types.Vector3) bool {
@@ -170,8 +171,8 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 		proto.PlayerPermissionLevel.member
 	}
 	mut start_packet := &proto.StartGamePacket{
-		target_actor_id:                       proto.actor_unique_id(i64(s.runtime_id))
-		target_runtime_id:                     proto.actor_runtime_id(s.runtime_id)
+		target_actor_id:                       proto.actor_unique_id(i64(self_entity_runtime_id))
+		target_runtime_id:                     proto.actor_runtime_id(self_entity_runtime_id)
 		actor_game_type:                       proto.game_type(gamemode_to_wire(s.player.game_mode()))
 		settings:                              proto.LevelSettings{
 			seed:                                         0

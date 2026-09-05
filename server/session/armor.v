@@ -4,6 +4,8 @@ import math
 import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.version.v2168.packets as versioned
+import server.entity
+import server.world.sound
 import server.item
 import server.player
 
@@ -83,8 +85,11 @@ fn (mut s NetworkSession) damage_armor_piece(index int, amount int) {
 		s.player.delete_stack(net)
 		s.player.delete_slot(slot)
 		s.player.send_armor_slot_update(index, empty_stack())
-		s.hub.broadcast(proto.level_sound_event(sound_armor_break, s.current_position(), -1,
-			'minecraft:player', s.runtime_id))
+		s.broadcast_actor_sound(s.current_position(), sound.Custom{ name: sound_armor_break },
+			entity.SoundSource{
+			actor:      s.runtime_id
+			identifier: player_actor_identifier
+		})
 		s.broadcast_armor()
 		return
 	}
@@ -137,15 +142,25 @@ fn (s &NetworkSession) armor_content_packet() &proto.InventoryContentPacket {
 // else. The packet has no alias in the protocol's current set yet, so it is
 // reached through the version it was last changed in - the same one the
 // current MobEquipmentPacket alias points at.
+//
+// One packet is built per recipient rather than once for all of them: the
+// wearer is a different number to every client and only the recipient can
+// say which.
 fn (s &NetworkSession) broadcast_armor() {
-	mut packet := &versioned.MobArmorEquipmentPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		head:              s.armor_descriptor(0)
-		torso:             s.armor_descriptor(1)
-		legs:              s.armor_descriptor(2)
-		feet:              s.armor_descriptor(3)
-		body:              proto.item_descriptor_v2(types.ItemStack{})
-	}
+	head := s.armor_descriptor(0)
+	torso := s.armor_descriptor(1)
+	legs := s.armor_descriptor(2)
+	feet := s.armor_descriptor(3)
+	wearer := s.runtime_id
 	mut hub := s.hub
-	hub.broadcast(packet)
+	for mut target in hub.snapshot() {
+		target.deliver(&versioned.MobArmorEquipmentPacket{
+			target_runtime_id: proto.actor_runtime_id(target.wire_id_for(wearer))
+			head:              head
+			torso:             torso
+			legs:              legs
+			feet:              feet
+			body:              proto.item_descriptor_v2(types.ItemStack{})
+		})
+	}
 }

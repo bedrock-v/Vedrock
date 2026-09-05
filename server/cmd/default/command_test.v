@@ -115,6 +115,8 @@ fn (mut s RecordingSender) position() types.Vector3 {
 
 fn (mut s RecordingSender) place_water(x int, y int, z int) {}
 
+fn (mut s RecordingSender) place_lava(x int, y int, z int) {}
+
 fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 	s.pos_x = x
 	s.pos_y = y

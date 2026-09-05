@@ -363,13 +363,13 @@ fn (s &NetworkSession) supported_by_ground() bool {
 	pos := s.current_position()
 	below := s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y - ground_probe_depth)),
 		int(math.floor(pos.z)))
-	return below != world.air.network_id && below != world.water.network_id
+	return below != world.air.network_id && block.liquid_at_id(below) == none
 }
 
 // head_submerged reports whether the player's eyes are inside water, which
 // slows mining down the same way vanilla does.
 fn (s &NetworkSession) head_submerged() bool {
 	pos := s.current_position()
-	return s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y + player_eye_height)),
-		int(math.floor(pos.z))) == world.water.network_id
+	return block.is_water_id(s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y +
+		player_eye_height)), int(math.floor(pos.z))))
 }

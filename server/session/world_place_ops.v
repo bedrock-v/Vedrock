@@ -1,7 +1,9 @@
 module session
 
 import bedrock_v.protocol.types
+import server.entity
 import server.event
+import server.world.sound
 import server.world
 import server.block
 import server.item
@@ -149,10 +151,7 @@ fn create_sign_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id 
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, '')
-	})
+	broadcast_block_entity(mut tx, pos, build_sign_nbt(pos.x, pos.y, pos.z, ''))
 }
 
 // create_note_tile initializes a newly placed note block's block entity
@@ -163,10 +162,7 @@ fn create_note_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id 
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '0')
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_note_block_nbt(pos.x, pos.y, pos.z, 0)
-	})
+	broadcast_block_entity(mut tx, pos, build_note_block_nbt(pos.x, pos.y, pos.z, 0))
 }
 
 // create_jukebox_tile initializes a newly placed jukebox's block entity
@@ -177,10 +173,7 @@ fn create_jukebox_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
-	})
+	broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, ''))
 }
 
 fn maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
@@ -296,8 +289,11 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 	}
 	tx.set_block(pos.x, pos.y, pos.z, new_id)
 	if result.sound != '' {
-		tx.wr.broadcast_world(proto.level_sound_event(result.sound, s.current_position(), -1,
-			'minecraft:player', s.runtime_id))
+		play_actor_sound(mut tx, s.current_position(), sound.Custom{ name: result.sound },
+			entity.SoundSource{
+			actor:      s.runtime_id
+			identifier: player_actor_identifier
+		})
 	}
 	broadcast_swing(mut tx, s)
 	if s.player.game_mode() != .creative {

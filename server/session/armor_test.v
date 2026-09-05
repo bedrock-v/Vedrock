@@ -1,6 +1,12 @@
 module session
 
+import time
+import bedrock_v.protocol
+import bedrock_v.protocol.serializer
 import bedrock_v.protocol.types
+import bedrock_v.protocol.version.v2168.packets as versioned
+import server.internal.gamedata
+import server.internal.logger
 import server.item
 import server.player
 import bedrock_v.protocol.current as proto
@@ -111,4 +117,78 @@ fn test_worn_pieces_live_in_the_inventory_that_clearing_empties() {
 	if _ := pl.armor_stack(0) {
 		assert false, 'a worn piece survived its slot being cleared'
 	}
+}
+
+// Armour is worn by one player and rendered by all the others, and the wearer
+// is a different number to each of them. Building the packet once and handing
+// it to everyone names the wearer in the server's own numbering, which is a
+// number the recipient either does not know or has given to somebody else.
+fn test_armor_names_the_wearer_in_each_recipients_own_numbering() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut wearer_transport := &FakeTransport{}
+	mut wearer := armor_broadcast_session(mut hub, mut wearer_transport)
+	mut viewer_transport := &FakeTransport{}
+	mut viewer := armor_broadcast_session(mut hub, mut viewer_transport)
+
+	// The viewer meets somebody else before it ever sees the wearer, so its
+	// numbering for the wearer cannot coincide with the wearer's global id.
+	viewer.wire_id_for(4321)
+	expected := viewer.wire_id_for(wearer.runtime_id)
+	assert expected != wearer.runtime_id
+
+	wearer.broadcast_armor()
+
+	assert wait_for_sent_len(viewer_transport, 1, 2000)
+	mut decoded := versioned.MobArmorEquipmentPacket{}
+	decode_into(viewer_transport.sent[0], mut decoded)!
+	assert decoded.target_runtime_id.value == expected
+
+	// The wearer sees itself in the packet too, and to itself it is always
+	// the same constant.
+	assert wait_for_sent_len(wearer_transport, 1, 2000)
+	mut own := versioned.MobArmorEquipmentPacket{}
+	decode_into(wearer_transport.sent[0], mut own)!
+	assert own.target_runtime_id.value == self_entity_runtime_id
+}
+
+fn armor_broadcast_session(mut hub Hub, mut transport FakeTransport) &NetworkSession {
+	mut s := &NetworkSession{
+		player:     player.new_player()
+		runtime_id: hub.allocate_runtime_id()
+		conn:       &Conn{
+			transport: transport
+			bootstrap: true
+		}
+		hub:        hub
+		log:        logger.new(.info)
+	}
+	hub.add(s)
+	s.activate_outbound()
+	return s
+}
+
+// The two helpers below are per file by this module's test convention: v test
+// compiles one _test.v at a time, so each one carries what it uses.
+fn decode_into[T](p protocol.Packet, mut out T) ! {
+	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
+	protocol.read_packet_header(mut r)!
+	out.decode_payload(mut r)!
+}
+
+fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
+	mut remaining := timeout_ms * time.millisecond
+	for transport.sent.len < want {
+		waited_from := time.now()
+		select {
+			_ := <-transport.sent_notify {}
+			remaining {
+				return transport.sent.len >= want
+			}
+		}
+		remaining -= time.now() - waited_from
+		if remaining <= 0 {
+			return transport.sent.len >= want
+		}
+	}
+	return true
 }

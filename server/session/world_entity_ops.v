@@ -13,8 +13,8 @@ const los_sample_step = f32(0.5)
 
 // WorldEntityHost adapts one worldrt.WorldRuntime to entity.Host, scoping every
 // query and broadcast to sessions and blocks in this world only, the same
-// isolation WorldLiquidHost and broadcast_world already give block writes
-// and liquid spread. Its methods run on the owning world actor, since
+// isolation WorldLiquidHost already gives block writes and liquid spread.
+// Its methods run on the owning world actor, since
 // entity.Manager.tick() dispatches into Behaviour.tick() which calls back
 // into these, so returning a live &Entity here is safe. Code outside the
 // actor has to snapshot instead (see worldrt.world_call usage in combat.v).

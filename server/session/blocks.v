@@ -6,6 +6,7 @@ import server.event
 import server.world
 import server.block
 import server.item
+import server.world.sound
 import bedrock_v.protocol.current as proto
 import server.entity
 import server.player
@@ -249,8 +250,11 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	if result.sound == '' {
 		return
 	}
-	s.hub.broadcast(proto.level_sound_event(result.sound, s.current_position(), -1,
-		'minecraft:player', s.runtime_id))
+	s.broadcast_actor_sound(s.current_position(), sound.Custom{ name: result.sound },
+		entity.SoundSource{
+		actor:      s.runtime_id
+		identifier: player_actor_identifier
+	})
 }
 
 fn (mut s NetworkSession) handle_player_action(p proto.PlayerActionPacket) ! {
@@ -686,11 +690,18 @@ fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWr
 		container_id:       .inventory
 		should_select_slot: true
 	}) or {}
-	s.hub.broadcast_except(s.runtime_id, &proto.MobEquipmentPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		item:              proto.item_descriptor_v2(wrapped.item_stack)
-		slot:              i8(slot)
-		selected_slot:     i8(slot)
-		container_id:      .inventory
-	})
+	holder := s.runtime_id
+	mut hub := s.hub
+	for mut target in hub.snapshot() {
+		if target.runtime_id == holder {
+			continue
+		}
+		target.deliver(&proto.MobEquipmentPacket{
+			target_runtime_id: proto.actor_runtime_id(target.wire_id_for(holder))
+			item:              proto.item_descriptor_v2(wrapped.item_stack)
+			slot:              i8(slot)
+			selected_slot:     i8(slot)
+			container_id:      .inventory
+		})
+	}
 }

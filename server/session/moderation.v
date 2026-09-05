@@ -121,9 +121,14 @@ fn (mut s NetworkSession) position() types.Vector3 {
 	return s.current_position()
 }
 
-// place_water targets the default world through Hub's block API.
+// place_water and place_lava target the default world through Hub's block API.
+
 fn (mut s NetworkSession) place_water(x int, y int, z int) {
 	s.hub.place_water(x, y, z)
+}
+
+fn (mut s NetworkSession) place_lava(x int, y int, z int) {
+	s.hub.place_lava(x, y, z)
 }
 
 // request_teleport completes the binding and position update synchronously.
@@ -300,7 +305,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 			status: proto.PlayStatus.player_spawn
 		})
 		s.deliver(&proto.PlayerActionPacket{
-			player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+			player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 			action:            proto.PlayerActionType.change_dimension_ack
 		})
 		s.expect_teleport_ack(types.Vector3{x, y, z})

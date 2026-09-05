@@ -9,12 +9,12 @@ import server.worldrt
 //
 // It speaks in events rather than packets: a verb reports what happened and
 // the viewer decides what that looks like on the wire. That is the whole point
-// of the interface and the reason a player will eventually stop knowing the
-// Bedrock wire format at all.
+// of the interface and the reason a player doesn't know the Bedrock wire
+// format.
 //
-// It embeds entity.Viewer because the same sessions are still reached by
-// broadcast_world elsewhere and both paths have to name the same thing while
-// the two coexist.
+// It embeds entity.Viewer because the sessions in a world are reached through
+// that interface too, for the entity and world events a player has no verb
+// for. One session answers to both names.
 pub interface Viewer {
 	entity.Viewer
 mut:

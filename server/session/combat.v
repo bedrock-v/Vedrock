@@ -4,6 +4,7 @@ import math
 import bedrock_v.protocol.types
 import server.effect
 import server.event
+import server.world.sound
 import server.item
 import bedrock_v.protocol.current as proto
 import server.entity
@@ -73,8 +74,15 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 		for mut v in tx.wr.viewers() {
 			v.view_actor_critical_hit(victim_actor.runtime_id())
 		}
-		tx.wr.broadcast_world(proto.level_sound_event(sound_attack_strong,
-			victim_actor.current_position(), -1, 'minecraft:player', victim_actor.runtime_id()))
+		play_actor_sound(mut tx, victim_actor.current_position(), sound.Custom{
+			name: sound_attack_strong
+		}, entity.SoundSource{
+			actor: victim_actor.runtime_id()
+			// The victim may be a mob and this reports it as a player. That
+			// predates the per viewer numbering and is left as it was: naming
+			// it properly needs an actor type on entity.Actor.
+			identifier: player_actor_identifier
+		})
 	}
 }
 
@@ -171,8 +179,10 @@ fn (mut s NetworkSession) handle_entity_interact(wire_id u64) {
 		s.replace_held_item(result.replaces_with)
 	}
 	if result.sound != '' {
-		s.hub.broadcast(proto.level_sound_event(result.sound, snap.pos, -1, snap.identifier,
-			target_runtime_id))
+		s.broadcast_actor_sound(snap.pos, sound.Custom{ name: result.sound }, entity.SoundSource{
+			actor:      target_runtime_id
+			identifier: snap.identifier
+		})
 	}
 }
 
@@ -308,14 +318,14 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	s.deliver(s.health_update())
 	mut respawn_packet := &proto.RespawnPacket{
 		state:             proto.PlayerRespawnState.ready_to_spawn
-		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 	}
 	respawn_packet.position[0] = current.position.x
 	respawn_packet.position[1] = current.position.y
 	respawn_packet.position[2] = current.position.z
 	s.deliver(respawn_packet)
 	mut move_packet := &proto.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		y_head_rotation:   current.head_yaw
 		position_mode:     proto.PlayerPositionMode.respawn
 		on_ground:         false
@@ -356,7 +366,7 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 		z: dz / dist * force
 	}
 	mut motion_packet := &proto.SetActorMotionPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		target_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		server_tick:       0
 	}
 	motion_packet.motion[0] = motion.x

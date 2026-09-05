@@ -78,6 +78,10 @@ fn (mut c ConsoleSender) place_water(x int, y int, z int) {
 	c.hub.place_water(x, y, z)
 }
 
+fn (mut c ConsoleSender) place_lava(x int, y int, z int) {
+	c.hub.place_lava(x, y, z)
+}
+
 fn (mut c ConsoleSender) clear_inventory() {}
 
 fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
