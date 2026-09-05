@@ -73,6 +73,9 @@ mut:
 	// players advances the players in this world once per simulated step. The
 	// runtime can't do it itself: a player is a session concept.
 	players PlayerTicker
+	// block_entities advances the blocks with running state of their own,
+	// once per simulated step.
+	block_entities BlockEntityTicker
 	// Guards lifecycle state and in flight submission accounting. It must not
 	// be held during blocking channel operations.
 	mutex     &sync.Mutex = sync.new_mutex()
@@ -146,11 +149,12 @@ mut:
 // runtime has no route back to a session.
 pub struct RuntimeConfig {
 pub:
-	world      &db.World = unsafe { nil }
-	services   Services
-	generators GeneratorFactory
-	handler    Handler = NopHandler{}
-	players    PlayerTicker
+	world          &db.World = unsafe { nil }
+	services       Services
+	generators     GeneratorFactory
+	handler        Handler = NopHandler{}
+	players        PlayerTicker
+	block_entities BlockEntityTicker
 	// entity_host builds the entity manager's host once the runtime exists.
 	// A function rather than a value because the host needs the runtime it
 	// belongs to.
@@ -161,11 +165,12 @@ pub:
 // its actor thread. Callers must shut it down before releasing all references.
 pub fn new_world_runtime(cfg RuntimeConfig) &WorldRuntime {
 	mut wr := &WorldRuntime{
-		services:   cfg.services
-		handler:    cfg.handler
-		generators: cfg.generators
-		players:    cfg.players
-		world:      cfg.world
+		services:       cfg.services
+		handler:        cfg.handler
+		generators:     cfg.generators
+		players:        cfg.players
+		block_entities: cfg.block_entities
+		world:          cfg.world
 	}
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.entities = entity.new_manager(cfg.entity_host(wr))
@@ -761,6 +766,7 @@ fn (mut tx WorldTx) advance_tick(target i64) {
 		}
 		wr.entities.tick()
 		wr.players.tick_players(mut tx)
+		wr.block_entities.tick_block_entities(mut tx)
 		wr.task_scheduler.heartbeat(mut tx, wr.current_tick)
 	}
 	if debt > max_world_catchup_ticks {
