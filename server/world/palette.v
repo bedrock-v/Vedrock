@@ -26,10 +26,15 @@ pub struct BlockStates {
 	count   u32
 }
 
-// StatePair is one key/value, both as indices into BlockPalette.strings.
+// StatePair is one key/value, both as indices into BlockPalette.strings, plus
+// the NBT tag the value arrived as. The string form is what lookups compare;
+// the tag is what a writer needs because a block's network id is a hash of
+// the canonical NBT and a byte state reencoded as a string is a different
+// block.
 struct StatePair {
 	key   u32
 	value u32
+	tag   u8
 }
 
 // PaletteEntry is one block state: its name, and where its pairs live in the
@@ -149,6 +154,47 @@ pub fn (s BlockStates) has(key string) bool {
 
 pub fn (s BlockStates) len() int {
 	return int(s.count)
+}
+
+// to_block_states rebuilds this entry's states with the NBT types they were
+// stored under, which is what a writer needs: a block's network id is a hash of
+// the canonical NBT, so feeding these back to new_block_with_states returns the
+// id the entry came from. get() answers lookups and returns the string form
+// instead, which can't do that.
+pub fn (s BlockStates) to_block_states() []BlockState {
+	if isnil(s.palette) {
+		return []BlockState{}
+	}
+	mut out := []BlockState{cap: int(s.count)}
+	for i in s.start .. s.start + s.count {
+		pair := s.palette.pairs[i]
+		key := s.palette.strings[pair.key]
+		value := s.palette.strings[pair.value]
+		out << match pair.tag {
+			0x08 {
+				BlockState{
+					key:        key
+					kind:       state_kind_string
+					string_val: value
+				}
+			}
+			0x03 {
+				BlockState{
+					key:       key
+					kind:      state_kind_int
+					int_value: value.int()
+				}
+			}
+			else {
+				BlockState{
+					key:        key
+					kind:       state_kind_byte
+					byte_value: u8(value.int())
+				}
+			}
+		}
+	}
+	return out
 }
 
 // load_palette reads the gzipped big-endian block palette NBT and indexes every
@@ -421,6 +467,7 @@ fn (mut r NbtReader) read_entry(mut p BlockPalette) {
 				p.pairs << StatePair{
 					key:   p.intern(sk)
 					value: p.intern(sv)
+					tag:   st
 				}
 			}
 			continue
