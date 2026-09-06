@@ -32,6 +32,10 @@ fn (mut p FakeProvider) set_container_items(x int, y int, z int, items []db.Cont
 
 fn (p &FakeProvider) each_container(cb fn (x int, y int, z int, items []db.ContainerSlotItem)) {}
 
+fn (p &FakeProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
+
+fn (mut p FakeProvider) set_player_spawn(key string, x int, y int, z int) ! {}
+
 fn (mut p FakeProvider) flush() ! {}
 
 fn (mut p FakeProvider) close() ! {}

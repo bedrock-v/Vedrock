@@ -22,10 +22,14 @@ pub interface Provider {
 	each_block(cb fn (x int, y int, z int, runtime_id int))
 	each_tile(cb fn (x int, y int, z int, text string))
 	each_container(cb fn (x int, y int, z int, items []ContainerSlotItem))
+	// each_player_spawn walks the beds players have bound themselves to in
+	// this world. key is whatever the caller identifies a player by.
+	each_player_spawn(cb fn (key string, x int, y int, z int))
 mut:
 	set_block(x int, y int, z int, runtime_id int) !
 	set_tile_text(x int, y int, z int, text string) !
 	set_container_items(x int, y int, z int, items []ContainerSlotItem) !
+	set_player_spawn(key string, x int, y int, z int) !
 	flush() !
 	close() !
 }
@@ -83,6 +87,16 @@ fn tile_key(x int, y int, z int) []u8 {
 	return b
 }
 
+// player_spawn_key is the one key here that is not a position. The player key
+// is variable length which is also what keeps it clear of the 13 byte
+// position keys above.
+fn player_spawn_key(key string) []u8 {
+	mut b := []u8{}
+	b << u8(`s`)
+	b << key.bytes()
+	return b
+}
+
 fn container_key(x int, y int, z int) []u8 {
 	mut b := []u8{}
 	b << u8(`c`)
@@ -134,6 +148,23 @@ pub fn (w &WorldStore) each_container(cb fn (x int, y int, z int, items []Contai
 		}
 		items := json2.decode[[]ContainerSlotItem](value.bytestr()) or { return }
 		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), items)
+	})
+}
+
+pub fn (w &WorldStore) set_player_spawn(key string, x int, y int, z int) ! {
+	mut v := []u8{}
+	put_i32(mut v, x)
+	put_i32(mut v, y)
+	put_i32(mut v, z)
+	w.overrides.put(player_spawn_key(key), v)!
+}
+
+pub fn (w &WorldStore) each_player_spawn(cb fn (key string, x int, y int, z int)) {
+	w.overrides.each(fn [cb] (key []u8, value []u8) {
+		if key.len < 2 || value.len != 12 || key[0] != u8(`s`) {
+			return
+		}
+		cb(key[1..].bytestr(), read_i32(value, 0), read_i32(value, 4), read_i32(value, 8))
 	})
 }
 

@@ -270,7 +270,6 @@ fn (mut s NetworkSession) save_player_data() {
 	current := s.player.movement()
 	hunger := s.player.hunger()
 	experience := s.player.experience()
-	bed := s.player.spawn_point() or { player.SpawnPoint{} }
 	mut provider := s.hub.player_data_provider
 	provider.save(s.player_key(), playerdb.PlayerData{
 		world:               s.world_name()
@@ -286,10 +285,6 @@ fn (mut s NetworkSession) save_player_data() {
 		exhaustion:          hunger.exhaustion
 		experience_level:    experience.level
 		experience_progress: experience.progress
-		spawn_world:         bed.world
-		spawn_x:             bed.pos.x
-		spawn_y:             bed.pos.y
-		spawn_z:             bed.pos.z
 		has_last_death:      s.player.has_last_death()
 		last_death_x:        s.player.last_death_pos().x
 		last_death_y:        s.player.last_death_pos().y

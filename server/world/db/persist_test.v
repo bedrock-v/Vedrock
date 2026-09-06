@@ -59,6 +59,10 @@ fn (mut p RecordingProvider) set_tile_text(x int, y int, z int, text string) ! {
 
 fn (p &RecordingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
 
+fn (p &RecordingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
+
+fn (mut p RecordingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
+
 fn (mut p RecordingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
 	p.calls << 'set_container_items'
 }
@@ -101,6 +105,10 @@ fn (mut p FailingProvider) set_tile_text(x int, y int, z int, text string) ! {
 }
 
 fn (p &FailingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (p &FailingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
+
+fn (mut p FailingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
 
 fn (mut p FailingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
 	p.calls++

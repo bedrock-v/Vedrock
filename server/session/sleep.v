@@ -3,7 +3,6 @@ module session
 import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
 import server.block
-import server.player
 import server.world
 import server.worldrt
 
@@ -57,12 +56,9 @@ fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition
 		s.player.send_translation('%tile.bed.obstructed', [])
 		return false
 	}
-	point := player.SpawnPoint{
-		world: tx.wr.world.name
-		pos:   pos
-	}
-	if s.player.spawn_point() or { player.SpawnPoint{} } != point {
-		s.player.set_spawn_point(point)
+	key := s.player_key()
+	if tx.wr.world.player_spawn(key) or { types.BlockPosition{} } != pos {
+		tx.wr.world.set_player_spawn(key, pos)
 		s.send_spawn_position(pos, tx.wr.world.dimension.id)
 		s.player.send_translation('%tile.bed.respawnSet', [])
 	}
@@ -110,17 +106,15 @@ fn bed_standing_spot(mut tx worldrt.WorldTx, pos types.BlockPosition) ?types.Vec
 }
 
 // respawn_position is where a player comes back: beside their own bed when it
-// is still standing in this world with room to arrive and the world's spawn
-// otherwise. The bed is looked up rather than remembered, so mining it out is
-// enough to lose it.
+// is still standing with room to arrive and the world's spawn otherwise. The
+// bed is looked up rather than remembered, so mining it out is enough to lose
+// it, and the world is asked rather than the player, so a bed somewhere else
+// is never this world's answer.
 fn respawn_position(mut tx worldrt.WorldTx, mut s NetworkSession) types.Vector3 {
 	world_spawn := world_spawn_position(tx.wr.world, s.world_binding().generator)
-	point := s.player.spawn_point() or { return world_spawn }
-	if point.world != tx.wr.world.name {
-		return world_spawn
-	}
-	if is_bed(block_at(tx, point.pos.x, point.pos.y, point.pos.z)) {
-		if spot := bed_standing_spot(mut tx, point.pos) {
+	bed := tx.wr.world.player_spawn(s.player_key()) or { return world_spawn }
+	if is_bed(block_at(tx, bed.x, bed.y, bed.z)) {
+		if spot := bed_standing_spot(mut tx, bed) {
 			return spot
 		}
 	}

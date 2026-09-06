@@ -33,6 +33,10 @@ fn (mut p CountingProvider) set_tile_text(x int, y int, z int, text string) ! {}
 
 fn (p &CountingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
 
+fn (p &CountingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
+
+fn (mut p CountingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
+
 fn (mut p CountingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {}
 
 fn (mut p CountingProvider) flush() ! {}

@@ -51,11 +51,22 @@ struct ContainerPersist {
 	items []ContainerSlotItem
 }
 
+struct PlayerSpawnPersist {
+	key string
+	x   int
+	y   int
+	z   int
+}
+
 struct PersistBarrier {
 	done chan bool
 }
 
-type PersistRecord = BlockPersist | ContainerPersist | PersistBarrier | TilePersist
+type PersistRecord = BlockPersist
+	| ContainerPersist
+	| PersistBarrier
+	| PlayerSpawnPersist
+	| TilePersist
 
 // QueuedPersistRecord pairs a persistence record with its enqueue time for
 // measuring backlog depth and age.
@@ -80,6 +91,11 @@ mut:
 	overrides      map[string]int
 	tile_data      map[string]TileData
 	container_data map[string][]ContainerSlotItem
+	// player_spawns is the bed each player is bound to here, keyed by whatever
+	// the caller identifies a player by. It belongs to the world because the
+	// coordinates only mean anything in this one and it goes when the world
+	// does.
+	player_spawns  map[string]types.BlockPosition
 	open_holders   map[string]u64
 	// furnace_states is the burn and cook progress of every furnace that is
 	// doing something. It is in memory only: a furnace goes out across a
@@ -193,6 +209,33 @@ pub fn (mut w World) load() {
 	})
 	store.each_container(fn [mut w] (x int, y int, z int, items []ContainerSlotItem) {
 		w.container_data[override_key(x, y, z)] = items
+	})
+	store.each_player_spawn(fn [mut w] (key string, x int, y int, z int) {
+		w.player_spawns[key] = types.BlockPosition{x, y, z}
+	})
+}
+
+// player_spawn is the bed the named player is bound to in this world or none
+// when they have never used one here. A world only knows its own: the same
+// player has an unrelated answer, or none, in every other world.
+pub fn (w &World) player_spawn(key string) ?types.BlockPosition {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return w.player_spawns[key] or { return none }
+}
+
+pub fn (mut w World) set_player_spawn(key string, pos types.BlockPosition) {
+	w.mutex.lock()
+	w.player_spawns[key] = pos
+	w.mutex.unlock()
+	w.enqueue_persist(PlayerSpawnPersist{
+		key: key
+		x:   pos.x
+		y:   pos.y
+		z:   pos.z
 	})
 }
 
@@ -384,6 +427,17 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 			start := time.now()
 			mut ok := true
 			store.set_container_items(record.x, record.y, record.z, record.items) or {
+				w.mutex.lock()
+				w.last_persist_error = err.msg()
+				w.mutex.unlock()
+				ok = false
+			}
+			w.record_persist_write_result(start, ok)
+		}
+		PlayerSpawnPersist {
+			start := time.now()
+			mut ok := true
+			store.set_player_spawn(record.key, record.x, record.y, record.z) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()

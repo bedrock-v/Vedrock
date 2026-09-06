@@ -630,37 +630,6 @@ fn (mut h Hub) delete_world(name string) ! {
 	factory.delete(name) or { return error('failed to delete world "${name}": ${err}') }
 }
 
-// forget_spawn_points_in drops every spawn point that named the world in
-// memory for the players who are online and on disk for the ones who are not.
-// A deleted world's name can be taken by a new world and a spawn point that
-// outlived its world would then be read against a place it was never set in.
-//
-// It returns the keys whose saved data could not be rewritten. Their spawn
-// point still names a world that is gone, resolves to the world spawn
-// but is stale.
-fn (mut h Hub) forget_spawn_points_in(name string) []string {
-	// Online players first. Their data is written back out from memory when
-	// they leave, so clearing the file before the player would only bring the
-	// old spawn point back.
-	for mut target in h.snapshot() {
-		target.player.forget_spawn_point_in(name)
-	}
-	mut provider := h.player_data_provider
-	mut failed := []string{}
-	for key in provider.keys() {
-		mut data := provider.load(key) or { continue }
-		if data.spawn_world != name {
-			continue
-		}
-		data.spawn_world = ''
-		data.spawn_x = 0
-		data.spawn_y = 0
-		data.spawn_z = 0
-		provider.save(key, data) or { failed << key }
-	}
-	return failed
-}
-
 // block_palette exposes the shared palette to world tasks through
 // worldrt.Services. The field itself stays unexported.
 pub fn (h &Hub) block_palette() &blockworld.BlockPalette {
