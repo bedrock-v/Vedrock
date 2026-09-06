@@ -337,3 +337,147 @@ pub fn (g StoredGenerator) biome_at(x int, z int) int {
 	chunk := g.cached_chunk(x >> 4, z >> 4) or { return g.fallback.biome_at(x, z) }
 	return chunk.biome_id(x & 15, z & 15)
 }
+
+// SubchunkWriter mirrors SubchunkReader: little-endian and only the tags the
+// vanilla subchunk format actually uses.
+struct SubchunkWriter {
+mut:
+	data []u8
+}
+
+fn (mut w SubchunkWriter) u8(v u8) {
+	w.data << v
+}
+
+fn (mut w SubchunkWriter) u16_le(v u16) {
+	w.data << u8(v)
+	w.data << u8(v >> 8)
+}
+
+fn (mut w SubchunkWriter) i32_le(v int) {
+	u := u32(v)
+	w.data << u8(u)
+	w.data << u8(u >> 8)
+	w.data << u8(u >> 16)
+	w.data << u8(u >> 24)
+}
+
+fn (mut w SubchunkWriter) str_le(s string) {
+	w.u16_le(u16(s.len))
+	w.data << s.bytes()
+}
+
+// subchunk_bits are the index widths the format allows, narrowest first.
+// Anything else is rejected on read, here and by vanilla.
+const subchunk_bits = [1, 2, 3, 4, 5, 6, 8, 16]
+
+// bits_for_palette is the narrowest legal width that can address count
+// entries. A single entry needs no indices at all which the format spells as
+// zero bits and no index words.
+fn bits_for_palette(count int) !int {
+	if count <= 1 {
+		return 0
+	}
+	for bits in subchunk_bits {
+		if (1 << bits) >= count {
+			return bits
+		}
+	}
+	return error('subchunk: a palette of ${count} does not fit any index width')
+}
+
+// encode_subchunk writes one subchunk in the format decode_subchunk reads,
+// which is vanilla's own: a paletted, bit packed index array followed by the
+// palette as little-endian NBT. Writing it rather than a private format is what
+// keeps a world Vedrock has edited a world anything else can still open.
+//
+// The palette is needed because a block's network id is a hash of its canonical
+// state NBT and can't be turned back into a name and states without it.
+fn encode_subchunk(ids []int, y_index int, palette &world.BlockPalette) ![]u8 {
+	if ids.len != 4096 {
+		return error('subchunk: expected 4096 block ids, got ${ids.len}')
+	}
+	mut order := []int{}
+	mut index_of := map[int]int{}
+	mut indices := []int{len: 4096}
+	for i, id in ids {
+		if id in index_of {
+			indices[i] = index_of[id]
+			continue
+		}
+		index_of[id] = order.len
+		indices[i] = order.len
+		order << id
+	}
+	bits := bits_for_palette(order.len)!
+
+	mut w := SubchunkWriter{}
+	// Version 9 carries the subchunk's own y index, which is what lets a world
+	// reach below zero. The key carries it too; vanilla writes both.
+	w.u8(9)
+	w.u8(1)
+	w.u8(u8(i8(y_index)))
+	// The low bit of the header says the indices point at a runtime palette
+	// rather than the NBT one written below. Ours is always the NBT one.
+	w.u8(u8(bits) << 1)
+	if bits > 0 {
+		per_word := 32 / bits
+		word_count := (4096 + per_word - 1) / per_word
+		for word_index in 0 .. word_count {
+			mut word := u32(0)
+			for slot in 0 .. per_word {
+				i := word_index * per_word + slot
+				if i >= 4096 {
+					break
+				}
+				word |= u32(indices[i]) << (slot * bits)
+			}
+			w.i32_le(int(word))
+		}
+		w.i32_le(order.len)
+	}
+	for id in order {
+		write_palette_entry(mut w, id, palette)!
+	}
+	return w.data
+}
+
+// write_palette_entry writes one block as the compound read_palette_entry
+// expects. The version is the one the upgrader already considers current, so a
+// block written here is not rewritten when it is read back.
+fn write_palette_entry(mut w SubchunkWriter, id int, palette &world.BlockPalette) ! {
+	variant := palette.variant(id) or {
+		return error('subchunk: block id ${id} is not in the palette')
+	}
+	w.u8(0x0a)
+	w.str_le('')
+	w.u8(0x08)
+	w.str_le('name')
+	w.str_le(variant.name)
+	w.u8(0x0a)
+	w.str_le('states')
+	for state in variant.states.to_block_states() {
+		match state.kind {
+			world.state_kind_string {
+				w.u8(0x08)
+				w.str_le(state.key)
+				w.str_le(state.string_val)
+			}
+			world.state_kind_int {
+				w.u8(0x03)
+				w.str_le(state.key)
+				w.i32_le(state.int_value)
+			}
+			else {
+				w.u8(0x01)
+				w.str_le(state.key)
+				w.u8(state.byte_value)
+			}
+		}
+	}
+	w.u8(0x00)
+	w.u8(0x03)
+	w.str_le('version')
+	w.i32_le(upgrader.current_version)
+	w.u8(0x00)
+}
