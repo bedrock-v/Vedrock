@@ -33,7 +33,6 @@ fn (p &RecordingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 
 fn (p &RecordingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
 
-fn (p &RecordingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
 fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	mut claimed := false
@@ -53,19 +52,17 @@ fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	p.calls << 'set_block'
 }
 
-fn (mut p RecordingProvider) set_tile_text(x int, y int, z int, text string) ! {
-	p.calls << 'set_tile_text'
+fn (mut p RecordingProvider) set_block_entity(x int, y int, z int, data []u8) ! {
+	p.calls << 'set_block_entity'
 }
 
-fn (p &RecordingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (p &RecordingProvider) each_block_entity(cb fn (x int, y int, z int, data []u8)) {}
 
 fn (p &RecordingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
 fn (mut p RecordingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
 
-fn (mut p RecordingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
-	p.calls << 'set_container_items'
-}
 
 fn (mut p RecordingProvider) flush() ! {
 	p.calls << 'flush'
@@ -92,28 +89,24 @@ fn (p &FailingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 
 fn (p &FailingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
 
-fn (p &FailingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
 fn (mut p FailingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	p.calls++
 	return error('simulated disk full')
 }
 
-fn (mut p FailingProvider) set_tile_text(x int, y int, z int, text string) ! {
+fn (mut p FailingProvider) set_block_entity(x int, y int, z int, data []u8) ! {
 	p.calls++
 	return error('simulated disk full')
 }
 
-fn (p &FailingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (p &FailingProvider) each_block_entity(cb fn (x int, y int, z int, data []u8)) {}
 
 fn (p &FailingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
 fn (mut p FailingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
 
-fn (mut p FailingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
-	p.calls++
-	return error('simulated disk full')
-}
 
 fn (mut p FailingProvider) flush() ! {}
 

@@ -3,6 +3,7 @@ module db
 import sync
 import sync.stdatomic
 import time
+import bedrock_v.nbt
 import server.world
 import bedrock_v.protocol.types
 import server.internal.logger
@@ -23,10 +24,10 @@ const persist_hard_ceiling_count = 32768
 // enqueue rechecks whether the backlog has fallen below the hard ceiling.
 const persist_ceiling_poll_interval = 5 * time.millisecond
 
-// BlockPersist and TilePersist are immutable records of one write already
+// BlockPersist and BlockEntityPersist are immutable records of one write already
 // applied to a World's in memory state, handed to the storage worker so the
 // actual disk write never has to happen on whatever thread called
-// set_block/set_tile_text. PersistBarrier lets a caller learn when the
+// set_block/set_block_entity. PersistBarrier lets a caller learn when the
 // worker has caught up to a specific point, for flush/close. A sum type keeps these
 // distinct rather than one struct with fields that are only sometimes
 // meaningful.
@@ -37,18 +38,11 @@ struct BlockPersist {
 	id int
 }
 
-struct TilePersist {
+struct BlockEntityPersist {
 	x    int
 	y    int
 	z    int
-	text string
-}
-
-struct ContainerPersist {
-	x     int
-	y     int
-	z     int
-	items []ContainerSlotItem
+	data []u8
 }
 
 struct PlayerSpawnPersist {
@@ -62,11 +56,10 @@ struct PersistBarrier {
 	done chan bool
 }
 
-type PersistRecord = BlockPersist
-	| ContainerPersist
+type PersistRecord = BlockEntityPersist
+	| BlockPersist
 	| PersistBarrier
 	| PlayerSpawnPersist
-	| TilePersist
 
 // QueuedPersistRecord pairs a persistence record with its enqueue time for
 // measuring backlog depth and age.
@@ -89,8 +82,10 @@ pub:
 mut:
 	store          ?Provider
 	overrides      map[string]int
-	tile_data      map[string]TileData
-	container_data map[string][]ContainerSlotItem
+	// block_entities is every block that carries more than a block id, of
+	// whatever kind. One map because a column carries one list of them and
+	// because a new kind should not need a new map here.
+	block_entities map[string]nbt.Compound
 	// player_spawns is the bed each player is bound to here, keyed by whatever
 	// the caller identifies a player by. It belongs to the world because the
 	// coordinates only mean anything in this one and it goes when the world
@@ -153,13 +148,7 @@ pub:
 	id int
 }
 
-// TileData is a block-entity's persistent data at a position.
-pub struct TileData {
-pub mut:
-	text string
-}
-
-// TileEntry is a TileData paired with its position, returned by
+// TileEntry is a block entity's text paired with its position, returned by
 // tile_entries_in_chunk for chunk-send enrichment.
 pub struct TileEntry {
 pub:
@@ -202,13 +191,10 @@ pub fn (mut w World) load() {
 	store.each_block(fn [mut w] (x int, y int, z int, runtime_id int) {
 		w.overrides[override_key(x, y, z)] = runtime_id
 	})
-	store.each_tile(fn [mut w] (x int, y int, z int, text string) {
-		w.tile_data[override_key(x, y, z)] = TileData{
-			text: text
+	store.each_block_entity(fn [mut w] (x int, y int, z int, data []u8) {
+		if decoded := decode_block_entity(data) {
+			w.block_entities[override_key(x, y, z)] = decoded
 		}
-	})
-	store.each_container(fn [mut w] (x int, y int, z int, items []ContainerSlotItem) {
-		w.container_data[override_key(x, y, z)] = items
 	})
 	store.each_player_spawn(fn [mut w] (key string, x int, y int, z int) {
 		w.player_spawns[key] = types.BlockPosition{x, y, z}
@@ -297,20 +283,29 @@ pub fn (w &World) overrides_in_chunk(cx int, cz int) []BlockOverride {
 	return out
 }
 
-// set_tile_text updates the in memory tile data immediately, under mutex,
+// set_tile_text updates the in memory block entity immediately, under mutex,
 // then hands the actual disk write to the storage worker. The same split
 // set_block uses, and for the same reason.
 pub fn (mut w World) set_tile_text(x int, y int, z int, text string) {
+	w.update_block_entity(x, y, z, block_entity_text_key, nbt.Tag(text))
+}
+
+// update_block_entity sets one field of the block entity at a position,
+// keeping whatever other kinds have put there. Every block entity write goes
+// through here which is what makes adding a kind a matter of choosing a key.
+fn (mut w World) update_block_entity(x int, y int, z int, key string, value nbt.Tag) {
+	position := override_key(x, y, z)
 	w.mutex.lock()
-	w.tile_data[override_key(x, y, z)] = TileData{
-		text: text
-	}
+	mut data := w.block_entities[position] or { nbt.new_compound() }
+	data.set(key, value)
+	w.block_entities[position] = data
+	encoded := encode_block_entity(data)
 	w.mutex.unlock()
-	w.enqueue_persist(TilePersist{
+	w.enqueue_persist(BlockEntityPersist{
 		x:    x
 		y:    y
 		z:    z
-		text: text
+		data: encoded
 	})
 }
 
@@ -412,21 +407,10 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 			}
 			w.record_persist_write_result(start, ok)
 		}
-		TilePersist {
+		BlockEntityPersist {
 			start := time.now()
 			mut ok := true
-			store.set_tile_text(record.x, record.y, record.z, record.text) or {
-				w.mutex.lock()
-				w.last_persist_error = err.msg()
-				w.mutex.unlock()
-				ok = false
-			}
-			w.record_persist_write_result(start, ok)
-		}
-		ContainerPersist {
-			start := time.now()
-			mut ok := true
-			store.set_container_items(record.x, record.y, record.z, record.items) or {
+			store.set_block_entity(record.x, record.y, record.z, record.data) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
@@ -566,8 +550,8 @@ pub fn (w &World) tile_text(x int, y int, z int) ?string {
 	defer {
 		m.unlock()
 	}
-	td := w.tile_data[override_key(x, y, z)] or { return none }
-	return td.text
+	data := w.block_entities[override_key(x, y, z)] or { return none }
+	return block_entity_text(data)
 }
 
 // container_slot_count is a chest's fixed slot count.
@@ -577,15 +561,7 @@ pub const container_slot_count = 27
 // contents immediately, under mutex, then hands the actual disk write to
 // the storage worker.
 pub fn (mut w World) set_container_items(x int, y int, z int, items []ContainerSlotItem) {
-	w.mutex.lock()
-	w.container_data[override_key(x, y, z)] = items.clone()
-	w.mutex.unlock()
-	w.enqueue_persist(ContainerPersist{
-		x:     x
-		y:     y
-		z:     z
-		items: items
-	})
+	w.update_block_entity(x, y, z, block_entity_items_key, items_tag(items))
 }
 
 pub fn (w &World) container_items(x int, y int, z int) []ContainerSlotItem {
@@ -594,7 +570,8 @@ pub fn (w &World) container_items(x int, y int, z int) []ContainerSlotItem {
 	defer {
 		m.unlock()
 	}
-	return w.container_data[override_key(x, y, z)] or { return []ContainerSlotItem{} }.clone()
+	data := w.block_entities[override_key(x, y, z)] or { return []ContainerSlotItem{} }
+	return block_entity_items(data)
 }
 
 // container_slots resolves a container's contents into slot-indexed
@@ -669,20 +646,22 @@ pub fn (w &World) tile_entries_in_chunk(cx int, cz int) []TileEntry {
 	mut out := []TileEntry{}
 	mut m := w.mutex
 	m.lock()
-	for key, td in w.tile_data {
+	for key, data in w.block_entities {
 		parts := key.split(':')
 		if parts.len != 3 {
 			continue
 		}
 		x := parts[0].int()
 		z := parts[2].int()
-		if (x >> 4) == cx && (z >> 4) == cz {
-			out << TileEntry{
-				x:    x
-				y:    parts[1].int()
-				z:    z
-				text: td.text
-			}
+		if (x >> 4) != cx || (z >> 4) != cz {
+			continue
+		}
+		text := block_entity_text(data) or { continue }
+		out << TileEntry{
+			x:    x
+			y:    parts[1].int()
+			z:    z
+			text: text
 		}
 	}
 	m.unlock()

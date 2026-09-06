@@ -21,7 +21,6 @@ fn (p &CountingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 
 fn (p &CountingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
 
-fn (p &CountingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
 fn (mut p CountingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	p.mutex.lock()
@@ -29,15 +28,15 @@ fn (mut p CountingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 	p.mutex.unlock()
 }
 
-fn (mut p CountingProvider) set_tile_text(x int, y int, z int, text string) ! {}
+fn (mut p CountingProvider) set_block_entity(x int, y int, z int, data []u8) ! {}
 
-fn (p &CountingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+
+fn (p &CountingProvider) each_block_entity(cb fn (x int, y int, z int, data []u8)) {}
 
 fn (p &CountingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
 fn (mut p CountingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
 
-fn (mut p CountingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {}
 
 fn (mut p CountingProvider) flush() ! {}
 

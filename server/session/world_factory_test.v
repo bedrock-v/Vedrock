@@ -24,13 +24,12 @@ fn (mut p FakeProvider) set_block(x int, y int, z int, runtime_id int) ! {
 
 fn (p &FakeProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
 
-fn (mut p FakeProvider) set_tile_text(x int, y int, z int, text string) ! {}
+fn (mut p FakeProvider) set_block_entity(x int, y int, z int, data []u8) ! {}
 
-fn (p &FakeProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
 
-fn (mut p FakeProvider) set_container_items(x int, y int, z int, items []db.ContainerSlotItem) ! {}
 
-fn (p &FakeProvider) each_container(cb fn (x int, y int, z int, items []db.ContainerSlotItem)) {}
+
+fn (p &FakeProvider) each_block_entity(cb fn (x int, y int, z int, data []u8)) {}
 
 fn (p &FakeProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 

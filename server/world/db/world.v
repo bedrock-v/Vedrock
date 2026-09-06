@@ -20,15 +20,16 @@ pub interface Provider {
 	dimension() world.Dimension
 	load_chunk(cx int, cz int) ?world.Chunk
 	each_block(cb fn (x int, y int, z int, runtime_id int))
-	each_tile(cb fn (x int, y int, z int, text string))
-	each_container(cb fn (x int, y int, z int, items []ContainerSlotItem))
+	// each_block_entity walks every block that carries more than a block id:
+	// a sign's text, a chest's contents, whatever a later kind needs. One
+	// callback for every kind, so a new kind costs no new method here.
+	each_block_entity(cb fn (x int, y int, z int, data []u8))
 	// each_player_spawn walks the beds players have bound themselves to in
 	// this world. key is whatever the caller identifies a player by.
 	each_player_spawn(cb fn (key string, x int, y int, z int))
 mut:
 	set_block(x int, y int, z int, runtime_id int) !
-	set_tile_text(x int, y int, z int, text string) !
-	set_container_items(x int, y int, z int, items []ContainerSlotItem) !
+	set_block_entity(x int, y int, z int, data []u8) !
 	set_player_spawn(key string, x int, y int, z int) !
 	flush() !
 	close() !
@@ -75,9 +76,21 @@ fn block_key(x int, y int, z int) []u8 {
 	return b
 }
 
-// tile_key uses the same 13-byte x/y/z layout as block_key with a distinct
-// prefix byte ('t' instead of 'b'), so tile data safely coexists with block
-// overrides in the same LevelDB handle.
+// block_entity_key uses the same 13-byte x/y/z layout as block_key with its own
+// prefix byte, so block entity data safely coexists with block overrides in the
+// same LevelDB handle.
+fn block_entity_key(x int, y int, z int) []u8 {
+	mut b := []u8{}
+	b << u8(`e`)
+	put_i32(mut b, x)
+	put_i32(mut b, y)
+	put_i32(mut b, z)
+	return b
+}
+
+// tile_key and container_key are the two records block entities used to be
+// split across. Nothing writes them any more; each_block_entity still reads
+// them so a world written before the two were merged still opens.
 fn tile_key(x int, y int, z int) []u8 {
 	mut b := []u8{}
 	b << u8(`t`)
@@ -121,34 +134,61 @@ pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
 	})
 }
 
-// set_tile_text persists a block-entity's tex at a position, sharing the overrides handle with a distinct key
-// prefix rather than opening a third LevelDB handle for no isolation benefit.
-pub fn (w &WorldStore) set_tile_text(x int, y int, z int, text string) ! {
-	w.overrides.put(tile_key(x, y, z), text.bytes())!
+pub fn (w &WorldStore) set_block_entity(x int, y int, z int, data []u8) ! {
+	w.overrides.put(block_entity_key(x, y, z), data)!
 }
 
-pub fn (w &WorldStore) each_tile(cb fn (x int, y int, z int, text string)) {
-	w.overrides.each(fn [cb] (key []u8, value []u8) {
+// each_block_entity walks the merged records first, then the two legacy shapes.
+// A position written under both is reported once, by the merged record, because
+// that is the one anything still writes.
+pub fn (w &WorldStore) each_block_entity(cb fn (x int, y int, z int, data []u8)) {
+	mut seen := &PositionSet{}
+	w.overrides.each(fn [cb, mut seen] (key []u8, value []u8) {
+		if key.len != 13 || key[0] != u8(`e`) {
+			return
+		}
+		x, y, z := read_i32(key, 1), read_i32(key, 5), read_i32(key, 9)
+		seen.add(x, y, z)
+		cb(x, y, z, value)
+	})
+	w.overrides.each(fn [cb, mut seen] (key []u8, value []u8) {
 		if key.len != 13 || key[0] != u8(`t`) {
 			return
 		}
-		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), value.bytestr())
+		x, y, z := read_i32(key, 1), read_i32(key, 5), read_i32(key, 9)
+		if seen.has(x, y, z) {
+			return
+		}
+		seen.add(x, y, z)
+		cb(x, y, z, legacy_text_bytes(value.bytestr()))
 	})
-}
-
-// set_container_items persists a container's contents.
-pub fn (w &WorldStore) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
-	w.overrides.put(container_key(x, y, z), json2.encode(items).bytes())!
-}
-
-pub fn (w &WorldStore) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {
-	w.overrides.each(fn [cb] (key []u8, value []u8) {
+	w.overrides.each(fn [cb, mut seen] (key []u8, value []u8) {
 		if key.len != 13 || key[0] != u8(`c`) {
 			return
 		}
+		x, y, z := read_i32(key, 1), read_i32(key, 5), read_i32(key, 9)
+		if seen.has(x, y, z) {
+			return
+		}
 		items := json2.decode[[]ContainerSlotItem](value.bytestr()) or { return }
-		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), items)
+		cb(x, y, z, legacy_items_bytes(items))
 	})
+}
+
+// PositionSet is a heap set  because the closures above capture it and a
+// captured value would be a copy that never leaves the callback.
+@[heap]
+struct PositionSet {
+mut:
+	seen map[string]bool
+}
+
+fn (mut s PositionSet) add(x int, y int, z int) {
+	s.seen[override_key(x, y, z)] = true
+}
+
+fn (s &PositionSet) has(x int, y int, z int) bool {
+	return s.seen[override_key(x, y, z)] or { false }
 }
 
 pub fn (w &WorldStore) set_player_spawn(key string, x int, y int, z int) ! {
