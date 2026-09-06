@@ -76,11 +76,15 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store              ?Provider
-	overrides          map[string]int
-	tile_data          map[string]TileData
-	container_data     map[string][]ContainerSlotItem
-	open_holders       map[string]u64
+	store          ?Provider
+	overrides      map[string]int
+	tile_data      map[string]TileData
+	container_data map[string][]ContainerSlotItem
+	open_holders   map[string]u64
+	// furnace_states is the burn and cook progress of every furnace that is
+	// doing something. It is in memory only: a furnace goes out across a
+	// restart rather than resuming mid-cook.
+	furnace_states     map[string]FurnaceState
 	mutex              &sync.Mutex = sync.new_mutex()
 	current_tick       i64
 	scheduled          []ScheduledEntry
@@ -706,4 +710,107 @@ fn (mut w World) await_persist_barrier() ! {
 			return error('world "${w.name}": persistence worker did not catch up within ${w.persist_shutdown_timeout_value}')
 		}
 	}
+}
+
+// FurnaceState is how far through burning its fuel and cooking its input one
+// furnace is. A furnace with nothing to do keeps no state at all.
+pub struct FurnaceState {
+pub:
+	// burn_ticks is what is left of the current piece of fuel, and burn_total
+	// what that piece was worth when it was lit. The client draws the flame
+	// from the ratio of the two.
+	burn_ticks int
+	burn_total int
+	cook_ticks int
+}
+
+// is_idle reports whether a furnace has neither fuel burning nor a cook in
+// progress.
+pub fn (f FurnaceState) is_idle() bool {
+	return f.burn_ticks <= 0 && f.cook_ticks <= 0
+}
+
+// furnace_state returns a furnace's progress, all zeroes when it is idle.
+pub fn (w &World) furnace_state(x int, y int, z int) FurnaceState {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return w.furnace_states[override_key(x, y, z)] or { FurnaceState{} }
+}
+
+// set_furnace_state stores a furnace's progress. A furnace stays listed while
+// it has state, even all-zero state: that is how one that has just been given
+// something to cook gets its first tick.
+pub fn (mut w World) set_furnace_state(x int, y int, z int, state FurnaceState) {
+	w.mutex.lock()
+	w.furnace_states[override_key(x, y, z)] = state
+	w.mutex.unlock()
+}
+
+// clear_furnace_state forgets a furnace, so the tick stops visiting it.
+pub fn (mut w World) clear_furnace_state(x int, y int, z int) {
+	w.mutex.lock()
+	w.furnace_states.delete(override_key(x, y, z))
+	w.mutex.unlock()
+}
+
+// tracks_furnace reports whether a furnace is currently being ticked.
+pub fn (w &World) tracks_furnace(x int, y int, z int) bool {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return override_key(x, y, z) in w.furnace_states
+}
+
+// override_positions_of lists every stored block override holding one of the
+// given ids. It exists so a world can be asked where its furnaces are without
+// this package having to know what a furnace is.
+pub fn (w &World) override_positions_of(ids []int) []TickPosition {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	mut out := []TickPosition{}
+	for key, id in w.overrides {
+		if id !in ids {
+			continue
+		}
+		pos := position_from_key(key) or { continue }
+		out << pos
+	}
+	return out
+}
+
+// position_from_key reads back the coordinates an override key was built from.
+fn position_from_key(key string) ?TickPosition {
+	parts := key.split(':')
+	if parts.len != 3 {
+		return none
+	}
+	return TickPosition{
+		x: parts[0].int()
+		y: parts[1].int()
+		z: parts[2].int()
+	}
+}
+
+// burning_furnaces lists the positions with progress to advance, so the tick
+// only visits furnaces that are actually doing something.
+pub fn (w &World) burning_furnaces() []TickPosition {
+	mut m := w.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	mut out := []TickPosition{cap: w.furnace_states.len}
+	for key, _ in w.furnace_states {
+		pos := position_from_key(key) or { continue }
+		out << pos
+	}
+	return out
 }

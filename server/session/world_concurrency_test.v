@@ -49,10 +49,11 @@ fn test_stalled_world_does_not_stall_another_worlds_ticks_or_liquids() {
 
 	// Give B's liquid manager real, ongoing work so "B keeps progressing"
 	// means something more than just the tick counter moving.
-	ok := wr_b.submit(PlaceWaterTask{
-		x: 0
-		y: 60
-		z: 0
+	ok := wr_b.submit(PlaceLiquidTask{
+		kind: .water
+		x:    0
+		y:    60
+		z:    0
 	})
 	assert ok
 	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {

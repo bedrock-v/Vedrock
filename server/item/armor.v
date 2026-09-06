@@ -24,6 +24,7 @@ pub:
 	tier           ArmorTier
 	slot           ArmorSlot
 	defense        int
+	toughness      int
 	max_durability int
 }
 
@@ -61,6 +62,12 @@ pub fn (i ArmorItem) mining_speed() f32 {
 
 pub fn (i ArmorItem) armor_points() int {
 	return i.defense
+}
+
+// armor_toughness is how much of an incoming hit's armor-piercing this piece
+// cancels out. Only the two hardest tiers have any.
+pub fn (i ArmorItem) armor_toughness() int {
+	return i.toughness
 }
 
 // prefix is the item id prefix vanilla uses for this tier ('golden' is
@@ -130,6 +137,14 @@ fn defense_for(tier ArmorTier, slot ArmorSlot) int {
 	}
 }
 
+fn toughness_for(tier ArmorTier) int {
+	return match tier {
+		.diamond { 2 }
+		.netherite { 3 }
+		else { 0 }
+	}
+}
+
 fn durability_for(tier ArmorTier, slot ArmorSlot) int {
 	return match tier {
 		.leather {
@@ -190,6 +205,7 @@ pub fn new_armor_item(tier ArmorTier, slot ArmorSlot) ArmorItem {
 		tier:           tier
 		slot:           slot
 		defense:        defense_for(tier, slot)
+		toughness:      toughness_for(tier)
 		max_durability: durability_for(tier, slot)
 	}
 }

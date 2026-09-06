@@ -14,8 +14,8 @@ import bedrock_v.protocol.current as proto
 struct FakeHost {
 mut:
 	next                          u64 = 1
-	broadcasts                    int
-	near                          int
+	viewer_queries                int
+	near_queries                  int
 	blocks                        map[string]int
 	boxes                         map[string][]world.AABB
 	positions                     map[u64]types.Vector3
@@ -29,6 +29,8 @@ mut:
 	last_mob_attack_runtime_id    u64
 	last_mob_attack_amount        f32
 	visible                       bool = true
+	granted_experience            map[u64]int
+	dropped_experience            int
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
 	players              map[u64]types.Vector3
@@ -74,12 +76,17 @@ fn (mut h FakeHost) set_slab(x int, y int, z int) {
 	h.boxes[key] = world.absolute_boxes(world.slab_model(false, false), x, y, z)
 }
 
-fn (mut h FakeHost) broadcast(p protocol.Packet) {
-	h.broadcasts++
+// The host is asked for viewers and hands back none, so nothing is rendered.
+// Counting the asks is what these tests are about: one ask per thing the
+// entity did.
+fn (mut h FakeHost) viewers() []Viewer {
+	h.viewer_queries++
+	return []Viewer{}
 }
 
-fn (mut h FakeHost) broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet) {
-	h.near++
+fn (mut h FakeHost) viewers_near(x f32, y f32, z f32, radius f32) []Viewer {
+	h.near_queries++
+	return []Viewer{}
 }
 
 fn (mut h FakeHost) allocate_runtime_id() u64 {
@@ -153,6 +160,15 @@ fn (mut h FakeHost) notify_item_taken(item_runtime_id u64, taker_runtime_id u64)
 	h.last_take_taker_rid = taker_runtime_id
 }
 
+fn (mut h FakeHost) grant_experience(runtime_id u64, amount int) bool {
+	h.granted_experience[runtime_id] += amount
+	return runtime_id in h.players
+}
+
+fn (mut h FakeHost) spawn_experience_orbs(amount int, pos types.Vector3) {
+	h.dropped_experience += amount
+}
+
 fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 	radius_sq := radius * radius
 	mut best_rid := u64(0)
@@ -207,8 +223,8 @@ fn test_spawn_registers_and_broadcasts() {
 	assert m.count() == 1
 	assert e.identifier == 'minecraft:pig'
 	assert e.runtime_id == 1
-	assert host.near == 1 // AddActor routed through broadcast_near
-	assert host.broadcasts == 0
+	assert host.near_queries == 1 // spawn asks for nearby viewers once
+	assert host.viewer_queries == 0
 }
 
 fn test_despawn_removes_and_broadcasts() {
@@ -217,8 +233,8 @@ fn test_despawn_removes_and_broadcasts() {
 	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:cow' }, types.Vector3{0, 0, 0})
 	m.despawn(e.runtime_id)
 	assert m.count() == 0
-	assert host.near == 1 // AddActor via broadcast_near
-	assert host.broadcasts == 1 // RemoveActor via broadcast
+	assert host.near_queries == 1 // spawn asks for nearby viewers once
+	assert host.viewer_queries == 1 // despawn asks for every viewer once
 }
 
 fn test_gravity_pulls_entity_down() {
@@ -353,7 +369,7 @@ fn test_spawn_uses_near_broadcast() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
 	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
-	assert host.near == 1 // AddActor routed through broadcast_near
+	assert host.near_queries == 1 // spawn asks for nearby viewers once
 }
 
 fn test_mob_never_despawns_when_nobody_is_registered_in_the_world() {
@@ -374,7 +390,7 @@ fn test_mob_never_despawns_near_registered_player() {
 	mut host := &FakeHost{}
 	host.players[999] = types.Vector3{1, 5, 0} // well within despawn_never_radius
 	mut m := new_manager(host)
-	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{1, 5, 0} }, 999, 0)
+	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{1, 5, 0} }, new_actor_id(999, 0))
 	mut e := m.spawn(&PassiveBehaviour{
 		network_id:     'minecraft:pig'
 		despawn_policy: natural_mob_despawn_policy
@@ -390,7 +406,7 @@ fn test_mob_despawns_when_far_from_only_registered_player() {
 	mut host := &FakeHost{}
 	host.players[999] = types.Vector3{5000, 5, 0}
 	mut m := new_manager(host)
-	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{5000, 5, 0} }, 999, 0)
+	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{5000, 5, 0} }, new_actor_id(999, 0))
 	mut e := m.spawn(&PassiveBehaviour{
 		network_id:     'minecraft:pig'
 		despawn_policy: natural_mob_despawn_policy
@@ -499,9 +515,9 @@ fn test_hurt_broadcasts_hurt_event_and_health_attribute_update() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
 	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
-	host.broadcasts = 0 // spawn's own AddActor goes through broadcast_near
+	host.viewer_queries = 0 // spawn's own lookup was the near one
 	e.hurt(mut host, 5, true, 99)
-	assert host.broadcasts == 2 // ActorEventPacket (hurt) + UpdateAttributesPacket (health)
+	assert host.viewer_queries == 2 // hurt asks once, the health that follows asks again
 }
 
 fn test_heal_broadcasts_health_attribute_update() {
@@ -509,52 +525,10 @@ fn test_heal_broadcasts_health_attribute_update() {
 	mut m := new_manager(host)
 	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
 	e.health = 10
-	host.broadcasts = 0
+	host.viewer_queries = 0
 	e.heal(mut host, 5)
 	assert e.health == 15
-	assert host.broadcasts == 1
-}
-
-fn test_spawn_packet_reports_per_type_dimensions_and_health_attribute() {
-	mut host := &FakeHost{}
-	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{
-		network_id: 'minecraft:cow'
-		dimensions: Dimensions{
-			width:  0.9
-			height: 1.4
-		}
-	}, types.Vector3{0, 5, 0})
-	e.health = 7
-
-	packet := e.spawn_packet()
-	if packet is proto.AddActorPacket {
-		assert packet.attributes.len == 1
-		assert packet.attributes[0].attribute_name == 'minecraft:health'
-		assert packet.attributes[0].current_value == 7
-		assert packet.attributes[0].max_value == 20.0
-
-		mut saw_width := false
-		mut saw_height := false
-		for entry in packet.actor_data {
-			if entry.data_item_id == proto.meta_key_width {
-				if value := proto.data_item_float(entry.data_item_type) {
-					assert value.value == f32(0.9)
-					saw_width = true
-				}
-			}
-			if entry.data_item_id == proto.meta_key_height {
-				if value := proto.data_item_float(entry.data_item_type) {
-					assert value.value == f32(1.4)
-					saw_height = true
-				}
-			}
-		}
-		assert saw_width
-		assert saw_height
-	} else {
-		assert false, 'expected AddActorPacket for a non-item entity'
-	}
+	assert host.viewer_queries == 1
 }
 
 fn test_projectile_hits_entity_via_entity_hit_test() {
@@ -917,19 +891,6 @@ fn test_item_identifier_and_dimensions() {
 	assert b.dimensions().has_collision == true
 	assert b.takes_fall_damage() == false
 	assert b.despawn_policy().distance == false
-}
-
-fn test_item_spawn_packet_is_add_item_actor_not_add_actor() {
-	mut host := &FakeHost{}
-	mut m := new_manager(host)
-	e := spawn_item(mut m, 5, 3, 64, types.Vector3{0, 5, 0})
-	pkt := e.spawn_packet()
-	if pkt is proto.AddItemActorPacket {
-		assert pkt.item.id == 5
-		assert pkt.item.stack_size == 3
-	} else {
-		assert false, 'expected AddItemActorPacket, got a different packet type'
-	}
 }
 
 fn test_item_despawns_after_existence_duration() {

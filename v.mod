@@ -1,6 +1,6 @@
 Module {
 	name: 'vedrock'
-	description: 'Lightweight Minecraft: Berock Edition server software in V'
+	description: 'Lightweight Minecraft: Bedrock Edition server software in V'
 	version: '0.1.0'
 	license: 'LGPL-3.0'
 	dependencies: ['nepinhum.i18n', 'bedrock-v.protocol@v2.0.1', 'bedrock-v.nbt@v0.1.0',

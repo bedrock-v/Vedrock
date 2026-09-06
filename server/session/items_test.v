@@ -122,8 +122,8 @@ fn test_update_attributes_roundtrip() {
 	sent := &proto.UpdateAttributesPacket{
 		target_runtime_id:       proto.actor_runtime_id(4)
 		attribute_list:          [
-			player.player_attribute('minecraft:health', 0.0, 20.0, 20.0),
-			player.player_attribute('minecraft:movement', 0.0, 1.0, 0.1),
+			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
+			player_attribute('minecraft:movement', 0.0, 1.0, 0.1),
 		]
 		ticks_since_sim_started: 0
 	}

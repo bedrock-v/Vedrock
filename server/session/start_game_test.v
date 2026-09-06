@@ -398,3 +398,19 @@ fn test_registry_packets_roundtrip() {
 		strings: []string{}
 	})!.name() == 'BiomeDefinitionListPacket'
 }
+
+fn test_start_game_reports_the_self_id() {
+	mut s := &NetworkSession{
+		player:     player.new_player()
+		runtime_id: 7
+		hub:        new_hub(gamedata.GameData{})
+		cfg:        conf.Config{}
+		log:        logger.new(.info)
+	}
+
+	packet := s.build_start_game_packet(SpawnState{})
+
+	assert packet.target_runtime_id.value == self_entity_runtime_id
+	assert packet.target_actor_id.value == i64(self_entity_runtime_id)
+	assert s.wire_id_for(s.runtime_id) == packet.target_runtime_id.value
+}

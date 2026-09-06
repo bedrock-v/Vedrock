@@ -76,6 +76,20 @@ fn apply_mob_loot_drops(network_id string, e &Entity, mut host Host) {
 			host.spawn_dropped_item(entry.item_name, count, e.pos)
 		}
 	}
+	experience := mob_experience(network_id)
+	if experience > 0 {
+		host.spawn_experience_orbs(experience, e.pos)
+	}
+}
+
+// mob_experience is what killing one is worth. The mobs that fight back are
+// worth more than the ones that stand there.
+fn mob_experience(network_id string) int {
+	return match network_id {
+		'minecraft:zombie' { 5 }
+		'minecraft:pig', 'minecraft:cow', 'minecraft:chicken' { rand_int_range(1, 3) }
+		else { 0 }
+	}
 }
 
 const wander_interval_ticks = i64(100)

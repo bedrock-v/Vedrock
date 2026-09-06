@@ -60,10 +60,8 @@ fn (t SetSignTextTask) run(mut tx worldrt.WorldTx) {
 		t.done <- true
 	}
 	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(types.BlockPosition{t.x, t.y, t.z})
-		actor_data_tags: build_sign_nbt(t.x, t.y, t.z, t.text)
-	})
+	broadcast_block_entity(mut tx, types.BlockPosition{t.x, t.y, t.z}, build_sign_nbt(t.x,
+		t.y, t.z, t.text))
 }
 
 // max_sign_text_bytes bounds the text a client may write onto a sign. The NBT

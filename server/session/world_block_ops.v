@@ -1,5 +1,7 @@
 module session
 
+import bedrock_v.nbt
+import server.entity
 import bedrock_v.protocol.types
 import server.world
 import server.world.particle
@@ -57,10 +59,9 @@ fn recompute_neighbor_blocks(mut tx worldrt.WorldTx, pos types.BlockPosition) {
 // broadcast_swing sends the acting session's arm swing animation to every
 // other session in this transaction's world.
 fn broadcast_swing(mut tx worldrt.WorldTx, s &NetworkSession) {
-	tx.wr.broadcast_world_except(s.runtime_id, &proto.AnimatePacket{
-		action:            proto.AnimatePacketAction.swing
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-	})
+	for mut v in viewers_except(mut tx, s.runtime_id) {
+		v.view_actor_swing(s.runtime_id)
+	}
 }
 
 // broadcast_destroy_particles sends the block break particle effect to every
@@ -79,14 +80,24 @@ fn broadcast_destroy_particles(mut tx worldrt.WorldTx, x int, y int, z int, runt
 // this transaction's world. The start, update and stop events differ only in
 // their id and payload, so they all go through here.
 fn broadcast_cracking(mut tx worldrt.WorldTx, event_id int, pos types.BlockPosition, data int) {
-	mut packet := &proto.LevelEventPacket{
-		event_id: event_id
-		data:     data
+	add_particle(mut tx, types.Vector3{
+		x: f32(pos.x)
+		y: f32(pos.y)
+		z: f32(pos.z)
+	}, particle.Custom{
+		id:      event_id
+		payload: data
+	})
+}
+
+// broadcast_block_entity tells every session in this transaction's world about
+// the data attached to a block. Vedrock keeps that data beside the block rather
+// than inside its runtime id, so it travels on its own rather than riding along
+// with the block change.
+fn broadcast_block_entity(mut tx worldrt.WorldTx, pos types.BlockPosition, tags nbt.RootTag) {
+	for mut v in tx.wr.viewers() {
+		v.view_block_entity(pos, tags)
 	}
-	packet.position[0] = f32(pos.x)
-	packet.position[1] = f32(pos.y)
-	packet.position[2] = f32(pos.z)
-	tx.wr.broadcast_world(packet)
 }
 
 // broadcast_crack_speed updates the crack animation speed for a block that is
@@ -118,11 +129,14 @@ fn broadcast_place_sound(mut tx worldrt.WorldTx, s &NetworkSession, x int, y int
 	snd := sound.BlockPlace{
 		block_runtime_id: runtime_id
 	}
-	tx.wr.broadcast_world(proto.level_sound_event(snd.event_name(), types.Vector3{
+	play_actor_sound(mut tx, types.Vector3{
 		x: f32(x) + 0.5
 		y: f32(y) + 0.5
 		z: f32(z) + 0.5
-	}, snd.data(), 'minecraft:player', s.runtime_id))
+	}, snd, entity.SoundSource{
+		actor:      s.runtime_id
+		identifier: player_actor_identifier
+	})
 }
 
 // notify_block_changed re-evaluates liquid flow and connected block state

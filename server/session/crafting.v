@@ -6,6 +6,7 @@ import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import server.entity
 import server.player
 
 const crafting_grid_small = [28, 29, 30, 31]
@@ -375,8 +376,7 @@ fn (mut s NetworkSession) close_workbench(mut tx worldrt.WorldTx) {
 }
 
 struct CloseWorkbenchTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 }
 
 fn (t CloseWorkbenchTask) name() string {
@@ -384,7 +384,7 @@ fn (t CloseWorkbenchTask) name() string {
 }
 
 fn (t CloseWorkbenchTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	target.close_workbench(mut tx)
 }
 
@@ -393,11 +393,9 @@ fn (mut s NetworkSession) release_workbench() {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
+	id := s.actor_id()
 	wr.submit(CloseWorkbenchTask{
-		runtime_id: rid
-		epoch:      epoch
+		id: id
 	})
 }
 

@@ -2,6 +2,7 @@ module session
 
 import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
+import server.entity
 import server.worldrt
 
 fn (mut s NetworkSession) handle_interact(p proto.InteractPacket) ! {
@@ -52,17 +53,14 @@ fn (mut s NetworkSession) release_open_chest_container() {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
+	id := s.actor_id()
 	wr.submit(CloseChestContainerTask{
-		runtime_id: rid
-		epoch:      epoch
+		id: id
 	})
 }
 
 struct CloseChestContainerTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 }
 
 fn (t CloseChestContainerTask) name() string {
@@ -70,6 +68,6 @@ fn (t CloseChestContainerTask) name() string {
 }
 
 fn (t CloseChestContainerTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	target.close_chest_container(mut tx)
 }

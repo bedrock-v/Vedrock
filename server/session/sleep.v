@@ -2,6 +2,7 @@ module session
 
 import bedrock_v.protocol.types
 import server.block
+import server.entity
 import server.world
 import server.worldrt
 
@@ -45,9 +46,8 @@ fn (s &NetworkSession) respawn_position() types.Vector3 {
 // PlayerSpawnPointTask sets a player's spawn point on their own world runtime,
 // since the caller may be another player's session thread or the console.
 struct PlayerSpawnPointTask {
-	runtime_id u64
-	epoch      i64
-	pos        types.Vector3
+	target entity.ActorId
+	pos    types.Vector3
 }
 
 fn (t PlayerSpawnPointTask) name() string {
@@ -55,11 +55,11 @@ fn (t PlayerSpawnPointTask) name() string {
 }
 
 fn (t PlayerSpawnPointTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.target) or { return }
 	target.player.set_spawn_point(t.pos)
 }
 
-// set_spawn_point is the View entry point for moving where this player comes
+// set_spawn_point is the Sender entry point for moving where this player comes
 // back after dying.
 pub fn (mut s NetworkSession) set_spawn_point(x f32, y f32, z f32) {
 	mut wr := s.current_world_runtime()
@@ -67,8 +67,7 @@ pub fn (mut s NetworkSession) set_spawn_point(x f32, y f32, z f32) {
 		return
 	}
 	wr.submit(PlayerSpawnPointTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-		pos:        types.Vector3{x, y, z}
+		target: s.actor_id()
+		pos:    types.Vector3{x, y, z}
 	})
 }

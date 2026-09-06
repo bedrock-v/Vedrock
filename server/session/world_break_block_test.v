@@ -317,7 +317,7 @@ fn test_effects_scale_break_progress_like_vanilla() {
 	hasted := s.break_progress_per_tick(dirt_id)
 	assert_break_close(hasted / base, 1.4)
 
-	s.player.remove_effect(effect.haste)
+	s.player.take_effect(effect.haste)
 	s.player.add_effect_result(effect.new(effect.mining_fatigue, 1, 30 * time.second))
 	fatigued := s.break_progress_per_tick(dirt_id)
 	assert_break_close(fatigued / base, 0.3)

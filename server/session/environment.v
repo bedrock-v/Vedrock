@@ -1,9 +1,9 @@
 module session
 
 import math
+import server.block
 import server.player
 import server.world
-import bedrock_v.protocol.current as proto
 import server.worldrt
 
 // Environmental damage uses per source tick intervals to approximate repeat
@@ -37,8 +37,11 @@ fn (mut s NetworkSession) tick_environmental_damage(mut tx worldrt.WorldTx) {
 	}
 
 	block_id := block_at(tx, int(math.floor(pos.x)), int(math.floor(pos.y)), int(math.floor(pos.z)))
-	s.tick_breath(mut tx, block_id == world.water.network_id, tick)
-	s.tick_burning(mut tx, block_id == world.lava.network_id, block_id == world.water.network_id)
+	// Flowing lava burns and flowing water drowns exactly like their sources,
+	// so both are matched by fluid rather than by the source block id.
+	in_water := block.is_water_id(block_id)
+	s.tick_breath(mut tx, in_water, tick)
+	s.tick_burning(mut tx, block.is_lava_id(block_id), in_water)
 }
 
 // tick_breath drains or refills the underwater breath meter and applies
@@ -93,23 +96,9 @@ fn (mut s NetworkSession) send_air_supply(mut wr worldrt.WorldRuntime, air i64) 
 	if !s.spawned {
 		return
 	}
-	wr.broadcast_world(&proto.SetActorDataPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		actor_data:        [
-			proto.DataItem{
-				data_item_id:   proto.meta_key_air_supply
-				data_item_type: proto.DataItemShort{
-					value: i16(air)
-				}
-			},
-			proto.DataItem{
-				data_item_id:   proto.meta_key_air_supply_max
-				data_item_type: proto.DataItemShort{
-					value: i16(player.max_air_supply_ticks)
-				}
-			},
-		]
-		synced_properties: proto.PropertySyncData{}
-		tick:              0
-	})
+	for mut v in wr.viewers() {
+		if mut v is player.Viewer {
+			v.view_air_supply(s.player, air)
+		}
+	}
 }

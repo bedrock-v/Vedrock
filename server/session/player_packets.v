@@ -1,6 +1,7 @@
 module session
 
 import bedrock_v.protocol.current as proto
+import server.effect
 import server.player
 import server.player.skin
 
@@ -47,12 +48,13 @@ fn parse_uuid(value string, seed u64) []u8 {
 	return out
 }
 
-fn (s &NetworkSession) uuid() proto.Uuid {
-	return proto.uuid_from_bytes(parse_uuid(s.player.identity.uuid, s.runtime_id))
+// player_uuid is a player's identity as the client knows it.
+fn player_uuid(p &player.Player) proto.Uuid {
+	return proto.uuid_from_bytes(parse_uuid(p.identity.uuid, p.runtime_id()))
 }
 
 // default_skin builds the plain white skin the server hands out to players
-// whose own skin it does not track, and converts it to the serialized form the
+// whose own skin it doesn't track and converts it to the serialized form the
 // client expects.
 fn default_skin(id string) proto.SerializedSkin {
 	mut sk := skin.new(int(skin_width), int(skin_height))
@@ -67,7 +69,7 @@ fn default_skin(id string) proto.SerializedSkin {
 	return serialize_skin(sk)
 }
 
-// serialize_skin converts sk to the packet form of a skin. Fields the skin
+// serialize_skin converts "sk"in to the packet form of a skin. Fields the skin
 // type has no say over, such as the persona pieces, are left at the neutral
 // values a server built skin uses.
 fn serialize_skin(sk skin.Skin) proto.SerializedSkin {
@@ -107,18 +109,18 @@ fn serialize_skin(sk skin.Skin) proto.SerializedSkin {
 	}
 }
 
-fn (s &NetworkSession) player_list_add_packet() &proto.PlayerListPacket {
+fn (mut s NetworkSession) player_list_add_packet(p &player.Player) &proto.PlayerListPacket {
 	return &proto.PlayerListPacket{
 		entries: [
 			proto.PlayerListAdd{
 				entry: proto.AddPlayerListEntry{
-					uuid:             s.uuid()
-					target_actor_id:  proto.actor_unique_id(i64(s.runtime_id))
-					player_name:      s.player.identity.display_name
-					xbl_xuid:         s.player.identity.xuid
+					uuid:             player_uuid(p)
+					target_actor_id:  proto.actor_unique_id(i64(s.wire_id_for(p.runtime_id())))
+					player_name:      p.identity.display_name
+					xbl_xuid:         p.identity.xuid
 					platform_chat_id: ''
 					build_platform:   proto.BuildPlatform.unknown
-					serialized_skin:  default_skin(s.player.identity.display_name)
+					serialized_skin:  default_skin(p.identity.display_name)
 					is_teacher:       false
 					is_host:          false
 					is_sub_client:    false
@@ -134,29 +136,29 @@ fn (s &NetworkSession) player_list_add_packet() &proto.PlayerListPacket {
 	}
 }
 
-fn (s &NetworkSession) player_list_remove_packet() &proto.PlayerListPacket {
+fn (mut s NetworkSession) player_list_remove_packet(p &player.Player) &proto.PlayerListPacket {
 	return &proto.PlayerListPacket{
 		entries: [
 			proto.PlayerListRemove{
-				uuid: s.uuid()
+				uuid: player_uuid(p)
 			},
 		]
 	}
 }
 
-fn (s &NetworkSession) add_player_packet() &proto.AddPlayerPacket {
-	current := s.player.movement()
+fn (mut s NetworkSession) add_player_packet(p &player.Player) &proto.AddPlayerPacket {
+	current := p.movement()
 	mut packet := &proto.AddPlayerPacket{
-		uuid:              s.uuid()
-		player_name:       s.player.identity.display_name
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
+		uuid:              player_uuid(p)
+		player_name:       p.identity.display_name
+		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
 		platform_chat_id:  ''
 		y_head_rotation:   current.head_yaw
-		carried_item:      proto.item_descriptor(s.player.held_item().item_stack)
-		player_game_type:  proto.game_type(player.gamemode_to_wire(s.player.game_mode()))
-		entity_data:       visible_name_metadata(s.player.identity.display_name)
+		carried_item:      proto.item_descriptor(p.held_item().item_stack)
+		player_game_type:  proto.game_type(gamemode_to_wire(p.game_mode()))
+		entity_data:       visible_name_metadata(p.identity.display_name)
 		synced_properties: proto.PropertySyncData{}
-		abilities_data:    s.build_abilities()
+		abilities_data:    s.build_abilities_for(p)
 		actor_links:       []proto.ActorLink{}
 		device_id:         ''
 		build_platform:    proto.BuildPlatform.unknown
@@ -172,11 +174,19 @@ fn (s &NetworkSession) add_player_packet() &proto.AddPlayerPacket {
 	return packet
 }
 
-fn (s &NetworkSession) move_actor_packet() &proto.MoveActorAbsolutePacket {
-	current := s.player.movement()
+fn (mut s NetworkSession) remove_actor_packet(p &player.Player) &proto.RemoveActorPacket {
+	return &proto.RemoveActorPacket{
+		target_actor_id: proto.actor_unique_id(i64(s.wire_id_for(p.runtime_id())))
+	}
+}
+
+// move_actor_packet is a player's position as other clients see it. It takes
+// the player because a viewer builds it for whoever it is being shown.
+fn (mut s NetworkSession) move_actor_packet(p &player.Player) &proto.MoveActorAbsolutePacket {
+	current := p.movement()
 	return &proto.MoveActorAbsolutePacket{
 		move_data: proto.MoveActorAbsoluteData{
-			actor_runtime_id: proto.actor_runtime_id(s.runtime_id)
+			actor_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
 			header:           i8(proto.move_actor_flag_on_ground)
 			position_x:       current.position.x
 			position_y:       current.position.y
@@ -188,8 +198,17 @@ fn (s &NetworkSession) move_actor_packet() &proto.MoveActorAbsolutePacket {
 	}
 }
 
-fn (s &NetworkSession) remove_actor_packet() &proto.RemoveActorPacket {
-	return &proto.RemoveActorPacket{
-		target_actor_id: proto.actor_unique_id(i64(s.runtime_id))
+// mob_effect_packet is one effect on a player as the clients around them see
+// it. Same reason for the parameter as move_actor_packet.
+fn (mut s NetworkSession) mob_effect_packet(p &player.Player, e effect.Effect, event_id proto.MobEffectEvent) &proto.MobEffectPacket {
+	return &proto.MobEffectPacket{
+		target_runtime_id:     proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
+		event_id:              event_id
+		effect_id:             e.effect_type().id
+		effect_amplifier:      e.level() - 1
+		show_particles:        !e.particles_hidden()
+		effect_duration_ticks: e.duration_ticks()
+		tick:                  u64(e.tick())
+		ambient:               e.ambient()
 	}
 }

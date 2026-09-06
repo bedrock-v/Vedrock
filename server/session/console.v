@@ -78,6 +78,10 @@ fn (mut c ConsoleSender) place_water(x int, y int, z int) {
 	c.hub.place_water(x, y, z)
 }
 
+fn (mut c ConsoleSender) place_lava(x int, y int, z int) {
+	c.hub.place_lava(x, y, z)
+}
+
 fn (mut c ConsoleSender) clear_inventory() {}
 
 fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
@@ -85,6 +89,14 @@ fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
 }
 
 fn (mut c ConsoleSender) set_spawn_point(_ f32, _ f32, _ f32) {}
+
+fn (mut c ConsoleSender) give_experience(_ int) {}
+
+fn (mut c ConsoleSender) give_experience_levels(_ int) {}
+
+fn (c ConsoleSender) experience_level() int {
+	return 0
+}
 
 fn (mut c ConsoleSender) send_form(_ form.Form) ! {
 	return error('the console cannot display forms')

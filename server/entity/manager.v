@@ -2,7 +2,6 @@ module entity
 
 import sync
 import rand
-import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.world
 import server.effect
@@ -17,8 +16,10 @@ const view_radius = f32(64.0)
 // session.WorldEntityHost satisfies it for one world.
 pub interface Host {
 mut:
-	broadcast(p protocol.Packet)
-	broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet)
+	// viewers is everyone in the world; viewers_near is everyone close
+	// enough to a point to be shown something happening there.
+	viewers() []Viewer
+	viewers_near(x f32, y f32, z f32, radius f32) []Viewer
 	allocate_runtime_id() u64
 	get_block(x int, y int, z int) int
 	collision_boxes(x int, y int, z int) []world.AABB
@@ -61,6 +62,12 @@ mut:
 	collect_item(runtime_id u64, stack types.ItemStack) int
 	// notify_item_taken lets viewers see the pickup animation.
 	notify_item_taken(item_runtime_id u64, taker_runtime_id u64)
+	// grant_experience awards amount to the player at runtime_id and reports
+	// whether anyone was there to take it.
+	grant_experience(runtime_id u64, amount int) bool
+	// spawn_experience_orbs drops amount of experience at pos, split across as
+	// many orbs as it takes.
+	spawn_experience_orbs(amount int, pos types.Vector3)
 }
 
 // Manager stores every live actor in a world, keyed by runtime ID.
@@ -101,7 +108,9 @@ pub fn (mut m Manager) spawn(behaviour Behaviour, pos types.Vector3) &Entity {
 		actor: e
 	}
 	m.mutex.unlock()
-	m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.spawn_packet())
+	for mut v in m.host.viewers_near(e.pos.x, e.pos.y, e.pos.z, view_radius) {
+		v.view_entity_spawn(e)
+	}
 	return e
 }
 
@@ -116,7 +125,9 @@ pub fn (mut m Manager) despawn(runtime_id u64) {
 		e := entry.actor
 		m.actors.delete(runtime_id)
 		m.mutex.unlock()
-		m.host.broadcast(e.despawn_packet())
+		for mut v in m.host.viewers() {
+			v.view_entity_despawn(e)
+		}
 		m.host.notify_entity_despawn(e.identifier, e.pos.x, e.pos.y, e.pos.z)
 		return
 	}
@@ -169,11 +180,11 @@ pub fn (mut m Manager) snapshot() []&Entity {
 }
 
 // register_player_actor adds or replaces a player actor entry.
-pub fn (mut m Manager) register_player_actor(a Actor, runtime_id u64, epoch i64) {
+pub fn (mut m Manager) register_player_actor(a Actor, id ActorId) {
 	m.mutex.lock()
-	m.actors[runtime_id] = ActorEntry{
-		actor: a
-		epoch: epoch
+	m.actors[id.value] = ActorEntry{
+		actor:  a
+		epoch:  id.epoch
 	}
 	m.mutex.unlock()
 }
@@ -202,18 +213,19 @@ pub fn (mut m Manager) deregister_player_actor(runtime_id u64) {
 	}
 }
 
-// player_actor_for_epoch resolves a player actor and rejects a stale or
-// missing registration before any side effects occur.
-pub fn (mut m Manager) player_actor_for_epoch(runtime_id u64, epoch i64) ?Actor {
+// player_actor_for_id resolves a player actor and rejects a stale or missing
+// registration before any side effects occur. Stale means the id names a
+// registration generation this world no longer holds.
+pub fn (mut m Manager) player_actor_for_id(id ActorId) ?Actor {
 	m.mutex.lock()
 	defer {
 		m.mutex.unlock()
 	}
-	entry := m.actors[runtime_id] or { return none }
+	entry := m.actors[id.value] or { return none }
 	if entry.actor is Entity {
 		return none
 	}
-	if entry.epoch != epoch {
+	if entry.epoch != id.epoch {
 		return none
 	}
 	return entry.actor
@@ -331,7 +343,9 @@ pub fn (mut m Manager) tick() {
 			continue
 		}
 		if moved(before, e.pos) {
-			m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.move_packet())
+			for mut v in m.host.viewers_near(e.pos.x, e.pos.y, e.pos.z, view_radius) {
+				v.view_entity_movement(e)
+			}
 		}
 	}
 	m.merge_items()

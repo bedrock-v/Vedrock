@@ -71,7 +71,7 @@ fn test_handle_attack_rejects_out_of_reach() {
 	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
-	attacker.handle_attack(victim.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -111,7 +111,7 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{1.0, 0.0, 0.0})
 
-	attacker.handle_attack(victim.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	// worldrt.world_call as a synchronization barrier, guarantees the attack task
 	// above has actually landed before checking state.
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
@@ -144,7 +144,7 @@ fn test_handle_attack_damages_a_mob() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{1.0, 0.0, 0.0})
 
-	attacker.handle_attack(mob.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -170,7 +170,7 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{100.0, 0.0, 0.0})
 
-	attacker.handle_attack(mob.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -480,7 +480,7 @@ fn test_handle_entity_interact_milks_cow_with_bucket() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(cow.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(cow.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 201
@@ -509,7 +509,7 @@ fn test_handle_entity_interact_non_cow_is_noop() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(pig.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(pig.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200
@@ -538,7 +538,7 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(cow.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(cow.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200
