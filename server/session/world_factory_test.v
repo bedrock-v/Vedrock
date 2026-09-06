@@ -7,7 +7,7 @@ import server.world.db
 // FakeProvider is a purely in memory db.Provider.
 struct FakeProvider {
 mut:
-	blocks map[string]int
+	columns map[string][]u8
 }
 
 fn (p &FakeProvider) dimension() world.Dimension {
@@ -18,18 +18,11 @@ fn (p &FakeProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (mut p FakeProvider) set_block(x int, y int, z int, runtime_id int) ! {
-	p.blocks['${x},${y},${z}'] = runtime_id
+fn (mut p FakeProvider) store_column(cx int, cz int, data []u8) ! {
+	p.columns['${cx},${cz}'] = data.clone()
 }
 
-fn (p &FakeProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
-
-fn (mut p FakeProvider) set_block_entity(x int, y int, z int, data []u8) ! {}
-
-
-
-
-fn (p &FakeProvider) each_block_entity(cb fn (x int, y int, z int, data []u8)) {}
+fn (p &FakeProvider) each_column(cb fn (cx int, cz int, data []u8)) {}
 
 fn (p &FakeProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 

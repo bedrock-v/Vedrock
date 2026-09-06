@@ -3,53 +3,6 @@ module db
 import os
 import server.world
 
-struct TileCollector {
-mut:
-	texts map[string]string
-}
-
-// legacy_text writes the record block entity text used to live in, so the
-// compatibility path has something written the old way to read.
-fn legacy_text(mut store WorldStore, x int, y int, z int, text string) {
-	store.overrides.put(tile_key(x, y, z), text.bytes()) or { panic(err) }
-}
-
-struct RuntimeIdCollector {
-mut:
-	ids map[string]int
-}
-
-fn test_world_store_tile_text_roundtrip() {
-	dir := os.join_path(os.temp_dir(), 'vedrock_tile_db_test')
-	os.rmdir_all(dir) or {}
-	os.rmdir_all(dir + '_overrides') or {}
-	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_block(1, 64, -3, 42) or { panic(err) }
-	store.set_block_entity(1, 64, -3, legacy_text_bytes('Hello')) or { panic(err) }
-	// Written the old way to prove a world from before the merge still opens.
-	legacy_text(mut store, 5, 5, 5, 'World')
-	mut c := &TileCollector{}
-	store.each_block_entity(fn [mut c] (x int, y int, z int, data []u8) {
-		decoded := decode_block_entity(data) or { return }
-		c.texts['${x},${y},${z}'] = block_entity_text(decoded) or { return }
-	})
-	assert c.texts.len == 2
-	assert c.texts['1,64,-3'] == 'Hello'
-	assert c.texts['5,5,5'] == 'World'
-
-	// each_block must ignore block entity keys and vice versa.
-	mut rc := &RuntimeIdCollector{}
-	store.each_block(fn [mut rc] (x int, y int, z int, runtime_id int) {
-		rc.ids['${x},${y},${z}'] = runtime_id
-	})
-	assert rc.ids.len == 1
-	assert rc.ids['1,64,-3'] == 42
-
-	store.close() or { panic(err) }
-	os.rmdir_all(dir) or {}
-	os.rmdir_all(dir + '_overrides') or {}
-}
-
 fn test_world_tile_text_and_entries_in_chunk() {
 	mut w := new_world('test', none, 'flat', world.overworld)
 	w.set_tile_text(1, 5, 2, 'Front line 1')
@@ -77,16 +30,16 @@ fn test_world_load_restores_tile_data() {
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_block_entity(3, 4, 5, legacy_text_bytes('Persisted')) or { panic(err) }
-	legacy_text(mut store, 6, 7, 8, 'Written before the merge')
-	store.close() or { panic(err) }
+	mut w := new_world('test', store, 'flat', world.overworld)
+	w.load()
+	w.set_tile_text(3, 4, 5, 'Persisted')
+	w.close() or { panic(err) }
 
 	mut store2 := open_world(dir, world.overworld) or { panic(err) }
-	mut w := new_world('test', store2, 'flat', world.overworld)
-	w.load()
-	assert w.tile_text(3, 4, 5) or { '' } == 'Persisted'
-	assert w.tile_text(6, 7, 8) or { '' } == 'Written before the merge'
-	w.close() or { panic(err) }
+	mut back := new_world('test', store2, 'flat', world.overworld)
+	back.load()
+	assert back.tile_text(3, 4, 5) or { '' } == 'Persisted'
+	back.close() or { panic(err) }
 
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}

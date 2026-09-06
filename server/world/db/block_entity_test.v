@@ -1,6 +1,5 @@
 module db
 
-import json2
 import os
 import bedrock_v.nbt
 import server.world
@@ -93,54 +92,14 @@ fn test_a_new_kind_needs_nothing_from_the_storage_layer() {
 	mut back := new_world('newkind-test', reopened, 'flat', world.overworld)
 	back.load()
 	assert back.tile_text(1, 2, 3) or { '' } == 'sign'
-	data := back.block_entities[override_key(1, 2, 3)] or {
+	col := back.columns[column_key_of(1, 3)] or {
+		assert false, 'the column did not come back'
+		return
+	}
+	data := col.block_entities[local_key(1, 2, 3)] or {
 		assert false, 'the block entity did not come back'
 		return
 	}
 	assert compound_int(data, 'BurnTime') == 160
 	back.close() or { panic(err) }
-}
-
-// A container written before the merge is still read, so an existing world does
-// not need a migration pass over its files.
-fn test_containers_written_the_old_way_still_load() {
-	dir := block_entity_dir('legacy')
-	defer {
-		drop_dir(dir)
-	}
-	mut store := open_world(dir, world.overworld) or { panic(err) }
-	items := [ContainerSlotItem{
-		slot:  7
-		id:    42
-		count: 5
-	}]
-	store.overrides.put(container_key(9, 9, 9), json2.encode(items).bytes()) or { panic(err) }
-	store.close() or { panic(err) }
-
-	mut reopened := open_world(dir, world.overworld) or { panic(err) }
-	mut w := new_world('legacy-test', reopened, 'flat', world.overworld)
-	w.load()
-	back := w.container_items(9, 9, 9)
-	assert back.len == 1
-	assert back[0].slot == 7
-	assert back[0].id == 42
-	assert back[0].count == 5
-	w.close() or { panic(err) }
-}
-
-fn test_merged_record_wins_over_the_legacy_one_at_same_pos() {
-	dir := block_entity_dir('precedence')
-	defer {
-		drop_dir(dir)
-	}
-	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.overrides.put(tile_key(1, 1, 1), 'written before the merge'.bytes()) or { panic(err) }
-	store.set_block_entity(1, 1, 1, legacy_text_bytes('written after')) or { panic(err) }
-	store.close() or { panic(err) }
-
-	mut reopened := open_world(dir, world.overworld) or { panic(err) }
-	mut w := new_world('precedence-test', reopened, 'flat', world.overworld)
-	w.load()
-	assert w.tile_text(1, 1, 1) or { '' } == 'written after'
-	w.close() or { panic(err) }
 }

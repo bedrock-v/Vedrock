@@ -4,11 +4,15 @@ import sync
 import time
 import server.world
 
+// CountingProvider keeps the last record written for each column, so a test
+// can check what actually reached storage rather than only how often the
+// worker ran.
 @[heap]
 struct CountingProvider {
 mut:
 	mutex   &sync.Mutex = sync.new_mutex()
 	applied int
+	stored  map[string][]u8
 }
 
 fn (p &CountingProvider) dimension() world.Dimension {
@@ -19,19 +23,14 @@ fn (p &CountingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (p &CountingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
+fn (p &CountingProvider) each_column(cb fn (cx int, cz int, data []u8)) {}
 
-
-fn (mut p CountingProvider) set_block(x int, y int, z int, runtime_id int) ! {
+fn (mut p CountingProvider) store_column(cx int, cz int, data []u8) ! {
 	p.mutex.lock()
 	p.applied++
+	p.stored['${cx},${cz}'] = data.clone()
 	p.mutex.unlock()
 }
-
-fn (mut p CountingProvider) set_block_entity(x int, y int, z int, data []u8) ! {}
-
-
-fn (p &CountingProvider) each_block_entity(cb fn (x int, y int, z int, data []u8)) {}
 
 fn (p &CountingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
@@ -49,6 +48,22 @@ fn (p &CountingProvider) applied_count() int {
 		m.unlock()
 	}
 	return p.applied
+}
+
+// stored_block_count totals the blocks across every column record written, as
+// storage would hold them after a restart.
+fn (p &CountingProvider) stored_block_count() int {
+	mut m := p.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	mut total := 0
+	for _, data in p.stored {
+		col := decode_column(data) or { continue }
+		total += col.blocks.len
+	}
+	return total
 }
 
 fn persist_soak_wait_until(deadline_ms int, cond fn () bool) bool {
@@ -74,13 +89,15 @@ fn test_set_block_never_blocks_under_write_load() {
 	elapsed := time.since(start)
 	assert elapsed < 2000 * time.millisecond
 
-	assert persist_soak_wait_until(10000, fn [provider, write_count] () bool {
-		return provider.applied_count() == write_count
-	})
-
 	w.close() or { panic(err) }
-	assert provider.applied_count() == write_count
+	// Every block must be in what reached storage, however many writes the
+	// worker needed to get it there.
+	assert provider.stored_block_count() == write_count
 	assert w.block_override(write_count - 1, 64, 0) or { -1 } == write_count
+	// The writes span 1250 column footprints and the worker collapses the
+	// ones that arrive while a column is already queued, so it must have run
+	// far fewer times than there were writes.
+	assert provider.applied_count() < write_count
 }
 
 fn test_flush_barrier_holds_under_sustained_concurrent_writes() {
@@ -113,5 +130,5 @@ fn test_flush_barrier_holds_under_sustained_concurrent_writes() {
 
 	_ := <-writer_done
 	w.flush() or { panic(err) }
-	assert provider.applied_count() == write_count
+	assert provider.stored_block_count() == write_count
 }

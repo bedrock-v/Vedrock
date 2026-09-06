@@ -95,18 +95,3 @@ fn compound_bytes(c nbt.Compound, key string) []u8 {
 	}
 	return []u8{}
 }
-
-// legacy_text_bytes and legacy_items_bytes lift the two records block entities
-// used to be split across into the merged shape, so a world written before the
-// merge opens without a migration pass over its files.
-fn legacy_text_bytes(text string) []u8 {
-	mut c := nbt.new_compound()
-	c.set(block_entity_text_key, nbt.Tag(text))
-	return encode_block_entity(c)
-}
-
-fn legacy_items_bytes(items []ContainerSlotItem) []u8 {
-	mut c := nbt.new_compound()
-	c.set(block_entity_items_key, items_tag(items))
-	return encode_block_entity(c)
-}

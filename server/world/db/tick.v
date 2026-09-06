@@ -84,16 +84,22 @@ pub fn (w &World) override_positions() []TickPosition {
 	defer {
 		m.unlock()
 	}
-	mut positions := []TickPosition{cap: w.overrides.len}
-	for key, _ in w.overrides {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		positions << TickPosition{
-			x: parts[0].int()
-			y: parts[1].int()
-			z: parts[2].int()
+	return w.locked_override_positions()
+}
+
+// locked_override_positions lists every overridden position, walking the
+// columns in whatever order they were loaded. Callers hold w.mutex.
+fn (w &World) locked_override_positions() []TickPosition {
+	mut positions := []TickPosition{}
+	for key, col in w.columns {
+		cx, cz := column_coords(key)
+		for local, _ in col.blocks {
+			x, y, z := local_coords(cx, cz, local)
+			positions << TickPosition{
+				x: x
+				y: y
+				z: z
+			}
 		}
 	}
 	return positions
@@ -121,18 +127,7 @@ pub fn (mut w World) tick(registry &block.Registry) []BlockOverride {
 		}
 	}
 	w.scheduled = pending
-	mut positions := []TickPosition{cap: w.overrides.len}
-	for key, _ in w.overrides {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		positions << TickPosition{
-			x: parts[0].int()
-			y: parts[1].int()
-			z: parts[2].int()
-		}
-	}
+	positions := w.locked_override_positions()
 	w.mutex.unlock()
 
 	for entry in due {

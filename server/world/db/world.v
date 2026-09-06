@@ -1,6 +1,5 @@
 module db
 
-import json2
 import server.world
 
 pub struct ContainerSlotItem {
@@ -16,20 +15,21 @@ pub mut:
 // Provider is the storage backend contract a world needs, the same shape
 // WorldStore (LevelDB) already implements, extracted so a framework user can
 // bring their own backend instead of being stuck with LevelDB.
+//
+// Everything the server writes into the terrain travels as a column: one
+// record holding a chunk footprint's block overrides and block entities. The
+// bytes are opaque here, which keeps a backend to storing and returning them
+// and keeps their meaning in one place (encode_column).
 pub interface Provider {
 	dimension() world.Dimension
 	load_chunk(cx int, cz int) ?world.Chunk
-	each_block(cb fn (x int, y int, z int, runtime_id int))
-	// each_block_entity walks every block that carries more than a block id:
-	// a sign's text, a chest's contents, whatever a later kind needs. One
-	// callback for every kind, so a new kind costs no new method here.
-	each_block_entity(cb fn (x int, y int, z int, data []u8))
+	// each_column walks every column this world has stored anything in.
+	each_column(cb fn (cx int, cz int, data []u8))
 	// each_player_spawn walks the beds players have bound themselves to in
 	// this world. key is whatever the caller identifies a player by.
 	each_player_spawn(cb fn (key string, x int, y int, z int))
 mut:
-	set_block(x int, y int, z int, runtime_id int) !
-	set_block_entity(x int, y int, z int, data []u8) !
+	store_column(cx int, cz int, data []u8) !
 	set_player_spawn(key string, x int, y int, z int) !
 	flush() !
 	close() !
@@ -43,9 +43,19 @@ pub struct WorldStore {
 }
 
 pub fn open_world(path string, dim world.Dimension) !&WorldStore {
+	overrides := open_leveldb(path + '_overrides')!
+	vanilla := open_leveldb(path) or {
+		overrides.close() or {}
+		return err
+	}
+	migrate_legacy_records(overrides) or {
+		overrides.close() or {}
+		vanilla.close() or {}
+		return err
+	}
 	return &WorldStore{
-		db:        open_leveldb(path)!
-		overrides: open_leveldb(path + '_overrides')!
+		db:        vanilla
+		overrides: overrides
 		dimension: dim
 	}
 }
@@ -67,42 +77,34 @@ fn read_i32(b []u8, offset int) int {
 		offset + 3]) << 24))
 }
 
-fn block_key(x int, y int, z int) []u8 {
-	mut b := []u8{}
-	b << u8(`b`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
-	return b
+fn put_i64(mut b []u8, v i64) {
+	u := u64(v)
+	for shift in [0, 8, 16, 24, 32, 40, 48, 56] {
+		b << u8(u >> shift)
+	}
 }
 
-// block_entity_key uses the same 13-byte x/y/z layout as block_key with its own
-// prefix byte, so block entity data safely coexists with block overrides in the
-// same LevelDB handle.
-fn block_entity_key(x int, y int, z int) []u8 {
-	mut b := []u8{}
-	b << u8(`e`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
-	return b
+fn read_i64(b []u8, offset int) i64 {
+	mut u := u64(0)
+	for i in 0 .. 8 {
+		u |= u64(b[offset + i]) << (i * 8)
+	}
+	return i64(u)
 }
 
-// tile_key and container_key are the two records block entities used to be
-// split across. Nothing writes them any more; each_block_entity still reads
-// them so a world written before the two were merged still opens.
-fn tile_key(x int, y int, z int) []u8 {
+// column_record_key is 9 bytes where every legacy position key below is 13,
+// which is what lets both shapes sit in one LevelDB handle while a world is
+// being migrated.
+fn column_record_key(cx int, cz int) []u8 {
 	mut b := []u8{}
-	b << u8(`t`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
+	b << u8(`C`)
+	put_i32(mut b, cx)
+	put_i32(mut b, cz)
 	return b
 }
 
 // player_spawn_key is the one key here that is not a position. The player key
-// is variable length which is also what keeps it clear of the 13 byte
-// position keys above.
+// is variable length which is also what keeps it clear of the position keys.
 fn player_spawn_key(key string) []u8 {
 	mut b := []u8{}
 	b << u8(`s`)
@@ -110,85 +112,17 @@ fn player_spawn_key(key string) []u8 {
 	return b
 }
 
-fn container_key(x int, y int, z int) []u8 {
-	mut b := []u8{}
-	b << u8(`c`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
-	return b
+pub fn (w &WorldStore) store_column(cx int, cz int, data []u8) ! {
+	w.overrides.put(column_record_key(cx, cz), data)!
 }
 
-pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) ! {
-	mut v := []u8{}
-	put_i32(mut v, runtime_id)
-	w.overrides.put(block_key(x, y, z), v)!
-}
-
-pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
+pub fn (w &WorldStore) each_column(cb fn (cx int, cz int, data []u8)) {
 	w.overrides.each(fn [cb] (key []u8, value []u8) {
-		if key.len != 13 || value.len != 4 || key[0] != u8(`b`) {
+		if key.len != 9 || key[0] != u8(`C`) {
 			return
 		}
-		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), read_i32(value, 0))
+		cb(read_i32(key, 1), read_i32(key, 5), value)
 	})
-}
-
-pub fn (w &WorldStore) set_block_entity(x int, y int, z int, data []u8) ! {
-	w.overrides.put(block_entity_key(x, y, z), data)!
-}
-
-// each_block_entity walks the merged records first, then the two legacy shapes.
-// A position written under both is reported once, by the merged record, because
-// that is the one anything still writes.
-pub fn (w &WorldStore) each_block_entity(cb fn (x int, y int, z int, data []u8)) {
-	mut seen := &PositionSet{}
-	w.overrides.each(fn [cb, mut seen] (key []u8, value []u8) {
-		if key.len != 13 || key[0] != u8(`e`) {
-			return
-		}
-		x, y, z := read_i32(key, 1), read_i32(key, 5), read_i32(key, 9)
-		seen.add(x, y, z)
-		cb(x, y, z, value)
-	})
-	w.overrides.each(fn [cb, mut seen] (key []u8, value []u8) {
-		if key.len != 13 || key[0] != u8(`t`) {
-			return
-		}
-		x, y, z := read_i32(key, 1), read_i32(key, 5), read_i32(key, 9)
-		if seen.has(x, y, z) {
-			return
-		}
-		seen.add(x, y, z)
-		cb(x, y, z, legacy_text_bytes(value.bytestr()))
-	})
-	w.overrides.each(fn [cb, mut seen] (key []u8, value []u8) {
-		if key.len != 13 || key[0] != u8(`c`) {
-			return
-		}
-		x, y, z := read_i32(key, 1), read_i32(key, 5), read_i32(key, 9)
-		if seen.has(x, y, z) {
-			return
-		}
-		items := json2.decode[[]ContainerSlotItem](value.bytestr()) or { return }
-		cb(x, y, z, legacy_items_bytes(items))
-	})
-}
-
-// PositionSet is a heap set  because the closures above capture it and a
-// captured value would be a copy that never leaves the callback.
-@[heap]
-struct PositionSet {
-mut:
-	seen map[string]bool
-}
-
-fn (mut s PositionSet) add(x int, y int, z int) {
-	s.seen[override_key(x, y, z)] = true
-}
-
-fn (s &PositionSet) has(x int, y int, z int) bool {
-	return s.seen[override_key(x, y, z)] or { false }
 }
 
 pub fn (w &WorldStore) set_player_spawn(key string, x int, y int, z int) ! {

@@ -24,25 +24,16 @@ const persist_hard_ceiling_count = 32768
 // enqueue rechecks whether the backlog has fallen below the hard ceiling.
 const persist_ceiling_poll_interval = 5 * time.millisecond
 
-// BlockPersist and BlockEntityPersist are immutable records of one write already
-// applied to a World's in memory state, handed to the storage worker so the
-// actual disk write never has to happen on whatever thread called
-// set_block/set_block_entity. PersistBarrier lets a caller learn when the
-// worker has caught up to a specific point, for flush/close. A sum type keeps these
-// distinct rather than one struct with fields that are only sometimes
-// meaningful.
-struct BlockPersist {
-	x  int
-	y  int
-	z  int
-	id int
-}
-
-struct BlockEntityPersist {
-	x    int
-	y    int
-	z    int
-	data []u8
+// ColumnPersist names a column whose changes are already in a World's in
+// memory state and not yet on disk. It carries no data of its own: the storage
+// worker snapshots the column when it reaches the record, which is what lets
+// every write to that column between enqueue and snapshot ride on one disk
+// write. PlayerSpawnPersist does carry its write, being one small value.
+// PersistBarrier lets a caller learn when the worker has caught up to a
+// specific point, for flush/close. A sum type keeps these distinct rather than
+// one struct with fields that are only sometimes meaningful.
+struct ColumnPersist {
+	key i64
 }
 
 struct PlayerSpawnPersist {
@@ -56,10 +47,7 @@ struct PersistBarrier {
 	done chan bool
 }
 
-type PersistRecord = BlockEntityPersist
-	| BlockPersist
-	| PersistBarrier
-	| PlayerSpawnPersist
+type PersistRecord = ColumnPersist | PersistBarrier | PlayerSpawnPersist
 
 // QueuedPersistRecord pairs a persistence record with its enqueue time for
 // measuring backlog depth and age.
@@ -80,18 +68,18 @@ pub:
 	name      string
 	dimension world.Dimension = world.overworld
 mut:
-	store          ?Provider
-	overrides      map[string]int
-	// block_entities is every block that carries more than a block id, of
-	// whatever kind. One map because a column carries one list of them and
-	// because a new kind should not need a new map here.
-	block_entities map[string]nbt.Compound
+	store ?Provider
+	// columns is everything this world has written into its terrain, grouped
+	// by the chunk footprint it sits in: block overrides and block entities of
+	// every kind together. Grouping is what keeps a chunk send from walking
+	// the whole world and what gives the storage worker one write unit.
+	columns map[i64]&Column
 	// player_spawns is the bed each player is bound to here, keyed by whatever
 	// the caller identifies a player by. It belongs to the world because the
 	// coordinates only mean anything in this one and it goes when the world
 	// does.
-	player_spawns  map[string]types.BlockPosition
-	open_holders   map[string]u64
+	player_spawns map[string]types.BlockPosition
+	open_holders  map[string]u64
 	// furnace_states is the burn and cook progress of every furnace that is
 	// doing something. It is in memory only: a furnace goes out across a
 	// restart rather than resuming mid-cook.
@@ -184,21 +172,40 @@ pub fn (w &World) is_persistent() bool {
 	return w.store_backed
 }
 
-// load pulls every persisted block override and tile data entry into the
-// in memory cache.
+// load pulls every stored column and player spawn into memory.
 pub fn (mut w World) load() {
 	store := w.store or { return }
-	store.each_block(fn [mut w] (x int, y int, z int, runtime_id int) {
-		w.overrides[override_key(x, y, z)] = runtime_id
-	})
-	store.each_block_entity(fn [mut w] (x int, y int, z int, data []u8) {
-		if decoded := decode_block_entity(data) {
-			w.block_entities[override_key(x, y, z)] = decoded
+	store.each_column(fn [mut w] (cx int, cz int, data []u8) {
+		if col := decode_column(data) {
+			w.columns[column_key(cx, cz)] = col
 		}
 	})
 	store.each_player_spawn(fn [mut w] (key string, x int, y int, z int) {
 		w.player_spawns[key] = types.BlockPosition{x, y, z}
 	})
+}
+
+// column returns a column by key, creating an empty one when the world has
+// written nothing in that footprint yet. Callers hold w.mutex.
+fn (mut w World) column(key i64) &Column {
+	if col := w.columns[key] {
+		return col
+	}
+	col := &Column{}
+	w.columns[key] = col
+	return col
+}
+
+// mark_column_dirty records a column as changed and reports whether the
+// storage worker needs a new record for it. It returns false while a record
+// for the column is already queued which is how many writes to one column
+// collapse into one disk write. Callers hold w.mutex.
+fn mark_column_dirty(mut col Column) bool {
+	if col.dirty {
+		return false
+	}
+	col.dirty = true
+	return true
 }
 
 // player_spawn is the bed the named player is bound to in this world or none
@@ -231,14 +238,16 @@ pub fn (mut w World) set_player_spawn(key string, pos types.BlockPosition) {
 // see the World comment above for exactly what that trades away.
 pub fn (mut w World) set_block(x int, y int, z int, runtime_id int) {
 	w.mutex.lock()
-	w.overrides[override_key(x, y, z)] = runtime_id
+	key := column_key_of(x, z)
+	mut col := w.column(key)
+	col.blocks[local_key(x, y, z)] = runtime_id
+	queue := mark_column_dirty(mut col)
 	w.mutex.unlock()
-	w.enqueue_persist(BlockPersist{
-		x:  x
-		y:  y
-		z:  z
-		id: runtime_id
-	})
+	if queue {
+		w.enqueue_persist(ColumnPersist{
+			key: key
+		})
+	}
 }
 
 pub fn (w &World) block_override(x int, y int, z int) ?int {
@@ -247,7 +256,8 @@ pub fn (w &World) block_override(x int, y int, z int) ?int {
 	defer {
 		m.unlock()
 	}
-	return w.overrides[override_key(x, y, z)] or { return none }
+	col := w.columns[column_key_of(x, z)] or { return none }
+	return col.blocks[local_key(x, y, z)] or { return none }
 }
 
 pub fn (w &World) block_count() int {
@@ -256,30 +266,30 @@ pub fn (w &World) block_count() int {
 	defer {
 		m.unlock()
 	}
-	return w.overrides.len
+	mut total := 0
+	for _, col in w.columns {
+		total += col.blocks.len
+	}
+	return total
 }
 
 pub fn (w &World) overrides_in_chunk(cx int, cz int) []BlockOverride {
-	mut out := []BlockOverride{}
 	mut m := w.mutex
 	m.lock()
-	for key, id in w.overrides {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		x := parts[0].int()
-		z := parts[2].int()
-		if (x >> 4) == cx && (z >> 4) == cz {
-			out << BlockOverride{
-				x:  x
-				y:  parts[1].int()
-				z:  z
-				id: id
-			}
+	defer {
+		m.unlock()
+	}
+	col := w.columns[column_key(cx, cz)] or { return []BlockOverride{} }
+	mut out := []BlockOverride{cap: col.blocks.len}
+	for local, id in col.blocks {
+		x, y, z := local_coords(cx, cz, local)
+		out << BlockOverride{
+			x:  x
+			y:  y
+			z:  z
+			id: id
 		}
 	}
-	m.unlock()
 	return out
 }
 
@@ -294,24 +304,25 @@ pub fn (mut w World) set_tile_text(x int, y int, z int, text string) {
 // keeping whatever other kinds have put there. Every block entity write goes
 // through here which is what makes adding a kind a matter of choosing a key.
 fn (mut w World) update_block_entity(x int, y int, z int, key string, value nbt.Tag) {
-	position := override_key(x, y, z)
 	w.mutex.lock()
-	mut data := w.block_entities[position] or { nbt.new_compound() }
+	column := column_key_of(x, z)
+	local := local_key(x, y, z)
+	mut col := w.column(column)
+	mut data := col.block_entities[local] or { nbt.new_compound() }
 	data.set(key, value)
-	w.block_entities[position] = data
-	encoded := encode_block_entity(data)
+	col.block_entities[local] = data
+	queue := mark_column_dirty(mut col)
 	w.mutex.unlock()
-	w.enqueue_persist(BlockEntityPersist{
-		x:    x
-		y:    y
-		z:    z
-		data: encoded
-	})
+	if queue {
+		w.enqueue_persist(ColumnPersist{
+			key: column
+		})
+	}
 }
 
-// enqueue_persist queues an immutable persistence record and wakes the
-// storage worker. Enqueues remain non blocking until the hard backlog
-// ceiling is reached; at the ceiling, callers wait for the queue to drain.
+// enqueue_persist queues a persistence record and wakes the storage worker.
+// Enqueues remain non blocking until the hard backlog ceiling is reached; at
+// the ceiling, callers wait for the queue to drain.
 fn (mut w World) enqueue_persist(record PersistRecord) {
 	if !w.store_backed {
 		return
@@ -334,8 +345,8 @@ fn (mut w World) enqueue_persist(record PersistRecord) {
 }
 
 // run_persist_worker is the storage worker: the only thread that ever calls
-// store.set_block/set_tile_text, so those calls need no lock of their own
-// beyond store's own internals. Started once by new_world, only when store
+// store.store_column/set_player_spawn, so those calls need no lock of their
+// own beyond store's own internals. Started once by new_world, only when store
 // is present.
 fn (mut w World) run_persist_worker() {
 	logger.name_thread('Persist Worker/${w.name}')
@@ -396,21 +407,12 @@ fn (mut w World) drain_persist_records(mut store Provider) {
 // discarded.
 fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 	match record {
-		BlockPersist {
+		ColumnPersist {
+			data := w.snapshot_column(record.key)
+			cx, cz := column_coords(record.key)
 			start := time.now()
 			mut ok := true
-			store.set_block(record.x, record.y, record.z, record.id) or {
-				w.mutex.lock()
-				w.last_persist_error = err.msg()
-				w.mutex.unlock()
-				ok = false
-			}
-			w.record_persist_write_result(start, ok)
-		}
-		BlockEntityPersist {
-			start := time.now()
-			mut ok := true
-			store.set_block_entity(record.x, record.y, record.z, record.data) or {
+			store.store_column(cx, cz, data) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
@@ -433,6 +435,20 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 			record.done <- true
 		}
 	}
+}
+
+// snapshot_column encodes a column and clears its dirty mark under one lock,
+// a write arriving after the snapshot queues a fresh record instead of
+// being folded into one that has already been taken. The disk write itself
+// happens outside the lock.
+fn (mut w World) snapshot_column(key i64) []u8 {
+	w.mutex.lock()
+	defer {
+		w.mutex.unlock()
+	}
+	mut col := w.columns[key] or { return encode_column(&Column{}) }
+	col.dirty = false
+	return encode_column(col)
 }
 
 // record_persist_write_result updates provider write latency and error
@@ -550,7 +566,8 @@ pub fn (w &World) tile_text(x int, y int, z int) ?string {
 	defer {
 		m.unlock()
 	}
-	data := w.block_entities[override_key(x, y, z)] or { return none }
+	col := w.columns[column_key_of(x, z)] or { return none }
+	data := col.block_entities[local_key(x, y, z)] or { return none }
 	return block_entity_text(data)
 }
 
@@ -570,7 +587,8 @@ pub fn (w &World) container_items(x int, y int, z int) []ContainerSlotItem {
 	defer {
 		m.unlock()
 	}
-	data := w.block_entities[override_key(x, y, z)] or { return []ContainerSlotItem{} }
+	col := w.columns[column_key_of(x, z)] or { return []ContainerSlotItem{} }
+	data := col.block_entities[local_key(x, y, z)] or { return []ContainerSlotItem{} }
 	return block_entity_items(data)
 }
 
@@ -643,28 +661,23 @@ pub fn (mut w World) release_container_hold(x int, y int, z int, runtime_id u64)
 }
 
 pub fn (w &World) tile_entries_in_chunk(cx int, cz int) []TileEntry {
-	mut out := []TileEntry{}
 	mut m := w.mutex
 	m.lock()
-	for key, data in w.block_entities {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		x := parts[0].int()
-		z := parts[2].int()
-		if (x >> 4) != cx || (z >> 4) != cz {
-			continue
-		}
+	defer {
+		m.unlock()
+	}
+	col := w.columns[column_key(cx, cz)] or { return []TileEntry{} }
+	mut out := []TileEntry{}
+	for local, data in col.block_entities {
 		text := block_entity_text(data) or { continue }
+		x, y, z := local_coords(cx, cz, local)
 		out << TileEntry{
 			x:    x
-			y:    parts[1].int()
+			y:    y
 			z:    z
 			text: text
 		}
 	}
-	m.unlock()
 	return out
 }
 
@@ -809,12 +822,19 @@ pub fn (w &World) override_positions_of(ids []int) []TickPosition {
 		m.unlock()
 	}
 	mut out := []TickPosition{}
-	for key, id in w.overrides {
-		if id !in ids {
-			continue
+	for key, col in w.columns {
+		cx, cz := column_coords(key)
+		for local, id in col.blocks {
+			if id !in ids {
+				continue
+			}
+			x, y, z := local_coords(cx, cz, local)
+			out << TickPosition{
+				x: x
+				y: y
+				z: z
+			}
 		}
-		pos := position_from_key(key) or { continue }
-		out << pos
 	}
 	return out
 }
