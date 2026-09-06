@@ -104,7 +104,7 @@ fn (c WorldCommand) info(mut sender cmd.Sender, ctx cmd.Context) ! {
 	lines << '§6World: §a${info.name}§r'
 	lines << '§6Generator: §f${info.generator}§r'
 	lines << '§6Dimension: §f${info.dimension}§r'
-	lines << '§6Block overrides: §f${info.overrides}§r'
+	lines << '§6Resident block overrides: §f${info.overrides}§r'
 	lines << '§6Players: §f${info.players}§r'
 	lines << '§6Default: §f${info.is_default}§r'
 	sender.send_message(lines.join('\n'))!

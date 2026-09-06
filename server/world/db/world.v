@@ -23,8 +23,11 @@ pub mut:
 pub interface Provider {
 	dimension() world.Dimension
 	load_chunk(cx int, cz int) ?world.Chunk
-	// each_column walks every column this world has stored anything in.
-	each_column(cb fn (cx int, cz int, data []u8))
+	// load_column returns one column's record or none when the world has
+	// stored nothing in that footprint. Columns are read one at a time and on
+	// demand. It keeps resident memory tied to the area in play
+	// rather than to how much the world has ever been edited.
+	load_column(cx int, cz int) ?[]u8
 	// each_player_spawn walks the beds players have bound themselves to in
 	// this world. key is whatever the caller identifies a player by.
 	each_player_spawn(cb fn (key string, x int, y int, z int))
@@ -116,13 +119,8 @@ pub fn (w &WorldStore) store_column(cx int, cz int, data []u8) ! {
 	w.overrides.put(column_record_key(cx, cz), data)!
 }
 
-pub fn (w &WorldStore) each_column(cb fn (cx int, cz int, data []u8)) {
-	w.overrides.each(fn [cb] (key []u8, value []u8) {
-		if key.len != 9 || key[0] != u8(`C`) {
-			return
-		}
-		cb(read_i32(key, 1), read_i32(key, 5), value)
-	})
+pub fn (w &WorldStore) load_column(cx int, cz int) ?[]u8 {
+	return w.overrides.get(column_record_key(cx, cz))
 }
 
 pub fn (w &WorldStore) set_player_spawn(key string, x int, y int, z int) ! {

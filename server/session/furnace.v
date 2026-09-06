@@ -21,6 +21,7 @@ const furnace_data_burn_total = i32(2)
 struct SessionFurnaceTicker {}
 
 fn (mut t SessionFurnaceTicker) tick_block_entities(mut tx worldrt.WorldTx) {
+	revisit_loaded_furnaces(mut tx)
 	for pos in tx.wr.world.burning_furnaces() {
 		tick_furnace(mut tx, pos.x, pos.y, pos.z)
 	}
@@ -292,21 +293,23 @@ fn furnace_screen(variant block.FurnaceVariant) proto.ContainerType {
 	}
 }
 
-// revisit_lit_furnaces queues every furnace a world loaded in its burning form
-// for one tick.
-fn (mut h Hub) revisit_lit_furnaces(mut wr worldrt.WorldRuntime) {
+// revisit_loaded_furnaces gives every furnace in a newly resident column one
+// tick if it was stored in its burning form. Furnace progress is memory only,
+// so a furnace saved lit has no fuel left to burn and needs a tick to notice
+// and go out. Columns arrive as they are touched rather than at world load,
+// which is why this runs per step rather than once at boot.
+fn revisit_loaded_furnaces(mut tx worldrt.WorldTx) {
+	loaded := tx.wr.world.take_loaded_columns()
+	if loaded.len == 0 {
+		return
+	}
 	mut lit_ids := []int{cap: block.furnace_unlit_ids.len}
 	for id, _ in block.furnace_unlit_ids {
 		lit_ids << id
 	}
-	positions := wr.world.override_positions_of(lit_ids)
-	if positions.len == 0 {
-		return
-	}
-	worldrt.world_call[bool]('Hub.revisit_lit_furnaces', mut wr, fn [positions] (mut tx worldrt.WorldTx) bool {
-		for pos in positions {
+	for key in loaded {
+		for pos in tx.wr.world.column_positions_of(key, lit_ids) {
 			tx.wr.world.set_furnace_state(pos.x, pos.y, pos.z, db.FurnaceState{})
 		}
-		return true
-	}) or {}
+	}
 }

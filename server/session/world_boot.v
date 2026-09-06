@@ -34,7 +34,6 @@ pub fn (mut h Hub) load_configured_worlds(worlds_dir string, default_world strin
 			log.info(lang.tf('server.world_loaded', {
 				'Name': name
 			}))
-			log.debug('World "${name}" has ${w.block_count()} stored block changes')
 		} else {
 			log.warn('Failed to load world "${name}": ${err}')
 		}

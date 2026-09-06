@@ -23,7 +23,14 @@ fn (p &CountingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (p &CountingProvider) each_column(cb fn (cx int, cz int, data []u8)) {}
+fn (p &CountingProvider) load_column(cx int, cz int) ?[]u8 {
+	mut m := p.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return p.stored['${cx},${cz}'] or { return none }
+}
 
 fn (mut p CountingProvider) store_column(cx int, cz int, data []u8) ! {
 	p.mutex.lock()

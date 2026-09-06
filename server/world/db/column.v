@@ -14,8 +14,11 @@ pub mut:
 	block_entities map[i64]nbt.Compound
 	// dirty marks a column the storage worker has not snapshotted since its
 	// last change. It is what keeps one record in the persist queue per
-	// column rather than one per block written.
+	// column rather than one per block written and it is what makes a column
+	// ineligible for eviction.
 	dirty bool
+	// last_used orders columns for eviction against World.column_seq.
+	last_used i64
 }
 
 // column_key identifies a column by its chunk coordinates. column_key_of takes

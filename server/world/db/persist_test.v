@@ -31,7 +31,9 @@ fn (p &RecordingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (p &RecordingProvider) each_column(cb fn (cx int, cz int, data []u8)) {}
+fn (p &RecordingProvider) load_column(cx int, cz int) ?[]u8 {
+	return none
+}
 
 fn (mut p RecordingProvider) store_column(cx int, cz int, data []u8) ! {
 	mut claimed := false
@@ -79,7 +81,9 @@ fn (p &FailingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (p &FailingProvider) each_column(cb fn (cx int, cz int, data []u8)) {}
+fn (p &FailingProvider) load_column(cx int, cz int) ?[]u8 {
+	return none
+}
 
 fn (mut p FailingProvider) store_column(cx int, cz int, data []u8) ! {
 	p.calls++

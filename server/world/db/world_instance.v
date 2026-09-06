@@ -24,6 +24,12 @@ const persist_hard_ceiling_count = 32768
 // enqueue rechecks whether the backlog has fallen below the hard ceiling.
 const persist_ceiling_poll_interval = 5 * time.millisecond
 
+// world_resident_column_limit caps how many columns a world keeps in memory.
+// A radius 8 view is around 290 columns, so this holds a few players' worth of
+// what is actually in play and an evicted column costs one point lookup to
+// bring back.
+const world_resident_column_limit = 1024
+
 // ColumnPersist names a column whose changes are already in a World's in
 // memory state and not yet on disk. It carries no data of its own: the storage
 // worker snapshots the column when it reaches the record, which is what lets
@@ -74,6 +80,10 @@ mut:
 	// every kind together. Grouping is what keeps a chunk send from walking
 	// the whole world and what gives the storage worker one write unit.
 	columns map[i64]&Column
+	// column_seq orders columns by last use for eviction, and loaded_columns
+	// names the ones that have arrived since a caller last asked.
+	column_seq     i64
+	loaded_columns []i64
 	// player_spawns is the bed each player is bound to here, keyed by whatever
 	// the caller identifies a player by. It belongs to the world because the
 	// coordinates only mean anything in this one and it goes when the world
@@ -84,7 +94,12 @@ mut:
 	// doing something. It is in memory only: a furnace goes out across a
 	// restart rather than resuming mid-cook.
 	furnace_states     map[string]FurnaceState
-	mutex              &sync.Mutex = sync.new_mutex()
+	mutex &sync.Mutex = sync.new_mutex()
+	// store_mutex serialises every call into store. The backends here are not
+	// thread safe and columns are now read from whatever thread asked for one
+	// while the storage worker is writing on its own. w.mutex may be held
+	// while taking this; never the other way round.
+	store_mutex        &sync.Mutex = sync.new_mutex()
 	current_tick       i64
 	scheduled          []ScheduledEntry
 	last_persist_error ?string
@@ -111,6 +126,9 @@ mut:
 	persist_last_write_ns      &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	persist_longest_write_ns   &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
 	persist_consecutive_errors &stdatomic.AtomicVal[i64] = stdatomic.new_atomic[i64](0)
+
+	// Resident column ceiling. Tests may override this value.
+	resident_column_limit int = world_resident_column_limit
 
 	// Persistence backlog thresholds. Tests may override these values.
 	persist_high_water_threshold   int = persist_high_water_count
@@ -172,28 +190,120 @@ pub fn (w &World) is_persistent() bool {
 	return w.store_backed
 }
 
-// load pulls every stored column and player spawn into memory.
+// load pulls this world's player spawns into memory. Columns are not loaded
+// here: they arrive as they are touched, see column().
 pub fn (mut w World) load() {
 	store := w.store or { return }
-	store.each_column(fn [mut w] (cx int, cz int, data []u8) {
-		if col := decode_column(data) {
-			w.columns[column_key(cx, cz)] = col
-		}
-	})
+	w.store_mutex.lock()
 	store.each_player_spawn(fn [mut w] (key string, x int, y int, z int) {
 		w.player_spawns[key] = types.BlockPosition{x, y, z}
 	})
+	w.store_mutex.unlock()
 }
 
-// column returns a column by key, creating an empty one when the world has
-// written nothing in that footprint yet. Callers hold w.mutex.
+// The four calls below are every way this file reaches a Provider, each one
+// holding store_mutex for the duration. See its comment on World.
+fn (mut w World) locked_store_column(mut store Provider, cx int, cz int, data []u8) ! {
+	w.store_mutex.lock()
+	defer {
+		w.store_mutex.unlock()
+	}
+	store.store_column(cx, cz, data)!
+}
+
+fn (mut w World) locked_set_player_spawn(mut store Provider, key string, x int, y int, z int) ! {
+	w.store_mutex.lock()
+	defer {
+		w.store_mutex.unlock()
+	}
+	store.set_player_spawn(key, x, y, z)!
+}
+
+fn (mut w World) locked_store_flush(mut store Provider) ! {
+	w.store_mutex.lock()
+	defer {
+		w.store_mutex.unlock()
+	}
+	store.flush()!
+}
+
+fn (mut w World) locked_store_close(mut store Provider) ! {
+	w.store_mutex.lock()
+	defer {
+		w.store_mutex.unlock()
+	}
+	store.close()!
+}
+
+// column returns a column by key, reading it from the store the first time and
+// creating an empty one when the store has nothing there. A column stays
+// resident until eviction, so an empty result is remembered too and a position
+// nobody has ever written is not a lookup every time it is read.
+//
+// The store read happens under w.mutex. It is a point lookup and holding the
+// lock across it is what keeps residency, eviction and mutation a single
+// consistent step rather than a sequence another thread can interleave with.
+// Callers hold w.mutex.
 fn (mut w World) column(key i64) &Column {
-	if col := w.columns[key] {
+	w.column_seq++
+	if mut col := w.columns[key] {
+		col.last_used = w.column_seq
 		return col
 	}
-	col := &Column{}
+	mut col := &Column{}
+	if store := w.store {
+		cx, cz := column_coords(key)
+		w.store_mutex.lock()
+		record := store.load_column(cx, cz) or { []u8{} }
+		w.store_mutex.unlock()
+		if loaded := decode_column(record) {
+			col = loaded
+		}
+	}
+	col.last_used = w.column_seq
 	w.columns[key] = col
+	w.loaded_columns << key
+	w.evict_columns_locked(key)
 	return col
+}
+
+// evict_columns_locked drops the least recently used columns once the world
+// holds more than resident_column_limit of them. A column with changes
+// the storage worker has not taken yet is never evicted, dropping it would
+// discard those changes, so the limit is a target rather than a hard ceiling.
+// Callers hold w.mutex.
+fn (mut w World) evict_columns_locked(keep i64) {
+	for w.columns.len > w.resident_column_limit {
+		mut oldest := i64(0)
+		mut oldest_seq := i64(0)
+		mut found := false
+		for key, col in w.columns {
+			if key == keep || col.dirty {
+				continue
+			}
+			if !found || col.last_used < oldest_seq {
+				oldest = key
+				oldest_seq = col.last_used
+				found = true
+			}
+		}
+		if !found {
+			return
+		}
+		w.columns.delete(oldest)
+	}
+}
+
+// take_loaded_columns returns the columns that have become resident since the
+// last call and clears the list.
+pub fn (mut w World) take_loaded_columns() []i64 {
+	w.mutex.lock()
+	defer {
+		w.mutex.unlock()
+	}
+	out := w.loaded_columns.clone()
+	w.loaded_columns.clear()
+	return out
 }
 
 // mark_column_dirty records a column as changed and reports whether the
@@ -250,17 +360,28 @@ pub fn (mut w World) set_block(x int, y int, z int, runtime_id int) {
 	}
 }
 
-pub fn (w &World) block_override(x int, y int, z int) ?int {
+pub fn (mut w World) block_override(x int, y int, z int) ?int {
+	w.mutex.lock()
+	defer {
+		w.mutex.unlock()
+	}
+	col := w.column(column_key_of(x, z))
+	return col.blocks[local_key(x, y, z)] or { return none }
+}
+
+// resident_column_count is how many columns the world is holding in memory.
+pub fn (w &World) resident_column_count() int {
 	mut m := w.mutex
 	m.lock()
 	defer {
 		m.unlock()
 	}
-	col := w.columns[column_key_of(x, z)] or { return none }
-	return col.blocks[local_key(x, y, z)] or { return none }
+	return w.columns.len
 }
 
-pub fn (w &World) block_count() int {
+// resident_block_count totals the overrides in the columns currently in
+// memory. It is not the world's total: columns load as they are touched.
+pub fn (w &World) resident_block_count() int {
 	mut m := w.mutex
 	m.lock()
 	defer {
@@ -273,13 +394,12 @@ pub fn (w &World) block_count() int {
 	return total
 }
 
-pub fn (w &World) overrides_in_chunk(cx int, cz int) []BlockOverride {
-	mut m := w.mutex
-	m.lock()
+pub fn (mut w World) overrides_in_chunk(cx int, cz int) []BlockOverride {
+	w.mutex.lock()
 	defer {
-		m.unlock()
+		w.mutex.unlock()
 	}
-	col := w.columns[column_key(cx, cz)] or { return []BlockOverride{} }
+	col := w.column(column_key(cx, cz))
 	mut out := []BlockOverride{cap: col.blocks.len}
 	for local, id in col.blocks {
 		x, y, z := local_coords(cx, cz, local)
@@ -344,10 +464,10 @@ fn (mut w World) enqueue_persist(record PersistRecord) {
 	}
 }
 
-// run_persist_worker is the storage worker: the only thread that ever calls
-// store.store_column/set_player_spawn, so those calls need no lock of their
-// own beyond store's own internals. Started once by new_world, only when store
-// is present.
+// run_persist_worker is the storage worker: the only thread that writes to
+// store, though no longer the only one that reaches it, since a column is read
+// on whatever thread asked for it. store_mutex is what keeps those apart.
+// Started once by new_world, only when store is present.
 fn (mut w World) run_persist_worker() {
 	logger.name_thread('Persist Worker/${w.name}')
 	defer {
@@ -408,11 +528,11 @@ fn (mut w World) drain_persist_records(mut store Provider) {
 fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 	match record {
 		ColumnPersist {
-			data := w.snapshot_column(record.key)
+			data := w.snapshot_column(record.key) or { return }
 			cx, cz := column_coords(record.key)
 			start := time.now()
 			mut ok := true
-			store.store_column(cx, cz, data) or {
+			w.locked_store_column(mut store, cx, cz, data) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
@@ -423,7 +543,7 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 		PlayerSpawnPersist {
 			start := time.now()
 			mut ok := true
-			store.set_player_spawn(record.key, record.x, record.y, record.z) or {
+			w.locked_set_player_spawn(mut store, record.key, record.x, record.y, record.z) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
@@ -441,12 +561,17 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 // a write arriving after the snapshot queues a fresh record instead of
 // being folded into one that has already been taken. The disk write itself
 // happens outside the lock.
-fn (mut w World) snapshot_column(key i64) []u8 {
+//
+// A column no longer resident yields none rather than an empty record which
+// would erase what is on disk. Eviction never takes a dirty column, so this
+// should not arise; writing nothing if it ever does is the difference between
+// a lost write and a lost column.
+fn (mut w World) snapshot_column(key i64) ?[]u8 {
 	w.mutex.lock()
 	defer {
 		w.mutex.unlock()
 	}
-	mut col := w.columns[key] or { return encode_column(&Column{}) }
+	mut col := w.columns[key] or { return none }
 	col.dirty = false
 	return encode_column(col)
 }
@@ -560,13 +685,12 @@ pub fn (w &World) persist_committed_total() i64 {
 	return c.load()
 }
 
-pub fn (w &World) tile_text(x int, y int, z int) ?string {
-	mut m := w.mutex
-	m.lock()
+pub fn (mut w World) tile_text(x int, y int, z int) ?string {
+	w.mutex.lock()
 	defer {
-		m.unlock()
+		w.mutex.unlock()
 	}
-	col := w.columns[column_key_of(x, z)] or { return none }
+	col := w.column(column_key_of(x, z))
 	data := col.block_entities[local_key(x, y, z)] or { return none }
 	return block_entity_text(data)
 }
@@ -581,20 +705,19 @@ pub fn (mut w World) set_container_items(x int, y int, z int, items []ContainerS
 	w.update_block_entity(x, y, z, block_entity_items_key, items_tag(items))
 }
 
-pub fn (w &World) container_items(x int, y int, z int) []ContainerSlotItem {
-	mut m := w.mutex
-	m.lock()
+pub fn (mut w World) container_items(x int, y int, z int) []ContainerSlotItem {
+	w.mutex.lock()
 	defer {
-		m.unlock()
+		w.mutex.unlock()
 	}
-	col := w.columns[column_key_of(x, z)] or { return []ContainerSlotItem{} }
+	col := w.column(column_key_of(x, z))
 	data := col.block_entities[local_key(x, y, z)] or { return []ContainerSlotItem{} }
 	return block_entity_items(data)
 }
 
 // container_slots resolves a container's contents into slot-indexed
 // ItemStacks, empty ItemStack{} for any slot with nothing stored.
-pub fn (w &World) container_slots(x int, y int, z int) []types.ItemStack {
+pub fn (mut w World) container_slots(x int, y int, z int) []types.ItemStack {
 	mut out := []types.ItemStack{len: container_slot_count}
 	for item in w.container_items(x, y, z) {
 		if item.slot >= 0 && item.slot < container_slot_count && item.count > 0 {
@@ -660,13 +783,12 @@ pub fn (mut w World) release_container_hold(x int, y int, z int, runtime_id u64)
 	}
 }
 
-pub fn (w &World) tile_entries_in_chunk(cx int, cz int) []TileEntry {
-	mut m := w.mutex
-	m.lock()
+pub fn (mut w World) tile_entries_in_chunk(cx int, cz int) []TileEntry {
+	w.mutex.lock()
 	defer {
-		m.unlock()
+		w.mutex.unlock()
 	}
-	col := w.columns[column_key(cx, cz)] or { return []TileEntry{} }
+	col := w.column(column_key(cx, cz))
 	mut out := []TileEntry{}
 	for local, data in col.block_entities {
 		text := block_entity_text(data) or { continue }
@@ -696,8 +818,16 @@ pub fn (w &World) make_generator(fallback world.Generator) world.Generator {
 pub fn (mut w World) flush() ! {
 	if mut store := w.store {
 		w.await_persist_barrier()!
-		store.flush()!
+		w.locked_store_flush(mut store)!
 	}
+}
+
+// set_resident_column_limit lowers the eviction ceiling so a test can reach it
+// without writing a thousand columns first.
+fn (mut w World) set_resident_column_limit(limit int) {
+	w.mutex.lock()
+	w.resident_column_limit = limit
+	w.mutex.unlock()
 }
 
 pub fn (mut w World) set_persist_shutdown_timeout(d time.Duration) {
@@ -726,7 +856,7 @@ pub fn (mut w World) close() ! {
 	}
 	select {
 		_ := <-w.persist_done {
-			store.close()!
+			w.locked_store_close(mut store)!
 			w.mutex.lock()
 			w.closed = true
 			w.mutex.unlock()
@@ -812,28 +942,27 @@ pub fn (w &World) tracks_furnace(x int, y int, z int) bool {
 	return override_key(x, y, z) in w.furnace_states
 }
 
-// override_positions_of lists every stored block override holding one of the
-// given ids. It exists so a world can be asked where its furnaces are without
-// this package having to know what a furnace is.
-pub fn (w &World) override_positions_of(ids []int) []TickPosition {
+// column_positions_of lists the positions in one column holding any of the
+// given block ids. It exists so a caller can ask where a column's furnaces are
+// without this package having to know what a furnace is.
+pub fn (w &World) column_positions_of(key i64, ids []int) []TickPosition {
 	mut m := w.mutex
 	m.lock()
 	defer {
 		m.unlock()
 	}
+	col := w.columns[key] or { return []TickPosition{} }
+	cx, cz := column_coords(key)
 	mut out := []TickPosition{}
-	for key, col in w.columns {
-		cx, cz := column_coords(key)
-		for local, id in col.blocks {
-			if id !in ids {
-				continue
-			}
-			x, y, z := local_coords(cx, cz, local)
-			out << TickPosition{
-				x: x
-				y: y
-				z: z
-			}
+	for local, id in col.blocks {
+		if id !in ids {
+			continue
+		}
+		x, y, z := local_coords(cx, cz, local)
+		out << TickPosition{
+			x: x
+			y: y
+			z: z
 		}
 	}
 	return out

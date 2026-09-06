@@ -28,7 +28,7 @@ pub:
 // in memory override, then falls back to the world's configured generator.
 //
 // This matches the override first lookup used by session.block_at().
-pub fn (w &World) block_id(x int, y int, z int) int {
+pub fn (mut w World) block_id(x int, y int, z int) int {
 	if id := w.block_override(x, y, z) {
 		return id
 	}
@@ -76,8 +76,10 @@ pub fn (w &World) scheduled_backlog_count() int {
 	return w.scheduled.len
 }
 
-// override_positions returns the positions of all currently overridden blocks.
-// Callers can use the snapshot to perform their own random tick selection.
+// override_positions returns the overridden positions in the columns currently
+// resident. Callers can use the snapshot to perform their own random tick
+// selection; an unloaded column is not simulated, which is what confines
+// random ticking to the area in play.
 pub fn (w &World) override_positions() []TickPosition {
 	mut m := w.mutex
 	m.lock()
@@ -87,8 +89,8 @@ pub fn (w &World) override_positions() []TickPosition {
 	return w.locked_override_positions()
 }
 
-// locked_override_positions lists every overridden position, walking the
-// columns in whatever order they were loaded. Callers hold w.mutex.
+// locked_override_positions lists every overridden position in the resident
+// columns, in whatever order they were loaded. Callers hold w.mutex.
 fn (w &World) locked_override_positions() []TickPosition {
 	mut positions := []TickPosition{}
 	for key, col in w.columns {

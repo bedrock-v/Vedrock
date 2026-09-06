@@ -279,7 +279,6 @@ fn (mut h Hub) add_world(loaded_world &db.World) {
 		entity_host:    new_world_entity_host
 	)
 	h.restore_world_entities(mut wr)
-	h.revisit_lit_furnaces(mut wr)
 	h.world_registry.add(wr)
 	h.mutex.lock()
 	if h.default_world_name == '' {
@@ -443,6 +442,8 @@ pub:
 	name       string
 	generator  string
 	dimension  string
+	// overrides counts the block overrides in the world's resident columns,
+	// not everything it has ever stored.
 	overrides  int
 	is_default bool
 	players    int
@@ -459,7 +460,7 @@ fn (mut h Hub) world_info(name string) ?WorldInfo {
 		name:       loaded_world.name
 		generator:  loaded_world.generator_name
 		dimension:  loaded_world.dimension.name()
-		overrides:  loaded_world.block_count()
+		overrides:  loaded_world.resident_block_count()
 		is_default: is_default
 		players:    h.players_in_world(name)
 	}

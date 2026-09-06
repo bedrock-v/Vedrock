@@ -22,7 +22,9 @@ fn (mut p FakeProvider) store_column(cx int, cz int, data []u8) ! {
 	p.columns['${cx},${cz}'] = data.clone()
 }
 
-fn (p &FakeProvider) each_column(cb fn (cx int, cz int, data []u8)) {}
+fn (p &FakeProvider) load_column(cx int, cz int) ?[]u8 {
+	return p.columns['${cx},${cz}'] or { return none }
+}
 
 fn (p &FakeProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
