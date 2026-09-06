@@ -1,5 +1,6 @@
 module session
 
+import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
 import server.block
 import server.player
@@ -62,10 +63,24 @@ fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition
 	}
 	if s.player.spawn_point() or { player.SpawnPoint{} } != point {
 		s.player.set_spawn_point(point)
+		s.send_spawn_position(pos, tx.wr.world.dimension.id)
 		s.player.send_translation('%tile.bed.respawnSet', [])
 	}
 	s.player.send_translation('%tile.bed.noSleep', [])
 	return true
+}
+
+// send_spawn_position tells the client which block its spawn point is now.
+// The server decides where a respawn lands either way; this is what the client
+// draws its own respawn marker and compass from.
+fn (mut s NetworkSession) send_spawn_position(pos types.BlockPosition, dimension_id int) {
+	block_pos := proto.block_pos(pos)
+	s.deliver(&proto.SetSpawnPositionPacket{
+		spawn_position_type: proto.SpawnPositionType.player_respawn
+		block_position:      block_pos
+		dimension_type:      i32(dimension_id)
+		spawn_block_pos:     block_pos
+	})
 }
 
 fn within_bed_reach(feet types.Vector3, pos types.BlockPosition) bool {
