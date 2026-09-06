@@ -34,8 +34,6 @@ mut:
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool
-	// set_spawn_point moves where this player comes back after dying.
-	set_spawn_point(x f32, y f32, z f32)
 	// give_experience awards points, and give_experience_levels whole levels.
 	give_experience(points int)
 	give_experience_levels(levels int)

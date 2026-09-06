@@ -9,19 +9,16 @@ fn test_a_player_starts_without_a_spawn_point() {
 	}
 }
 
-fn test_setting_and_clearing_a_spawn_point() {
+fn test_a_spawn_point_keeps_the_world_it_was_set_in() {
 	mut p := new_player()
-	p.set_spawn_point(types.Vector3{1.5, 64.0, -2.5})
+	p.set_spawn_point(SpawnPoint{
+		world: 'arena'
+		pos:   types.BlockPosition{1, 64, -2}
+	})
 	point := p.spawn_point() or {
 		assert false, 'spawn point was not recorded'
 		return
 	}
-	assert point.x == 1.5
-	assert point.y == 64.0
-	assert point.z == -2.5
-
-	p.clear_spawn_point()
-	if _ := p.spawn_point() {
-		assert false, 'spawn point survived being cleared'
-	}
+	assert point.world == 'arena'
+	assert point.pos == types.BlockPosition{1, 64, -2}
 }

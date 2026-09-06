@@ -305,7 +305,7 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	s.player.set_health(20.0)
 	s.player.reset_hunger()
 	s.send_hunger()
-	spawn_pos := s.respawn_position()
+	spawn_pos := respawn_position(mut tx, mut s)
 	mut ctx := event.new_context(player.RespawnData{
 		player: s.player
 		x:      spawn_pos.x

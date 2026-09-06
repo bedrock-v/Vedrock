@@ -88,8 +88,6 @@ fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
 	return false
 }
 
-fn (mut c ConsoleSender) set_spawn_point(_ f32, _ f32, _ f32) {}
-
 fn (mut c ConsoleSender) give_experience(_ int) {}
 
 fn (mut c ConsoleSender) give_experience_levels(_ int) {}

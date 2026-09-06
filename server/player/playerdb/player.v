@@ -34,10 +34,10 @@ pub mut:
 	exhaustion          f32
 	experience_level    int
 	experience_progress f32
-	has_spawn_point     bool
-	spawn_x             f32
-	spawn_y             f32
-	spawn_z             f32
+	spawn_world         string
+	spawn_x             int
+	spawn_y             int
+	spawn_z             int
 	has_last_death      bool
 	last_death_x        f32
 	last_death_y        f32

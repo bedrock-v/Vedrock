@@ -142,12 +142,6 @@ other = "Given {{.Amount}} experience to {{.Name}}"
 [cmd.xp.success_levels]
 other = "Given {{.Amount}} levels to {{.Name}}"
 
-[cmd.spawnpoint.usage]
-other = "Usage: /spawnpoint [player: target] [spawnPos: x y z]"
-
-[cmd.spawnpoint.success]
-other = "Set {{.Name}}'s spawnpoint to {{.X}}, {{.Y}}, {{.Z}}"
-
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
 
