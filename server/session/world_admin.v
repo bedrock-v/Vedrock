@@ -3,6 +3,7 @@ module session
 import bedrock_v.protocol.types
 import server.cmd
 import server.event
+import server.internal.logger
 import server.world
 import server.world.db
 import server.player
@@ -58,6 +59,7 @@ fn (mut s NetworkSession) world_delete(name string) ! {
 		return error('world deletion cancelled')
 	}
 	s.hub.delete_world(name)!
+	warn_stale_spawn_points(s.log, name, s.hub.forget_spawn_points_in(name))
 }
 
 fn (mut s NetworkSession) world_teleport(name string) ! {
@@ -112,6 +114,7 @@ fn (mut c ConsoleSender) world_delete(name string) ! {
 		return error('world deletion cancelled')
 	}
 	c.hub.delete_world(name)!
+	warn_stale_spawn_points(c.log, name, c.hub.forget_spawn_points_in(name))
 }
 
 fn (mut c ConsoleSender) world_teleport(_ string) ! {
@@ -170,6 +173,16 @@ fn to_world_metrics_summary(m worldrt.WorldMetrics) cmd.WorldMetricsSummary {
 		chunk_dedup_hits_total:         m.chunk_dedup_hits_total
 		actor_running:                  m.actor_running
 	}
+}
+
+// warn_stale_spawn_points reports the players whose saved spawn point still
+// names the world that was just deleted. Their respawn falls back to the world
+// spawn.
+fn warn_stale_spawn_points(log &logger.Logger, name string, failed []string) {
+	if failed.len == 0 {
+		return
+	}
+	log.warn('world "${name}" was deleted but ${failed.len} player record(s) could not be rewritten and still name it as a spawn point: ${failed.join(', ')}')
 }
 
 fn world_spawn_position(target &db.World, gen world.Generator) types.Vector3 {

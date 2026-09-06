@@ -5,6 +5,9 @@ module playerdb
 // HubOptions without changing session code.
 pub interface Provider {
 	load(key string) ?PlayerData
+	// keys is every key with saved data. Used to reach players who are not
+	// online, so a sweep can find them.
+	keys() []string
 mut:
 	save(key string, data PlayerData) !
 }
@@ -17,6 +20,10 @@ pub:
 
 pub fn (p FileProvider) load(key string) ?PlayerData {
 	return load_player(p.dir, key)
+}
+
+pub fn (p FileProvider) keys() []string {
+	return player_keys(p.dir)
 }
 
 pub fn (mut p FileProvider) save(key string, data PlayerData) ! {

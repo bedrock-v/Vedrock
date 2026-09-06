@@ -25,6 +25,17 @@ pub fn (p &Player) spawn_point() ?SpawnPoint {
 	return p.spawn_point
 }
 
+// forget_spawn_point_in drops this player's spawn point when it belongs to the
+// named world for when that world is deleted. The test and the clear are one
+// operation because the player may be binding a new bed on another thread.
+pub fn (mut p Player) forget_spawn_point_in(world string) {
+	p.state_mutex.lock()
+	if p.spawn_point.world == world {
+		p.spawn_point = SpawnPoint{}
+	}
+	p.state_mutex.unlock()
+}
+
 pub fn (mut p Player) set_spawn_point(point SpawnPoint) {
 	p.state_mutex.lock()
 	p.spawn_point = point

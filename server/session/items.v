@@ -273,6 +273,7 @@ fn (mut s NetworkSession) save_player_data() {
 	bed := s.player.spawn_point() or { player.SpawnPoint{} }
 	mut provider := s.hub.player_data_provider
 	provider.save(s.player_key(), playerdb.PlayerData{
+		world:               s.world_name()
 		x:                   current.position.x
 		y:                   current.position.y
 		z:                   current.position.z

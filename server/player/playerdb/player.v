@@ -22,6 +22,7 @@ pub mut:
 
 pub struct PlayerData {
 pub mut:
+	world               string
 	x                   f32
 	y                   f32
 	z                   f32
@@ -75,6 +76,21 @@ pub fn load_player(dir string, key string) ?PlayerData {
 	}
 	text := os.read_file(path) or { return none }
 	return json2.decode[PlayerData](text) or { return none }
+}
+
+// player_keys is every key with saved data in dir. The names are read back off
+// disk, so they are already in the shape safe_key writes them and load_player
+// finds the same file again from one. A missing directory means nobody has
+// played yet which is not an error.
+pub fn player_keys(dir string) []string {
+	entries := os.ls(dir) or { return [] }
+	mut out := []string{cap: entries.len}
+	for entry in entries {
+		if entry.ends_with('.json') {
+			out << entry.trim_string_right('.json')
+		}
+	}
+	return out
 }
 
 // save_player writes player data atomically - the JSON goes to a temp file

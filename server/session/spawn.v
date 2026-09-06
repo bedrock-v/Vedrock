@@ -98,6 +98,22 @@ fn jigsaw_structure_data() &proto.JigsawStructureDataPacket {
 	}
 }
 
+// resume_saved_world moves this session onto the world it logged out of and
+// reports whether the saved position still describes a place. An empty name is
+// a save written before worlds were recorded and the default world is the only
+// world it could have meant. A named world that is gone or unloaded is not: its
+// coordinates would otherwise be read against the default world which is
+// somewhere the player has never stood.
+fn (mut s NetworkSession) resume_saved_world(name string) bool {
+	if name == '' || name == s.world_name() {
+		return true
+	}
+	mut wr := s.hub.world_runtime(name) or { return false }
+	target := wr.world
+	s.set_world_binding(wr, target.make_generator(s.hub.build_generator(target)))
+	return true
+}
+
 // SpawnState is where player enters the world, resolved once by
 // resolve_spawn_state and shared by everything start_game builds from it.
 struct SpawnState {
@@ -114,6 +130,13 @@ struct SpawnState {
 // and still lands somewhere safe to stand.
 fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 	s.player.set_game_mode(player.gamemode_from_name(s.cfg.gamemode))
+	// The world comes first: everything below reads the dimension, generator
+	// and blocks of whichever world the session ends up on.
+	saved := s.hub.player_data_provider.load(s.player_key())
+	mut saved_position_stands := true
+	if data := saved {
+		saved_position_stands = s.resume_saved_world(data.world)
+	}
 	spawn_y := s.generator.spawn_y()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	generator_type := if dimension_id == world.nether.id {
@@ -126,9 +149,9 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 	mut pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
 	mut pitch := f32(0.0)
 	mut yaw := f32(0.0)
-	if data := s.hub.player_data_provider.load(s.player_key()) {
+	if data := saved {
 		saved_pos := types.Vector3{data.x, data.y, data.z}
-		if safe_player_position_in_world(s.world, s.generator, saved_pos) {
+		if saved_position_stands && safe_player_position_in_world(s.world, s.generator, saved_pos) {
 			pos = saved_pos
 		}
 		pitch = data.pitch
