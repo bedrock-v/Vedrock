@@ -305,12 +305,12 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	s.player.set_health(20.0)
 	s.player.reset_hunger()
 	s.send_hunger()
-	spawn_y := s.generator.spawn_y()
+	spawn_pos := respawn_position(mut tx, mut s)
 	mut ctx := event.new_context(player.RespawnData{
 		player: s.player
-		x:      0.0
-		y:      f32(spawn_y) + player_eye_height
-		z:      0.0
+		x:      spawn_pos.x
+		y:      spawn_pos.y
+		z:      spawn_pos.z
 	})
 	s.player.handler.on_player_respawn(mut ctx)
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})

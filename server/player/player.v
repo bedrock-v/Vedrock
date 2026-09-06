@@ -52,6 +52,9 @@ mut:
 	effects          effect.Manager
 	has_last_death   bool
 	last_death_pos   types.Vector3
+	// spawn_point is the bed this player respawns at. Unset until they use
+	// one and the world spawn answers until then.
+	spawn_point      SpawnPoint
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
 	// experience_level is the level reached and experience_points how many

@@ -216,6 +216,9 @@ fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 			return true
 		}
 	}
+	if is_bed(old_id) {
+		return use_bed(mut tx, mut s, pos)
+	}
 	if isnil(tx.wr.services.block_palette()) {
 		return false
 	}
