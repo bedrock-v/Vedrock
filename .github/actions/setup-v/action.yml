@@ -32,6 +32,4 @@ runs:
     - name: Install module dependencies
       shell: bash
       run: |
-        ~/vlang/v install nepinhum.i18n
-        git clone --depth 1 https://github.com/vlang/leveldb "$HOME/.vmodules/leveldb"
         ~/vlang/v install
