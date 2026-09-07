@@ -2,7 +2,6 @@ module db
 
 import rand
 import server.block
-import server.world
 
 // ScheduledEntry represents one pending scheduled tick for a block position.
 // It becomes due when current_tick reaches due.
