@@ -255,6 +255,22 @@ pub fn (mut c Chunk) set_section(index int, ids []int) {
 	c.sections[index] = section
 }
 
+// section_ids returns one section's 4096 block ids in the order set_section
+// takes them for a caller that has to write the section out whole.
+pub fn (c &Chunk) section_ids(index int) []int {
+	if index < 0 || index >= c.subchunk_count {
+		return []int{}
+	}
+	if c.sections[index].is_empty() {
+		return []int{len: 4096, init: air.network_id}
+	}
+	mut ids := []int{len: 4096}
+	for i in 0 .. 4096 {
+		ids[i] = c.sections[index].at(i)
+	}
+	return ids
+}
+
 pub fn (c &Chunk) block_id(x int, y int, z int) int {
 	if y < c.min_y {
 		return air.network_id

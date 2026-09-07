@@ -70,7 +70,7 @@ fn give_held_pick(mut s NetworkSession) {
 
 fn test_break_block_damages_held_item_exactly_once() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -109,7 +109,7 @@ fn (mut h BreakTestCancelHandler) on_block_break(mut ctx event.Context[player.Bl
 
 fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -142,7 +142,7 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 
 fn test_break_observer_in_another_world_receives_no_packet() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('world')
 	other_world := db.new_world('other', none, 'flat', world.overworld)
@@ -269,7 +269,7 @@ fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
 // mining in world A must not animate blocks for a player in world B.
 fn test_start_break_cracking_scoped_to_owning_world() {
 	mut hub := break_test_hub()
-	target := db.new_world('crack-a', none, 'flat', world.overworld)
+	mut target := db.new_world('crack-a', none, 'flat', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('crack-a')
 	other_world := db.new_world('crack-b', none, 'flat', world.overworld)
@@ -299,7 +299,7 @@ fn test_start_break_cracking_scoped_to_owning_world() {
 // curves, which made a hasted player mine far faster than vanilla.
 fn test_effects_scale_break_progress_like_vanilla() {
 	mut hub := break_test_hub()
-	target := db.new_world('effects', none, 'flat', world.overworld)
+	mut target := db.new_world('effects', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('effects') or { panic('expected effects runtime') }
 	mut transport := &FakeTransport{}
@@ -338,7 +338,7 @@ fn break_seconds_for(s &NetworkSession, runtime_id int) f32 {
 // block take five times its vanilla time whenever that flag was not set.
 fn test_standing_player_mines_at_vanilla_speed() {
 	mut hub := break_test_hub()
-	target := db.new_world('ground', none, 'flat', world.overworld)
+	mut target := db.new_world('ground', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('ground') or { panic('expected ground runtime') }
 	mut transport := &FakeTransport{}
@@ -376,7 +376,7 @@ fn tick_world_once(mut wr worldrt.WorldRuntime) {
 // removes it: no destroy packet is sent here on purpose.
 fn test_server_finishes_the_break_without_a_client_destroy() {
 	mut hub := break_test_hub()
-	target := db.new_world('server-break', none, 'flat', world.overworld)
+	mut target := db.new_world('server-break', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('server-break') or { panic('expected runtime') }
 	mut transport := &FakeTransport{}

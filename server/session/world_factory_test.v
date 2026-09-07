@@ -28,6 +28,8 @@ fn (p &FakeProvider) load_column(cx int, cz int) ?[]u8 {
 
 fn (p &FakeProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
+fn (mut p FakeProvider) store_chunk_blocks(cx int, cz int, encoded map[int][]u8) ! {}
+
 fn (mut p FakeProvider) set_player_spawn(key string, x int, y int, z int) ! {}
 
 fn (mut p FakeProvider) flush() ! {}

@@ -222,6 +222,7 @@ pub fn new(opts Options) !&Server {
 	}
 	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
 		hub.set_palette(palette)
+		world.set_block_palette(palette)
 		log.debug('Loaded ${palette.len()} block states')
 	} else {
 		log.warn('Failed to load block palette: ${err}')
@@ -448,9 +449,7 @@ fn (mut s Server) tick_loop() {
 			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
-			for msg in s.hub.flush_worlds() {
-				s.log.warn('World flush failed: ${msg}')
-			}
+			s.hub.request_world_flushes()
 		}
 		if tick % heap_release_interval_ticks == 0 {
 			release_free_heap()

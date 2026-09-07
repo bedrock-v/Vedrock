@@ -156,7 +156,7 @@ fn start_game_test_session(mut hub Hub, mut transport FakeTransport, target &db.
 
 fn test_always_advertises_block_hash_runtime_ids() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('void', none, 'void', world.overworld)
+	mut target := db.new_world('void', none, 'void', world.overworld)
 	hub.add_world(target)
 	defer {
 		hub.close_worlds()
@@ -184,7 +184,7 @@ fn test_accepts_saved_pos_supported_by_world_overr() {
 			dir: dir
 		}
 	)
-	target := db.new_world('void', none, 'void', world.overworld)
+	mut target := db.new_world('void', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 10, 0, world.bedrock.network_id)
 	defer {
@@ -218,7 +218,7 @@ fn test_saved_player_position_must_be_standable() {
 }
 
 fn test_world_spawn_position_uses_target_world_generator() {
-	target := db.new_world('nether', none, 'nether', world.nether)
+	mut target := db.new_world('nether', none, 'nether', world.nether)
 	gen := world.NetherGenerator{}
 	pos := world_spawn_position(target, gen)
 	assert pos.x == 0.0

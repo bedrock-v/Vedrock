@@ -175,7 +175,11 @@ pub fn new_world_runtime(cfg RuntimeConfig) &WorldRuntime {
 	wr.liquids = block.new_manager(WorldLiquidHost{ wr: wr })
 	wr.entities = entity.new_manager(cfg.entity_host(wr))
 	mut w := cfg.world
-	wr.chunk_service = new_chunk_service(w.make_generator(wr.generators.build_generator(w)))
+	// The world resolves generator names itself only as a fallback and that
+	// fallback knows nothing about registered generators. Hand it the real one.
+	fallback := wr.generators.build_generator(w)
+	w.set_generator(fallback)
+	wr.chunk_service = new_chunk_service(w.make_generator(fallback))
 	wr.task_scheduler = new_world_scheduler()
 	spawn wr.run_jobs()
 	return wr

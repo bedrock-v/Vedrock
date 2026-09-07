@@ -75,6 +75,33 @@ mut:
 	keys  []KeyRef
 }
 
+// process_palette holds the one block palette for the whole program. The block
+// vocabulary is process wide, the same way the block registry is, so code that
+// has to name a block state doesn't need one threaded down to it.
+@[heap]
+struct PaletteHolder {
+mut:
+	palette &BlockPalette = unsafe { nil }
+}
+
+const process_palette = &PaletteHolder{}
+
+// set_block_palette publishes the palette. Called once at startup before any
+// world exists.
+pub fn set_block_palette(p &BlockPalette) {
+	mut h := process_palette
+	unsafe {
+		h.palette = p
+	}
+}
+
+// block_palette is the process wide block palette, nil until one is loaded. A
+// caller that needs it to name a block state has to check: a server whose
+// palette failed to load still runs.
+pub fn block_palette() &BlockPalette {
+	return process_palette.palette
+}
+
 // intern returns s's index in the shared string table, adding it on first use.
 fn (mut p BlockPalette) intern(s string) u32 {
 	if index := p.interned[s] {

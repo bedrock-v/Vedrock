@@ -33,6 +33,7 @@ pub interface Provider {
 	each_player_spawn(cb fn (key string, x int, y int, z int))
 mut:
 	store_column(cx int, cz int, data []u8) !
+	store_chunk_blocks(cx int, cz int, encoded map[int][]u8) !
 	set_player_spawn(key string, x int, y int, z int) !
 	flush() !
 	close() !

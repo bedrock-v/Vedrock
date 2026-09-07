@@ -20,6 +20,78 @@ fn subchunk_key(cx int, cz int, y_index int, dim world.Dimension) []u8 {
 	return b
 }
 
+// A chunk carries a few per chunk records beside its subchunks. Only these two
+// are written here; biomes (0x2b) are deliberately left alone, see
+// store_chunk_blocks.
+const chunk_version_tag = u8(0x2c)
+
+const chunk_finalisation_tag = u8(0x36)
+
+// chunk_version is the version a Bedrock save marks a whole chunk with and
+// finalisation 2 is "fully generated and populated", which is what a save
+// written by the game carries.
+const chunk_version = u8(42)
+
+const chunk_finalisation_populated = 2
+
+fn chunk_tag_key(cx int, cz int, tag u8, dim world.Dimension) []u8 {
+	mut b := []u8{}
+	put_i32(mut b, cx)
+	put_i32(mut b, cz)
+	if dim.id != 0 {
+		put_i32(mut b, dim.id)
+	}
+	b << tag
+	return b
+}
+
+// encode_chunk_sections encodes every subchunk of a chunk. A chunk goes to disk
+// whole: a subchunk left out is not one left alone, it is one the next read
+// finds missing and reads as air and an emptied subchunk has to be written
+// for the blocks that were there to actually go away.
+//
+// Encoding is the expensive half of a write and is kept out of the store so it
+// happens outside whatever lock guards it.
+pub fn encode_chunk_sections(chunk world.Chunk, dim world.Dimension) !map[int][]u8 {
+	min_y_index := dim.min_y / 16
+	mut out := map[int][]u8{}
+	for index in 0 .. dim.subchunk_count {
+		ids := chunk.section_ids(index)
+		if ids.len != 4096 {
+			continue
+		}
+		y_index := min_y_index + index
+		out[y_index] = encode_subchunk(ids, y_index, world.block_palette())!
+	}
+	return out
+}
+
+// store_chunk_blocks writes a chunk back into the world's own chunk data.
+// encoded holds every subchunk of the chunk keyed by absolute subchunk y
+// index and the whole column lands as one batch: a crash between two of these
+// records would leave a chunk that reads as present but mostly air.
+pub fn (w &WorldStore) store_chunk_blocks(cx int, cz int, encoded map[int][]u8) ! {
+	mut finalisation := []u8{}
+	put_i32(mut finalisation, chunk_finalisation_populated)
+	mut records := [
+		KeyValue{
+			key:   chunk_tag_key(cx, cz, chunk_version_tag, w.dimension)
+			value: [chunk_version]
+		},
+		KeyValue{
+			key:   chunk_tag_key(cx, cz, chunk_finalisation_tag, w.dimension)
+			value: finalisation
+		},
+	]
+	for y_index, data in encoded {
+		records << KeyValue{
+			key:   subchunk_key(cx, cz, y_index, w.dimension)
+			value: data
+		}
+	}
+	w.db.put_all(records)!
+}
+
 pub fn (w &WorldStore) load_chunk(cx int, cz int) ?world.Chunk {
 	mut chunk := world.new_chunk_dim(w.dimension)
 	min_y_index := w.dimension.min_y / 16
@@ -259,12 +331,46 @@ fn skip_compound(mut r SubchunkReader) ! {
 	}
 }
 
+// ChunkCache holds what the store answered for a column, both the chunk it
+// returned and the fact that it had none. It belongs to the world rather than
+// to a StoredGenerator: every generator a world hands out has to see the same
+// answers and a column written to disk has to be able to take the old answer
+// back out (see invalidate).
+// stored_chunk_cache_size caps the decoded chunks kept. A decoded chunk costs
+// tens of kilobytes and without a cap this grows with every column a world has
+// ever been asked about and is only ever released when the world unloads.
+const stored_chunk_cache_size = 32
+
+// stored_chunk_miss_size caps the remembered absences. They cost almost
+// nothing each, but a long lived world visits an unbounded number of columns.
+const stored_chunk_miss_size = 4096
+
 @[heap]
 struct ChunkCache {
 mut:
-	mutex  &sync.Mutex = sync.new_mutex()
-	chunks map[u64]world.Chunk
-	misses map[u64]bool
+	mutex       &sync.Mutex = sync.new_mutex()
+	chunks      map[u64]world.Chunk
+	chunk_order []u64
+	misses      map[u64]bool
+	miss_order  []u64
+}
+
+// invalidate drops what the cache knows about one column. Storage calls it
+// after writing a column: without it a column first read before it was ever
+// written stays remembered as absent and the edit that has just been written
+// is invisible until the world is loaded again.
+fn (mut c ChunkCache) invalidate(cx int, cz int) {
+	key := chunk_cache_key(cx, cz)
+	c.mutex.lock()
+	defer {
+		c.mutex.unlock()
+	}
+	c.chunks.delete(key)
+	c.chunk_order = c.chunk_order.filter(it != key)
+	c.misses.delete(key)
+	// miss_order keeps the name. It is thousands of entries long and rebuilding
+	// it on every column written would cost more than the one thing a stale
+	// name does: age out a key the map no longer holds, deleting nothing.
 }
 
 fn chunk_cache_key(cx int, cz int) u64 {
@@ -277,33 +383,79 @@ pub struct StoredGenerator {
 	cache    &ChunkCache
 }
 
-pub fn new_stored_generator(store Provider, fallback world.Generator) StoredGenerator {
+pub fn new_stored_generator(store Provider, fallback world.Generator, cache &ChunkCache) StoredGenerator {
 	return StoredGenerator{
 		store:    store
 		fallback: fallback
-		cache:    &ChunkCache{}
+		cache:    cache
 	}
 }
 
+// cached_chunk answers what the store holds for a column, remembering both a
+// chunk and an absence.
+//
+// Reading the store and rebuilding the biomes happen with no lock held. Both
+// are slow enough that holding the cache across them would serialise every
+// reader in the world behind one disk read. Two threads asking at once may
+// therefore both do the work, which costs a duplicated read and settles on the
+// same answer.
 fn (g StoredGenerator) cached_chunk(cx int, cz int) ?world.Chunk {
 	key := chunk_cache_key(cx, cz)
 	mut cache := unsafe { g.cache }
 	cache.mutex.lock()
-	defer {
-		cache.mutex.unlock()
-	}
 	if key in cache.chunks {
-		return cache.chunks[key]
+		hit := cache.chunks[key]
+		cache.mutex.unlock()
+		return hit
 	}
-	if key in cache.misses {
+	missing := key in cache.misses
+	cache.mutex.unlock()
+	if missing {
 		return none
 	}
-	chunk := g.store.load_chunk(cx, cz) or {
-		cache.misses[key] = true
+
+	mut chunk := g.store.load_chunk(cx, cz) or {
+		cache.mutex.lock()
+		cache.remember_miss(key)
+		cache.mutex.unlock()
 		return none
 	}
-	cache.chunks[key] = chunk
+	// The store holds blocks and nothing else, a chunk read back carries
+	// default biomes. Take them from the generator that shaped the ground,
+	// which is where they came from before it was ever written.
+	mut fallback := g.fallback
+	for x in 0 .. 16 {
+		for z in 0 .. 16 {
+			chunk.set_biome(x, z, fallback.biome_at(cx * 16 + x, cz * 16 + z))
+		}
+	}
+	cache.mutex.lock()
+	cache.remember_chunk(key, chunk)
+	cache.mutex.unlock()
 	return chunk
+}
+
+// remember_chunk and remember_miss both drop the oldest entry once full.
+// Insertion order rather than use order: what a world reads is what a player is
+// standing in.
+fn (mut c ChunkCache) remember_chunk(key u64, chunk world.Chunk) {
+	c.chunks[key] = chunk
+	c.chunk_order << key
+	for c.chunk_order.len > stored_chunk_cache_size {
+		oldest := c.chunk_order[0]
+		c.chunk_order.delete(0)
+		c.chunks.delete(oldest)
+	}
+}
+
+fn (mut c ChunkCache) remember_miss(key u64) {
+	c.misses[key] = true
+	c.miss_order << key
+	for c.miss_order.len > stored_chunk_miss_size {
+		oldest := c.miss_order[0]
+		c.miss_order.delete(0)
+		c.misses.delete(oldest)
+	}
 }
 
 pub fn (g StoredGenerator) spawn_y() int {

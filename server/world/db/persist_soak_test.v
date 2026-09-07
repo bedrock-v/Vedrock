@@ -41,6 +41,8 @@ fn (mut p CountingProvider) store_column(cx int, cz int, data []u8) ! {
 
 fn (p &CountingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
+fn (mut p CountingProvider) store_chunk_blocks(cx int, cz int, encoded map[int][]u8) ! {}
+
 fn (mut p CountingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
 
 

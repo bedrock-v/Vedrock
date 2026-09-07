@@ -93,7 +93,7 @@ fn test_within_place_reach_survival_vs_creative() {
 
 fn test_place_block_rejects_when_occupied() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -131,7 +131,7 @@ fn test_place_block_rejects_when_occupied() {
 
 fn test_place_block_writes_and_broadcasts_when_clear() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -175,7 +175,7 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 
 fn test_place_block_cancelled_resends_skips_write() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -274,7 +274,7 @@ fn test_break_block_air_resends_authoritative_state() {
 
 fn test_break_block_rejects_out_of_reach() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -295,7 +295,7 @@ fn test_break_block_rejects_out_of_reach() {
 
 fn test_break_block_cancelled_resends_keeps_block() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -361,7 +361,7 @@ fn obstruction_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name strin
 
 fn test_obstructed_by_entity_ignores_only_own_body() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	defer {
@@ -383,7 +383,7 @@ fn test_obstructed_by_entity_ignores_only_own_body() {
 
 fn test_obstructed_by_entity_blocks_other_player() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	defer {
@@ -431,7 +431,7 @@ fn register_test_session(mut s NetworkSession) {
 
 fn test_break_block_succeeds_when_matches() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := dirt_break_test_session(mut hub, mut transport)
@@ -484,7 +484,7 @@ fn test_break_block_rejects_mismatched_position() {
 
 fn test_break_block_creative_bypasses_gating() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -515,7 +515,7 @@ fn test_place_resolves_block_from_item_registry() {
 		}
 	}
 	mut hub := new_hub(data)
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
@@ -564,7 +564,7 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 		}
 	}
 	mut hub := new_hub(data)
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
@@ -606,7 +606,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 		id:            'minecraft:test_block'
 		block_runtime: world.bedrock.network_id
 	})
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	target.set_block(0, world.overworld.min_y + 1, 0, world.dirt.network_id)
@@ -667,7 +667,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 
 fn test_empty_hand_interact_places_nothing() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -735,7 +735,7 @@ fn test_cancelled_consume_keeps_stack() {
 // (rather than relying on a generator's own layer layout which is fragile
 // to depend on for a specific numeric id).
 fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos types.BlockPosition, block_id int) &NetworkSession {
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	worldrt.world_call[bool]('test', mut wr, fn [pos, block_id] (mut tx worldrt.WorldTx) bool {

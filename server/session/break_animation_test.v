@@ -89,7 +89,7 @@ fn populated_position(gen world.Generator, chunk world.Chunk) ?(int, int, int) {
 
 fn test_mining_a_generated_tree_starts_the_crack_animation() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('trees', none, 'normal', world.overworld)
+	mut target := db.new_world('trees', none, 'normal', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('trees') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -123,7 +123,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 		id:            'minecraft:test_block'
 		block_runtime: world.stone.network_id
 	})
-	target := db.new_world('trees', none, 'normal', world.overworld)
+	mut target := db.new_world('trees', none, 'normal', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('trees') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -155,7 +155,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 
 fn test_mining_a_placed_block_starts_the_crack_animation() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}

@@ -62,7 +62,7 @@ fn test_sign_text_wrong_shape_none() {
 
 fn test_sign_editor_opens_only_for_signs() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -102,7 +102,7 @@ fn test_sign_editor_opens_only_for_signs() {
 
 fn test_handle_block_actor_data_updates_sign_text() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -150,7 +150,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 
 fn test_block_actor_data_ignores_non_sign_blocks() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -185,7 +185,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 
 fn test_sign_tile_starts_empty_and_broadcasts() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -224,7 +224,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 
 fn test_create_sign_tile_ignores_non_sign_block() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{

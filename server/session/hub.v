@@ -342,20 +342,21 @@ pub fn (mut h Hub) request_tick_all(n i64) {
 	}
 }
 
-// flush_worlds durably flushes every loaded world's queued override/tile
-// writes to disk. Writes otherwise only become durable on a graceful
-// shutdown (close_worlds). Calling this periodically bounds how much a
-// crash or forced kill can lose to the flush interval instead of however
-// long the server has been running since it last shut down cleanly. Returns
-// one "world: error" message per world that failed to flush rather than
-// stopping at the first failure, so one bad store doesn't hide the rest.
-pub fn (mut h Hub) flush_worlds() []string {
-	mut errors := []string{}
+// request_world_flushes queues a durability sync on every loaded world and
+// returns. Writes otherwise only become durable on a graceful shutdown
+// (close_worlds); calling this periodically bounds how much a crash or forced
+// kill can lose to the flush interval instead of however long the server has
+// been running since it last shut down cleanly.
+//
+// The sync happens on each world's storage worker. The caller is the
+// server tick loop and waiting on a device there is what turns a routine
+// durability sync into a tick overrun. A sync that fails is reported the same
+// way a failed write is, through the world's persistence error metrics.
+pub fn (mut h Hub) request_world_flushes() {
 	mut r := h.world_registry
 	for mut wr in r.each_runtime() {
-		wr.world.flush() or { errors << '${wr.world.name}: ${err.msg()}' }
+		wr.world.request_flush()
 	}
-	return errors
 }
 
 // persist_pressure_warnings returns a warning for each loaded world whose

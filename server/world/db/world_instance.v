@@ -30,6 +30,12 @@ const persist_ceiling_poll_interval = 5 * time.millisecond
 // bring back.
 const world_resident_column_limit = 1024
 
+// world_base_chunk_cache_size caps the decoded chunks the storage worker keeps
+// to lay column blocks over. A decoded chunk costs hundreds of kilobytes, so
+// this is sized to the few columns being written at once, not to how many are
+// resident.
+const world_base_chunk_cache_size = 8
+
 // ColumnPersist names a column whose changes are already in a World's in
 // memory state and not yet on disk. It carries no data of its own: the storage
 // worker snapshots the column when it reaches the record, which is what lets
@@ -53,7 +59,12 @@ struct PersistBarrier {
 	done chan bool
 }
 
-type PersistRecord = ColumnPersist | PersistBarrier | PlayerSpawnPersist
+// PersistFlush is a sync queued behind everything already written. The queue is
+// ordered, so reaching it means every earlier write has been applied.
+// The same guarantee a barrier gives without a caller waiting on it.
+struct PersistFlush {}
+
+type PersistRecord = ColumnPersist | PersistBarrier | PersistFlush | PlayerSpawnPersist
 
 // QueuedPersistRecord pairs a persistence record with its enqueue time for
 // measuring backlog depth and age.
@@ -84,6 +95,26 @@ mut:
 	// names the ones that have arrived since a caller last asked.
 	column_seq     i64
 	loaded_columns []i64
+	// pending_migration names columns read back still carrying blocks, waiting
+	// for a persist record to be queued outside the lock column() holds.
+	pending_migration []i64
+	// base_chunks is the terrain the storage worker lays a column's blocks
+	// over, kept so a repeatedly edited column is not read back or regenerated
+	// on every write. Capped by count, oldest first.
+	base_chunks      map[i64]world.Chunk
+	base_chunk_order []i64
+	// chunk_cache is what the store answered for a column, shared by every
+	// generator this world hands out so that one write invalidates it for all
+	// of them. It has its own lock and is never held under w.mutex.
+	chunk_cache &ChunkCache = &ChunkCache{}
+	// generator is this world's own generator, handed over by the runtime that
+	// builds it. Resolving the name here would reach only the built in
+	// generators, so a world running a registered custom one would have its
+	// terrain read, and baked, as something it never was.
+	generator ?world.Generator
+	// stored is generator wrapped so the store answers first, built once
+	// rather than per block query: block_id sits on the tick path.
+	stored ?world.Generator
 	// player_spawns is the bed each player is bound to here, keyed by whatever
 	// the caller identifies a player by. It belongs to the world because the
 	// coordinates only mean anything in this one and it goes when the world
@@ -256,8 +287,16 @@ fn (mut w World) column(key i64) &Column {
 		w.store_mutex.lock()
 		record := store.load_column(cx, cz) or { []u8{} }
 		w.store_mutex.unlock()
-		if loaded := decode_column(record) {
+		if mut loaded := decode_column(record) {
 			col = loaded
+			// A record still carrying blocks predates them being written into
+			// the chunk data. Marking it dirty is the whole migration: the
+			// storage worker bakes it on its next pass and writes the record
+			// back without them.
+			if col.blocks.len > 0 && !isnil(world.block_palette()) {
+				col.dirty = true
+				w.pending_migration << key
+			}
 		}
 	}
 	col.last_used = w.column_seq
@@ -265,6 +304,21 @@ fn (mut w World) column(key i64) &Column {
 	w.loaded_columns << key
 	w.evict_columns_locked(key)
 	return col
+}
+
+// drain_pending_migrations queues a persist record for every column that came
+// back still carrying blocks. column() can't enqueue from where it runs.
+// The callers that can do it on their way out.
+fn (mut w World) drain_pending_migrations() {
+	w.mutex.lock()
+	keys := w.pending_migration.clone()
+	w.pending_migration.clear()
+	w.mutex.unlock()
+	for key in keys {
+		w.enqueue_persist(ColumnPersist{
+			key: key
+		})
+	}
 }
 
 // evict_columns_locked drops the least recently used columns once the world
@@ -528,15 +582,23 @@ fn (mut w World) drain_persist_records(mut store Provider) {
 fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 	match record {
 		ColumnPersist {
-			data := w.snapshot_column(record.key) or { return }
+			snapshot := w.snapshot_column(record.key) or { return }
 			cx, cz := column_coords(record.key)
 			start := time.now()
 			mut ok := true
-			w.locked_store_column(mut store, cx, cz, data) or {
+			w.bake_column_blocks(mut store, record.key, snapshot) or {
 				w.mutex.lock()
 				w.last_persist_error = err.msg()
 				w.mutex.unlock()
 				ok = false
+			}
+			if ok {
+				w.locked_store_column(mut store, cx, cz, snapshot.record) or {
+					w.mutex.lock()
+					w.last_persist_error = err.msg()
+					w.mutex.unlock()
+					ok = false
+				}
 			}
 			w.record_persist_write_result(start, ok)
 		}
@@ -551,10 +613,138 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 			}
 			w.record_persist_write_result(start, ok)
 		}
+		PersistFlush {
+			start := time.now()
+			mut ok := true
+			w.locked_store_flush(mut store) or {
+				w.mutex.lock()
+				w.last_persist_error = err.msg()
+				w.mutex.unlock()
+				ok = false
+			}
+			w.record_persist_write_result(start, ok)
+		}
 		PersistBarrier {
 			record.done <- true
 		}
 	}
+}
+
+// ColumnSnapshot is one column as the storage worker will write it: the blocks
+// to bake into the chunk data and the record holding everything the chunk
+// format has no place for. blocks is empty when there is no palette to name
+// them with and the record then carries them instead.
+struct ColumnSnapshot {
+	blocks map[i64]int
+	record []u8
+}
+
+// bake_column_blocks writes a column's blocks into the world's chunk data in
+// the game's own format.
+fn (mut w World) bake_column_blocks(mut store Provider, key i64, snapshot ColumnSnapshot) ! {
+	if snapshot.blocks.len == 0 {
+		return
+	}
+	cx, cz := column_coords(key)
+	mut chunk := w.base_chunk(mut store, cx, cz)
+	for local, id in snapshot.blocks {
+		x, y, z := local_coords(cx, cz, local)
+		chunk.set_block_id(x & 15, y, z & 15, id)
+	}
+	encoded := encode_chunk_sections(chunk, w.dimension)!
+	w.store_mutex.lock()
+	store.store_chunk_blocks(cx, cz, encoded) or {
+		w.store_mutex.unlock()
+		return err
+	}
+	w.store_mutex.unlock()
+	// The column on disk has changed, so whatever a reader was told about it
+	// before is now the old world.
+	mut cache := w.chunk_cache
+	cache.invalidate(cx, cz)
+}
+
+// base_chunk is the terrain a column's blocks are laid over: what the store
+// holds or what the generator makes for ground this world has only ever made
+// up. Reading or generating it is the most expensive thing on this path by a
+// wide margin and a column being edited is usually about to be edited again,
+// so the last few are kept.
+//
+// A stale one is still correct. A bake applies every block the column holds,
+// not just the newest, so an edit can't be lost by starting from a base that
+// predates it.
+fn (mut w World) base_chunk(mut store Provider, cx int, cz int) world.Chunk {
+	key := column_key(cx, cz)
+	w.mutex.lock()
+	if cached := w.base_chunks[key] {
+		w.mutex.unlock()
+		return cached
+	}
+	w.mutex.unlock()
+
+	w.store_mutex.lock()
+	found := store.load_chunk(cx, cz)
+	w.store_mutex.unlock()
+	chunk := found or { w.generate_column_chunk(cx, cz) }
+
+	w.mutex.lock()
+	if key !in w.base_chunks {
+		w.base_chunks[key] = chunk
+		w.base_chunk_order << key
+
+		for w.base_chunk_order.len > world_base_chunk_cache_size {
+			oldest := w.base_chunk_order[0]
+			w.base_chunk_order.delete(0)
+			w.base_chunks.delete(oldest)
+		}
+	}
+	w.mutex.unlock()
+	return chunk
+}
+
+// generate_column_chunk makes the terrain a column sits on, for a chunk the
+// store has never held. Without it a baked block would be written into an
+// otherwise empty chunk and the ground around it would be lost.
+fn (w &World) generate_column_chunk(cx int, cz int) world.Chunk {
+	mut generator := w.fallback_generator()
+	return generator.generate(cx, cz)
+}
+
+// set_generator hands this world the generator its runtime resolved for it.
+// Called once while the runtime is being built before anything can ask.
+pub fn (mut w World) set_generator(g world.Generator) {
+	wrapped := w.make_generator(g)
+	w.mutex.lock()
+	w.generator = g
+	w.stored = wrapped
+	w.mutex.unlock()
+}
+
+// fallback_generator is this world's ground with nothing read back from the
+// store. A world used without a runtime has never been handed one, so the name
+// is resolved instead which reaches the built in generators only.
+pub fn (w &World) fallback_generator() world.Generator {
+	mut m := w.mutex
+	m.lock()
+	held := w.generator
+	m.unlock()
+	return held or { world.new_generator(w.generator_name) }
+}
+
+// stored_generator is this world's ground as it stands: what has been written
+// to the store and the generator underneath it for ground nothing has touched.
+// This is what a reader needs. An edit lives in the chunk data once it has been
+// baked and the in memory overrides that carried it are dropped when the
+// column is evicted or the world is loaded again.
+pub fn (w &World) stored_generator() world.Generator {
+	mut m := w.mutex
+	m.lock()
+	held := w.stored
+	m.unlock()
+	if g := held {
+		return g
+	}
+	return w.make_generator(w.fallback_generator())
 }
 
 // snapshot_column encodes a column and clears its dirty mark under one lock,
@@ -566,14 +756,22 @@ fn apply_persist_record(mut w World, mut store Provider, record PersistRecord) {
 // would erase what is on disk. Eviction never takes a dirty column, so this
 // should not arise; writing nothing if it ever does is the difference between
 // a lost write and a lost column.
-fn (mut w World) snapshot_column(key i64) ?[]u8 {
+fn (mut w World) snapshot_column(key i64) ?ColumnSnapshot {
 	w.mutex.lock()
 	defer {
 		w.mutex.unlock()
 	}
 	mut col := w.columns[key] or { return none }
 	col.dirty = false
-	return encode_column(col)
+	bake := !isnil(world.block_palette())
+	mut blocks := map[i64]int{}
+	if bake {
+		blocks = col.blocks.clone()
+	}
+	return ColumnSnapshot{
+		blocks: blocks
+		record: encode_column_record(col, bake)
+	}
 }
 
 // record_persist_write_result updates provider write latency and error
@@ -807,7 +1005,7 @@ pub fn (mut w World) tile_entries_in_chunk(cx int, cz int) []TileEntry {
 // world has a backing store, so saved chunks are served before the fallback.
 pub fn (w &World) make_generator(fallback world.Generator) world.Generator {
 	store := w.store or { return fallback }
-	return new_stored_generator(store, fallback)
+	return new_stored_generator(store, fallback, w.chunk_cache)
 }
 
 // flush persists this world's store to disk without unloading it, waiting
@@ -820,6 +1018,20 @@ pub fn (mut w World) flush() ! {
 		w.await_persist_barrier()!
 		w.locked_store_flush(mut store)!
 	}
+}
+
+// request_flush queues a sync and returns. It is the periodic form: the caller
+// is a tick loop that must not wait on a device, and the ordering of the queue
+// already gives it everything flush() blocks for.
+//
+// A backlog at the ceiling means the queue is full of writes that have to land
+// first, so there is nothing for a sync to make durable that the next interval
+// will not cover. Skipping is what keeps this from ever blocking its caller.
+pub fn (mut w World) request_flush() {
+	if !w.store_backed || w.pending_persist_count() >= w.persist_hard_ceiling_threshold {
+		return
+	}
+	w.enqueue_persist(PersistFlush{})
 }
 
 // set_resident_column_limit lowers the eviction ceiling so a test can reach it

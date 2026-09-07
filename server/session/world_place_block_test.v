@@ -150,7 +150,7 @@ fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, 
 
 fn test_place_block_writes_and_consumes_item_once() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -171,7 +171,7 @@ fn test_place_block_writes_and_consumes_item_once() {
 
 fn test_inventory_transaction_packet_is_a_safe_no_op() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -191,7 +191,7 @@ fn test_inventory_transaction_packet_is_a_safe_no_op() {
 
 fn test_place_block_broadcasts_place_sound() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -218,7 +218,7 @@ fn (mut h CancelBlockPlaceHandler) on_block_place(mut ctx event.Context[player.B
 
 fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -241,7 +241,7 @@ fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 
 fn test_place_block_observer_in_another_world_receives_no_packet() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('world')
 	target.set_block(0, 0, 1, world.bedrock.network_id)
@@ -271,7 +271,7 @@ fn test_place_block_observer_in_another_world_receives_no_packet() {
 
 fn test_place_block_ignores_player_in_another_world_for_obstruction() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	other_world := db.new_world('other', none, 'void', world.overworld)
@@ -314,7 +314,7 @@ fn (mut h CountingPlaceHandler) on_block_place(mut ctx event.Context[player.Bloc
 // that happened in world A and vice versa.
 fn test_place_block_event_isolated_to_owning_world() {
 	mut hub := place_test_hub()
-	world_a := db.new_world('world-a', none, 'void', world.overworld)
+	mut world_a := db.new_world('world-a', none, 'void', world.overworld)
 	hub.add_world(world_a)
 	hub.set_default_world('world-a')
 	world_a.set_block(0, 0, 1, world.bedrock.network_id)
@@ -346,7 +346,7 @@ fn test_place_block_event_isolated_to_owning_world() {
 
 fn test_sign_tile_broadcasts_before_block_update() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	target.set_block(0, 0, 1, world.bedrock.network_id)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -381,7 +381,7 @@ fn test_sign_tile_broadcasts_before_block_update() {
 
 fn test_handled_interaction_does_not_consume_or_place_held_item() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
@@ -413,7 +413,7 @@ fn test_handled_interaction_does_not_consume_or_place_held_item() {
 
 fn test_door_placement_upper_blocked_leaves_both_untouched() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -444,7 +444,7 @@ fn test_door_placement_upper_blocked_leaves_both_untouched() {
 
 fn test_door_placement_cancelled_leaves_both_untouched() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -473,7 +473,7 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 
 fn test_door_placement_writes_both_halves_atomically_in_same_world() {
 	mut hub := place_test_hub()
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}

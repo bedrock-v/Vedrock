@@ -57,7 +57,7 @@ fn build_subchunk(indices []int, bits int, palette [][]u8) []u8 {
 	b << 9
 	b << 1
 	b << u8(i8(-4))
-	b << u8(bits << 1)
+	b << u8(bits) << 1
 	per_word := 32 / bits
 	word_count := (4096 + per_word - 1) / per_word
 	for w in 0 .. word_count {

@@ -25,14 +25,19 @@ pub:
 }
 
 // block_id returns the block at the given position. It first checks for an
-// in memory override, then falls back to the world's configured generator.
+// in memory override, then falls back to the world's ground as stored.
+//
+// The fallback goes through the store rather than straight to the generator:
+// an edit lives in the chunk data once it has been baked, and the override that
+// carried it is gone once the column is evicted or the world is loaded again.
 //
 // This matches the override first lookup used by session.block_at().
 pub fn (mut w World) block_id(x int, y int, z int) int {
 	if id := w.block_override(x, y, z) {
 		return id
 	}
-	return world.new_generator(w.generator_name).block_at(x, y, z)
+	mut generator := w.stored_generator()
+	return generator.block_at(x, y, z)
 }
 
 // schedule_tick queues one scheduled tick for the given position.
@@ -115,6 +120,7 @@ fn (w &World) locked_override_positions() []TickPosition {
 // so broadcasting these to connected players is the caller's responsibility.
 pub fn (mut w World) tick(registry &block.Registry) []BlockOverride {
 	mut changed := []BlockOverride{}
+	w.drain_pending_migrations()
 
 	w.mutex.lock()
 	w.current_tick++

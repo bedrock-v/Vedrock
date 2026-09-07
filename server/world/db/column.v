@@ -58,10 +58,18 @@ const column_record_version = u8(1)
 // block overrides, then the block entities. Both sections carry their own
 // count, so a version that appends a third leaves the first two readable.
 fn encode_column(c &Column) []u8 {
-	mut b := []u8{cap: 1 + 8 + c.blocks.len * 12}
+	return encode_column_record(c, false)
+}
+
+// encode_column_record leaves the blocks out when they are being written into
+// the chunk data instead. A record then holds only what the chunk format has
+// no place for.
+fn encode_column_record(c &Column, blocks_baked bool) []u8 {
+	blocks := if blocks_baked { map[i64]int{} } else { c.blocks.clone() }
+	mut b := []u8{cap: 1 + 8 + blocks.len * 12}
 	b << column_record_version
-	put_i32(mut b, c.blocks.len)
-	for local, id in c.blocks {
+	put_i32(mut b, blocks.len)
+	for local, id in blocks {
 		put_i64(mut b, local)
 		put_i32(mut b, id)
 	}
