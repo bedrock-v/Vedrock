@@ -25,6 +25,17 @@ const normal_terrain_salt = u32(3)
 const normal_temperature_salt = u32(5)
 const normal_rainfall_salt = u32(7)
 
+// cave carving — two overlapping noise fields ("spaghetti") plus a separate
+// wider field ("cheese") cut open cavities of different shapes.
+const normal_cave_spaghetti_salt_a = u32(11)
+const normal_cave_spaghetti_salt_b = u32(13)
+const normal_cave_cheese_salt = u32(17)
+const normal_cave_scale = 48.0
+const normal_cave_cheese_scale = 64.0
+const normal_cave_spaghetti_threshold = 0.03
+const normal_cave_cheese_threshold = 0.72
+const normal_cave_lava_level = 10
+
 struct OreType {
 	material      Block
 	cluster_count int
@@ -348,6 +359,38 @@ fn (g NormalGenerator) column_ids(x int, z int) []int {
 		ids[y] = normal_terrain_id(y, min_sum, max_sum, g.terrain_noise(x, y, z))
 	}
 	apply_ground_cover(mut ids, ids.len, normal_ground_cover(g.biome_at(x, z)))
+	// carve the same way generate() does so single block lookups stay consistent
+	for y := 1; y < normal_terrain_height - 1; y++ {
+		if ids[y] != stone.network_id && ids[y] != dirt.network_id && ids[y] != gravel.network_id {
+			continue
+		}
+		sx := f64(x) / normal_cave_scale
+		sy := f64(y) / normal_cave_scale
+		sz := f64(z) / normal_cave_scale
+		na := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_a, 3) - 0.5
+		nb := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_b, 3) - 0.5
+		spaghetti := na * na + nb * nb < normal_cave_spaghetti_threshold
+		cx := f64(x) / normal_cave_cheese_scale
+		cy := f64(y) / normal_cave_cheese_scale
+		cz := f64(z) / normal_cave_cheese_scale
+		cheese := fbm3d(cx, cy, cz, normal_cave_cheese_salt, 2) > normal_cave_cheese_threshold
+		if !spaghetti && !cheese {
+			continue
+		}
+		if y + 1 < normal_terrain_height && (ids[y + 1] == air.network_id || ids[y + 1] == water.network_id) {
+			if y > normal_water_height {
+				continue
+			}
+		}
+		if y <= normal_cave_lava_level {
+			ids[y] = lava.network_id
+		} else if y <= normal_water_height && y + 1 < normal_terrain_height
+			&& ids[y + 1] == water.network_id {
+			ids[y] = water.network_id
+		} else {
+			ids[y] = air.network_id
+		}
+	}
 	return ids
 }
 
@@ -415,8 +458,64 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 		}
 	}
 
+	carve_caves(mut c, chunk_x, chunk_z)
 	g.populate(mut c, chunk_x, chunk_z)
 	return c
+}
+
+// carve_caves punches holes through solid stone using two noise layers. The
+// spaghetti pass intersects two thin bands to create winding tunnels; the
+// cheese pass opens up wide chambers where the noise is high enough. Blocks
+// below the lava level get filled with lava, blocks between the lava level
+// and the water height get filled with water when adjacent to water above.
+fn carve_caves(mut c Chunk, chunk_x int, chunk_z int) {
+	base_x := chunk_x * 16
+	base_z := chunk_z * 16
+	for x in 0 .. 16 {
+		wx := base_x + x
+		for z in 0 .. 16 {
+			wz := base_z + z
+			for y := 1; y < normal_terrain_height - 1; y++ {
+				id := c.block_id(x, y, z)
+				if id != stone.network_id && id != dirt.network_id && id != gravel.network_id {
+					continue
+				}
+				sx := f64(wx) / normal_cave_scale
+				sy := f64(y) / normal_cave_scale
+				sz := f64(wz) / normal_cave_scale
+
+				na := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_a, 3) - 0.5
+				nb := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_b, 3) - 0.5
+				spaghetti := na * na + nb * nb < normal_cave_spaghetti_threshold
+
+				cx := f64(wx) / normal_cave_cheese_scale
+				cy := f64(y) / normal_cave_cheese_scale
+				cz := f64(wz) / normal_cave_cheese_scale
+				cheese := fbm3d(cx, cy, cz, normal_cave_cheese_salt, 2) > normal_cave_cheese_threshold
+
+				if !spaghetti && !cheese {
+					continue
+				}
+				// don't carve through the surface — keep solid ground above
+				if y + 1 < normal_terrain_height {
+					above := c.block_id(x, y + 1, z)
+					if above == air.network_id || above == water.network_id {
+						if y > normal_water_height {
+							continue
+						}
+					}
+				}
+				if y <= normal_cave_lava_level {
+					c.set_block(x, y, z, lava)
+				} else if y <= normal_water_height && y + 1 < normal_terrain_height
+					&& c.block_id(x, y + 1, z) == water.network_id {
+					c.set_block(x, y, z, water)
+				} else {
+					c.set_block(x, y, z, air)
+				}
+			}
+		}
+	}
 }
 
 // ---- populators ----
