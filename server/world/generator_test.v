@@ -199,3 +199,84 @@ fn test_density_column_matches_full_grid_sampling() {
 		}
 	}
 }
+
+
+fn test_normal_generator_carves_caves_below_surface() {
+	g := NormalGenerator{}
+	// sample several chunks to find carved air below terrain
+	mut carved_air := 0
+	mut carved_lava := 0
+	for cx in -2 .. 3 {
+		for cz in -2 .. 3 {
+			chunk := g.generate(cx, cz)
+			for x in 0 .. 16 {
+				for z in 0 .. 16 {
+					mut found_surface := false
+					for y := 127; y > 0; y-- {
+						id := chunk.block_id(x, y, z)
+						if !found_surface && id != air.network_id && id != water.network_id {
+							found_surface = true
+							continue
+						}
+						if found_surface && id == air.network_id {
+							carved_air++
+						}
+						if found_surface && id == lava.network_id && y <= normal_cave_lava_level {
+							carved_lava++
+						}
+					}
+				}
+			}
+		}
+	}
+	assert carved_air > 100, 'expected caves to carve air pockets below terrain'
+	assert carved_lava > 0, 'expected lava in caves below y=${normal_cave_lava_level}'
+}
+
+fn test_normal_generator_caves_preserve_bedrock() {
+	g := NormalGenerator{}
+	for cx in -1 .. 2 {
+		for cz in -1 .. 2 {
+			chunk := g.generate(cx, cz)
+			for x in 0 .. 16 {
+				for z in 0 .. 16 {
+					assert chunk.block_id(x, 0, z) == bedrock.network_id, 'cave carving broke bedrock floor at chunk ${cx},${cz} column ${x},${z}'
+				}
+			}
+		}
+	}
+}
+
+fn test_normal_generator_caves_dont_break_surface() {
+	g := NormalGenerator{}
+	chunk := g.generate(0, 0)
+	for x in 0 .. 16 {
+		for z in 0 .. 16 {
+			// find topmost solid block
+			mut top := 0
+			for y := 127; y > 0; y-- {
+				id := chunk.block_id(x, y, z)
+				if id != air.network_id && id != water.network_id {
+					top = y
+					break
+				}
+			}
+			assert top > 0, 'column ${x},${z} has no terrain after carving'
+		}
+	}
+}
+
+fn test_normal_generator_block_at_has_caves() {
+	g := NormalGenerator{}
+	mut carved := 0
+	for x in 0 .. 64 {
+		for z in 0 .. 64 {
+			for y := 1; y < 60; y++ {
+				if g.block_at(x, y, z) == air.network_id {
+					carved++
+				}
+			}
+		}
+	}
+	assert carved > 0, 'expected block_at to reflect cave carving'
+}
