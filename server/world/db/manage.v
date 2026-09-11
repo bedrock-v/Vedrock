@@ -55,6 +55,13 @@ pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, g
 	if world_exists(worlds_dir, name) {
 		return error('world "${name}" already exists')
 	}
+
+	if os.is_dir(full) {
+		entries := os.ls(full) or { return error('cannot read ${full}: ${err.msg()}') }
+		if entries.len > 0 {
+			return error('world "${name}" has a folder with no db that is not empty; not creating over it')
+		}
+	}
 	os.mkdir_all(full)!
 	write_world_meta(full, generator, dim, seed, spawn_point)!
 	path := os.join_path(full, 'db')
