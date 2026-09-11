@@ -50,13 +50,13 @@ pub fn delete_world_files(worlds_dir string, name string) ! {
 
 // create_world_store creates a fresh, empty world on disk under worlds_dir and
 // returns its opened store. Errors if a world by that name already exists.
-pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, generator string, seed i64) !&WorldStore {
+pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !&WorldStore {
 	full := safe_world_dir(worlds_dir, name)!
 	if world_exists(worlds_dir, name) {
 		return error('world "${name}" already exists')
 	}
 	os.mkdir_all(full)!
-	write_world_meta(full, generator, dim, seed)!
+	write_world_meta(full, generator, dim, seed, spawn_point)!
 	path := os.join_path(full, 'db')
 	return open_world(path, dim)!
 }

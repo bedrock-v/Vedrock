@@ -10,10 +10,12 @@ pub fn load_named(worlds_dir string, name string, generator_name string, dim wor
 	mut resolved_generator := generator_name
 	mut resolved_dim := dim
 	mut resolved_seed := i64(0)
+	mut resolved_spawn := ?world.SpawnPoint(none)
 	if meta := read_world_meta(full) {
 		resolved_generator = meta.generator
 		resolved_dim = world.dimension_by_id(meta.dimension) or { dim }
 		resolved_seed = meta.seed
+		resolved_spawn = meta.spawn_point
 	} else {
 		if err !is NoWorldMeta {
 			return err
@@ -23,6 +25,7 @@ pub fn load_named(worlds_dir string, name string, generator_name string, dim wor
 	store := open_world(path, resolved_dim)!
 	mut w := new_world(name, store, resolved_generator, resolved_dim)
 	w.seed = resolved_seed
+	w.spawn_point = resolved_spawn
 	w.load()
 	return w
 }

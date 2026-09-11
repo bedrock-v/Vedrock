@@ -17,7 +17,9 @@ fn test_create_world_store_persists_meta_and_load_named_restores_it() {
 	}
 	name := 'nether_meta_test'
 
-	mut store := create_world_store(dir, name, world.nether, 'nether', 1) or { panic(err) }
+	mut store := create_world_store(dir, name, world.nether, 'nether', 1, world.SpawnPoint{ y: 64 }) or {
+		panic(err)
+	}
 	store.close() or { panic(err) }
 
 	mut loaded := load_named(dir, name, 'flat', world.overworld) or { panic(err) }
@@ -33,7 +35,9 @@ fn test_create_world_store_persists_end_dimension() {
 	}
 	name := 'end_meta_test'
 
-	mut store := create_world_store(dir, name, world.the_end, 'end', 1) or { panic(err) }
+	mut store := create_world_store(dir, name, world.the_end, 'end', 1, world.SpawnPoint{ y: 4 }) or {
+		panic(err)
+	}
 	store.close() or { panic(err) }
 
 	mut loaded := load_named(dir, name, 'flat', world.overworld) or { panic(err) }
@@ -66,13 +70,20 @@ fn test_a_world_keeps_the_seed_it_was_created_with() {
 	defer {
 		os.rmdir_all(dir) or {}
 	}
-	mut store := create_world_store(dir, 'seeded', world.overworld, 'normal', -1234567890123) or {
+	mut store := create_world_store(dir, 'seeded', world.overworld, 'normal', -1234567890123,
+		world.SpawnPoint{ x: -40, y: 70, z: 12 }) or {
 		panic(err)
 	}
 	store.close() or { panic(err) }
 
 	mut loaded := load_named(dir, 'seeded', 'flat', world.overworld) or { panic(err) }
 	assert loaded.seed == -1234567890123
+	stored := loaded.spawn_point or { panic('the spawn was not kept') }
+	assert stored == world.SpawnPoint{
+		x: -40
+		y: 70
+		z: 12
+	}
 	loaded.close() or { panic(err) }
 }
 

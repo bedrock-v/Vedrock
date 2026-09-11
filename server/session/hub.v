@@ -504,14 +504,18 @@ fn (mut h Hub) generator_type_names() []string {
 // build_generator resolves a world's own generator by name and dimension
 // through the registry.
 pub fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
+	return h.generator_for(w.generator_name, w.dimension, w.seed)
+}
+
+// generator_for resolves a generator by name for dim and seed, falling back to
+// the dimension's own default and then to the built-in of that name.
+fn (h &Hub) generator_for(name string, dim blockworld.Dimension, seed i64) blockworld.Generator {
 	opts := blockworld.GeneratorOptions{
-		dim:  w.dimension
-		seed: w.seed
+		dim:  dim
+		seed: seed
 	}
-	return h.generators.create(w.generator_name, opts) or {
-		h.generators.create(w.dimension.default_generator, opts) or {
-			blockworld.new_generator(w.generator_name)
-		}
+	return h.generators.create(name, opts) or {
+		h.generators.create(dim.default_generator, opts) or { blockworld.new_generator(name) }
 	}
 }
 
@@ -537,11 +541,13 @@ pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator
 	h.mutex.unlock()
 	resolved_generator := if generator.trim_space() == '' { default_generator } else { generator }
 	resolved_seed := seed or { blockworld.new_world_seed() }
-	provider := factory.create(name, dim, resolved_generator, resolved_seed) or {
+	spawn_point := h.generator_for(resolved_generator, dim, resolved_seed).spawn_point()
+	provider := factory.create(name, dim, resolved_generator, resolved_seed, spawn_point) or {
 		return error('failed to create world "${name}": ${err}')
 	}
 	mut loaded_world := db.new_world(name, provider, resolved_generator, dim)
 	loaded_world.seed = resolved_seed
+	loaded_world.spawn_point = spawn_point
 	h.add_world(loaded_world)
 	return name
 }

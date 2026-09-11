@@ -378,16 +378,18 @@ fn chunk_cache_key(cx int, cz int) u64 {
 }
 
 pub struct StoredGenerator {
-	store    Provider
-	fallback world.Generator
-	cache    &ChunkCache
+	store        Provider
+	fallback     world.Generator
+	cache        &ChunkCache
+	stored_spawn ?world.SpawnPoint
 }
 
-pub fn new_stored_generator(store Provider, fallback world.Generator, cache &ChunkCache) StoredGenerator {
+pub fn new_stored_generator(store Provider, fallback world.Generator, cache &ChunkCache, stored_spawn ?world.SpawnPoint) StoredGenerator {
 	return StoredGenerator{
-		store:    store
-		fallback: fallback
-		cache:    cache
+		store:        store
+		fallback:     fallback
+		cache:        cache
+		stored_spawn: stored_spawn
 	}
 }
 
@@ -458,10 +460,11 @@ fn (mut c ChunkCache) remember_miss(key u64) {
 	}
 }
 
-// spawn_point is the generator's spawn column, stood on whatever has been
-// built there since.
+// spawn_point is the world's spawn column, stood on whatever has been built
+// there since. The column is the one stored when the world was created; only a
+// world from before that asks its generator.
 pub fn (g StoredGenerator) spawn_point() world.SpawnPoint {
-	generated := g.fallback.spawn_point()
+	generated := g.stored_spawn or { g.fallback.spawn_point() }
 	chunk := g.cached_chunk(generated.x >> 4, generated.z >> 4) or { return generated }
 	dim := g.store.dimension()
 	for y := dim.max_y(); y >= dim.min_y; y-- {

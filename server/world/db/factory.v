@@ -12,7 +12,7 @@ pub interface Factory {
 mut:
 	// create records generator and seed with the world, so it is generated
 	// the same way every time it is opened.
-	create(name string, dim world.Dimension, generator string, seed i64) !Provider
+	create(name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !Provider
 	// open loads a persisted world, resolving its own generator/dimension
 	// from whatever metadata the backend keeps (falling back to
 	// fallback_generator/fallback_dim if it can't). Returns a fully loaded
@@ -34,8 +34,8 @@ pub fn (f LevelDBFactory) exists(name string) bool {
 	return world_exists(f.worlds_dir, name)
 }
 
-pub fn (f LevelDBFactory) create(name string, dim world.Dimension, generator string, seed i64) !Provider {
-	return create_world_store(f.worlds_dir, name, dim, generator, seed)!
+pub fn (f LevelDBFactory) create(name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !Provider {
+	return create_world_store(f.worlds_dir, name, dim, generator, seed, spawn_point)!
 }
 
 pub fn (f LevelDBFactory) open(name string, fallback_generator string, fallback_dim world.Dimension) !&World {

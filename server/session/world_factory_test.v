@@ -44,15 +44,17 @@ struct FakeFactory {
 mut:
 	created []string
 	seeds   []i64
+	spawns  []world.SpawnPoint
 }
 
 fn (f &FakeFactory) exists(name string) bool {
 	return false
 }
 
-fn (mut f FakeFactory) create(name string, dim world.Dimension, generator string, seed i64) !db.Provider {
+fn (mut f FakeFactory) create(name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !db.Provider {
 	f.created << name
 	f.seeds << seed
+	f.spawns << spawn_point
 	return &FakeProvider{}
 }
 
@@ -79,6 +81,9 @@ fn test_hub_creates_world_through_custom_factory() {
 	assert factory.seeds.len == 1 && factory.seeds[0] != 0
 	created := hub.world('custom') or { panic('expected the created world to be loaded') }
 	assert created.seed == factory.seeds[0]
+	stored := created.spawn_point or { panic('the created world has no spawn') }
+	assert factory.spawns == [stored]
+	assert stored == world.FlatGenerator{}.spawn_point()
 	info := hub.world_info('custom') or { panic('expected world_info to find it') }
 	assert info.name == 'custom'
 }
@@ -106,6 +111,7 @@ fn test_a_default_world_created_at_boot_records_its_seed() {
 		panic('the default world has no meta.txt')
 	}
 	assert meta.contains('seed: ${created.seed}')
+	assert meta.contains('spawn: ')
 }
 
 fn test_a_world_s_seed_reaches_the_generator_built_for_it() {
