@@ -20,13 +20,17 @@ fn seed_mask(seed i64) u64 {
 	if seed == 0 {
 		return 0
 	}
-	// splitmix64, so seeds a bit apart still give unrelated masks.
-	mut z := u64(seed) + u64(0x9e3779b97f4a7c15)
+	mask := splitmix64(u64(seed))
+	return if mask == 0 { splitmix64(0) } else { mask }
+}
+
+// splitmix64 is a bijection on u64, so seeds a bit apart still give unrelated
+// masks.
+fn splitmix64(x u64) u64 {
+	mut z := x + u64(0x9e3779b97f4a7c15)
 	z = (z ^ (z >> 30)) * u64(0xbf58476d1ce4e5b9)
 	z = (z ^ (z >> 27)) * u64(0x94d049bb133111eb)
-	z ^= z >> 31
-	// Any other seed has to come out as a different world from seed 0.
-	return if z == 0 { u64(1) } else { z }
+	return z ^ (z >> 31)
 }
 
 // hash_salt folds a salt into h. Only a seed sets a salt's high half, a

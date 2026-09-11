@@ -103,3 +103,9 @@ fn test_seeds_that_once_shared_a_mask_make_different_worlds() {
 		seed: 16372
 	}, the_end)
 }
+
+fn test_no_two_seeds_share_a_mask() {
+	remapped := seed_mask(7046029254386353131)
+	assert remapped != 0
+	assert remapped != seed_mask(-561184103760049731)
+}
