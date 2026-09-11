@@ -207,12 +207,12 @@ fn test_accepts_saved_pos_supported_by_world_overr() {
 
 fn test_saved_player_position_must_be_standable() {
 	flat := world.FlatGenerator{}
-	flat_spawn := types.Vector3{0.0, f32(flat.spawn_y()) + player_eye_height, 0.0}
+	flat_spawn := types.Vector3{0.0, f32(flat.spawn_point().y) + player_eye_height, 0.0}
 	assert safe_player_position(flat, flat_spawn)
 	assert !safe_player_position(flat, types.Vector3{0.0, f32(world.overworld.min_y + 2), 0.0})
 
 	nether := world.NetherGenerator{}
-	nether_spawn := types.Vector3{0.0, f32(nether.spawn_y()) + player_eye_height, 0.0}
+	nether_spawn := types.Vector3{0.0, f32(nether.spawn_point().y) + player_eye_height, 0.0}
 	assert safe_player_position(nether, nether_spawn)
 	assert !safe_player_position(nether, types.Vector3{0.0, 4.0 + player_eye_height, 0.0})
 }
@@ -223,7 +223,7 @@ fn test_world_spawn_position_uses_target_world_generator() {
 	pos := world_spawn_position(target, gen)
 	assert pos.x == 0.0
 	assert pos.z == 0.0
-	assert pos.y == f32(gen.spawn_y()) + player_eye_height
+	assert pos.y == f32(gen.spawn_point().y) + player_eye_height
 	assert pos.y != 64.0
 }
 
@@ -264,8 +264,10 @@ mut:
 	mutex &sync.Mutex = sync.new_mutex()
 }
 
-fn (g CountingGenerator) spawn_y() int {
-	return 64
+fn (g CountingGenerator) spawn_point() world.SpawnPoint {
+	return world.SpawnPoint{
+		y: 64
+	}
 }
 
 fn (g CountingGenerator) uses_blocks() bool {
@@ -337,8 +339,10 @@ struct BlockingCountingGenerator {
 	release chan bool
 }
 
-fn (g BlockingCountingGenerator) spawn_y() int {
-	return 64
+fn (g BlockingCountingGenerator) spawn_point() world.SpawnPoint {
+	return world.SpawnPoint{
+		y: 64
+	}
 }
 
 fn (g BlockingCountingGenerator) uses_blocks() bool {

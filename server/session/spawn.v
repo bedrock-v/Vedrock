@@ -123,7 +123,7 @@ struct SpawnState {
 	yaw            f32
 	dimension_id   int
 	generator_type proto.GeneratorType
-	spawn_y        int
+	spawn_point    world.SpawnPoint
 }
 
 // resolve_spawn_state picks player's spawn position. A generator provided
@@ -148,7 +148,7 @@ fn (mut s NetworkSession) resolve_spawn_state() !SpawnState {
 	if data := saved {
 		saved_position_stands = s.resume_saved_world(data.world)
 	}
-	spawn_y := s.generator.spawn_y()
+	spawn_point := s.generator.spawn_point()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	generator_type := if dimension_id == world.nether.id {
 		proto.GeneratorType.nether
@@ -157,7 +157,7 @@ fn (mut s NetworkSession) resolve_spawn_state() !SpawnState {
 	} else {
 		proto.GeneratorType.overworld
 	}
-	mut pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
+	mut pos := types.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)}
 	mut pitch := f32(0.0)
 	mut yaw := f32(0.0)
 	if data := saved {
@@ -190,7 +190,7 @@ fn (mut s NetworkSession) resolve_spawn_state() !SpawnState {
 		yaw:            yaw
 		dimension_id:   dimension_id
 		generator_type: generator_type
-		spawn_y:        spawn_y
+		spawn_point:    spawn_point
 	}
 }
 
@@ -220,9 +220,9 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 			is_hardcore_enabled:                          false
 			game_difficulty:                              unsafe { proto.Difficulty(s.hub.difficulty_value()) }
 			default_spawn_block_position:                 proto.NetworkBlockPosition{
-				x: 0
-				y: i32(spawn_state.spawn_y)
-				z: 0
+				x: i32(spawn_state.spawn_point.x)
+				y: i32(spawn_state.spawn_point.y)
+				z: i32(spawn_state.spawn_point.z)
 			}
 			achievements_disabled:                        false
 			editor_world_type:                            proto.EditorWorldType.non_editor

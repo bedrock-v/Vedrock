@@ -671,6 +671,9 @@ pub:
 	name           string
 	dimension      world.Dimension = world.overworld
 	generator_name string
+	// seed is used only when the world is created: none gives it a random
+	// one and a world that already exists keeps the seed it was made with.
+	seed ?i64
 }
 
 // load_world returns the loaded world, loading it from storage or creating
@@ -682,7 +685,7 @@ pub fn (mut s Server) load_world(config WorldConfig) !session.World {
 	if handle := s.hub.world_handle(config.name) {
 		return handle
 	}
-	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name)!
+	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name, config.seed)!
 	return s.hub.world_handle(config.name) or {
 		error('world "${config.name}" failed to register after loading')
 	}
@@ -716,7 +719,7 @@ pub fn (mut s Server) unload_world(name string) ! {
 // register_generator makes a custom world generator available under name,
 // so load_world/WorldConfig can select it by that name for a new world.
 // Register before loading any world that uses it.
-pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+pub fn (mut s Server) register_generator(name string, factory world.GeneratorFactory) {
 	s.hub.register_generator(name, factory)
 }
 

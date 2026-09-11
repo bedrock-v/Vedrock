@@ -18,4 +18,5 @@ pub fn register_all(mut r cmd.Registry) {
 	r.register(SayCommand{})
 	r.register(TitleCommand{})
 	r.register(WorldCommand{})
+	r.register(SeedCommand{})
 }

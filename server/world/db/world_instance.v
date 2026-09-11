@@ -175,6 +175,9 @@ mut:
 	closed  bool
 pub mut:
 	generator_name string
+	// seed is what this world's generator is built with. 0 is a world made
+	// before seeds existed, which keeps generating as it always did.
+	seed i64
 }
 
 pub struct BlockOverride {

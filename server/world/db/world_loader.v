@@ -9,13 +9,20 @@ pub fn load_named(worlds_dir string, name string, generator_name string, dim wor
 	full := os.join_path(worlds_dir, name)
 	mut resolved_generator := generator_name
 	mut resolved_dim := dim
+	mut resolved_seed := i64(0)
 	if meta := read_world_meta(full) {
 		resolved_generator = meta.generator
 		resolved_dim = world.dimension_by_id(meta.dimension) or { dim }
+		resolved_seed = meta.seed
+	} else {
+		if err !is NoWorldMeta {
+			return err
+		}
 	}
 	path := os.join_path(full, 'db')
 	store := open_world(path, resolved_dim)!
 	mut w := new_world(name, store, resolved_generator, resolved_dim)
+	w.seed = resolved_seed
 	w.load()
 	return w
 }

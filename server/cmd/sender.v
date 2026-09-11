@@ -66,11 +66,15 @@ mut:
 	world_metrics(name string) ?WorldMetricsSummary
 	// world_create's dimension and generator are names rather than the
 	// world.Dimension/world.Generator types themselves, so the cmd layer never
-	// depends on the world package directly.
-	world_create(name string, dimension string, generator string) !
+	// depends on the world package directly. Without a seed the new world is
+	// given a random one.
+	world_create(name string, dimension string, generator string, seed ?i64) !
 	world_load(name string) !
 	world_delete(name string) !
 	world_teleport(name string) !
+	// current_world_name names the world the sender is in. The console's is the
+	// default world.
+	current_world_name() string
 }
 
 // WorldSummary is a read-only snapshot of a loaded world, built for command
@@ -80,6 +84,7 @@ pub:
 	name       string
 	generator  string
 	dimension  string
+	seed       i64
 	overrides  int
 	is_default bool
 	players    int

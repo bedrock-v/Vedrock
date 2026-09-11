@@ -353,7 +353,7 @@ fn test_apply_respawn_resets_health_and_position() {
 	assert !victim.player.is_dead()
 	assert victim.player.health() == 20.0
 	assert victim.player.movement().vy == 0.0
-	assert victim.player.movement().position.y == f32(world.VoidGenerator{}.spawn_y()) +
+	assert victim.player.movement().position.y == f32(world.VoidGenerator{}.spawn_point().y) +
 		player_eye_height
 }
 

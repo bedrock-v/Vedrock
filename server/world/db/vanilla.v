@@ -458,15 +458,22 @@ fn (mut c ChunkCache) remember_miss(key u64) {
 	}
 }
 
-pub fn (g StoredGenerator) spawn_y() int {
-	chunk := g.cached_chunk(0, 0) or { return g.fallback.spawn_y() }
+// spawn_point is the generator's spawn column, stood on whatever has been
+// built there since.
+pub fn (g StoredGenerator) spawn_point() world.SpawnPoint {
+	generated := g.fallback.spawn_point()
+	chunk := g.cached_chunk(generated.x >> 4, generated.z >> 4) or { return generated }
 	dim := g.store.dimension()
 	for y := dim.max_y(); y >= dim.min_y; y-- {
-		if chunk.block_id(0, y, 0) != world.air.network_id {
-			return y + 1
+		if chunk.block_id(generated.x & 15, y, generated.z & 15) != world.air.network_id {
+			return world.SpawnPoint{
+				x: generated.x
+				y: y + 1
+				z: generated.z
+			}
 		}
 	}
-	return g.fallback.spawn_y()
+	return generated
 }
 
 pub fn (g StoredGenerator) uses_blocks() bool {

@@ -31,8 +31,10 @@ fn (g FlatGenerator) layers() []Block {
 	return [bedrock, dirt, dirt, grass_block]
 }
 
-pub fn (g FlatGenerator) spawn_y() int {
-	return safe_spawn_y(g, g.dim, 0, 0, g.dim.min_y + g.layers().len)
+pub fn (g FlatGenerator) spawn_point() SpawnPoint {
+	return SpawnPoint{
+		y: safe_spawn_y(g, g.dim, 0, 0, g.dim.min_y + g.layers().len)
+	}
 }
 
 pub fn (g FlatGenerator) uses_blocks() bool {
