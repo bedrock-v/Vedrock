@@ -409,10 +409,29 @@ pub fn (g NormalGenerator) block_at(x int, y int, z int) int {
 // ring, for the nearest dry land.
 const normal_spawn_search_rings = 64
 
+// Every seed probed found land within five generated chunks. The cap only
+// bounds a pathological seed, which then spawns over the origin.
+const normal_spawn_search_chunks = 64
+
+// chunk_middle_is_water rules a chunk out of the spawn search before anything
+// is generated: the biome is far cheaper to ask than the chunk.
+fn (g NormalGenerator) chunk_middle_is_water(cx int, cz int) bool {
+	biome := g.biome_at(cx * 16 + 7, cz * 16 + 7)
+	return biome == biome_ocean || biome == biome_river
+}
+
 pub fn (g NormalGenerator) spawn_point() SpawnPoint {
 	if g.seed != 0 {
-		for ring in 0 .. normal_spawn_search_rings + 1 {
+		mut generated := 0
+		outer: for ring in 0 .. normal_spawn_search_rings + 1 {
 			for pos in spawn_ring(ring) {
+				if g.chunk_middle_is_water(pos[0], pos[1]) {
+					continue
+				}
+				if generated == normal_spawn_search_chunks {
+					break outer
+				}
+				generated++
 				if p := g.spawn_in_chunk(pos[0], pos[1]) {
 					return p
 				}
@@ -428,10 +447,6 @@ pub fn (g NormalGenerator) spawn_point() SpawnPoint {
 // the chunk generate makes. column_ids leaves out trees and skips generate's
 // interpolation, so it can put a player inside a trunk or off the ground.
 fn (g NormalGenerator) spawn_in_chunk(cx int, cz int) ?SpawnPoint {
-	biome := g.biome_at(cx * 16 + 7, cz * 16 + 7)
-	if biome == biome_ocean || biome == biome_river {
-		return none
-	}
 	c := g.generate(cx, cz)
 	for lx in 0 .. 16 {
 		for lz in 0 .. 16 {
