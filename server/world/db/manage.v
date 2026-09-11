@@ -52,6 +52,10 @@ pub fn delete_world_files(worlds_dir string, name string) ! {
 // returns its opened store. Errors if a world by that name already exists.
 pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !&WorldStore {
 	full := safe_world_dir(worlds_dir, name)!
+	// A symlink would carry the writes below outside worlds_dir.
+	if os.is_link(full) {
+		return error('world "${name}" is a symlink; not creating through it')
+	}
 	if world_exists(worlds_dir, name) {
 		return error('world "${name}" already exists')
 	}
