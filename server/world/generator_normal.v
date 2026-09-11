@@ -405,23 +405,16 @@ pub fn (g NormalGenerator) block_at(x int, y int, z int) int {
 }
 
 // A world from before seeds spawns where it always has, over the origin. A
-// seeded one can have ocean there, so it looks outward ring by ring for the
-// nearest dry land, as far as the rings reach.
-const normal_spawn_search_step = 16
+// seeded one can have ocean there, so it looks outward chunk by chunk, ring by
+// ring, for the nearest dry land.
 const normal_spawn_search_rings = 64
 
 pub fn (g NormalGenerator) spawn_point() SpawnPoint {
 	if g.seed != 0 {
 		for ring in 0 .. normal_spawn_search_rings + 1 {
 			for pos in spawn_ring(ring) {
-				x := pos[0] * normal_spawn_search_step
-				z := pos[1] * normal_spawn_search_step
-				if y := g.dry_land_y(x, z) {
-					return SpawnPoint{
-						x: x
-						y: y
-						z: z
-					}
+				if p := g.spawn_in_chunk(pos[0], pos[1]) {
+					return p
 				}
 			}
 		}
@@ -431,20 +424,38 @@ pub fn (g NormalGenerator) spawn_point() SpawnPoint {
 	}
 }
 
-// dry_land_y is the height a player stands at on column x, z or none when
-// the column is under water. The biome is asked first: it is far cheaper than
-// building the column and rules out oceans and rivers on its own.
-fn (g NormalGenerator) dry_land_y(x int, z int) ?int {
-	biome := g.biome_at(x, z)
+// spawn_in_chunk is the first column of chunk cx, cz a player can stand on in
+// the chunk generate makes. column_ids leaves out trees and skips generate's
+// interpolation, so it can put a player inside a trunk or off the ground.
+fn (g NormalGenerator) spawn_in_chunk(cx int, cz int) ?SpawnPoint {
+	biome := g.biome_at(cx * 16 + 7, cz * 16 + 7)
 	if biome == biome_ocean || biome == biome_river {
 		return none
 	}
-	ids := g.column_ids(x, z)
-	top := column_top(ids)
-	if top <= 0 || !spawn_floor_solid(ids[top]) {
-		return none
+	c := g.generate(cx, cz)
+	for lx in 0 .. 16 {
+		for lz in 0 .. 16 {
+			mut top := normal_terrain_height - 1
+			for top > 0 && c.block_id(lx, top, lz) == air.network_id {
+				top--
+			}
+			if top > 0 && spawn_floor(c.block_id(lx, top, lz)) {
+				return SpawnPoint{
+					x: cx * 16 + lx
+					y: top + 1
+					z: cz * 16 + lz
+				}
+			}
+		}
 	}
-	return top + 1
+	return none
+}
+
+// spawn_floor is ground a new player may be put on: solid, dry and not part
+// of a tree.
+fn spawn_floor(id int) bool {
+	return spawn_floor_solid(id) && id != oak_leaves.network_id && id != spruce_leaves.network_id
+		&& id != oak_log.network_id && id != spruce_log.network_id
 }
 
 // column_top is the highest block of a column that isn't air.

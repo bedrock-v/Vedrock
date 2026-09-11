@@ -70,14 +70,19 @@ fn test_flat_and_normal_spawn_are_standable() {
 }
 
 fn test_a_seeded_world_spawns_on_dry_land() {
-	for seed in [i64(4), 9, 11, 1, 2, -7] {
+	for seed in [i64(4), 7, 9, 11, 43, 73, 100, -7] {
 		g := NormalGenerator{
 			seed: seed
 		}
 		p := g.spawn_point()
-		assert_standable(g, p.x, p.y, p.z)
-		floor := g.block_at(p.x, p.y - 1, p.z)
-		assert floor != water.network_id && floor != lava.network_id, 'seed ${seed} spawns on liquid'
+		c := g.generate(p.x >> 4, p.z >> 4)
+		lx := p.x & 15
+		lz := p.z & 15
+		floor := c.block_id(lx, p.y - 1, lz)
+		assert floor !in [air.network_id, water.network_id, lava.network_id, oak_leaves.network_id,
+			spruce_leaves.network_id, oak_log.network_id, spruce_log.network_id], 'seed ${seed} spawns on block ${floor}'
+		assert c.block_id(lx, p.y, lz) == air.network_id, 'seed ${seed} spawns inside a block'
+		assert c.block_id(lx, p.y + 1, lz) == air.network_id, 'seed ${seed} spawns with a block at head height'
 		if g.biome_at(0, 0) in [biome_ocean, biome_river] {
 			assert p.x != 0 || p.z != 0, 'seed ${seed} spawns over water at the origin'
 		}
