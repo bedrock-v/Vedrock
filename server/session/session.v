@@ -272,7 +272,8 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 	}
 	mut p := player.new_player()
 	p.handle(hub.player_handler)
-	p.reset_position(types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0})
+	spawn_point := generator.spawn_point()
+	p.reset_position(types.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)})
 	mut s := &NetworkSession{
 		player:             p
 		conn:               &Conn{

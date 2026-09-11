@@ -1,6 +1,9 @@
 module session
 
+import os
 import server.internal.gamedata
+import server.internal.language
+import server.internal.logger
 import server.world
 import server.world.db
 
@@ -40,14 +43,18 @@ fn (mut p FakeProvider) close() ! {}
 struct FakeFactory {
 mut:
 	created []string
+	seeds   []i64
+	spawns  []world.SpawnPoint
 }
 
 fn (f &FakeFactory) exists(name string) bool {
 	return false
 }
 
-fn (mut f FakeFactory) create(name string, dim world.Dimension, generator string) !db.Provider {
+fn (mut f FakeFactory) create(name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !db.Provider {
 	f.created << name
+	f.seeds << seed
+	f.spawns << spawn_point
 	return &FakeProvider{}
 }
 
@@ -66,11 +73,62 @@ fn test_hub_creates_world_through_custom_factory() {
 	mut hub := new_hub(gamedata.GameData{}, world_factory: db.Factory(factory))
 	hub.set_world_config('unused-worlds-dir', 'flat')
 
-	hub.create_world('custom', world.overworld, 'flat') or {
+	hub.create_world('custom', world.overworld, 'flat', none) or {
 		panic('expected create_world to succeed: ${err}')
 	}
 
 	assert factory.created == ['custom']
+	assert factory.seeds.len == 1 && factory.seeds[0] != 0
+	created := hub.world('custom') or { panic('expected the created world to be loaded') }
+	assert created.seed == factory.seeds[0]
+	stored := created.spawn_point or { panic('the created world has no spawn') }
+	assert factory.spawns == [stored]
+	assert stored == world.FlatGenerator{}.spawn_point()
 	info := hub.world_info('custom') or { panic('expected world_info to find it') }
 	assert info.name == 'custom'
+}
+
+fn test_a_default_world_created_at_boot_records_its_seed() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_boot_seed_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	mut hub := new_hub(gamedata.GameData{},
+		world_factory: db.Factory(db.LevelDBFactory{
+			worlds_dir: dir
+		})
+	)
+	defer {
+		hub.close_worlds()
+	}
+	lang := language.load('en') or { panic(err) }
+
+	hub.load_configured_worlds(dir, 'world', false, 'normal', logger.new(.info), lang)
+
+	created := hub.world('world') or { panic('the default world was not created') }
+	assert created.seed != 0
+	meta := os.read_file(os.join_path(dir, 'world', 'meta.txt')) or {
+		panic('the default world has no meta.txt')
+	}
+	assert meta.contains('seed: ${created.seed}')
+	assert meta.contains('spawn: ')
+}
+
+fn test_a_world_s_seed_reaches_the_generator_built_for_it() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut seeded := db.new_world('seeded', none, 'normal', world.overworld)
+	seeded.seed = 42
+	legacy := db.new_world('legacy', none, 'normal', world.overworld)
+
+	assert sample_block_ids(hub.build_generator(seeded)) != sample_block_ids(hub.build_generator(legacy))
+}
+
+fn sample_block_ids(g world.Generator) []int {
+	mut ids := []int{}
+	for pos in [[0, 0], [300, -120]] {
+		for y in 0 .. 128 {
+			ids << g.block_at(pos[0], y, pos[1])
+		}
+	}
+	return ids
 }

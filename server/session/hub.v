@@ -80,6 +80,9 @@ mut:
 	// fallback generator name for freshly created worlds. Both are set at boot.
 	worlds_dir      string = 'worlds'
 	world_generator string = 'flat'
+	// creating names the worlds being created right now. A second create of
+	// the same name is refused rather than racing the first for its folder.
+	creating map[string]bool
 	// world_factory creates/opens/lists/deletes named world backends.
 	// Defaults to db.LevelDBFactory the first time set_world_config runs,
 	// unless HubOptions already supplied one at construction time.
@@ -443,6 +446,7 @@ pub:
 	name       string
 	generator  string
 	dimension  string
+	seed       i64
 	// overrides counts the block overrides in the world's resident columns,
 	// not everything it has ever stored.
 	overrides  int
@@ -461,6 +465,7 @@ fn (mut h Hub) world_info(name string) ?WorldInfo {
 		name:       loaded_world.name
 		generator:  loaded_world.generator_name
 		dimension:  loaded_world.dimension.name()
+		seed:       loaded_world.seed
 		overrides:  loaded_world.resident_block_count()
 		is_default: is_default
 		players:    h.players_in_world(name)
@@ -489,7 +494,7 @@ fn (mut h Hub) players_in_world(name string) int {
 
 // register_generator adds or overrides a named world generator, reachable
 // through Server.register_generator.
-pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Dimension) blockworld.Generator) {
+pub fn (mut h Hub) register_generator(name string, factory blockworld.GeneratorFactory) {
 	h.generators.register(name, factory)
 }
 
@@ -502,22 +507,34 @@ fn (mut h Hub) generator_type_names() []string {
 // build_generator resolves a world's own generator by name and dimension
 // through the registry.
 pub fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
-	return h.generators.create(w.generator_name, w.dimension) or {
-		h.generators.create(w.dimension.default_generator, w.dimension) or {
-			blockworld.new_generator(w.generator_name)
-		}
+	return h.generator_for(w.generator_name, w.dimension, w.seed)
+}
+
+// generator_for resolves a generator by name for dim and seed, falling back to
+// the dimension's own default and then to the built-in of that name.
+fn (h &Hub) generator_for(name string, dim blockworld.Dimension, seed i64) blockworld.Generator {
+	opts := blockworld.GeneratorOptions{
+		dim:  dim
+		seed: seed
+	}
+	return h.generators.create(name, opts) or {
+		h.generators.create(dim.default_generator, opts) or { blockworld.new_generator(name) }
 	}
 }
 
 // create_world creates a fresh empty world on disk and registers it as loaded.
 // Refuses to clobber an already-loaded or already-on-disk world. Safe to call
 // off the actor thread - it only adds to the worlds map, never mutates a
-// player's active world.
-pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator string) !string {
+// player's active world. Without a seed the world gets a new random one.
+pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator string, seed ?i64) !string {
 	if _ := h.world(name) {
 		return error('world "${name}" is already loaded')
 	}
 	h.mutex.lock()
+	if name in h.creating {
+		h.mutex.unlock()
+		return error('world "${name}" is already being created')
+	}
 	mut factory := h.world_factory or {
 		h.mutex.unlock()
 		return error('world factory not configured')
@@ -528,12 +545,22 @@ pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator
 	} else {
 		dim.default_generator
 	}
+	h.creating[name] = true
 	h.mutex.unlock()
+	defer {
+		h.mutex.lock()
+		h.creating.delete(name)
+		h.mutex.unlock()
+	}
 	resolved_generator := if generator.trim_space() == '' { default_generator } else { generator }
-	provider := factory.create(name, dim, resolved_generator) or {
+	resolved_seed := seed or { blockworld.new_world_seed() }
+	spawn_point := h.generator_for(resolved_generator, dim, resolved_seed).spawn_point()
+	provider := factory.create(name, dim, resolved_generator, resolved_seed, spawn_point) or {
 		return error('failed to create world "${name}": ${err}')
 	}
-	loaded_world := db.new_world(name, provider, resolved_generator, dim)
+	mut loaded_world := db.new_world(name, provider, resolved_generator, dim)
+	loaded_world.seed = resolved_seed
+	loaded_world.spawn_point = spawn_point
 	h.add_world(loaded_world)
 	return name
 }
@@ -562,7 +589,7 @@ pub fn (mut h Hub) load_world(name string) !string {
 
 // load_or_create_world loads name from storage when it already exists there
 // or creates it fresh otherwise.
-pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, generator string) !string {
+pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, generator string, seed ?i64) !string {
 	h.mutex.lock()
 	factory := h.world_factory or {
 		h.mutex.unlock()
@@ -573,7 +600,7 @@ pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, g
 	if factory.exists(name) {
 		return h.load_world(name)
 	}
-	return h.create_world(name, dim, generator)
+	return h.create_world(name, dim, generator, seed)
 }
 
 // unload_world flushes and releases a loaded world without deleting its

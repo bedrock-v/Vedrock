@@ -175,6 +175,12 @@ mut:
 	closed  bool
 pub mut:
 	generator_name string
+	// seed is what this world's generator is built with. 0 is a world made
+	// before seeds existed, which keeps generating as it always did.
+	seed i64
+	// spawn is where a player new to this world arrives, worked out once when
+	// it was created. none is a world from before spawns were stored.
+	spawn_point ?world.SpawnPoint
 }
 
 pub struct BlockOverride {
@@ -1005,7 +1011,7 @@ pub fn (mut w World) tile_entries_in_chunk(cx int, cz int) []TileEntry {
 // world has a backing store, so saved chunks are served before the fallback.
 pub fn (w &World) make_generator(fallback world.Generator) world.Generator {
 	store := w.store or { return fallback }
-	return new_stored_generator(store, fallback, w.chunk_cache)
+	return new_stored_generator(store, fallback, w.chunk_cache, w.spawn_point)
 }
 
 // flush persists this world's store to disk without unloading it, waiting

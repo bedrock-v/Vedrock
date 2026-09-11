@@ -233,10 +233,14 @@ fn (mut s RecordingSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
 	}
 }
 
-fn (mut s RecordingSender) world_create(name string, dimension string, generator string) ! {
+fn (mut s RecordingSender) world_create(name string, dimension string, generator string, seed ?i64) ! {
 	s.worlds << name
 	s.created_dim = dimension
 	s.created_gen = generator
+}
+
+fn (mut s RecordingSender) current_world_name() string {
+	return ''
 }
 
 fn (mut s RecordingSender) world_load(name string) ! {
@@ -406,7 +410,7 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 15
+	assert pkt.commands.len == 16
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := proto.new_packet_pool()
 	mut reader := serializer.new_reader(encoded)
@@ -414,7 +418,7 @@ fn test_available_commands_roundtrip() {
 	assert decoded.name() == 'AvailableCommandsPacket'
 	mut available := proto.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 15
+	assert available.commands.len == 16
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }

@@ -54,7 +54,7 @@ fn standing_position(mut hub Hub) types.Vector3 {
 	mut wr := hub.default_world_runtime() or { panic('expected a default world') }
 	target := wr.world
 	gen := target.make_generator(hub.build_generator(target))
-	return types.Vector3{18.5, f32(gen.spawn_y()) + player_eye_height, -6.5}
+	return types.Vector3{18.5, f32(gen.spawn_point().y) + player_eye_height, -6.5}
 }
 
 fn resume_dir(tag string) string {

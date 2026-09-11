@@ -1,5 +1,6 @@
 module default
 
+import strconv
 import server.permission
 import server.cmd
 
@@ -38,6 +39,12 @@ pub fn (c WorldCommand) arguments() []cmd.Argument {
 		},
 		cmd.StringArgument{
 			arg_name:     'generator'
+			arg_optional: true
+		},
+		// A seed is 64 bits wide and the client's integer argument is 32, so it
+		// travels as a string and is parsed here.
+		cmd.StringArgument{
+			arg_name:     'seed'
 			arg_optional: true
 		},
 	]
@@ -176,7 +183,17 @@ fn (c WorldCommand) create(mut sender cmd.Sender, ctx cmd.Context) ! {
 		'overworld'
 	}
 	generator := if ctx.args.len >= 4 { ctx.args[3] } else { '' }
-	sender.world_create(name, dimension, generator) or {
+	mut seed := ?i64(none)
+	if ctx.args.len >= 5 {
+		seed = strconv.parse_int(ctx.args[4], 10, 64) or {
+			sender.send_message(ctx.lang.tf('cmd.world.create_failed', {
+				'Name':   name
+				'Reason': 'the seed has to be a whole number'
+			}))!
+			return
+		}
+	}
+	sender.world_create(name, dimension, generator, seed) or {
 		sender.send_message(ctx.lang.tf('cmd.world.create_failed', {
 			'Name':   name
 			'Reason': err.msg()

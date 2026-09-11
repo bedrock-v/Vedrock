@@ -25,31 +25,31 @@ fn test_generator_registry_has_builtins() {
 
 fn test_generator_registry_create_unknown_returns_none() {
 	r := new_generator_registry()
-	if _ := r.create('moon', overworld) {
+	if _ := r.create('moon', dim: overworld) {
 		assert false, 'unregistered generator name should not resolve'
 	}
 }
 
 fn test_generator_registry_register_overrides_builtin() {
 	mut r := new_generator_registry()
-	r.register('flat', fn (dim Dimension) Generator {
+	r.register('flat', fn (opts GeneratorOptions) Generator {
 		return VoidGenerator{
-			dim: dim
+			dim: opts.dim
 		}
 	})
-	gen := r.create('flat', overworld) or { panic('expected flat to resolve') }
+	gen := r.create('flat', dim: overworld) or { panic('expected flat to resolve') }
 	assert !gen.uses_blocks()
 }
 
 fn test_generator_registry_builds_dimension_sized_chunks() {
 	r := new_generator_registry()
-	flat := r.create('flat', nether) or { panic('expected flat to resolve') }
+	flat := r.create('flat', dim: nether) or { panic('expected flat to resolve') }
 	chunk := flat.generate(0, 0)
 
 	assert chunk.subchunk_count == nether.subchunk_count
 	assert chunk.block_id(0, nether.min_y, 0) == bedrock.network_id
 	assert chunk.block_id(0, nether.min_y + 3, 0) == grass_block.network_id
-	assert flat.spawn_y() == nether.min_y + 4
+	assert flat.spawn_point().y == nether.min_y + 4
 }
 
 fn assert_standable(g Generator, x int, y int, z int) {
@@ -60,13 +60,33 @@ fn assert_standable(g Generator, x int, y int, z int) {
 
 fn test_flat_and_normal_spawn_are_standable() {
 	flat := FlatGenerator{}
-	assert_standable(flat, 0, flat.spawn_y(), 0)
+	assert_standable(flat, 0, flat.spawn_point().y, 0)
 
 	normal := NormalGenerator{}
-	spawn_y := normal.spawn_y()
+	spawn_y := normal.spawn_point().y
 	assert spawn_y >= overworld.min_y && spawn_y <= overworld.max_y()
 	assert_standable(normal, 0, spawn_y, 0)
 	assert normal.block_at(0, overworld.min_y - 1, 0) == air.network_id
+}
+
+fn test_a_seeded_world_spawns_on_dry_land() {
+	for seed in [i64(4), 7, 9, 11, 43, 73, 100, -7] {
+		g := NormalGenerator{
+			seed: seed
+		}
+		p := g.spawn_point()
+		c := g.generate(p.x >> 4, p.z >> 4)
+		lx := p.x & 15
+		lz := p.z & 15
+		floor := c.block_id(lx, p.y - 1, lz)
+		assert floor !in [air.network_id, water.network_id, lava.network_id, oak_leaves.network_id,
+			spruce_leaves.network_id, oak_log.network_id, spruce_log.network_id], 'seed ${seed} spawns on block ${floor}'
+		assert c.block_id(lx, p.y, lz) == air.network_id, 'seed ${seed} spawns inside a block'
+		assert c.block_id(lx, p.y + 1, lz) == air.network_id, 'seed ${seed} spawns with a block at head height'
+		if g.biome_at(0, 0) in [biome_ocean, biome_river] {
+			assert p.x != 0 || p.z != 0, 'seed ${seed} spawns over water at the origin'
+		}
+	}
 }
 
 fn test_normal_generator_has_bedrock_floor_and_covered_surface() {
@@ -108,7 +128,7 @@ fn test_normal_generator_fills_columns_below_sea_level_with_water() {
 fn test_nether_generator_has_bedrock_floor_roof_and_safe_spawn() {
 	g := NetherGenerator{}
 	chunk := g.generate(0, 0)
-	spawn_y := g.spawn_y()
+	spawn_y := g.spawn_point().y
 	assert chunk.block_id(0, nether.min_y, 0) == bedrock.network_id
 	assert chunk.block_id(0, nether.max_y() - 1, 0) == netherrack.network_id
 	assert chunk.block_id(0, nether.max_y(), 0) == bedrock.network_id
@@ -168,19 +188,19 @@ fn test_end_generator_has_bedrock_floor_and_spawn_platform_near_origin() {
 	assert spawn_chunk.block_id(2, floor_top_y, 2) == end_stone.network_id
 	assert spawn_chunk.block_id(2, platform_y, 2) == obsidian.network_id
 	assert g.block_at(2, platform_y, 2) == obsidian.network_id
-	assert g.spawn_y() == platform_y
+	assert g.spawn_point().y == platform_y
 	assert g.biome_at(0, 0) == biome_the_end
 }
 
 fn test_generator_registry_void_and_normal_respect_dimension() {
 	r := new_generator_registry()
-	void := r.create('void', the_end) or { panic('expected void to resolve') }
+	void := r.create('void', dim: the_end) or { panic('expected void to resolve') }
 	assert void.generate(0, 0).subchunk_count == the_end.subchunk_count
 
-	normal := r.create('normal', nether) or { panic('expected normal to resolve') }
+	normal := r.create('normal', dim: nether) or { panic('expected normal to resolve') }
 	chunk := normal.generate(0, 0)
 	assert chunk.subchunk_count == nether.subchunk_count
-	assert normal.spawn_y() >= nether.min_y && normal.spawn_y() <= nether.max_y()
+	assert normal.spawn_point().y >= nether.min_y && normal.spawn_point().y <= nether.max_y()
 }
 
 fn test_density_column_matches_full_grid_sampling() {

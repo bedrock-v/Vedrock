@@ -142,8 +142,11 @@ other = "§cKullanım: /say <mesaj>§r"
 [cmd.title.usage]
 other = "§cKullanım: /title <oyuncu|@a> <title|subtitle|actionbar> <metin>§r"
 
+[cmd.seed.body]
+other = "§aTohum: [{{.Seed}}]§r"
+
 [cmd.world.usage]
-other = "§cKullanım: /world <list|info|metrics|create|load|delete|tp> [isim] [boyut] [üretici]§r"
+other = "§cKullanım: /world <list|info|metrics|create|load|delete|tp> [isim] [boyut] [üretici] [tohum]§r"
 
 [cmd.world.none]
 other = "§eHiç dünya yüklü değil§r"

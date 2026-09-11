@@ -28,8 +28,8 @@ fn new_blocking_generator(started chan bool, release chan bool) BlockingGenerato
 	}
 }
 
-fn (g BlockingGenerator) spawn_y() int {
-	return g.inner.spawn_y()
+fn (g BlockingGenerator) spawn_point() world.SpawnPoint {
+	return g.inner.spawn_point()
 }
 
 fn (g BlockingGenerator) uses_blocks() bool {
@@ -63,7 +63,7 @@ fn (g BlockingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
 }
 
 fn register_blocking_generator(mut hub Hub, name string, gen BlockingGenerator) {
-	hub.register_generator(name, fn [gen] (dim world.Dimension) world.Generator {
+	hub.register_generator(name, fn [gen] (_ world.GeneratorOptions) world.Generator {
 		return gen
 	})
 }
@@ -228,8 +228,8 @@ struct ConcurrentBlockingGenerator {
 	inner   world.Generator = world.VoidGenerator{}
 }
 
-fn (g ConcurrentBlockingGenerator) spawn_y() int {
-	return g.inner.spawn_y()
+fn (g ConcurrentBlockingGenerator) spawn_point() world.SpawnPoint {
+	return g.inner.spawn_point()
 }
 
 fn (g ConcurrentBlockingGenerator) uses_blocks() bool {
@@ -262,7 +262,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 		tracker: tracker
 		release: release
 	}
-	hub.register_generator('concurrent-blocking-stream', fn [gen] (dim world.Dimension) world.Generator {
+	hub.register_generator('concurrent-blocking-stream', fn [gen] (_ world.GeneratorOptions) world.Generator {
 		return gen
 	})
 	w := db.new_world('chunk-concurrency', none, 'concurrent-blocking-stream', world.overworld)

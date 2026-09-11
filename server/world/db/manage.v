@@ -50,13 +50,24 @@ pub fn delete_world_files(worlds_dir string, name string) ! {
 
 // create_world_store creates a fresh, empty world on disk under worlds_dir and
 // returns its opened store. Errors if a world by that name already exists.
-pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, generator string) !&WorldStore {
+pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, generator string, seed i64, spawn_point world.SpawnPoint) !&WorldStore {
 	full := safe_world_dir(worlds_dir, name)!
-	if os.is_dir(full) {
+	// A symlink would carry the writes below outside worlds_dir.
+	if os.is_link(full) {
+		return error('world "${name}" is a symlink; not creating through it')
+	}
+	if world_exists(worlds_dir, name) {
 		return error('world "${name}" already exists')
 	}
+
+	if os.is_dir(full) {
+		entries := os.ls(full) or { return error('cannot read ${full}: ${err.msg()}') }
+		if entries.len > 0 {
+			return error('world "${name}" has a folder with no db that is not empty; not creating over it')
+		}
+	}
 	os.mkdir_all(full)!
-	write_world_meta(full, generator, dim)!
+	write_world_meta(full, generator, dim, seed, spawn_point)!
 	path := os.join_path(full, 'db')
 	return open_world(path, dim)!
 }
