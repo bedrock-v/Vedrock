@@ -21,15 +21,15 @@ const normal_terrain_scale = 32.0
 const normal_climate_scale = 512.0
 const normal_climate_persistence = 0.0625
 
-const normal_terrain_salt = u32(3)
-const normal_temperature_salt = u32(5)
-const normal_rainfall_salt = u32(7)
+const normal_terrain_salt = u64(3)
+const normal_temperature_salt = u64(5)
+const normal_rainfall_salt = u64(7)
 
 // cave carving — two overlapping noise fields ("spaghetti") plus a separate
 // wider field ("cheese") cut open cavities of different shapes.
-const normal_cave_spaghetti_salt_a = u32(11)
-const normal_cave_spaghetti_salt_b = u32(13)
-const normal_cave_cheese_salt = u32(17)
+const normal_cave_spaghetti_salt_a = u64(11)
+const normal_cave_spaghetti_salt_b = u64(13)
+const normal_cave_cheese_salt = u64(17)
 const normal_cave_scale = 48.0
 const normal_cave_cheese_scale = 64.0
 const normal_cave_spaghetti_threshold = 0.03
@@ -62,7 +62,7 @@ pub fn (g NormalGenerator) uses_blocks() bool {
 
 // ---- biome map ----
 
-fn normal_climate(x int, z int, salt u32) f64 {
+fn normal_climate(x int, z int, salt u64) f64 {
 	return fbm2d_persist(f64(x) / normal_climate_scale, f64(z) / normal_climate_scale, salt, 2,
 		normal_climate_persistence)
 }
@@ -106,7 +106,7 @@ fn normal_biome_lookup(temperature f64, rainfall f64) int {
 
 // select_biome quantises the climate noise into a fixed lookup grid so the
 // biome map has flat plateaus rather than a different result for every block.
-fn normal_select_biome(x int, z int, mask u32) int {
+fn normal_select_biome(x int, z int, mask u64) int {
 	temperature := int(normal_climate(x, z, normal_temperature_salt ^ mask) * f64(normal_biome_buckets - 1))
 	rainfall := int(normal_climate(x, z, normal_rainfall_salt ^ mask) * f64(normal_biome_buckets - 1))
 	return normal_biome_lookup(f64(temperature) / f64(normal_biome_buckets - 1),
@@ -115,7 +115,7 @@ fn normal_select_biome(x int, z int, mask u32) int {
 
 // normal_biome_jitter breaks up the straight edges the quantised biome map
 // would otherwise produce by nudging the sample point by up to one block.
-fn normal_biome_jitter(x int, z int, mask u32) (int, int) {
+fn normal_biome_jitter(x int, z int, mask u64) (int, int) {
 	mut hash := i64(x) * 2345803 ^ i64(z) * 9236449 ^ i64(mask)
 	hash *= hash + 223
 	mut x_noise := int((hash >> 20) & 3)
@@ -532,7 +532,7 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 // cheese pass opens up wide chambers where the noise is high enough. Blocks
 // below the lava level get filled with lava, blocks between the lava level
 // and the water height get filled with water when adjacent to water above.
-fn carve_caves(mut c Chunk, chunk_x int, chunk_z int, mask u32) {
+fn carve_caves(mut c Chunk, chunk_x int, chunk_z int, mask u64) {
 	base_x := chunk_x * 16
 	base_z := chunk_z * 16
 	for x in 0 .. 16 {
@@ -585,7 +585,7 @@ fn carve_caves(mut c Chunk, chunk_x int, chunk_z int, mask u32) {
 // ---- populators ----
 
 fn (g NormalGenerator) populate(mut c Chunk, chunk_x int, chunk_z int) {
-	mut r := new_random(u32(0xdeadbeef) ^ (u32(chunk_x) << 8) ^ u32(chunk_z) ^ seed_mask(g.seed))
+	mut r := new_random_wide(u64(u32(0xdeadbeef) ^ (u32(chunk_x) << 8) ^ u32(chunk_z)) ^ seed_mask(g.seed))
 	biome := c.biome_id(7, 7)
 
 	for t in normal_ore_types() {

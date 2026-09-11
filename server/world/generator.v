@@ -61,12 +61,12 @@ fn safe_spawn_y(g Generator, dim Dimension, x int, z int, preferred int) int {
 // Extra nether biomes, structures, netherite and portals are out of scope.
 pub const nether_lava_level = 31
 const nether_spawn_floor_y = 63
-const nether_floor_salt = u32(401)
-const nether_ceiling_salt = u32(409)
-const nether_density_salt = u32(419)
-const nether_detail_salt = u32(421)
-const nether_surface_salt = u32(431)
-const nether_glowstone_salt = u32(457)
+const nether_floor_salt = u64(401)
+const nether_ceiling_salt = u64(409)
+const nether_density_salt = u64(419)
+const nether_detail_salt = u64(421)
+const nether_surface_salt = u64(431)
+const nether_glowstone_salt = u64(457)
 const density_cell_xz = 4
 const density_cell_y = 8
 const density_grid_xz = 5
@@ -357,8 +357,8 @@ const end_platform_size = 5
 const end_island_radius = 96.0
 const end_edge_jitter = 10.0
 const end_hill_amplitude = 8.0
-const end_island_salt = u32(601)
-const end_hill_salt = u32(619)
+const end_island_salt = u64(601)
+const end_hill_salt = u64(619)
 
 pub struct EndGenerator {
 	dim  Dimension = the_end

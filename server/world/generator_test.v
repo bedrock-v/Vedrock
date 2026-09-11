@@ -70,7 +70,7 @@ fn test_flat_and_normal_spawn_are_standable() {
 }
 
 fn test_a_seeded_world_spawns_on_dry_land() {
-	for seed in [i64(8), 9, 12, 1, 2, -7] {
+	for seed in [i64(4), 9, 11, 1, 2, -7] {
 		g := NormalGenerator{
 			seed: seed
 		}

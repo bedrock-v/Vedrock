@@ -89,3 +89,17 @@ fn test_a_seed_changes_both_generate_and_block_at() {
 		assert column_digest(end_gen, the_end) != u64(10002370967586145064)
 	}
 }
+
+// 12158 and 16372 once folded to the same 32 bit mask and generated the same
+// world. Every bit of a seed has to reach the terrain.
+fn test_seeds_that_once_shared_a_mask_make_different_worlds() {
+	assert chunk_digest(NormalGenerator{ seed: 12158 }, overworld) != chunk_digest(NormalGenerator{
+		seed: 16372
+	}, overworld)
+	assert chunk_digest(NetherGenerator{ seed: 12158 }, nether) != chunk_digest(NetherGenerator{
+		seed: 16372
+	}, nether)
+	assert chunk_digest(EndGenerator{ seed: 12158 }, the_end) != chunk_digest(EndGenerator{
+		seed: 16372
+	}, the_end)
+}
