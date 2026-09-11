@@ -79,7 +79,7 @@ fn test_a_player_comes_back_in_the_world_they_left() {
 	})!
 
 	mut s := resume_session(mut hub, 'Alex')
-	state := s.resolve_spawn_state()
+	state := s.resolve_spawn_state()!
 
 	assert s.world_name() == 'arena'
 	assert state.pos == saved
@@ -103,7 +103,7 @@ fn test_coords_from_missing_world_are_not_used_in_default() {
 	})!
 
 	mut s := resume_session(mut hub, 'Alex')
-	state := s.resolve_spawn_state()
+	state := s.resolve_spawn_state()!
 
 	assert s.world_name() == 'world'
 	assert state.pos != saved
@@ -128,7 +128,7 @@ fn test_save_without_a_world_still_restores_its_pos() {
 	})!
 
 	mut s := resume_session(mut hub, 'Alex')
-	state := s.resolve_spawn_state()
+	state := s.resolve_spawn_state()!
 
 	assert s.world_name() == 'world'
 	assert state.pos == saved

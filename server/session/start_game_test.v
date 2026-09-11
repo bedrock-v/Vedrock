@@ -414,3 +414,38 @@ fn test_start_game_reports_the_self_id() {
 	assert packet.target_actor_id.value == i64(self_entity_runtime_id)
 	assert s.wire_id_for(s.runtime_id) == packet.target_runtime_id.value
 }
+
+fn test_an_unreadable_save_refuses_the_join_and_survives_it() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_unreadable_save_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	mut hub := new_hub(gamedata.GameData{},
+		player_data_provider: playerdb.FileProvider{
+			dir: dir
+		}
+	)
+	mut target := db.new_world('void', none, 'void', world.overworld)
+	hub.add_world(target)
+	defer {
+		hub.close_worlds()
+	}
+	os.mkdir_all(dir)!
+	path := os.join_path(dir, 'Alex.json')
+	damaged := '{"x":1.0,"items":['
+	os.write_file(path, damaged)!
+	mut transport := &FakeTransport{}
+	mut s :=
+		start_game_test_session(mut hub, mut transport, target, world.VoidGenerator{}, conf.Config{})
+	// start_game runs while the login sequence still owns the transport.
+	s.conn.bootstrap = true
+
+	s.start_game()!
+	s.leave()
+
+	if _ := first_start_game_packet(transport) {
+		assert false, 'a player whose save could not be read was let in'
+	}
+	assert transport.sent.any(it is proto.DisconnectPacket), 'the player was not told why'
+	assert os.read_file(path)! == damaged, 'the unreadable save was overwritten'
+}

@@ -65,13 +65,33 @@ fn player_path(dir string, key string) string {
 	return os.join_path(dir, '${safe_key(key)}.json')
 }
 
-pub fn load_player(dir string, key string) ?PlayerData {
+// NotSaved is returned when this player has no save file yet.
+//
+// It's the one outcome a caller should answer with defaults. Every other
+// failure means a save exists and could not be read and treating that as a new
+// player hands them an empty inventory and then overwrites the file they still
+// own on the next save.
+pub struct NotSaved {
+	Error
+}
+
+// load_player reads a player's save.
+//
+// A file that is not there is NotSaved. A file that is there and will not read
+// or will not decode is an error because the difference between "new player"
+// and "damaged save" is the difference between correct defaults and silently
+// discarding everything the player owned.
+pub fn load_player(dir string, key string) !PlayerData {
 	path := player_path(dir, key)
 	if !os.exists(path) {
-		return none
+		return NotSaved{}
 	}
-	text := os.read_file(path) or { return none }
-	return json2.decode[PlayerData](text) or { return none }
+	text := os.read_file(path) or {
+		return error('playerdb: cannot read ${path}: ${err.msg()}')
+	}
+	return json2.decode[PlayerData](text) or {
+		return error('playerdb: ${path} does not decode as player data: ${err.msg()}')
+	}
 }
 
 // save_player writes player data atomically - the JSON goes to a temp file

@@ -14,6 +14,7 @@ import server.worldrt
 import bedrock_v.protocol.current as proto
 import server.entity
 import server.player
+import server.player.playerdb
 
 // The initial spawn stream paces itself so the outbound queue is not filled
 // faster than the writer drains it. A radius 8 view is 289 columns, so the
@@ -128,11 +129,21 @@ struct SpawnState {
 // resolve_spawn_state picks player's spawn position. A generator provided
 // default or a saved position from player_data_provider when one exists
 // and still lands somewhere safe to stand.
-fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
+//
+// A save that exists but cannot be read is an error rather than a new player:
+// spawning them with defaults would overwrite that save when they leave.
+fn (mut s NetworkSession) resolve_spawn_state() !SpawnState {
 	s.player.set_game_mode(player.gamemode_from_name(s.cfg.gamemode))
 	// The world comes first: everything below reads the dimension, generator
 	// and blocks of whichever world the session ends up on.
-	saved := s.hub.player_data_provider.load(s.player_key())
+	mut saved := ?playerdb.PlayerData(none)
+	if data := s.hub.player_data_provider.load(s.player_key()) {
+		saved = data
+	} else {
+		if err !is playerdb.NotSaved {
+			return err
+		}
+	}
 	mut saved_position_stands := true
 	if data := saved {
 		saved_position_stands = s.resume_saved_world(data.world)
@@ -296,7 +307,13 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 }
 
 fn (mut s NetworkSession) start_game() ! {
-	spawn_state := s.resolve_spawn_state()
+	// Refused before the session spawns, and a session that never spawned
+	// leaves without saving, so the unreadable save stays on disk as it was.
+	spawn_state := s.resolve_spawn_state() or {
+		s.log.warn('Refusing ${s.player.identity.display_name}: ${err}')
+		s.reject_bootstrap('Your saved player data could not be read')
+		return
+	}
 	start_packet := s.build_start_game_packet(spawn_state)
 	s.conn.transport.send(jigsaw_structure_data())!
 	// The client builds its collision registry from this while it reads the
