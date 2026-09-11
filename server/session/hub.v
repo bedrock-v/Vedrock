@@ -80,6 +80,9 @@ mut:
 	// fallback generator name for freshly created worlds. Both are set at boot.
 	worlds_dir      string = 'worlds'
 	world_generator string = 'flat'
+	// creating names the worlds being created right now. A second create of
+	// the same name is refused rather than racing the first for its folder.
+	creating map[string]bool
 	// world_factory creates/opens/lists/deletes named world backends.
 	// Defaults to db.LevelDBFactory the first time set_world_config runs,
 	// unless HubOptions already supplied one at construction time.
@@ -528,6 +531,10 @@ pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator
 		return error('world "${name}" is already loaded')
 	}
 	h.mutex.lock()
+	if name in h.creating {
+		h.mutex.unlock()
+		return error('world "${name}" is already being created')
+	}
 	mut factory := h.world_factory or {
 		h.mutex.unlock()
 		return error('world factory not configured')
@@ -538,7 +545,13 @@ pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator
 	} else {
 		dim.default_generator
 	}
+	h.creating[name] = true
 	h.mutex.unlock()
+	defer {
+		h.mutex.lock()
+		h.creating.delete(name)
+		h.mutex.unlock()
+	}
 	resolved_generator := if generator.trim_space() == '' { default_generator } else { generator }
 	resolved_seed := seed or { blockworld.new_world_seed() }
 	spawn_point := h.generator_for(resolved_generator, dim, resolved_seed).spawn_point()
