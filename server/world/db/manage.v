@@ -52,7 +52,7 @@ pub fn delete_world_files(worlds_dir string, name string) ! {
 // returns its opened store. Errors if a world by that name already exists.
 pub fn create_world_store(worlds_dir string, name string, dim world.Dimension, generator string, seed i64) !&WorldStore {
 	full := safe_world_dir(worlds_dir, name)!
-	if os.is_dir(full) {
+	if world_exists(worlds_dir, name) {
 		return error('world "${name}" already exists')
 	}
 	os.mkdir_all(full)!
