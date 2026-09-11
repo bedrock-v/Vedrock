@@ -107,3 +107,28 @@ fn test_a_seed_that_is_not_a_number_is_an_error_rather_than_seed_zero() {
 	load_named(dir, 'bad_seed', 'flat', world.overworld) or { return }
 	assert false, 'a world whose seed could not be read was loaded'
 }
+
+fn test_a_meta_file_that_cannot_be_read_is_an_error() {
+	dir := meta_test_worlds_dir()
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	full := os.join_path(dir, 'unreadable')
+	os.mkdir_all(os.join_path(full, meta_filename)) or { panic(err) }
+
+	load_named(dir, 'unreadable', 'flat', world.overworld) or { return }
+	assert false, 'a world whose meta file could not be read was loaded'
+}
+
+fn test_a_meta_file_naming_no_generator_is_an_error() {
+	dir := meta_test_worlds_dir()
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	full := os.join_path(dir, 'no_generator')
+	os.mkdir_all(full) or { panic(err) }
+	os.write_file(os.join_path(full, meta_filename), 'dimension: 0\nseed: 5\n') or { panic(err) }
+
+	load_named(dir, 'no_generator', 'flat', world.overworld) or { return }
+	assert false, 'a world whose meta file names no generator was loaded'
+}

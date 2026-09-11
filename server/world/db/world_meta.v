@@ -35,9 +35,15 @@ fn write_world_meta(dir string, generator string, dim world.Dimension, seed i64)
 
 // read_world_meta reads a previously written meta file. A file without a seed
 // line was written before seeds existed and means seed 0, the terrain that
-// world was always generated with.
+// world was always generated with. Only a missing file is NoWorldMeta: one
+// that can't be read or names no generator is an error since falling back
+// would load a seeded world as seed 0.
 fn read_world_meta(dir string) !WorldMeta {
-	content := os.read_file(os.join_path(dir, meta_filename)) or { return NoWorldMeta{} }
+	path := os.join_path(dir, meta_filename)
+	if !os.exists(path) {
+		return NoWorldMeta{}
+	}
+	content := os.read_file(path) or { return error('cannot read ${path}: ${err.msg()}') }
 	mut generator := ''
 	mut dimension := 0
 	mut seed := i64(0)
@@ -62,7 +68,7 @@ fn read_world_meta(dir string) !WorldMeta {
 		}
 	}
 	if generator == '' {
-		return NoWorldMeta{}
+		return error('${path} names no generator')
 	}
 	return WorldMeta{
 		generator: generator
