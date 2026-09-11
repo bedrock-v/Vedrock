@@ -31,7 +31,9 @@ fn (e NoWorldMeta) msg() string {
 // LevelDB folders. Called once at creation time.
 fn write_world_meta(dir string, generator string, dim world.Dimension, seed i64, spawn_point world.SpawnPoint) ! {
 	content := 'generator: ${generator}\ndimension: ${dim.id}\nseed: ${seed}\nspawn: ${spawn_point.x} ${spawn_point.y} ${spawn_point.z}\n'
-	os.write_file(os.join_path(dir, meta_filename), content)!
+	path := os.join_path(dir, meta_filename)
+	os.write_file(path + '.tmp', content)!
+	os.rename(path + '.tmp', path)!
 }
 
 // read_world_meta reads a previously written meta file. A file without a seed
