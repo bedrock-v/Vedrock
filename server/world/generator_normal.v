@@ -52,7 +52,8 @@ struct TreeSpec {
 }
 
 pub struct NormalGenerator {
-	dim Dimension = overworld
+	dim  Dimension = overworld
+	seed i64
 }
 
 pub fn (g NormalGenerator) uses_blocks() bool {
@@ -105,17 +106,17 @@ fn normal_biome_lookup(temperature f64, rainfall f64) int {
 
 // select_biome quantises the climate noise into a fixed lookup grid so the
 // biome map has flat plateaus rather than a different result for every block.
-fn normal_select_biome(x int, z int) int {
-	temperature := int(normal_climate(x, z, normal_temperature_salt) * f64(normal_biome_buckets - 1))
-	rainfall := int(normal_climate(x, z, normal_rainfall_salt) * f64(normal_biome_buckets - 1))
+fn normal_select_biome(x int, z int, mask u32) int {
+	temperature := int(normal_climate(x, z, normal_temperature_salt ^ mask) * f64(normal_biome_buckets - 1))
+	rainfall := int(normal_climate(x, z, normal_rainfall_salt ^ mask) * f64(normal_biome_buckets - 1))
 	return normal_biome_lookup(f64(temperature) / f64(normal_biome_buckets - 1),
 		f64(rainfall) / f64(normal_biome_buckets - 1))
 }
 
 // normal_biome_jitter breaks up the straight edges the quantised biome map
 // would otherwise produce by nudging the sample point by up to one block.
-fn normal_biome_jitter(x int, z int) (int, int) {
-	mut hash := i64(x) * 2345803 ^ i64(z) * 9236449
+fn normal_biome_jitter(x int, z int, mask u32) (int, int) {
+	mut hash := i64(x) * 2345803 ^ i64(z) * 9236449 ^ i64(mask)
 	hash *= hash + 223
 	mut x_noise := int((hash >> 20) & 3)
 	mut z_noise := int((hash >> 22) & 3)
@@ -129,8 +130,9 @@ fn normal_biome_jitter(x int, z int) (int, int) {
 }
 
 pub fn (g NormalGenerator) biome_at(x int, z int) int {
-	dx, dz := normal_biome_jitter(x, z)
-	return normal_select_biome(x + dx, z + dz)
+	mask := seed_mask(g.seed)
+	dx, dz := normal_biome_jitter(x, z, mask)
+	return normal_select_biome(x + dx, z + dz, mask)
 }
 
 fn normal_elevation(biome int) (int, int) {
@@ -278,7 +280,7 @@ fn (g NormalGenerator) smoothed_elevation(x int, z int) (f64, f64) {
 
 fn (g NormalGenerator) terrain_noise(x int, y int, z int) f64 {
 	n := fbm3d_persist(f64(x) / normal_terrain_scale, f64(y) / normal_terrain_scale,
-		f64(z) / normal_terrain_scale, normal_terrain_salt, 4, normal_terrain_persistence)
+		f64(z) / normal_terrain_scale, normal_terrain_salt ^ seed_mask(g.seed), 4, normal_terrain_persistence)
 	return (n - 0.5) * 2.0 * normal_terrain_amplitude
 }
 
@@ -360,6 +362,7 @@ fn (g NormalGenerator) column_ids(x int, z int) []int {
 	}
 	apply_ground_cover(mut ids, ids.len, normal_ground_cover(g.biome_at(x, z)))
 	// carve the same way generate() does so single block lookups stay consistent
+	mask := seed_mask(g.seed)
 	for y := 1; y < normal_terrain_height - 1; y++ {
 		if ids[y] != stone.network_id && ids[y] != dirt.network_id && ids[y] != gravel.network_id {
 			continue
@@ -367,13 +370,13 @@ fn (g NormalGenerator) column_ids(x int, z int) []int {
 		sx := f64(x) / normal_cave_scale
 		sy := f64(y) / normal_cave_scale
 		sz := f64(z) / normal_cave_scale
-		na := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_a, 3) - 0.5
-		nb := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_b, 3) - 0.5
+		na := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_a ^ mask, 3) - 0.5
+		nb := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_b ^ mask, 3) - 0.5
 		spaghetti := na * na + nb * nb < normal_cave_spaghetti_threshold
 		cx := f64(x) / normal_cave_cheese_scale
 		cy := f64(y) / normal_cave_cheese_scale
 		cz := f64(z) / normal_cave_cheese_scale
-		cheese := fbm3d(cx, cy, cz, normal_cave_cheese_salt, 2) > normal_cave_cheese_threshold
+		cheese := fbm3d(cx, cy, cz, normal_cave_cheese_salt ^ mask, 2) > normal_cave_cheese_threshold
 		if !spaghetti && !cheese {
 			continue
 		}
@@ -401,13 +404,74 @@ pub fn (g NormalGenerator) block_at(x int, y int, z int) int {
 	return g.column_ids(x, z)[y]
 }
 
-pub fn (g NormalGenerator) spawn_y() int {
-	ids := g.column_ids(0, 0)
+// A world from before seeds spawns where it always has, over the origin. A
+// seeded one can have ocean there, so it looks outward ring by ring for the
+// nearest dry land, as far as the rings reach.
+const normal_spawn_search_step = 16
+const normal_spawn_search_rings = 64
+
+pub fn (g NormalGenerator) spawn_point() SpawnPoint {
+	if g.seed != 0 {
+		for ring in 0 .. normal_spawn_search_rings + 1 {
+			for pos in spawn_ring(ring) {
+				x := pos[0] * normal_spawn_search_step
+				z := pos[1] * normal_spawn_search_step
+				if y := g.dry_land_y(x, z) {
+					return SpawnPoint{
+						x: x
+						y: y
+						z: z
+					}
+				}
+			}
+		}
+	}
+	return SpawnPoint{
+		y: safe_spawn_y(g, g.dim, 0, 0, column_top(g.column_ids(0, 0)) + 1)
+	}
+}
+
+// dry_land_y is the height a player stands at on column x, z or none when
+// the column is under water. The biome is asked first: it is far cheaper than
+// building the column and rules out oceans and rivers on its own.
+fn (g NormalGenerator) dry_land_y(x int, z int) ?int {
+	biome := g.biome_at(x, z)
+	if biome == biome_ocean || biome == biome_river {
+		return none
+	}
+	ids := g.column_ids(x, z)
+	top := column_top(ids)
+	if top <= 0 || !spawn_floor_solid(ids[top]) {
+		return none
+	}
+	return top + 1
+}
+
+// column_top is the highest block of a column that isn't air.
+fn column_top(ids []int) int {
 	mut top := ids.len - 1
 	for top > 0 && ids[top] == air.network_id {
 		top--
 	}
-	return safe_spawn_y(g, g.dim, 0, 0, top + 1)
+	return top
+}
+
+// spawn_ring lists the positions on the square ring ring steps out from the
+// origin.
+fn spawn_ring(ring int) [][]int {
+	if ring == 0 {
+		return [[0, 0]]
+	}
+	mut out := [][]int{cap: ring * 8}
+	for d in -ring .. ring + 1 {
+		out << [d, -ring]
+		out << [d, ring]
+	}
+	for d in -ring + 1 .. ring {
+		out << [-ring, d]
+		out << [ring, d]
+	}
+	return out
 }
 
 pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
@@ -458,7 +522,7 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 		}
 	}
 
-	carve_caves(mut c, chunk_x, chunk_z)
+	carve_caves(mut c, chunk_x, chunk_z, seed_mask(g.seed))
 	g.populate(mut c, chunk_x, chunk_z)
 	return c
 }
@@ -468,7 +532,7 @@ pub fn (g NormalGenerator) generate(chunk_x int, chunk_z int) Chunk {
 // cheese pass opens up wide chambers where the noise is high enough. Blocks
 // below the lava level get filled with lava, blocks between the lava level
 // and the water height get filled with water when adjacent to water above.
-fn carve_caves(mut c Chunk, chunk_x int, chunk_z int) {
+fn carve_caves(mut c Chunk, chunk_x int, chunk_z int, mask u32) {
 	base_x := chunk_x * 16
 	base_z := chunk_z * 16
 	for x in 0 .. 16 {
@@ -484,14 +548,14 @@ fn carve_caves(mut c Chunk, chunk_x int, chunk_z int) {
 				sy := f64(y) / normal_cave_scale
 				sz := f64(wz) / normal_cave_scale
 
-				na := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_a, 3) - 0.5
-				nb := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_b, 3) - 0.5
+				na := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_a ^ mask, 3) - 0.5
+				nb := fbm3d(sx, sy, sz, normal_cave_spaghetti_salt_b ^ mask, 3) - 0.5
 				spaghetti := na * na + nb * nb < normal_cave_spaghetti_threshold
 
 				cx := f64(wx) / normal_cave_cheese_scale
 				cy := f64(y) / normal_cave_cheese_scale
 				cz := f64(wz) / normal_cave_cheese_scale
-				cheese := fbm3d(cx, cy, cz, normal_cave_cheese_salt, 2) > normal_cave_cheese_threshold
+				cheese := fbm3d(cx, cy, cz, normal_cave_cheese_salt ^ mask, 2) > normal_cave_cheese_threshold
 
 				if !spaghetti && !cheese {
 					continue
@@ -521,7 +585,7 @@ fn carve_caves(mut c Chunk, chunk_x int, chunk_z int) {
 // ---- populators ----
 
 fn (g NormalGenerator) populate(mut c Chunk, chunk_x int, chunk_z int) {
-	mut r := new_random(u32(0xdeadbeef) ^ (u32(chunk_x) << 8) ^ u32(chunk_z))
+	mut r := new_random(u32(0xdeadbeef) ^ (u32(chunk_x) << 8) ^ u32(chunk_z) ^ seed_mask(g.seed))
 	biome := c.biome_id(7, 7)
 
 	for t in normal_ore_types() {

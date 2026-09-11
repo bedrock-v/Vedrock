@@ -13,6 +13,23 @@ fn hash_unit(h u32) f64 {
 	return f64(h % 1_000_000) / 1_000_000.0
 }
 
+// seed_mask is what a world's seed changes every salt by. Seed 0 changes
+// nothing, which keeps a world made before seeds existed generating exactly as
+// it did.
+fn seed_mask(seed i64) u32 {
+	if seed == 0 {
+		return 0
+	}
+	// splitmix64, so seeds a bit apart still give unrelated masks.
+	mut z := u64(seed) + u64(0x9e3779b97f4a7c15)
+	z = (z ^ (z >> 30)) * u64(0xbf58476d1ce4e5b9)
+	z = (z ^ (z >> 27)) * u64(0x94d049bb133111eb)
+	z ^= z >> 31
+	mask := u32(z) ^ u32(z >> 32)
+	// Any other seed has to come out as a different world from seed 0.
+	return if mask == 0 { u32(1) } else { mask }
+}
+
 // hash3_unit returns a deterministic pseudo random value in [0, 1) for an
 // integer (x, y, z, salt) tuple. Used directly for independent per block
 // decisions (ore placement) where no smoothing between neighbours is wanted.
