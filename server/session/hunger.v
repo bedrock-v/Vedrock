@@ -35,12 +35,12 @@ fn (mut s NetworkSession) tick_hunger(mut tx worldrt.WorldTx) {
 	}
 	difficulty := s.hub.difficulty_value()
 	if difficulty == proto.difficulty_peaceful {
-		s.tick_peaceful_hunger()
+		s.tick_peaceful_hunger(mut tx)
 		return
 	}
 	mut changed := s.player.charge_movement(s.current_position())
 	state := s.player.hunger()
-	if s.regenerate(state.food_level >= food_regeneration_threshold) {
+	if s.regenerate(mut tx, state.food_level >= food_regeneration_threshold) {
 		changed = true
 	}
 	s.starve(mut tx, state.food_level == 0, difficulty)
@@ -56,24 +56,24 @@ fn (s &NetworkSession) hunger_applies() bool {
 }
 
 // tick_peaceful_hunger refills the bar instead of draining it.
-fn (mut s NetworkSession) tick_peaceful_hunger() {
+fn (mut s NetworkSession) tick_peaceful_hunger(mut tx worldrt.WorldTx) {
 	// Sample the position anyway, or the first tick back on a harder
 	// difficulty would charge for every metre walked while on peaceful.
-	s.player.set_hunger_position(s.current_position())
-	if !s.player.advance_passive_feed() {
+	s.player.set_hunger_position(mut tx, s.current_position())
+	if !s.player.advance_passive_feed(mut tx) {
 		return
 	}
 	if s.player.food_level() >= player.max_food_level {
 		return
 	}
-	s.player.feed(1)
+	s.player.feed(mut tx, 1)
 	s.send_hunger()
 }
 
 // regenerate heals a point off a player who has spent long enough well fed,
 // and charges them for it.
-fn (mut s NetworkSession) regenerate(eligible bool) bool {
-	if !s.player.advance_regeneration(eligible && s.player.health() < max_player_health) {
+fn (mut s NetworkSession) regenerate(mut tx worldrt.WorldTx, eligible bool) bool {
+	if !s.player.advance_regeneration(mut tx, eligible && s.player.health() < max_player_health) {
 		return false
 	}
 	health := s.player.health()
@@ -110,12 +110,12 @@ fn (mut s NetworkSession) exhaust_and_sync(amount f32) {
 
 // eat_result applies what a consumed item restores. Items with no nutrition
 // (a potion, a milk bucket) leave the bar alone.
-fn (mut s NetworkSession) eat_item(name string) {
+fn (mut s NetworkSession) eat_item(mut tx worldrt.WorldTx, name string) {
 	it := item.get(name) or { return }
 	if it.nutrition() <= 0 {
 		return
 	}
-	s.player.eat(it.nutrition(), it.saturation())
+	s.player.eat(mut tx, it.nutrition(), it.saturation())
 	s.send_hunger()
 }
 

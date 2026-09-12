@@ -313,12 +313,12 @@ fn test_effects_scale_break_progress_like_vanilla() {
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
 	base := s.break_progress_per_tick(dirt_id)
 
-	s.player.add_effect_result(effect.new(effect.haste, 2, 30 * time.second))
+	s.player.add_effect_result(mut detached_tx(), effect.new(effect.haste, 2, 30 * time.second))
 	hasted := s.break_progress_per_tick(dirt_id)
 	assert_break_close(hasted / base, 1.4)
 
-	s.player.take_effect(effect.haste)
-	s.player.add_effect_result(effect.new(effect.mining_fatigue, 1, 30 * time.second))
+	s.player.take_effect(mut detached_tx(), effect.haste)
+	s.player.add_effect_result(mut detached_tx(), effect.new(effect.mining_fatigue, 1, 30 * time.second))
 	fatigued := s.break_progress_per_tick(dirt_id)
 	assert_break_close(fatigued / base, 0.3)
 }
@@ -464,4 +464,12 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 	assert world_b.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 
 	release <- true
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
+	}
 }

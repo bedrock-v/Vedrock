@@ -117,7 +117,7 @@ fn test_apply_hurt_resistance_reduces_damage() {
 		hub.close_worlds()
 	}
 	mut victim := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	victim.player.add_effect_result(effect.new(effect.resistance, 3, 5 * time.second)) // 60% reduction
+	victim.player.add_effect_result(mut tx, effect.new(effect.resistance, 3, 5 * time.second)) // 60% reduction
 
 	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert approx_eq(victim.player.health(), 16.0) // 20 - (10 * 0.4)
@@ -133,7 +133,7 @@ fn test_apply_hurt_fire_resistance_blocks_fire_sources_entirely() {
 		hub.close_worlds()
 	}
 	mut victim := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	victim.player.add_effect_result(effect.new(effect.fire_resistance, 1, 5 * time.second))
+	victim.player.add_effect_result(mut tx, effect.new(effect.fire_resistance, 1, 5 * time.second))
 
 	victim.apply_hurt(mut tx, 10.0, LavaDamageSource{})
 	assert victim.player.health() == 20 // untouched - fire_resistance blocks it before any reduction math
