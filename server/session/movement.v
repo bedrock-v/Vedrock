@@ -182,11 +182,14 @@ fn (t PlayerMoveTask) name() string {
 	return 'PlayerMoveTask'
 }
 
-fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
-	mut hub := unsafe { t.hub }
-	mut s := hub.session_by_runtime(t.id.value) or { return }
+// drain_pending_movement applies every movement report a session has waiting
+// and leaves the scheduled flag clear once there is nothing left. The session
+// is resolved through Hub because a report whose epoch has moved on still has
+// to clear that flag.
+fn drain_pending_movement(mut tx worldrt.WorldTx, mut hub Hub, id entity.ActorId) {
+	mut s := hub.session_by_runtime(id.value) or { return }
 	for {
-		if s.world_binding().epoch != t.id.epoch || !tx.wr.entities.is_player_actor(t.id.value) {
+		if s.world_binding().epoch != id.epoch || !tx.wr.entities.is_player_actor(id.value) {
 			s.movement_mutex.lock()
 			s.movement_scheduled = false
 			s.movement_mutex.unlock()
@@ -198,6 +201,11 @@ fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
 			return
 		}
 	}
+}
+
+fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
+	mut hub := unsafe { t.hub }
+	drain_pending_movement(mut tx, mut hub, t.id)
 }
 
 fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot MovementSnapshot) {

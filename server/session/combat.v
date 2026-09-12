@@ -34,7 +34,11 @@ fn (t PlayerAttackTask) name() string {
 	return 'PlayerAttackTask'
 }
 
-fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
+// apply_player_attack resolves both sides, checks reach against the positions
+// the world holds now and deals the hit. The attack carries its own numbers
+// rather than reading them back, so a swing is judged on what the attacker
+// had when they swung.
+fn apply_player_attack(mut tx worldrt.WorldTx, t PlayerAttackTask) {
 	mut attacker := player_for_id(mut tx, t.attacker) or { return }
 	mut victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
 	if victim_actor.is_dead() {
@@ -84,6 +88,10 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 			identifier: player_actor_identifier
 		})
 	}
+}
+
+fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
+	apply_player_attack(mut tx, t)
 }
 
 // max_attack_reach_sq caps how far an attack/entity interaction can land,

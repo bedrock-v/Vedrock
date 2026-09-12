@@ -536,26 +536,26 @@ fn (t PlayerPlaceBlockTask) name() string {
 	return 'PlayerPlaceBlockTask'
 }
 
-fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
+// place_block_for runs one click that wants to put a block down and reports
+// whether anything was placed. Every path that refuses resends the blocks the
+// client already drew so its view matches the world again.
+fn place_block_for(mut tx worldrt.WorldTx, t PlayerPlaceBlockTask) bool {
 	mut placed := false
-	defer {
-		t.result <- placed
-	}
-	mut s := player_for_id(mut tx, t.id) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return false }
 	pos := t.click_pos
 	neighbor := face_offset(pos, t.click_face)
 	clicked_id := block_at(tx, pos.x, pos.y, pos.z)
 
 	if interact_block(mut tx, mut s, pos, clicked_id, t.click_face) {
-		return
+		return false
 	}
 	if use_item_on_block(mut tx, mut s, pos, clicked_id) {
-		return
+		return false
 	}
 	if t.runtime_id == 0 {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
-		return
+		return false
 	}
 
 	mut target := pos
@@ -566,12 +566,12 @@ fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
 	if target.y < dim.min_y || target.y > dim.max_y() {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
-		return
+		return false
 	}
 	if t.now_ms - t.last_place_ms < place_cooldown_ms {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
-		return
+		return false
 	}
 
 	if merged := merged_slab(tx, clicked_id, t.runtime_id, t.click_face, t.clicked_y, true) {
@@ -579,7 +579,7 @@ fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
 	} else if !can_place_block_on_face(tx, t.runtime_id, t.click_face, clicked_id) {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
-		return
+		return false
 	} else {
 		placed_id := oriented_block(tx, t.runtime_id, t.click_face, t.clicked_y, t.yaw)
 		target_id := block_at(tx, target.x, target.y, target.z)
@@ -595,6 +595,11 @@ fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
 	if placed && !t.is_creative {
 		consume_held_item(mut s)
 	}
+	return placed
+}
+
+fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
+	t.result <- place_block_for(mut tx, t)
 }
 
 // Block picking is session local: it reads the current world and updates the
