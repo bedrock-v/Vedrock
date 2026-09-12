@@ -15,12 +15,19 @@ discussed before you write code.
 
 ## Building from source
 
-### V compiler pin
+### V compiler
 
-Build only with the pinned compiler - newer V master **may** break this project.
+Vedrock is built with **V 3**, the current V compiler. V 1, reached through `-old-compiler`, is
+legacy: it stays in V for a while yet and then goes and nothing here is written for it. Don't add
+`-old-compiler` to a command and don't shape code around a V 1 limitation.
 
-- V compiler: `0.5.2` (commit `2e6850e`)
-- vc bootstrap pin: `8c2ee3b`
+CI pins a commit so a build is reproducible and the pin is bumped as V moves:
+
+- V compiler: `0.5.2` (commit `3058788`)
+- vc bootstrap pin: `e658629`
+
+The pin is a version, not a ceiling: a newer V master is expected to work and a break against one
+is a bug to report upstream rather than a reason to go back to V 1.
 
 ### Dependencies
 
