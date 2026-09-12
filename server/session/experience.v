@@ -64,7 +64,7 @@ fn (t PlayerExperienceTask) name() string {
 fn (t PlayerExperienceTask) run(mut tx worldrt.WorldTx) {
 	mut target := player_for_id(mut tx, t.id) or { return }
 	if t.levels != 0 {
-		target.player.add_experience_levels(t.levels)
+		target.player.add_experience_levels(mut tx, t.levels)
 	}
 	if t.points != 0 {
 		target.player.add_experience(t.points)

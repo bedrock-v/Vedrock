@@ -5,6 +5,7 @@ import server.permission
 import server.effect
 import server.inventory
 import server.player.playerdb
+import server.worldrt
 import bedrock_v.protocol.types
 import sync
 
@@ -151,7 +152,7 @@ pub fn (p &Player) is_dead() bool {
 	return p.dead
 }
 
-pub fn (mut p Player) set_dead(value bool) {
+pub fn (mut p Player) set_dead(mut tx worldrt.WorldTx, value bool) {
 	p.state_mutex.lock()
 	p.dead = value
 	p.state_mutex.unlock()
@@ -166,7 +167,7 @@ pub fn (p &Player) air_supply() i64 {
 	return p.air_supply_ticks
 }
 
-pub fn (mut p Player) set_air_supply(value i64) {
+pub fn (mut p Player) set_air_supply(mut tx worldrt.WorldTx, value i64) {
 	p.state_mutex.lock()
 	p.air_supply_ticks = value
 	p.state_mutex.unlock()
@@ -181,7 +182,7 @@ pub fn (p &Player) fire_ticks() i64 {
 	return p.fire_ticks
 }
 
-pub fn (mut p Player) set_fire_ticks(value i64) {
+pub fn (mut p Player) set_fire_ticks(mut tx worldrt.WorldTx, value i64) {
 	p.state_mutex.lock()
 	p.fire_ticks = value
 	p.state_mutex.unlock()
@@ -410,7 +411,7 @@ pub fn (p &Player) position() types.Vector3 {
 // apply_movement updates the player's position and orientation as one unit,
 // deriving vertical velocity from the change in Y. Registered session callers
 // must invoke it on the owning world's actor thread (see PlayerMoveTask).
-pub fn (mut p Player) apply_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) f32 {
+pub fn (mut p Player) apply_movement(mut tx worldrt.WorldTx, position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) f32 {
 	p.pos_mutex.lock()
 	p.vy = position.y - p.prev_y
 	if p.vy < 0 {

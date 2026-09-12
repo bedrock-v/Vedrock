@@ -3,6 +3,7 @@ module player
 import math
 import bedrock_v.protocol.types
 import server.player.playerdb
+import server.worldrt
 
 // max_food_level is a full hunger bar, and initial_saturation is what a fresh
 // or respawned player starts with behind it. Both come from the save format,
@@ -103,7 +104,7 @@ pub fn (mut p Player) advance_regeneration(eligible bool) bool {
 }
 
 // advance_starvation is the same counter for an empty bar.
-pub fn (mut p Player) advance_starvation(eligible bool) bool {
+pub fn (mut p Player) advance_starvation(mut tx worldrt.WorldTx, eligible bool) bool {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()

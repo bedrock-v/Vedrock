@@ -162,17 +162,17 @@ fn test_player_apply_movement_reports_fall_distance_only_on_landing() {
 	mut pl := player.new_player()
 	pl.reset_position(types.Vector3{0, 10, 0})
 
-	landed_1 := pl.apply_movement(types.Vector3{0, 9, 0}, 0, 0, 0, false)
+	landed_1 := pl.apply_movement(mut detached_tx(), types.Vector3{0, 9, 0}, 0, 0, 0, false)
 	assert landed_1 == 0
-	landed_2 := pl.apply_movement(types.Vector3{0, 3, 0}, 0, 0, 0, false)
+	landed_2 := pl.apply_movement(mut detached_tx(), types.Vector3{0, 3, 0}, 0, 0, 0, false)
 	assert landed_2 == 0
-	landed_3 := pl.apply_movement(types.Vector3{0, 3, 0}, 0, 0, 0, true)
+	landed_3 := pl.apply_movement(mut detached_tx(), types.Vector3{0, 3, 0}, 0, 0, 0, true)
 	assert landed_3 == 7
 
 	// fall_distance resets after landing
-	landed_4 := pl.apply_movement(types.Vector3{0, 1, 0}, 0, 0, 0, false)
+	landed_4 := pl.apply_movement(mut detached_tx(), types.Vector3{0, 1, 0}, 0, 0, 0, false)
 	assert landed_4 == 0
-	landed_5 := pl.apply_movement(types.Vector3{0, 1, 0}, 0, 0, 0, true)
+	landed_5 := pl.apply_movement(mut detached_tx(), types.Vector3{0, 1, 0}, 0, 0, 0, true)
 	assert landed_5 == 2
 }
 
@@ -230,10 +230,10 @@ fn test_tick_breath_damages_once_air_runs_out() {
 		hub.close_worlds()
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	s.player.set_air_supply(0)
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
+	s.player.set_air_supply(mut tx, 0)
 
 	s.tick_breath(mut tx, true, 0) // tick 0 is a multiple of the drowning interval
 	assert s.player.health() == 18
@@ -266,10 +266,10 @@ fn test_tick_burning_water_extinguishes() {
 		hub.close_worlds()
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	s.player.set_fire_ticks(100)
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
+	s.player.set_fire_ticks(mut tx, 100)
 
 	s.tick_burning(mut tx, false, true)
 	assert s.player.fire_ticks() == 0
@@ -283,10 +283,10 @@ fn test_tick_burning_deals_damage_every_20_ticks_while_burning() {
 		hub.close_worlds()
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	s.player.set_fire_ticks(21)
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
+	s.player.set_fire_ticks(mut tx, 21)
 
 	s.tick_burning(mut tx, false, false)
 	assert s.player.fire_ticks() == 20
@@ -308,4 +308,12 @@ fn test_tick_effects_applies_damage_when_wired_throu_world_tx() {
 	mut ticker := SessionPlayerTicker{}
 	ticker.tick_players(mut tx)
 	assert s.player.health() == 16
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
+	}
 }
