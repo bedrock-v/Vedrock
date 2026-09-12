@@ -101,7 +101,7 @@ pub fn (mut p Player) add_experience(points int) {
 
 // add_experience_levels moves the player whole levels at a time, as an
 // enchantment cost or a command does, leaving the progress bar where it is.
-pub fn (mut p Player) add_experience_levels(levels int) {
+pub fn (mut p Player) add_experience_levels(mut tx worldrt.WorldTx, levels int) {
 	p.state_mutex.lock()
 	p.experience_level = math.max(0, p.experience_level + levels)
 	if p.experience_level == 0 && levels < 0 {

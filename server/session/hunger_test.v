@@ -3,6 +3,7 @@ module session
 import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
 import server.player
+import server.worldrt
 
 fn vector_at(x f32) types.Vector3 {
 	return types.Vector3{x, 64.0, 0.0}
@@ -81,11 +82,11 @@ fn test_regeneration_waits_a_full_interval_after_becoming_eligible() {
 fn test_an_interrupted_condition_starts_the_wait_again() {
 	mut pl := player.new_player()
 	for _ in 0 .. player.starvation_interval_ticks - 1 {
-		pl.advance_starvation(true)
+		pl.advance_starvation(mut detached_tx(), true)
 	}
 	// One tick spent fed resets it, so the next one does not fire.
-	pl.advance_starvation(false)
-	assert !pl.advance_starvation(true)
+	pl.advance_starvation(mut detached_tx(), false)
+	assert !pl.advance_starvation(mut detached_tx(), true)
 }
 
 fn test_swimming_costs_less_than_sprinting() {
@@ -119,4 +120,12 @@ fn test_jumping_spends_exhaustion() {
 	s.player.set_game_mode(.creative)
 	s.apply_input_state([proto.PlayerAuthInputData.start_jumping])
 	assert s.player.hunger().exhaustion == player.jump_exhaustion
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
+	}
 }

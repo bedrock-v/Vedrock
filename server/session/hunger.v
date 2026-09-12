@@ -88,7 +88,7 @@ fn (mut s NetworkSession) regenerate(eligible bool) bool {
 // starve applies the damage an empty bar deals, down to the floor the current
 // difficulty allows.
 fn (mut s NetworkSession) starve(mut tx worldrt.WorldTx, eligible bool, difficulty int) {
-	if !s.player.advance_starvation(eligible) {
+	if !s.player.advance_starvation(mut tx, eligible) {
 		return
 	}
 	if s.player.health() - starvation_damage < starvation_floor(difficulty) {

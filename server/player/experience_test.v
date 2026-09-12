@@ -1,5 +1,7 @@
 module player
 
+import server.worldrt
+
 fn test_the_curve_steepens_twice() {
 	assert experience_to_next_level(0) == 7
 	assert experience_to_next_level(15) == 37
@@ -54,11 +56,11 @@ fn test_experience_never_goes_below_nothing() {
 
 fn test_levels_move_whole_steps() {
 	mut p := new_player()
-	p.add_experience_levels(5)
+	p.add_experience_levels(mut detached_tx(), 5)
 	assert p.experience_level() == 5
-	p.add_experience_levels(-2)
+	p.add_experience_levels(mut detached_tx(), -2)
 	assert p.experience_level() == 3
-	p.add_experience_levels(-100)
+	p.add_experience_levels(mut detached_tx(), -100)
 	assert p.experience_level() == 0
 }
 
@@ -114,7 +116,7 @@ fn test_levels_are_capped_by_what_the_new_level_holds() {
 		progress: 0.99
 	})
 	// Level 0 holds 7 points, so dropping to it cannot keep level 30's worth.
-	p.add_experience_levels(-30)
+	p.add_experience_levels(mut detached_tx(), -30)
 	state := p.experience()
 	assert state.level == 0
 	assert state.progress < 1.0
@@ -125,4 +127,12 @@ fn test_spectators_are_the_only_mode_that_does_not_collect() {
 	assert Gamemode.creative.collects_experience()
 	assert Gamemode.adventure.collects_experience()
 	assert !Gamemode.spectator.collects_experience()
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
+	}
 }

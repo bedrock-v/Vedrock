@@ -230,7 +230,7 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 			return
 		}
 	}
-	landed_distance := s.player.apply_movement(position, snapshot.pitch, snapshot.yaw,
+	landed_distance := s.player.apply_movement(mut tx, position, snapshot.pitch, snapshot.yaw,
 		snapshot.head_yaw, snapshot.on_ground)
 	if s.spawned {
 		for mut v in viewers_except(mut tx, s.runtime_id) {

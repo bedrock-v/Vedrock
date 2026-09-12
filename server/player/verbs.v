@@ -170,7 +170,7 @@ pub fn (mut p Player) die(mut tx worldrt.WorldTx, message_key string, parameters
 	if ctx.is_cancelled() {
 		return
 	}
-	p.set_dead(true)
+	p.set_dead(mut tx, true)
 	p.set_last_death(p.position())
 	p.drop_experience(mut tx)
 	for mut v in p.viewers(mut tx) {

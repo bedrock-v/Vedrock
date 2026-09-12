@@ -183,7 +183,10 @@ fn test_respawn_stale_epoch_produces_no_effect() {
 
 	mut s := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
 	s.player.set_health(0)
-	s.player.set_dead(true)
+	mut tx := &worldrt.WorldTx{
+		wr: wr_a
+	}
+	s.player.set_dead(mut tx, true)
 
 	stale_epoch := s.world_binding().epoch
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
