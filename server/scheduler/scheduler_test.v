@@ -80,12 +80,3 @@ fn test_cancel_all_clears_queue() {
 	s.heartbeat(5)
 	assert runs == 0
 }
-
-// A defaulted field initialiser on a generic struct doesn't run when that
-// struct is a value field of another one. When the mutex moved into Table[T]
-// that left it nil and locking nil is a noop rather than a crash, so the
-// table silently ran unlocked.
-fn test_the_table_is_built_with_a_real_mutex() {
-	mut s := new_scheduler()
-	assert !isnil(s.table.mutex)
-}

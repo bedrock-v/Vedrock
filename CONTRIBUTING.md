@@ -79,45 +79,43 @@ claims about V's intended behavior and they've already cost real debugging time 
 If a "cleanup" PR reintroduces one of these shapes, expect it to either fail to compile in a
 confusing way or misbehave at runtime in a way that's hard to trace back to the cause.
 
-### A generic method that stores an interface typed `T` may be emitted for only one interface
+### Don't unify the global/world schedulers with a generic `Scheduler[T]`
 
-This is the one confirmed compiler bug in this list and it still reproduces on the current pin.
+This is the one confirmed compiler bug in this list.
 
-`server/scheduler` and `server/worldrt/world_scheduler.v` used to be two separate near identical
-implementations because of it. They now share `scheduler.Table[T]`/`scheduler.Handler[T]`, under a
-narrow constraint that the sharing has to keep.
+`server/scheduler` (global) and `server/session/world_scheduler.v` (per-world) share near identical
+due task bookkeeping (id/delay/period/next_run/cancelled) but are kept as two separate, non generic
+types on purpose - this was a deliberate choice, not an oversight.
 
-The bug: a generic struct that stores an interface typed generic field (`struct Handler[T] { task T }`
-where `T` is itself an interface) miscompiles when a method that *performs that store* is emitted for
-two different interface types. The second instantiation's body gets an `as_cast` to the first one's
-interface:
+Confirmed by direct reproduction: a generic struct that stores an interface typed
+generic field (e.g. `struct Handler[T] { task T }` where `T` is itself an interface), instantiated
+for more than one concrete interface type in the same program with at least one instantiation's
+method reached through a `spawn` closure, causes V to crosswire the monomorphized method bodies in
+the generated C. In the reproduction this didn't even compile:
 
-```c
-_t1->task = I_tbl__Task_as_I_wrld__WorldTask(task);
+```
+error: incompatible types when assigning to type 'main__TaskA' from type 'main__TaskB'
 ```
 
-inside `Table[Task]`'s own `add()` - the body compiled for the `Task` instantiation casting through
-`WorldTask`.
+from a generated line inside `GenScheduler[TaskA]`'s own `add()` method:
 
-What this permits and forbids:
+```c
+_t1->task = I_main__TaskA_as_I_main__TaskB(task);
+```
 
-- Every method that does *not* store a `T` is fine emitted for both interfaces. `due`, `settle`,
-  `cancel`, `cancel_all`, `count`, `work`, `id`, `is_cancelled` and `is_repeating` all are.
-- The methods that *do* store a `T` - `add` and `add_now` - may each be emitted for only one. `add`
-  is the world side's, `add_now` the global side's. That is why `add_now` repeats `add`'s body
-  instead of calling it: calling it would pull `add` into both instantiations and bring the bug back.
+i.e. the method body compiled for the `TaskA` instantiation was casting through `TaskB` - the two
+instantiations' generated code got crosswired. A less lucky version of this shape could compile
+and corrupt data silently instead of failing to build.
 
-So don't add a caller that schedules through the other one's entry point and don't refactor the two
-bodies back together. Both mistakes break the C compile rather than corrupting data, so they're loud
-but the error points at generated C and is hard to read back to this rule.
+This is the same general family as the existing `world_call[T]`/`CallJob` rule (genericity lives
+only on a free function, never on a struct dispatched through an interface) - this finding extends
+it to cover a generic struct merely *storing* an interface typed field, not just being dispatched
+through one itself.
 
-`server/session/scheduler_instantiation_test.v` is what proves the sharing sound: it is the only
-place that links both modules and schedules on both, so both instantiations land in one binary.
-
-This is the same general family as the existing `world_call[T]`/`CallJob` rule (genericity lives only
-on a free function, never on a struct dispatched through an interface) - this finding extends it to
-cover a generic struct merely *storing* an interface typed field, not just being dispatched through
-one itself.
+Keep the two scheduler implementations separate until upstream V fixes this class of bug. If
+you're tempted to unify them again, reproduce the bug fresh against the current V version first.
+Don't assume it still applies without checking, and don't merge them "to be safe" without checking
+either.
 
 ### Closures copy a `mut` struct receiver by value
 
