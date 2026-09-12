@@ -71,12 +71,12 @@ fn test_regeneration_waits_a_full_interval_after_becoming_eligible() {
 	mut pl := player.new_player()
 	// Ineligible ticks never bring the timer closer to firing.
 	for _ in 0 .. 500 {
-		assert !pl.advance_regeneration(false)
+		assert !pl.advance_regeneration(mut detached_tx(), false)
 	}
 	for _ in 0 .. player.regeneration_interval_ticks - 1 {
-		assert !pl.advance_regeneration(true)
+		assert !pl.advance_regeneration(mut detached_tx(), true)
 	}
-	assert pl.advance_regeneration(true)
+	assert pl.advance_regeneration(mut detached_tx(), true)
 }
 
 fn test_an_interrupted_condition_starts_the_wait_again() {

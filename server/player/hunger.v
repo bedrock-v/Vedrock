@@ -86,7 +86,7 @@ pub fn (mut p Player) reset_hunger() {
 // The counter only runs while the condition holds and resets the moment it
 // stops, so a player who has just eaten waits the full interval rather than
 // inheriting wherever a shared clock happened to be.
-pub fn (mut p Player) advance_regeneration(eligible bool) bool {
+pub fn (mut p Player) advance_regeneration(mut tx worldrt.WorldTx, eligible bool) bool {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -122,7 +122,7 @@ pub fn (mut p Player) advance_starvation(mut tx worldrt.WorldTx, eligible bool) 
 }
 
 // advance_passive_feed paces the refill on peaceful the same way.
-pub fn (mut p Player) advance_passive_feed() bool {
+pub fn (mut p Player) advance_passive_feed(mut tx worldrt.WorldTx) bool {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -194,7 +194,7 @@ pub fn (p &Player) hunger_position() ?types.Vector3 {
 	return p.hunger_position
 }
 
-pub fn (mut p Player) set_hunger_position(pos types.Vector3) {
+pub fn (mut p Player) set_hunger_position(mut tx worldrt.WorldTx, pos types.Vector3) {
 	p.state_mutex.lock()
 	p.hunger_position = pos
 	p.has_hunger_position = true
@@ -287,7 +287,7 @@ fn (mut p Player) spend_exhaustion(amount f32) bool {
 // eat restores food and saturation the way a food item does: saturation is
 // capped by the food level it is carried by, so a full bar cannot bank more of
 // it than it has room for.
-pub fn (mut p Player) eat(nutrition int, saturation_modifier f32) {
+pub fn (mut p Player) eat(mut tx worldrt.WorldTx, nutrition int, saturation_modifier f32) {
 	p.state_mutex.lock()
 	p.food_level = clamp_food(p.food_level + nutrition)
 	gained := f32(nutrition) * saturation_modifier * 2.0
@@ -297,7 +297,7 @@ pub fn (mut p Player) eat(nutrition int, saturation_modifier f32) {
 
 // feed adds food levels without any saturation behind them, as passive
 // difficulty's slow refill does.
-pub fn (mut p Player) feed(points int) {
+pub fn (mut p Player) feed(mut tx worldrt.WorldTx, points int) {
 	p.state_mutex.lock()
 	p.food_level = clamp_food(p.food_level + points)
 	p.state_mutex.unlock()

@@ -1,5 +1,7 @@
 module player
 
+import server.worldrt
+
 fn test_a_fresh_player_starts_fed() {
 	p := new_player()
 	state := p.hunger()
@@ -50,7 +52,7 @@ fn test_eating_restores_food_and_saturation() {
 		food_level: 10
 	})
 	// Bread: 5 nutrition at a 0.6 modifier, so 6 saturation behind it.
-	p.eat(5, 0.6)
+	p.eat(mut detached_tx(), 5, 0.6)
 	state := p.hunger()
 	assert state.food_level == 15
 	assert state.saturation > 5.99 && state.saturation < 6.01
@@ -61,7 +63,7 @@ fn test_saturation_cannot_exceed_the_food_it_sits_behind() {
 	p.set_hunger(HungerState{
 		food_level: 4
 	})
-	p.eat(2, 4.0)
+	p.eat(mut detached_tx(), 2, 4.0)
 	state := p.hunger()
 	assert state.food_level == 6
 	assert state.saturation == 6.0
@@ -69,7 +71,7 @@ fn test_saturation_cannot_exceed_the_food_it_sits_behind() {
 
 fn test_eating_never_overfills_the_bar() {
 	mut p := new_player()
-	p.eat(10, 1.0)
+	p.eat(mut detached_tx(), 10, 1.0)
 	state := p.hunger()
 	assert state.food_level == max_food_level
 	assert state.saturation == f32(max_food_level)
@@ -94,9 +96,17 @@ fn test_hunger_position_starts_unsampled() {
 	if _ := p.hunger_position() {
 		assert false, 'a player who has not moved yet reported a sample'
 	}
-	p.set_hunger_position(p.position())
+	p.set_hunger_position(mut detached_tx(), p.position())
 	if _ := p.hunger_position() {
 	} else {
 		assert false, 'sample was not recorded'
+	}
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
 	}
 }

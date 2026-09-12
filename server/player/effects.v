@@ -27,7 +27,7 @@ pub fn (mut p Player) add_effect(mut tx worldrt.WorldTx, e effect.Effect) {
 	if ctx.is_cancelled() {
 		return
 	}
-	result := p.add_effect_result(e)
+	result := p.add_effect_result(mut tx, e)
 	if result.accepted {
 		if result.replaced {
 			p.apply_effect_end(result.previous)
@@ -51,7 +51,7 @@ pub fn (mut p Player) remove_effect(mut tx worldrt.WorldTx, typ effect.Type) {
 	if ctx.is_cancelled() {
 		return
 	}
-	removed := p.take_effect(typ) or { return }
+	removed := p.take_effect(mut tx, typ) or { return }
 	p.apply_effect_end(removed)
 	p.show_effect_removal(mut tx, typ)
 }
@@ -60,7 +60,7 @@ pub fn (mut p Player) remove_effect(mut tx worldrt.WorldTx, typ effect.Type) {
 // world's simulation step, applying what each still running effect does and
 // clearing the ones that ran out.
 pub fn (mut p Player) tick_effects(mut tx worldrt.WorldTx) {
-	result := p.advance_effects()
+	result := p.advance_effects(mut tx)
 	for e in result.active {
 		p.apply_effect_tick(mut tx, e)
 	}

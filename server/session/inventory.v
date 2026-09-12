@@ -356,7 +356,7 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, id entity.ActorId, reques
 			action := proto.item_stack_action(wire_action)
 			match action {
 				proto.TakeAction {
-					moved := target.apply_move(action.source, action.destination, action.amount)
+					moved := target.apply_move(mut tx, action.source, action.destination, action.amount)
 					if moved.len == 0 {
 						failed = true
 					} else {
@@ -365,7 +365,7 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, id entity.ActorId, reques
 					target.log.debug('itemstack take ${action.source.container_name.container}:${action.source.slot} -> ${action.destination.container_name.container}:${action.destination.slot} amount=${action.amount} ok=${moved.len > 0}')
 				}
 				proto.PlaceAction {
-					moved := target.apply_move(action.source, action.destination, action.amount)
+					moved := target.apply_move(mut tx, action.source, action.destination, action.amount)
 					if moved.len == 0 {
 						failed = true
 					} else {
@@ -374,11 +374,11 @@ fn process_item_stack_requests(mut tx worldrt.WorldTx, id entity.ActorId, reques
 					target.log.debug('itemstack place ${action.source.container_name.container}:${action.source.slot} -> ${action.destination.container_name.container}:${action.destination.slot} amount=${action.amount} ok=${moved.len > 0}')
 				}
 				proto.SwapAction {
-					changes << target.apply_swap(action.source, action.destination)
+					changes << target.apply_swap(mut tx, action.source, action.destination)
 					target.log.debug('itemstack swap ${action.source.container_name.container}:${action.source.slot} <-> ${action.destination.container_name.container}:${action.destination.slot}')
 				}
 				proto.DestroyAction {
-					changes << target.apply_remove(action.source, action.amount)
+					changes << target.apply_remove(mut tx, action.source, action.amount)
 					target.log.debug('itemstack destroy ${action.source.container_name.container}:${action.source.slot} amount=${action.amount}')
 				}
 				proto.DropAction {
@@ -508,7 +508,7 @@ fn (mut s NetworkSession) resolve_source_stack(container proto.FullContainerName
 	return SourceStack{stack, net_id, false}
 }
 
-fn (mut s NetworkSession) apply_move(src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+fn (mut s NetworkSession) apply_move(mut tx worldrt.WorldTx, src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	resolved := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
 	mut moved := resolved.stack
 	src_net_id := resolved.net_id
@@ -571,7 +571,7 @@ fn (mut s NetworkSession) apply_move(src proto.ItemStackRequestSlotInfo, dst pro
 	]
 }
 
-fn (mut s NetworkSession) apply_swap(src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo) []SlotChange {
+fn (mut s NetworkSession) apply_swap(mut tx worldrt.WorldTx, src proto.ItemStackRequestSlotInfo, dst proto.ItemStackRequestSlotInfo) []SlotChange {
 	resolved_a := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
 	a, src_net_id, a_from_creative := resolved_a.stack, resolved_a.net_id, resolved_a.from_creative
 	resolved_b := s.resolve_source_stack(dst.container_name, dst.slot, dst.raw_id)
@@ -601,7 +601,7 @@ fn (mut s NetworkSession) apply_swap(src proto.ItemStackRequestSlotInfo, dst pro
 	]
 }
 
-fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
+fn (mut s NetworkSession) apply_remove(mut tx worldrt.WorldTx, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	resolved := s.resolve_source_stack(src.container_name, src.slot, src.raw_id)
 	item, net_id, from_creative := resolved.stack, resolved.net_id, resolved.from_creative
 	take := requested_amount(amount, item.count)
@@ -627,7 +627,7 @@ fn (mut s NetworkSession) apply_remove(src proto.ItemStackRequestSlotInfo, amoun
 fn (mut s NetworkSession) apply_drop(mut tx worldrt.WorldTx, src proto.ItemStackRequestSlotInfo, amount i8) []SlotChange {
 	item := s.resolve_source_stack(src.container_name, src.slot, src.raw_id).stack
 	take := requested_amount(amount, item.count)
-	changes := s.apply_remove(src, amount)
+	changes := s.apply_remove(mut tx, src, amount)
 	if take > 0 && item.id != 0 {
 		mut dropped := item
 		dropped.count = take
@@ -644,11 +644,11 @@ fn (mut s NetworkSession) apply_consume(mut tx worldrt.WorldTx, src proto.ItemSt
 		return []SlotChange{}
 	}
 	name := s.hub.data.item_name(stack.id)
-	result := itemmod.consume_result(name, stack.meta) or { return s.apply_remove(src, amount) }
+	result := itemmod.consume_result(name, stack.meta) or { return s.apply_remove(mut tx, src, amount) }
 	for e in result.effects {
 		s.player.add_effect(mut tx, e)
 	}
-	s.eat_item(name)
+	s.eat_item(mut tx, name)
 	return s.replace_consumed_stack(src, amount, stack, net_id, result)
 }
 

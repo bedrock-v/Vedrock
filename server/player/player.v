@@ -292,7 +292,7 @@ pub fn (p &Player) loaded_item(i int) playerdb.InvItem {
 	return p.loaded_items[i]
 }
 
-pub fn (mut p Player) add_effect_result(e effect.Effect) effect.AddResult {
+pub fn (mut p Player) add_effect_result(mut tx worldrt.WorldTx, e effect.Effect) effect.AddResult {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -302,7 +302,7 @@ pub fn (mut p Player) add_effect_result(e effect.Effect) effect.AddResult {
 
 // take_effect drops typ from the manager and hands back what was there. It is
 // the raw state change; remove_effect in effects.v is the verb around it.
-pub fn (mut p Player) take_effect(typ effect.Type) ?effect.Effect {
+pub fn (mut p Player) take_effect(mut tx worldrt.WorldTx, typ effect.Type) ?effect.Effect {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -313,7 +313,7 @@ pub fn (mut p Player) take_effect(typ effect.Type) ?effect.Effect {
 // advance_effects moves every active effect on one tick and reports what is
 // still running and what expired. It is the raw state change; tick_effects in
 // effects.v is the verb around it.
-pub fn (mut p Player) advance_effects() effect.TickResult {
+pub fn (mut p Player) advance_effects(mut tx worldrt.WorldTx) effect.TickResult {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
