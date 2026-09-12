@@ -258,12 +258,18 @@ fn (t PlayerMobEquipmentTask) name() string {
 	return 'PlayerMobEquipmentTask'
 }
 
-fn (t PlayerMobEquipmentTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_id(mut tx, t.id) or { return }
-	target.player.set_held(t.hotbar_slot, t.item)
-	for mut v in viewers_except(mut tx, t.id.value) {
-		v.view_equipment(target.player, t.hotbar_slot, t.inventory_slot, t.item)
+// equip_held_item moves a player to another hotbar slot and shows everyone
+// what they are now holding.
+fn equip_held_item(mut tx worldrt.WorldTx, id entity.ActorId, hotbar_slot int, inventory_slot int, item types.ItemStackWrapper) {
+	mut target := player_for_id(mut tx, id) or { return }
+	target.player.set_held(hotbar_slot, item)
+	for mut v in viewers_except(mut tx, id.value) {
+		v.view_equipment(target.player, hotbar_slot, inventory_slot, item)
 	}
+}
+
+fn (t PlayerMobEquipmentTask) run(mut tx worldrt.WorldTx) {
+	equip_held_item(mut tx, t.id, t.hotbar_slot, t.inventory_slot, t.item)
 }
 
 fn (mut s NetworkSession) handle_mob_equipment(p proto.MobEquipmentPacket) ! {

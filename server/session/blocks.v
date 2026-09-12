@@ -430,12 +430,18 @@ fn (t PlayerBreakBlockTask) name() string {
 	return 'PlayerBreakBlockTask'
 }
 
+// break_block_for finishes the break one player started, at the block the
+// world still holds.
+fn break_block_for(mut tx worldrt.WorldTx, id entity.ActorId, pos types.BlockPosition, old_id int) {
+	mut s := player_for_id(mut tx, id) or { return }
+	complete_block_break(mut tx, mut s, pos, old_id)
+}
+
 fn (t PlayerBreakBlockTask) run(mut tx worldrt.WorldTx) {
 	defer {
 		t.done <- true
 	}
-	mut s := player_for_id(mut tx, t.id) or { return }
-	complete_block_break(mut tx, mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
+	break_block_for(mut tx, t.id, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
 // complete_block_break destroys the block and runs everything that follows

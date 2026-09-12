@@ -55,13 +55,17 @@ fn (t SetSignTextTask) name() string {
 	return 'SetSignTextTask'
 }
 
+fn set_sign_text(mut tx worldrt.WorldTx, x int, y int, z int, text string) {
+	tx.wr.world.set_tile_text(x, y, z, text)
+	broadcast_block_entity(mut tx, types.BlockPosition{x, y, z}, build_sign_nbt(x, y, z,
+		text))
+}
+
 fn (t SetSignTextTask) run(mut tx worldrt.WorldTx) {
 	defer {
 		t.done <- true
 	}
-	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	broadcast_block_entity(mut tx, types.BlockPosition{t.x, t.y, t.z}, build_sign_nbt(t.x,
-		t.y, t.z, t.text))
+	set_sign_text(mut tx, t.x, t.y, t.z, t.text)
 }
 
 // max_sign_text_bytes bounds the text a client may write onto a sign. The NBT

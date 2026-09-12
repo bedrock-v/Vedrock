@@ -147,12 +147,18 @@ fn (t StartBreakAnimationTask) name() string {
 	return 'StartBreakAnimationTask'
 }
 
-fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
-	s := player_for_id(mut tx, t.id) or { return }
-	if t.crack_speed > 0 {
-		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
+// start_break_animation shows everyone the swing and the crack overlay when
+// the block takes more than one tick to break.
+fn start_break_animation(mut tx worldrt.WorldTx, id entity.ActorId, pos types.BlockPosition, crack_speed int) {
+	s := player_for_id(mut tx, id) or { return }
+	if crack_speed > 0 {
+		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, pos, crack_speed)
 	}
 	broadcast_swing(mut tx, s)
+}
+
+fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
+	start_break_animation(mut tx, t.id, t.pos, t.crack_speed)
 }
 
 fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
