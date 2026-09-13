@@ -46,14 +46,14 @@ fn test_is_critical_requires_falling_and_survival() {
 	mut s := &NetworkSession{
 		player: pl
 	}
-	s.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
-	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(mut detached_tx(), types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(mut detached_tx(), types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
 	assert s.is_critical()
 
-	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(mut detached_tx(), types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
 	assert !s.is_critical()
 
-	s.player.apply_movement(types.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(mut detached_tx(), types.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0, false)
 	s.player.set_game_mode(.creative)
 	assert !s.is_critical()
 }
@@ -335,7 +335,7 @@ fn test_apply_respawn_resets_health_and_position() {
 		display_name: 'Steve'
 	}
 	pl.set_health(0)
-	pl.set_dead(true)
+	pl.set_dead(mut tx, true)
 	mut victim := &NetworkSession{
 		player:     pl
 		runtime_id: 2
@@ -345,8 +345,8 @@ fn test_apply_respawn_resets_health_and_position() {
 	}
 	// Give it a nonzero vy the same way real movement would, to prove
 	// apply_respawn actually resets it rather than it trivially starting at 0.
-	victim.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
-	victim.player.apply_movement(types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
+	victim.player.apply_movement(mut tx, types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
+	victim.player.apply_movement(mut tx, types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 	hub.add(victim)
 
 	victim.apply_respawn(mut tx)
@@ -371,7 +371,7 @@ fn test_apply_respawn_is_noop_when_not_dead() {
 		display_name: 'Steve'
 	}
 	pl.set_health(20)
-	pl.set_dead(false)
+	pl.set_dead(mut tx, false)
 	mut victim := &NetworkSession{
 		player:     pl
 		runtime_id: 2
@@ -542,4 +542,12 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
+	}
 }

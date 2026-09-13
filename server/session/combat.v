@@ -301,7 +301,7 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	if !s.player.is_dead() {
 		return
 	}
-	s.player.set_dead(false)
+	s.player.set_dead(mut tx, false)
 	s.player.set_health(20.0)
 	s.player.reset_hunger()
 	s.send_hunger()

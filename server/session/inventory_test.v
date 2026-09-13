@@ -259,7 +259,7 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 	s.player.set_slot(0, source_net)
 	s.player.set_slot(1, dest_net)
 
-	changes := s.apply_move(proto.ItemStackRequestSlotInfo{
+	changes := s.apply_move(mut detached_tx(), proto.ItemStackRequestSlotInfo{
 		container_name: proto.FullContainerName{
 			container: .hotbar_container
 		}
@@ -304,5 +304,13 @@ fn test_flat_slot_rejects_a_slot_outside_the_inventory() {
 	}
 	if _ := flat_slot(container, -1) {
 		assert false, 'expected a negative slot to be rejected'
+	}
+}
+
+// detached_tx is a transaction token for player bookkeeping that never reads
+// it. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
 	}
 }
