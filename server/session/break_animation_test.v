@@ -106,7 +106,9 @@ fn test_mining_a_generated_tree_starts_the_crack_animation() {
 	}
 	s.player.reset_position(types.Vector3{f32(x) + 0.5, f32(y) + 1.62, f32(z) + 0.5})
 
-	s.handle_start_break(types.BlockPosition{x, y, z}, 1)
+	in_world(mut s, fn [mut s, x, y, z] (mut tx worldrt.WorldTx) ! {
+		s.handle_start_break(mut tx, types.BlockPosition{x, y, z}, 1)
+	})!
 
 	assert wait_for_start_cracking(transport, x, y, z, 5000)
 }
@@ -148,7 +150,9 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 	s.player.reset_position(types.Vector3{f32(x) + 2.5, f32(y) + 2.0, f32(z) + 0.5})
 
 	// Face 1 is the top, so the block lands on top of the one clicked.
-	s.handle_place_click(types.BlockPosition{x, y, z}, 1, 1.0)
+	in_world(mut s, fn [mut s, x, y, z] (mut tx worldrt.WorldTx) ! {
+		s.handle_place_click(mut tx, types.BlockPosition{x, y, z}, 1, 1.0)
+	})!
 
 	assert target.block_override(x, y + 1, z) or { 0 } == world.stone.network_id
 }
@@ -167,7 +171,27 @@ fn test_mining_a_placed_block_starts_the_crack_animation() {
 	y := world.overworld.min_y
 	target.set_block(0, y, 1, world.stone.network_id)
 
-	s.handle_start_break(types.BlockPosition{0, y, 1}, 1)
+	in_world(mut s, fn [mut s, y] (mut tx worldrt.WorldTx) ! {
+		s.handle_start_break(mut tx, types.BlockPosition{0, y, 1}, 1)
+	})!
 
 	assert wait_for_start_cracking(transport, 0, y, 1, 5000)
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
 }

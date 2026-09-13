@@ -218,6 +218,11 @@ fn (mut h CancelBlockPlaceHandler) on_block_place(mut ctx event.Context[player.B
 
 fn test_break_block_unbreakable_resends_without_event() {
 	mut hub := new_hub(gamedata.GameData{})
+	mut target := db.new_world('world', none, 'flat', world.overworld)
+	hub.add_world(target)
+	defer {
+		hub.close_worlds()
+	}
 	mut transport := &FakeTransport{}
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
@@ -231,12 +236,17 @@ fn test_break_block_unbreakable_resends_without_event() {
 		hub:        hub
 		generator:  world.FlatGenerator{}
 	}
+	s.world = target
+	s.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
 	hub.add(s)
+	register_test_session(mut s)
 
 	pos := types.BlockPosition{0, world.overworld.min_y, 0}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	assert old_id != world.air.network_id
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
 	if sent is proto.UpdateBlockPacket {
@@ -262,7 +272,7 @@ fn test_break_block_air_resends_authoritative_state() {
 	}
 	hub.add(s)
 
-	s.break_block(types.BlockPosition{0, 0, 0})!
+	s.break_block(mut detached_tx(), types.BlockPosition{0, 0, 0})!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
 	if sent is proto.UpdateBlockPacket {
@@ -289,7 +299,7 @@ fn test_break_block_rejects_out_of_reach() {
 	hub.add(s)
 
 	far_pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
-	s.break_block(far_pos)!
+	s.break_block(mut detached_tx(), far_pos)!
 	assert target.block_override(far_pos.x, far_pos.y, far_pos.z) or { -1 } == -1
 }
 
@@ -297,6 +307,9 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
+	defer {
+		hub.close_worlds()
+	}
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
 		player:     make_test_player('Alex', .survival)
@@ -306,12 +319,16 @@ fn test_break_block_cancelled_resends_keeps_block() {
 		world:      target
 		generator:  world.FlatGenerator{}
 	}
+	s.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
 	hub.add(s)
+	register_test_session(mut s)
 	s.handle(&CancelBlockBreakHandler{})
 
 	pos := types.BlockPosition{0, world.overworld.min_y, 0}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 	if _ := target.block_override(pos.x, pos.y, pos.z) {
 		assert false
 	}
@@ -450,15 +467,25 @@ fn test_break_block_succeeds_when_matches() {
 		progress:     1.0
 	}
 
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 }
 
 fn test_break_block_rejects_mismatched_position() {
 	mut hub := new_hub(gamedata.GameData{})
+	mut target := db.new_world('world', none, 'flat', world.overworld)
+	hub.add_world(target)
+	defer {
+		hub.close_worlds()
+	}
 	mut transport := &FakeTransport{}
 	mut s := dirt_break_test_session(mut hub, mut transport)
+	s.world = target
+	s.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
+	register_test_session(mut s)
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	other_pos := types.BlockPosition{5, world.overworld.min_y + 1, 5}
@@ -472,7 +499,9 @@ fn test_break_block_rejects_mismatched_position() {
 		progress:     1.0
 	}
 
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
 	if sent is proto.UpdateBlockPacket {
@@ -503,7 +532,9 @@ fn test_break_block_creative_bypasses_gating() {
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
 	hub.set_current_tick(0)
 
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 }
@@ -549,7 +580,9 @@ fn test_place_resolves_block_from_item_registry() {
 		block_runtime_id: 0
 	}, types.Vector3{2.1901546, -58.37999, 10.302694}, types.Vector3{0.35214186, 1.0, 0.20941257},
 		u32(3727763636))
-	s.handle_player_auth_input(place_packet)!
+	in_world(mut s, fn [mut s, place_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, place_packet)!
+	})!
 
 	target_id := s.block_at(2, -60, 12)
 	got := block.get(target_id) or { panic('placed block not in registry') }
@@ -591,7 +624,9 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 		count:            16
 		block_runtime_id: sign_id
 	}, types.Vector3{2.1901546, -58.37999, 10.302694}, types.Vector3{0.35214186, 1.0, 0.20941257}, 0)
-	s.handle_player_auth_input(place_packet)!
+	in_world(mut s, fn [mut s, place_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, place_packet)!
+	})!
 
 	assert s.block_at(2, -60, 12) == world.air.network_id
 }
@@ -639,7 +674,9 @@ fn test_spectator_cannot_place_or_break_blocks() {
 		count:            64
 		block_runtime_id: world.bedrock.network_id
 	}, types.Vector3{0.5, 1.62, 0.5}, types.Vector3{0.5, 1.0, 0.5}, 0)
-	s.handle_player_auth_input(place_packet)!
+	in_world(mut s, fn [mut s, place_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, place_packet)!
+	})!
 	assert target.block_override(0, 1, 1) == none
 
 	mut break_transport := &FakeTransport{}
@@ -661,7 +698,9 @@ fn test_spectator_cannot_place_or_break_blocks() {
 	}
 	hub.set_current_tick(20)
 
-	breaker.break_block(break_pos)!
+	in_world(mut breaker, fn [mut breaker, break_pos] (mut tx worldrt.WorldTx) ! {
+		breaker.break_block(mut tx, break_pos)!
+	})!
 	assert target.block_override(break_pos.x, break_pos.y, break_pos.z) or { -1 } == world.dirt.network_id
 }
 
@@ -689,7 +728,9 @@ fn test_empty_hand_interact_places_nothing() {
 		block_runtime_id: 0
 	}, types.Vector3{2.1901546, -58.37999, 10.302694}, types.Vector3{0.42559528, 0.7279053, 0.25},
 		u32(2761757297))
-	s.handle_player_auth_input(interact_packet)!
+	in_world(mut s, fn [mut s, interact_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, interact_packet)!
+	})!
 
 	assert s.block_at(2, -60, 12) == world.air.network_id
 	assert s.block_at(2, -60, 11) == world.air.network_id
@@ -815,4 +856,30 @@ fn test_block_pick_request_selects_existing_item_into_hand() {
 	held, held_net := s.inventory_stack_at(s.player.held_slot())
 	assert held_net == net_id
 	assert held.id == 500
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
+}
+
+// detached_tx is a transaction token for a path that returns before it reaches
+// the world. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
+	}
 }

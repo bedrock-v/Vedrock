@@ -104,7 +104,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 	}
 	s.player.reset_position(types.Vector3{0.5, 1.62, 0.5})
 	hub.add(s)
-	// PlayerPlaceBlockTask requires world membership.
+	// Placement requires world membership.
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
@@ -161,8 +161,11 @@ fn test_place_block_writes_and_consumes_item_once() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut s, fn [mut s, click_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, click_packet)!
+	})!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -182,7 +185,9 @@ fn test_inventory_transaction_packet_is_a_safe_no_op() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(proto.InventoryTransactionPacket{})!
+	in_world(mut s, fn [mut s] (mut tx worldrt.WorldTx) ! {
+		s.handle_inventory_transaction(mut tx, proto.InventoryTransactionPacket{})!
+	})!
 
 	assert target.block_override(0, 1, 1) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -202,8 +207,11 @@ fn test_place_block_broadcasts_place_sound() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut s, fn [mut s, click_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, click_packet)!
+	})!
 
 	assert wait_for_place_sound(transport, world.bedrock.network_id, 5000)
 }
@@ -231,8 +239,11 @@ fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut s, fn [mut s, click_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, click_packet)!
+	})!
 
 	assert target.block_override(0, 1, 1) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -260,8 +271,11 @@ fn test_place_block_observer_in_another_world_receives_no_packet() {
 	mut observer_transport := &FakeTransport{}
 	mut observer := place_test_session(mut hub, mut observer_transport, mut other_wr)
 
-	placer.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut placer, fn [mut placer, click_packet] (mut tx worldrt.WorldTx) ! {
+		placer.handle_player_auth_input(mut tx, click_packet)!
+	})!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	for p in observer_transport.sent {
@@ -290,8 +304,11 @@ fn test_place_block_ignores_player_in_another_world_for_obstruction() {
 	mut blocker := place_test_session(mut hub, mut blocker_transport, mut other_wr)
 	blocker.player.reset_position(types.Vector3{0.5, 1.0 + player_eye_height, 1.5})
 
-	placer.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut placer, fn [mut placer, click_packet] (mut tx worldrt.WorldTx) ! {
+		placer.handle_player_auth_input(mut tx, click_packet)!
+	})!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	stack, _ := placer.inventory_stack_at(placer.player.held_slot())
@@ -337,8 +354,11 @@ fn test_place_block_event_isolated_to_owning_world() {
 	other.handle(handler_b)
 	give_held_stack(mut s, 500, 1)
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut s, fn [mut s, click_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, click_packet)!
+	})!
 
 	assert handler_a.hits == 1
 	assert handler_b.hits == 0
@@ -357,8 +377,11 @@ fn test_sign_tile_broadcasts_before_block_update() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		501))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		501)
+	in_world(mut s, fn [mut s, click_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, click_packet)!
+	})!
 	assert wait_for_sent_len(transport, 2, 5000)
 
 	mut tile_index := -1
@@ -394,8 +417,11 @@ fn test_handled_interaction_does_not_consume_or_place_held_item() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
-		500))!
+	click_packet := place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5},
+		500)
+	in_world(mut s, fn [mut s, click_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_player_auth_input(mut tx, click_packet)!
+	})!
 	assert wait_for_sent_len(transport, 1, 5000)
 
 	mut opened_editor := false
@@ -496,4 +522,22 @@ fn test_door_placement_writes_both_halves_atomically_in_same_world() {
 	assert placed
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == 1001
 	assert target.block_override(above.x, above.y, above.z) or { -1 } == 1002
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
 }

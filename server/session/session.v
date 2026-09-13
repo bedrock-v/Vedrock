@@ -414,38 +414,78 @@ fn (mut s NetworkSession) handle_packet(p protocol.Packet) ! {
 				s.handle_player_initialized(p)!
 			} else if p is proto.TextPacket {
 				s.handle_text(p)!
-			} else if p is proto.MovePlayerPacket {
-				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1],
-					p.y_head_rotation, p.on_ground)
-			} else if p is proto.PlayerAuthInputPacket {
-				s.handle_player_auth_input(p)!
-			} else if p is proto.InteractPacket {
-				s.handle_interact(p)!
-			} else if p is proto.ContainerClosePacket {
-				s.handle_container_close(p)!
-			} else if p is proto.ItemStackRequestPacket {
-				s.handle_item_stack_request(p)!
 			} else if p is proto.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is proto.InventoryTransactionPacket {
-				s.handle_inventory_transaction(p)!
-			} else if p is proto.PlayerActionPacket {
-				s.handle_player_action(p)!
-			} else if p is proto.BlockPickRequestPacket {
-				s.handle_block_pick_request(p)!
-			} else if p is proto.MobEquipmentPacket {
-				s.handle_mob_equipment(p)!
-			} else if p is proto.RespawnPacket {
-				s.handle_respawn(p)!
 			} else if p is proto.ModalFormResponsePacket {
 				s.handle_modal_form_response(p)!
-			} else if p is proto.BookEditPacket {
-				s.handle_book_edit(p)!
-			} else if p is proto.BlockActorDataPacket {
-				s.handle_block_actor_data(p)!
+			} else {
+				s.handle_world_packet(p)!
 			}
 		}
 		else {}
+	}
+}
+
+// handle_world_packet runs a play packet inside a transaction on the world the
+// player is in. The handler and everything it reaches read and change that
+// world on its own actor thread and the read loop waits for it to finish: a
+// client can't get ahead of its world and its packets keep their order.
+//
+// A packet that arrives before the player has joined a world or once that
+// world has stopped accepting work, is dropped.
+fn (mut s NetworkSession) handle_world_packet(p protocol.Packet) ! {
+	if !s.spawned {
+		return
+	}
+	mut wr := s.current_world_runtime()
+	if isnil(wr) {
+		return
+	}
+	mut self := s.self_ref()
+	outcome := worldrt.world_call[ExecOutcome]('Session.handle_world_packet', mut wr, fn [mut self, p] (mut tx worldrt.WorldTx) ExecOutcome {
+		self.dispatch_world_packet(mut tx, p) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
+}
+
+// dispatch_world_packet routes a play packet to its handler. Chat, commands and
+// forms are not routed here: commands and form callbacks act on other players,
+// possibly in other worlds, which takes a transaction of its own and cannot
+// start one from inside this.
+fn (mut s NetworkSession) dispatch_world_packet(mut tx worldrt.WorldTx, p protocol.Packet) ! {
+	if p is proto.MovePlayerPacket {
+		s.update_movement(mut tx, proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1],
+			p.y_head_rotation, p.on_ground)
+	} else if p is proto.PlayerAuthInputPacket {
+		s.handle_player_auth_input(mut tx, p)!
+	} else if p is proto.InteractPacket {
+		s.handle_interact(p)!
+	} else if p is proto.ContainerClosePacket {
+		s.handle_container_close(mut tx, p)!
+	} else if p is proto.ItemStackRequestPacket {
+		s.handle_item_stack_request(mut tx, p)!
+	} else if p is proto.InventoryTransactionPacket {
+		s.handle_inventory_transaction(mut tx, p)!
+	} else if p is proto.PlayerActionPacket {
+		s.handle_player_action(mut tx, p)!
+	} else if p is proto.BlockPickRequestPacket {
+		s.handle_block_pick_request(p)!
+	} else if p is proto.MobEquipmentPacket {
+		s.handle_mob_equipment(mut tx, p)!
+	} else if p is proto.RespawnPacket {
+		s.handle_respawn(mut tx, p)!
+	} else if p is proto.BookEditPacket {
+		s.handle_book_edit(p)!
+	} else if p is proto.BlockActorDataPacket {
+		s.handle_block_actor_data(mut tx, p)!
 	}
 }
 

@@ -65,13 +65,19 @@ fn test_survival_placed_block_can_be_broken() {
 	assert s.block_at(ground.x, ground.y, ground.z) == world.grass_block.network_id
 	assert s.block_at(placed_pos.x, placed_pos.y, placed_pos.z) == world.air.network_id
 
-	s.handle_place_click(ground, 1, 0.5)
+	in_world(mut s, fn [mut s, ground] (mut tx worldrt.WorldTx) ! {
+		s.handle_place_click(mut tx, ground, 1, 0.5)
+	})!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.cobblestone.network_id
 
-	s.handle_start_break(placed_pos, 1)
+	in_world(mut s, fn [mut s, placed_pos] (mut tx worldrt.WorldTx) ! {
+		s.handle_start_break(mut tx, placed_pos, 1)
+	})!
 	complete_break(mut s)
-	s.break_block(placed_pos)!
+	in_world(mut s, fn [mut s, placed_pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, placed_pos)!
+	})!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.air.network_id
 }
@@ -120,14 +126,20 @@ fn test_survival_mined_drop_can_be_replaced_and_broken() {
 
 	assert s.placement_runtime_id() != 0
 
-	s.handle_place_click(ground, 1, 0.5)
+	in_world(mut s, fn [mut s, ground] (mut tx worldrt.WorldTx) ! {
+		s.handle_place_click(mut tx, ground, 1, 0.5)
+	})!
 
 	placed_id := target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 }
 	assert placed_id == world.dirt.network_id
 
-	s.handle_start_break(placed_pos, 1)
+	in_world(mut s, fn [mut s, placed_pos] (mut tx worldrt.WorldTx) ! {
+		s.handle_start_break(mut tx, placed_pos, 1)
+	})!
 	complete_break(mut s)
-	s.break_block(placed_pos)!
+	in_world(mut s, fn [mut s, placed_pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, placed_pos)!
+	})!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.air.network_id
 }
@@ -156,14 +168,38 @@ fn test_survival_placed_block_can_be_broken_with_real_palette() {
 	ground := types.BlockPosition{0, world.overworld.min_y + 3, 0}
 	placed_pos := types.BlockPosition{0, world.overworld.min_y + 4, 0}
 
-	s.handle_place_click(ground, 1, 0.5)
+	in_world(mut s, fn [mut s, ground] (mut tx worldrt.WorldTx) ! {
+		s.handle_place_click(mut tx, ground, 1, 0.5)
+	})!
 
 	placed_id := target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 }
 	assert placed_id == world.cobblestone.network_id
 
-	s.handle_start_break(placed_pos, 1)
+	in_world(mut s, fn [mut s, placed_pos] (mut tx worldrt.WorldTx) ! {
+		s.handle_start_break(mut tx, placed_pos, 1)
+	})!
 	complete_break(mut s)
-	s.break_block(placed_pos)!
+	in_world(mut s, fn [mut s, placed_pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, placed_pos)!
+	})!
 
 	assert target.block_override(placed_pos.x, placed_pos.y, placed_pos.z) or { -1 } == world.air.network_id
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
 }

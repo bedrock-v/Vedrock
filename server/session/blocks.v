@@ -69,44 +69,44 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 // InventoryTransactionPacket. A click on a block arrives here rather than in
 // PlayerAuthInput, which carries the same body but only for some of the ways
 // the client reports one.
-fn (mut s NetworkSession) handle_inventory_transaction(p proto.InventoryTransactionPacket) ! {
+fn (mut s NetworkSession) handle_inventory_transaction(mut tx worldrt.WorldTx, p proto.InventoryTransactionPacket) ! {
 	use_item := p.use_item or { return }
-	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position),
+	s.handle_item_use(mut tx, use_item.action_type, proto.block_pos_from(use_item.position),
 		int(use_item.face), use_item.click_position[1])!
 }
 
-fn (mut s NetworkSession) handle_player_auth_input(p proto.PlayerAuthInputPacket) ! {
+fn (mut s NetworkSession) handle_player_auth_input(mut tx worldrt.WorldTx, p proto.PlayerAuthInputPacket) ! {
 	on_ground := proto.PlayerAuthInputData.vertical_collision in p.input_data
 	s.apply_input_state(p.input_data)
-	s.update_movement(proto.vec3_from_array(p.player_position), p.player_rotation[0],
+	s.update_movement(mut tx, proto.vec3_from_array(p.player_position), p.player_rotation[0],
 		p.player_rotation[1], p.player_head_rotation, on_ground)
-	if tx := p.item_use_transaction {
-		s.handle_item_use_transaction(tx)!
+	if item_use := p.item_use_transaction {
+		s.handle_item_use_transaction(mut tx, item_use)!
 	}
 	if actions := p.player_block_actions {
 		if actions.len > max_block_actions_per_input {
 			return error('player auth input carried ${actions.len} block actions')
 		}
 		for action in actions {
-			s.handle_player_block_action(action)!
+			s.handle_player_block_action(mut tx, action)!
 		}
 	}
 }
 
-fn (mut s NetworkSession) handle_item_use_transaction(tx proto.PackedItemUseLegacyInventoryTransaction) ! {
-	s.handle_item_use(tx.action_type, proto.block_pos_from(tx.position), int(tx.face),
-		tx.click_position[1])!
+fn (mut s NetworkSession) handle_item_use_transaction(mut tx worldrt.WorldTx, item_use proto.PackedItemUseLegacyInventoryTransaction) ! {
+	s.handle_item_use(mut tx, item_use.action_type, proto.block_pos_from(item_use.position),
+		int(item_use.face), item_use.click_position[1])!
 }
 
 // handle_item_use runs one click on a block. Both transports of the same body
 // end here, so a click means the same thing whichever the client used.
-fn (mut s NetworkSession) handle_item_use(action proto.ItemUseInventoryTransactionType, pos types.BlockPosition, face int, clicked_y f32) ! {
+fn (mut s NetworkSession) handle_item_use(mut tx worldrt.WorldTx, action proto.ItemUseInventoryTransactionType, pos types.BlockPosition, face int, clicked_y f32) ! {
 	match action {
 		.place {
-			s.handle_place_click(pos, face, clicked_y)
+			s.handle_place_click(mut tx, pos, face, clicked_y)
 		}
 		.destroy {
-			s.break_block(pos)!
+			s.break_block(mut tx, pos)!
 		}
 		.use {
 			s.use_held_item_in_air()
@@ -118,7 +118,7 @@ fn (mut s NetworkSession) handle_item_use(action proto.ItemUseInventoryTransacti
 	}
 }
 
-fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, clicked_y f32) {
+fn (mut s NetworkSession) handle_place_click(mut tx worldrt.WorldTx, block_position types.BlockPosition, block_face int, clicked_y f32) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -144,13 +144,8 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		return
 	}
 	runtime_id := s.placement_runtime_id()
-	binding := s.world_binding()
-	if isnil(binding.world_runtime) {
-		return
-	}
-	mut wr := binding.world_runtime
 	now := time.now().unix_milli()
-	task := PlayerPlaceBlockTask{
+	click := PlaceBlockClick{
 		id:            s.actor_id()
 		click_pos:     block_position
 		click_face:    block_face
@@ -161,11 +156,8 @@ fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition,
 		last_place_ms: s.last_place_ms
 		is_creative:   s.player.game_mode() == .creative
 	}
-	if wr.submit(task) {
-		placed := <-task.result
-		if placed {
-			s.last_place_ms = now
-		}
+	if place_block_for(mut tx, click) {
+		s.last_place_ms = now
 	}
 }
 
@@ -257,44 +249,44 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	})
 }
 
-fn (mut s NetworkSession) handle_player_action(p proto.PlayerActionPacket) ! {
+fn (mut s NetworkSession) handle_player_action(mut tx worldrt.WorldTx, p proto.PlayerActionPacket) ! {
 	match p.action {
 		.creative_destroy_block, .predict_destroy_block {
-			s.break_block(proto.block_pos_from(p.block_position))!
+			s.break_block(mut tx, proto.block_pos_from(p.block_position))!
 		}
 		.start_destroy_block {
-			s.handle_start_break(proto.block_pos_from(p.block_position), int(p.face))
+			s.handle_start_break(mut tx, proto.block_pos_from(p.block_position), int(p.face))
 		}
 		.continue_destroy_block {
-			s.handle_continue_break(proto.block_pos_from(p.block_position), int(p.face))
+			s.handle_continue_break(mut tx, proto.block_pos_from(p.block_position), int(p.face))
 		}
 		.abort_destroy_block {
-			s.handle_abort_break(proto.block_pos_from(p.block_position))
+			s.handle_abort_break(mut tx, proto.block_pos_from(p.block_position))
 		}
 		.respawn {
-			s.request_respawn()
+			s.apply_respawn(mut tx)
 		}
 		else {}
 	}
 }
 
-fn (mut s NetworkSession) handle_player_block_action(action proto.PlayerBlockActionData) ! {
+fn (mut s NetworkSession) handle_player_block_action(mut tx worldrt.WorldTx, action proto.PlayerBlockActionData) ! {
 	pos := proto.block_pos_from_legacy(action.position)
 	match action.action_type {
 		.creative_destroy_block, .predict_destroy_block {
-			s.break_block(pos)!
+			s.break_block(mut tx, pos)!
 		}
 		.start_destroy_block {
-			s.handle_start_break(pos, int(action.facing))
+			s.handle_start_break(mut tx, pos, int(action.facing))
 		}
 		.continue_destroy_block {
-			s.handle_continue_break(pos, int(action.facing))
+			s.handle_continue_break(mut tx, pos, int(action.facing))
 		}
 		.abort_destroy_block {
-			s.handle_abort_break(pos)
+			s.handle_abort_break(mut tx, pos)
 		}
 		.respawn {
-			s.request_respawn()
+			s.apply_respawn(mut tx)
 		}
 		else {}
 	}
@@ -368,7 +360,7 @@ fn (mut s NetworkSession) apply_consume_held_item() {
 	s.send_slot_update(held_slot, wrapped)
 }
 
-fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
+fn (mut s NetworkSession) break_block(mut tx worldrt.WorldTx, pos types.BlockPosition) ! {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -389,45 +381,16 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 			flags:            worldrt.block_update_flags
 			layer:            0
 		})!
-		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
+		broadcast_cracking(mut tx, proto.level_event_stop_block_cracking, pos, 0)
 		return
 	}
 	if s.player.game_mode() != .creative && !s.break_complete(pos, old_id) {
 		s.resend_block(pos)
-		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
+		broadcast_cracking(mut tx, proto.level_event_stop_block_cracking, pos, 0)
 		return
 	}
 	s.set_breaking(none)
-	binding := s.world_binding()
-	if isnil(binding.world_runtime) {
-		return
-	}
-	mut wr := binding.world_runtime
-	task := PlayerBreakBlockTask{
-		id:     s.actor_id()
-		x:      pos.x
-		y:      pos.y
-		z:      pos.z
-		old_id: old_id
-	}
-	if wr.submit(task) {
-		_ := <-task.done
-	}
-}
-
-// PlayerBreakBlockTask performs the validated break operation on the owning
-// world actor. It is discarded if the block changed or the player switched worlds.
-struct PlayerBreakBlockTask {
-	id entity.ActorId
-	x                  int
-	y                  int
-	z                  int
-	old_id             int
-	done               chan bool = chan bool{cap: 1}
-}
-
-fn (t PlayerBreakBlockTask) name() string {
-	return 'PlayerBreakBlockTask'
+	break_block_for(mut tx, s.actor_id(), pos, old_id)
 }
 
 // break_block_for finishes the break one player started, at the block the
@@ -437,19 +400,12 @@ fn break_block_for(mut tx worldrt.WorldTx, id entity.ActorId, pos types.BlockPos
 	complete_block_break(mut tx, mut s, pos, old_id)
 }
 
-fn (t PlayerBreakBlockTask) run(mut tx worldrt.WorldTx) {
-	defer {
-		t.done <- true
-	}
-	break_block_for(mut tx, t.id, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
-}
-
 // complete_block_break destroys the block and runs everything that follows
 // from it: the event, the drop, the container contents, the paired door half
 // and the effects every player in the world sees.
 //
 // Both ways a block can be destroyed end up here. A client predicted destroy
-// arrives as a PlayerBreakBlockTask, and a break the server itself finished
+// calls in from break_block and a break the server itself finished
 // calls in from tick_breaking, which is the only path that runs when the
 // client has handed block breaking to the server.
 fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
@@ -516,10 +472,9 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	return true
 }
 
-// PlayerPlaceBlockTask handles one block interaction atomically on the
-// owning world actor, avoiding races between branch selection and commit.
-// Placement timing is captured by the session thread before submission.
-struct PlayerPlaceBlockTask {
+// PlaceBlockClick is one click that wants to put a block down, with what the
+// session read when the packet arrived.
+struct PlaceBlockClick {
 	id entity.ActorId
 	click_pos          types.BlockPosition
 	click_face         int
@@ -529,30 +484,25 @@ struct PlayerPlaceBlockTask {
 	now_ms             i64
 	last_place_ms      i64
 	is_creative        bool
-	result             chan bool = chan bool{cap: 1}
-}
-
-fn (t PlayerPlaceBlockTask) name() string {
-	return 'PlayerPlaceBlockTask'
 }
 
 // place_block_for runs one click that wants to put a block down and reports
 // whether anything was placed. Every path that refuses resends the blocks the
-// client already drew so its view matches the world again.
-fn place_block_for(mut tx worldrt.WorldTx, t PlayerPlaceBlockTask) bool {
+// client already drew, putting its view back in line with the world.
+fn place_block_for(mut tx worldrt.WorldTx, click PlaceBlockClick) bool {
 	mut placed := false
-	mut s := player_for_id(mut tx, t.id) or { return false }
-	pos := t.click_pos
-	neighbor := face_offset(pos, t.click_face)
+	mut s := player_for_id(mut tx, click.id) or { return false }
+	pos := click.click_pos
+	neighbor := face_offset(pos, click.click_face)
 	clicked_id := block_at(tx, pos.x, pos.y, pos.z)
 
-	if interact_block(mut tx, mut s, pos, clicked_id, t.click_face) {
+	if interact_block(mut tx, mut s, pos, clicked_id, click.click_face) {
 		return false
 	}
 	if use_item_on_block(mut tx, mut s, pos, clicked_id) {
 		return false
 	}
-	if t.runtime_id == 0 {
+	if click.runtime_id == 0 {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return false
@@ -568,38 +518,34 @@ fn place_block_for(mut tx worldrt.WorldTx, t PlayerPlaceBlockTask) bool {
 		s.resend_block(neighbor)
 		return false
 	}
-	if t.now_ms - t.last_place_ms < place_cooldown_ms {
+	if click.now_ms - click.last_place_ms < place_cooldown_ms {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return false
 	}
 
-	if merged := merged_slab(tx, clicked_id, t.runtime_id, t.click_face, t.clicked_y, true) {
+	if merged := merged_slab(tx, clicked_id, click.runtime_id, click.click_face, click.clicked_y, true) {
 		placed = replace_block_form(mut tx, mut s, pos, merged)
-	} else if !can_place_block_on_face(tx, t.runtime_id, t.click_face, clicked_id) {
+	} else if !can_place_block_on_face(tx, click.runtime_id, click.click_face, clicked_id) {
 		s.resend_block(pos)
 		s.resend_block(neighbor)
 		return false
 	} else {
-		placed_id := oriented_block(tx, t.runtime_id, t.click_face, t.clicked_y, t.yaw)
+		placed_id := oriented_block(tx, click.runtime_id, click.click_face, click.clicked_y, click.yaw)
 		target_id := block_at(tx, target.x, target.y, target.z)
-		if merged2 := merged_slab(tx, target_id, t.runtime_id, t.click_face, t.clicked_y, false) {
+		if merged2 := merged_slab(tx, target_id, click.runtime_id, click.click_face, click.clicked_y, false) {
 			placed = replace_block_form(mut tx, mut s, target, merged2)
-		} else if parts := door_placement(mut tx, placed_id, target, t.click_face, t.yaw) {
+		} else if parts := door_placement(mut tx, placed_id, target, click.click_face, click.yaw) {
 			placed = place_door_pair(mut tx, mut s, target, parts)
 		} else {
 			placed = place_block_form(mut tx, mut s, target, placed_id)
 		}
 	}
 
-	if placed && !t.is_creative {
+	if placed && !click.is_creative {
 		consume_held_item(mut s)
 	}
 	return placed
-}
-
-fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
-	t.result <- place_block_for(mut tx, t)
 }
 
 // Block picking is session local: it reads the current world and updates the

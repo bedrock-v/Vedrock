@@ -29,6 +29,11 @@ fn (mut s NetworkSession) show_translation(key string, parameters []string) {
 	})
 }
 
+// send_slot_update keeps the client's inventory view in sync after slot
+// changes including mutations performed by world owned gameplay tasks.
+// wrapped.stack_id must reach the wire via item_descriptor_v2_tracked,
+// not the bare item_descriptor_v2. A descriptor with no net id teaches
+// the client nothing about this slot's id.
 fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
 	s.deliver(&proto.InventorySlotPacket{
 		container_id:        u32(player.inventory_window_id)

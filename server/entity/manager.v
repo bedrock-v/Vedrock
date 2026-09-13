@@ -190,8 +190,7 @@ pub fn (mut m Manager) register_player_actor(a Actor, id ActorId) {
 }
 
 // is_player_actor reports whether the runtime ID belongs to a registered
-// player. PlayerMoveTask uses it without an epoch check so stale tasks can
-// still resolve the session and clear movement_scheduled.
+// player, whatever epoch that registration carries.
 pub fn (mut m Manager) is_player_actor(runtime_id u64) bool {
 	m.mutex.lock()
 	defer {
