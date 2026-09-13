@@ -10,8 +10,9 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -43,7 +44,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world
@@ -176,7 +177,7 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
-		assert p !is proto.UpdateBlockPacket
+		assert p !is packets_944.UpdateBlockPacket
 	}
 }
 
@@ -238,7 +239,7 @@ fn test_break_block_event_reaches_only_the_breaking_player() {
 
 fn break_sent_level_event(transport &FakeTransport) bool {
 	for p in transport.sent {
-		if p is proto.LevelEventPacket {
+		if p is packets_662.LevelEventPacket {
 			return true
 		}
 	}
@@ -252,7 +253,8 @@ fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
 	for !break_sent_level_event(transport) {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return break_sent_level_event(transport)
 			}
@@ -366,7 +368,7 @@ fn test_standing_player_mines_at_vanilla_speed() {
 fn tick_world_once(mut wr worldrt.WorldRuntime) {
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		mut ticker := SessionPlayerTicker{}
-	ticker.tick_players(mut tx)
+		ticker.tick_players(mut tx)
 		return true
 	}) or { panic('tick rejected - world unexpectedly stopped') }
 }
@@ -438,8 +440,8 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 	give_held_pick(mut s_b)
 
 	// Stall world A's actor with a task barrier.
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	a_ok := wr_a.submit(BreakBarrierTask{
 		started: started
 		release: release

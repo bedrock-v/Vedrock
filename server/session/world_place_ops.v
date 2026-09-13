@@ -10,6 +10,7 @@ import server.item
 import bedrock_v.protocol.current as proto
 import server.player
 import server.worldrt
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 // ObstructionResult is obstructed_by_entity's answer: whether pos is
 // obstructed at all and whether the only body overlapping it is the acting
@@ -90,8 +91,7 @@ fn merged_slab(tx &worldrt.WorldTx, existing_id int, placing_id int, click_face 
 	if existing_id == world.air.network_id || isnil(tx.wr.services.block_palette()) {
 		return none
 	}
-	return tx.wr.services.block_palette().merged_slab(existing_id, placing_id, click_face, click_y,
-		clicked)
+	return tx.wr.services.block_palette().merged_slab(existing_id, placing_id, click_face, click_y, clicked)
 }
 
 fn door_placement(mut tx worldrt.WorldTx, runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
@@ -181,7 +181,7 @@ fn maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime
 	if b !is block.SignBlock {
 		return
 	}
-	s.deliver(&proto.OpenSignPacket{
+	s.deliver(&packets_944.OpenSignPacket{
 		pos:      proto.block_pos(pos)
 		is_front: true
 	})
@@ -271,8 +271,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 	stack, name := s.held_stack_and_name()
 	result := item.use_on_block_result(name, v.name, stack.meta) or { return false }
 	current := v.states.get(result.state_key) or { return false }.int()
-	new_id := tx.wr.services.block_palette().with_state(clicked_id, result.state_key, (current +
-		result.state_delta).str()) or { return false }
+	new_id := tx.wr.services.block_palette().with_state(clicked_id, result.state_key, (current + result.state_delta).str()) or { return false }
 	if new_id == clicked_id {
 		return false
 	}
@@ -292,8 +291,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 	}
 	tx.set_block(pos.x, pos.y, pos.z, new_id)
 	if result.sound != '' {
-		play_actor_sound(mut tx, s.current_position(), sound.Custom{ name: result.sound },
-			entity.SoundSource{
+		play_actor_sound(mut tx, s.current_position(), sound.Custom{ name: result.sound }, entity.SoundSource{
 			actor:      s.runtime_id
 			identifier: player_actor_identifier
 		})

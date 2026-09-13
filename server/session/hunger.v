@@ -5,6 +5,7 @@ import bedrock_v.protocol.current as proto
 import server.item
 import server.player
 import server.worldrt
+import bedrock_v.protocol.version.v2168.enums as enums_2168
 
 // food_regeneration_threshold is the food level a player has to be at or above
 // before health comes back on its own.
@@ -136,18 +137,18 @@ fn jump_exhaustion_for(sprinting bool) f32 {
 // hunger tick knows what the metres it sees were covered by. Each change
 // settles the distance travelled so far first, so a segment is billed at the
 // rate that was true while it was being covered.
-fn (mut s NetworkSession) apply_input_state(input_data []proto.PlayerAuthInputData) {
+fn (mut s NetworkSession) apply_input_state(input_data []enums_2168.PlayerAuthInputData) {
 	if !s.hunger_applies() {
 		return
 	}
 	pos := s.current_position()
-	sprinting := proto.PlayerAuthInputData.sprinting in input_data
+	sprinting := enums_2168.PlayerAuthInputData.sprinting in input_data
 	mut changed := s.player.set_sprinting(pos, sprinting)
-	if proto.PlayerAuthInputData.start_swimming in input_data {
+	if enums_2168.PlayerAuthInputData.start_swimming in input_data {
 		if s.player.set_swimming(pos, true) {
 			changed = true
 		}
-	} else if proto.PlayerAuthInputData.stop_swimming in input_data {
+	} else if enums_2168.PlayerAuthInputData.stop_swimming in input_data {
 		if s.player.set_swimming(pos, false) {
 			changed = true
 		}
@@ -155,7 +156,7 @@ fn (mut s NetworkSession) apply_input_state(input_data []proto.PlayerAuthInputDa
 	if changed {
 		s.send_hunger()
 	}
-	if proto.PlayerAuthInputData.start_jumping in input_data {
+	if enums_2168.PlayerAuthInputData.start_jumping in input_data {
 		s.exhaust_and_sync(jump_exhaustion_for(sprinting))
 	}
 }

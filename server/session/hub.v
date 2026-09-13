@@ -24,6 +24,8 @@ import server.player.playerdb
 import bedrock_v.protocol.current as proto
 import server.worldrt
 import server.player
+import bedrock_v.protocol.version.v924.enums as enums_924
+import bedrock_v.protocol.version.v924.packets as packets_924
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
@@ -443,10 +445,10 @@ pub fn (mut h Hub) list_worlds() []string {
 // WorldInfo is a read-only snapshot describing a loaded world.
 pub struct WorldInfo {
 pub:
-	name       string
-	generator  string
-	dimension  string
-	seed       i64
+	name      string
+	generator string
+	dimension string
+	seed      i64
 	// overrides counts the block overrides in the world's resident columns,
 	// not everything it has ever stored.
 	overrides  int
@@ -798,8 +800,8 @@ pub fn (mut h Hub) chunk_cache_totals() (int, i64) {
 
 // broadcast_message sends a raw chat line to every connected player.
 fn (mut h Hub) broadcast_message(text string) {
-	h.broadcast(&proto.TextPacket{
-		message_type: proto.TextRaw{
+	h.broadcast(&packets_924.TextPacket{
+		message_type: enums_924.TextRaw{
 			message: text
 		}
 	})

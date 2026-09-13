@@ -11,9 +11,16 @@ import server.internal.logger
 import server.player
 import server.player.playerdb
 import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v729.packets as packets_729
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.version.v944.types as types_944
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
@@ -29,28 +36,28 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 }
 
 fn test_inventory_content_roundtrip() {
-	sent := &proto.InventoryContentPacket{
+	sent := &packets_2168.InventoryContentPacket{
 		inventory_id:        u32(player.inventory_window_id)
 		slots:               [
 			proto.item_descriptor_v2(types.ItemStack{ id: 1, count: 64 }),
 		]
-		container_name_data: proto.FullContainerName{
+		container_name_data: types_944.FullContainerName{
 			container: .inventory_container
 		}
 		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
 	}
 	assert decode_packet(sent)!.name() == 'InventoryContentPacket'
-	mut decoded := proto.InventoryContentPacket{}
+	mut decoded := packets_2168.InventoryContentPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.inventory_id == u32(player.inventory_window_id)
 	assert decoded.slots[0].id == 1
 }
 
 fn test_container_open_roundtrip() {
-	sent := &proto.ContainerOpenPacket{
+	sent := &packets_944.ContainerOpenPacket{
 		container_id:    .inventory
 		container_type:  .inventory
-		position:        proto.NetworkBlockPosition{
+		position:        types_944.NetworkBlockPosition{
 			x: 0
 			y: 64
 			z: 0
@@ -58,7 +65,7 @@ fn test_container_open_roundtrip() {
 		target_actor_id: proto.actor_unique_id(-1)
 	}
 	assert decode_packet(sent)!.name() == 'ContainerOpenPacket'
-	mut decoded := proto.ContainerOpenPacket{}
+	mut decoded := packets_944.ContainerOpenPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.container_id == .inventory
 	assert decoded.target_actor_id.value == -1
@@ -66,21 +73,21 @@ fn test_container_open_roundtrip() {
 
 fn test_set_actor_data_flags_roundtrip() {
 	flags := entity_flag_bit(proto.entity_flag_affected_by_gravity) | entity_flag_bit(proto.entity_flag_has_collision)
-	sent := &proto.SetActorDataPacket{
+	sent := &packets_2168.SetActorDataPacket{
 		target_runtime_id: proto.actor_runtime_id(1)
 		actor_data:        [
-			proto.DataItem{
+			types_2168.DataItem{
 				data_item_id:   proto.meta_key_flags
-				data_item_type: proto.DataItemInt64{
+				data_item_type: enums_2168.DataItemInt64{
 					value: flags
 				}
 			},
 		]
-		synced_properties: proto.PropertySyncData{}
+		synced_properties: types_662.PropertySyncData{}
 		tick:              0
 	}
 	assert decode_packet(sent)!.name() == 'SetActorDataPacket'
-	mut decoded := proto.SetActorDataPacket{}
+	mut decoded := packets_2168.SetActorDataPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.actor_data.len == 1
 	assert decoded.actor_data[0].data_item_id == proto.meta_key_flags
@@ -119,7 +126,7 @@ fn test_creative_content_replaces_empty_group_icons() {
 }
 
 fn test_update_attributes_roundtrip() {
-	sent := &proto.UpdateAttributesPacket{
+	sent := &packets_729.UpdateAttributesPacket{
 		target_runtime_id:       proto.actor_runtime_id(4)
 		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
@@ -128,7 +135,7 @@ fn test_update_attributes_roundtrip() {
 		ticks_since_sim_started: 0
 	}
 	assert decode_packet(sent)!.name() == 'UpdateAttributesPacket'
-	mut decoded := proto.UpdateAttributesPacket{}
+	mut decoded := packets_729.UpdateAttributesPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.attribute_list.len == 2
 	assert decoded.attribute_list[0].attribute_name == 'minecraft:health'

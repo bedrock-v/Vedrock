@@ -26,6 +26,7 @@ import sync
 import sync.stdatomic
 import bedrock_v.protocol.current as proto
 import bedrock_v.webrtc.logging
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 // nethernet_identity_domain names the issuer of the server's identity token.
 // Bedrock Dedicated Server self-signs its own the same way.
@@ -166,9 +167,7 @@ pub fn new(opts Options) !&Server {
 	lang := language.load(cfg.language) or {
 		log.warn('Failed to load language "${cfg.language}", falling back to en: ${err}')
 		language.load('en') or {
-			if path := crash.write_dump(cfg.crashdumps_dir, time.now().unix(),
-				'fatal: language load failed', err.msg())
-			{
+			if path := crash.write_dump(cfg.crashdumps_dir, time.now().unix(), 'fatal: language load failed', err.msg()) {
 				log.error('Wrote crash report to ${path}')
 			}
 			return error('failed to load any language, including the "en" fallback: ${err}')
@@ -235,8 +234,7 @@ pub fn new(opts Options) !&Server {
 	// parse peak rather than carrying it for the process's lifetime.
 	release_free_heap()
 	log.debug('After data load ${heap_summary()}')
-	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
-		cfg.generator, log, lang)
+	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds, cfg.generator, log, lang)
 	return &Server{
 		log:        log
 		lang:       lang
@@ -275,7 +273,7 @@ fn (s &Server) transport_log_level() logging.Level {
 // error if the network identity or a listener fails to bind.
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
-		'Version': proto.selected_minecraft_version
+		'Version': proto.proto_version.minecraft_version()
 	}))
 	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
 		log: s.log
@@ -293,8 +291,7 @@ pub fn (mut s Server) start() ! {
 		network_id: u64(s.guid)
 		broadcast:  false
 		logger:     net_log
-	)
-	{
+	) {
 		sig.pong_data(s.pong_data(0).bytes())
 		listener = nethernet.listen(mut sig,
 			// The game leaves the identity assertion out of most of its offers,
@@ -439,7 +436,7 @@ fn (mut s Server) tick_loop() {
 		tick++
 		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
-			s.hub.broadcast(&proto.SetTimePacket{
+			s.hub.broadcast(&packets_662.SetTimePacket{
 				time: world_time
 			})
 			pong := s.pong_data(s.hub.count()).bytes()
@@ -565,9 +562,9 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 // one for each address family.
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
-	return
-		['MCPE', s.cfg.motd, proto.selected_protocol.str(), proto.selected_minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
-		';'
+	return ['MCPE', s.cfg.motd, int(proto.proto_version.protocol_id()).str(),
+		proto.proto_version.minecraft_version(), online.str(), s.cfg.max_players.str(), s.guid.str(),
+		s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') + ';'
 }
 
 fn normalize_gamemode(name string) (string, int) {

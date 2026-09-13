@@ -12,6 +12,9 @@ import server.player.bossbar
 import server.player.scoreboard
 import server.player.title
 import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v898.enums as enums_898
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v898.types as types_898
 
 fn full_registry() cmd.Registry {
 	mut r := cmd.new_registry()
@@ -267,8 +270,8 @@ fn test_version_command() {
 	r.dispatch('/version', mut sender, base_ctx())!
 	assert sender.messages.len == 1
 	assert sender.messages[0].contains('Vedrock')
-	assert sender.messages[0].contains(proto.selected_minecraft_version)
-	assert sender.messages[0].contains(proto.selected_protocol.str())
+	assert sender.messages[0].contains(proto.proto_version.minecraft_version())
+	assert sender.messages[0].contains(int(proto.proto_version.protocol_id()).str())
 }
 
 fn test_version_alias() {
@@ -385,23 +388,23 @@ fn test_resolve_missing() {
 }
 
 fn test_command_request_roundtrip() {
-	pkt := proto.CommandRequestPacket{
+	pkt := packets_898.CommandRequestPacket{
 		command:        '/version'
-		command_origin: proto.CommandOriginData{
-			command_type: proto.CommandOriginType.player
+		command_origin: types_898.CommandOriginData{
+			command_type: enums_898.CommandOriginType.player
 			request_id:   'req-1'
 		}
 		version:        '1'
 	}
 	encoded := protocol.encode_packet_to_bytes(&pkt)
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'CommandRequestPacket'
-	mut request := proto.CommandRequestPacket{}
+	mut request := packets_898.CommandRequestPacket{}
 	decode_into(&pkt, mut request)!
 	assert request.command == '/version'
-	assert request.command_origin.command_type == proto.CommandOriginType.player
+	assert request.command_origin.command_type == enums_898.CommandOriginType.player
 	assert request.command_origin.request_id == 'req-1'
 }
 
@@ -412,11 +415,11 @@ fn test_available_commands_roundtrip() {
 	pkt := r.available_commands(sender)
 	assert pkt.commands.len == 16
 	encoded := protocol.encode_packet_to_bytes(pkt)
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
-	mut available := proto.AvailableCommandsPacket{}
+	mut available := packets_898.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
 	assert available.commands.len == 16
 	assert available.commands[0].alias_enum == -1
@@ -527,8 +530,8 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 		assert !seen[v], 'enum_values contains a duplicate: ${v}'
 		seen[v] = true
 	}
-	mut gamemode_enum := proto.EnumDataEntry{}
-	mut difficulty_enum := proto.EnumDataEntry{}
+	mut gamemode_enum := packets_898.EnumDataEntry{}
+	mut difficulty_enum := packets_898.EnumDataEntry{}
 	for e in pkt.enum_data {
 		if e.name == 'gamemode_mode' {
 			gamemode_enum = e

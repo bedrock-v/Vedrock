@@ -3,6 +3,7 @@ module session
 import bedrock_v.protocol.current as proto
 import bedrock_v.protocol.types
 import server.player
+import bedrock_v.protocol.version.v2168.enums as enums_2168
 
 fn vector_at(x f32) types.Vector3 {
 	return types.Vector3{x, 64.0, 0.0}
@@ -98,11 +99,11 @@ fn test_input_state_is_recorded_from_the_client() {
 		player: pl
 	}
 	s.player.set_game_mode(.survival)
-	s.apply_input_state([proto.PlayerAuthInputData.sprinting, .start_swimming])
+	s.apply_input_state([enums_2168.PlayerAuthInputData.sprinting, .start_swimming])
 	assert s.player.sprinting()
 	assert s.player.swimming()
 
-	s.apply_input_state([proto.PlayerAuthInputData.stop_swimming])
+	s.apply_input_state([enums_2168.PlayerAuthInputData.stop_swimming])
 	assert !s.player.sprinting()
 	assert !s.player.swimming()
 }
@@ -113,10 +114,10 @@ fn test_jumping_spends_exhaustion() {
 		player: pl
 	}
 	s.player.set_game_mode(.survival)
-	s.apply_input_state([proto.PlayerAuthInputData.start_jumping])
+	s.apply_input_state([enums_2168.PlayerAuthInputData.start_jumping])
 	assert s.player.hunger().exhaustion == player.jump_exhaustion
 
 	s.player.set_game_mode(.creative)
-	s.apply_input_state([proto.PlayerAuthInputData.start_jumping])
+	s.apply_input_state([enums_2168.PlayerAuthInputData.start_jumping])
 	assert s.player.hunger().exhaustion == player.jump_exhaustion
 }

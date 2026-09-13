@@ -7,6 +7,8 @@ import server.entity
 import server.world.particle
 import server.world.sound
 import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 // This file renders the world level half of entity.Viewer: the events that
 // belong to a place rather than to an actor. They are built per viewer for the
@@ -18,8 +20,7 @@ fn (mut s NetworkSession) view_sound(pos types.Vector3, snd sound.Sound, source 
 	if source.identifier != '' {
 		actor = s.wire_id_for(source.actor)
 	}
-	s.deliver(proto.level_sound_event(snd.event_name(), pos, snd.data(), source.identifier,
-		actor))
+	s.deliver(proto.level_sound_event(snd.event_name(), pos, snd.data(), source.identifier, actor))
 }
 
 // broadcast_actor_sound plays snd for every session in the hub, naming its
@@ -33,7 +34,7 @@ fn (mut s NetworkSession) broadcast_actor_sound(pos types.Vector3, snd sound.Sou
 }
 
 fn (mut s NetworkSession) view_particle(pos types.Vector3, p particle.Particle) {
-	mut packet := &proto.LevelEventPacket{
+	mut packet := &packets_662.LevelEventPacket{
 		event_id: p.event_id()
 		data:     p.data()
 	}
@@ -44,7 +45,7 @@ fn (mut s NetworkSession) view_particle(pos types.Vector3, p particle.Particle) 
 }
 
 fn (mut s NetworkSession) view_block_update(pos types.BlockPosition, runtime_id int) {
-	s.deliver(&proto.UpdateBlockPacket{
+	s.deliver(&packets_944.UpdateBlockPacket{
 		block_position:   proto.block_pos(pos)
 		block_runtime_id: u32(runtime_id)
 		flags:            worldrt.block_update_flags
@@ -53,7 +54,7 @@ fn (mut s NetworkSession) view_block_update(pos types.BlockPosition, runtime_id 
 }
 
 fn (mut s NetworkSession) view_block_entity(pos types.BlockPosition, tags nbt.RootTag) {
-	s.deliver(&proto.BlockActorDataPacket{
+	s.deliver(&packets_944.BlockActorDataPacket{
 		block_position:  proto.block_pos(pos)
 		actor_data_tags: tags
 	})

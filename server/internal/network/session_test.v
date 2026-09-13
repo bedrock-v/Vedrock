@@ -4,9 +4,12 @@ import bedrock_v.protocol
 import bedrock_v.protocol.serializer
 import bedrock_v.protocol.version
 import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	batch := decode_batch(raw, compression_enabled)!
 	mut packets := []protocol.Packet{}
 	for b in batch {
@@ -17,16 +20,16 @@ fn decode_through_pool(raw []u8, compression_enabled bool) ![]protocol.Packet {
 }
 
 fn test_network_pool_is_locked_to_protocol_2192() {
-	assert proto.selected_protocol == 2192
-	assert proto.proto_version() == version.ProtoVersion.v2192
-	assert proto.selected_minecraft_version == proto.proto_version().minecraft_version()
-	mut pool := proto.new_packet_pool()
+	assert int(proto.proto_version.protocol_id()) == 2192
+	assert proto.proto_version == version.ProtoVersion.v2192
+	assert proto.proto_version.minecraft_version() == proto.proto_version.minecraft_version()
+	mut pool := proto.new_pool()
 	assert pool.get_packet_by_id(193) or { return }.name() == 'RequestNetworkSettingsPacket'
 }
 
 fn test_request_network_settings_through_batch() {
-	req := &proto.RequestNetworkSettingsPacket{
-		client_network_version: proto.selected_protocol
+	req := &packets_662.RequestNetworkSettingsPacket{
+		client_network_version: int(proto.proto_version.protocol_id())
 	}
 	raw := encode_batch([protocol.encode_packet_to_bytes(req)], false, 0)!
 	packets := decode_through_pool(raw, false)!
@@ -36,18 +39,18 @@ fn test_request_network_settings_through_batch() {
 }
 
 fn test_selected_pool_decodes_2192_auth_input() {
-	mut auth := &proto.PlayerAuthInputPacket{}
+	mut auth := &packets_2192.PlayerAuthInputPacket{}
 	auth.player_rotation[0] = 12.5
 	auth.player_rotation[1] = 34.25
 	auth.player_position[0] = 1.0
 	auth.player_position[1] = 2.0
 	auth.player_position[2] = 3.0
 
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(auth))
 	p := pool.decode(mut r)!
 	assert p.name() == 'PlayerAuthInputPacket'
-	mut input := proto.PlayerAuthInputPacket{}
+	mut input := packets_2192.PlayerAuthInputPacket{}
 	decode_into(auth, mut input)!
 	assert input.player_rotation[0] == f32(12.5)
 	assert input.player_rotation[1] == f32(34.25)
@@ -57,12 +60,12 @@ fn test_selected_pool_decodes_2192_auth_input() {
 }
 
 fn test_multiple_packets_compressed_batch() {
-	req := &proto.RequestNetworkSettingsPacket{
-		client_network_version: proto.selected_protocol
+	req := &packets_662.RequestNetworkSettingsPacket{
+		client_network_version: int(proto.proto_version.protocol_id())
 	}
-	settings := &proto.NetworkSettingsPacket{
+	settings := &packets_662.NetworkSettingsPacket{
 		compression_threshold: 256
-		compression_algorithm: proto.PacketCompressionAlgorithm.z_lib
+		compression_algorithm: enums_662.PacketCompressionAlgorithm.z_lib
 	}
 	payloads := [
 		protocol.encode_packet_to_bytes(req),

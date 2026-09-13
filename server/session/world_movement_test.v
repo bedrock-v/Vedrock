@@ -9,8 +9,9 @@ import server.entity
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn movement_isolation_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut s := &NetworkSession{
@@ -60,8 +61,8 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 
 	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	assert wr_a.submit(MovementIsolationBarrierTask{
 		started: started
 		release: release
@@ -176,7 +177,8 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 	for a_transport.sent.len == 0 {
 		waited_from := time.now()
 		select {
-			_ := <-a_transport.sent_notify {}
+			_ := <-a_transport.sent_notify {
+			}
 			sent_remaining {
 				break
 			}
@@ -189,14 +191,14 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_move := false
 	for p in a_transport.sent {
-		if p is proto.MoveActorAbsolutePacket {
+		if p is packets_662.MoveActorAbsolutePacket {
 			a_saw_move = true
 		}
 	}
 	assert a_saw_move
 
 	for p in b_transport.sent {
-		assert p !is proto.MoveActorAbsolutePacket
+		assert p !is packets_662.MoveActorAbsolutePacket
 	}
 }
 
@@ -227,7 +229,8 @@ fn drain_until_sent(mut transport FakeTransport, budget time.Duration) {
 	for transport.sent.len == 0 && remaining > 0 {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				break
 			}
@@ -264,8 +267,8 @@ fn test_teleport_snaps_its_client_and_moves_body_for_others() {
 
 	mut mover_snapped := false
 	for p in mover_transport.sent {
-		assert p !is proto.MoveActorAbsolutePacket
-		if p is proto.MovePlayerPacket {
+		assert p !is packets_662.MoveActorAbsolutePacket
+		if p is packets_2168.MovePlayerPacket {
 			mover_snapped = true
 		}
 	}
@@ -273,8 +276,8 @@ fn test_teleport_snaps_its_client_and_moves_body_for_others() {
 
 	mut observer_saw_move := false
 	for p in observer_transport.sent {
-		assert p !is proto.MovePlayerPacket
-		if p is proto.MoveActorAbsolutePacket {
+		assert p !is packets_2168.MovePlayerPacket
+		if p is packets_662.MoveActorAbsolutePacket {
 			observer_saw_move = true
 		}
 	}

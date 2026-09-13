@@ -5,6 +5,8 @@ import bedrock_v.protocol.types
 import server.block
 import server.world
 import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 // bed_block is the one block id every bed colour shares; the colour lives in
 // the block entity rather than in the block itself.
@@ -71,8 +73,8 @@ fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition
 // draws its own respawn marker and compass from.
 fn (mut s NetworkSession) send_spawn_position(pos types.BlockPosition, dimension_id int) {
 	block_pos := proto.block_pos(pos)
-	s.deliver(&proto.SetSpawnPositionPacket{
-		spawn_position_type: proto.SpawnPositionType.player_respawn
+	s.deliver(&packets_944.SetSpawnPositionPacket{
+		spawn_position_type: enums_662.SpawnPositionType.player_respawn
 		block_position:      block_pos
 		dimension_type:      i32(dimension_id)
 		spawn_block_pos:     block_pos

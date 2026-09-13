@@ -7,6 +7,8 @@ import bedrock_v.protocol.current as proto
 import server.entity
 import server.player
 import server.worldrt
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v2168.packets as packets_2168
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
@@ -29,8 +31,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	if !s.spawned {
 		return
 	}
-	sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw := s.sanitize_movement(position,
-		pitch, yaw, head_yaw)
+	sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw := s.sanitize_movement(position, pitch, yaw, head_yaw)
 
 	s.movement_mutex.lock()
 	if expected := s.pending_teleport_ack {
@@ -215,10 +216,10 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 		s.player.handler.on_player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
-			mut move_packet := &proto.MovePlayerPacket{
+			mut move_packet := &packets_2168.MovePlayerPacket{
 				player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 				y_head_rotation:   current.head_yaw
-				position_mode:     proto.PlayerPositionMode.respawn
+				position_mode:     enums_2168.PlayerPositionMode.respawn
 				on_ground:         false
 			}
 			move_packet.position[0] = current.position.x
@@ -230,8 +231,7 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 			return
 		}
 	}
-	landed_distance := s.player.apply_movement(position, snapshot.pitch, snapshot.yaw,
-		snapshot.head_yaw, snapshot.on_ground)
+	landed_distance := s.player.apply_movement(position, snapshot.pitch, snapshot.yaw, snapshot.head_yaw, snapshot.on_ground)
 	if s.spawned {
 		for mut v in viewers_except(mut tx, s.runtime_id) {
 			v.view_movement(s.player)

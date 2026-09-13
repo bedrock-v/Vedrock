@@ -7,6 +7,12 @@ import server.block
 import server.item
 import server.world.db
 import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v944.enums as enums_944
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v944.types as types_944
 
 // Furnace progress ids, as the client's own container data. flame is drawn
 // from burn_progress against burn_total, and the arrow from cook_progress
@@ -135,8 +141,7 @@ fn light_furnace(mut tx worldrt.WorldTx, x int, y int, z int, state db.FurnaceSt
 		return state
 	}
 	burning := item.fuel(tx.wr.services.game_data().item_name(fuel.id)) or { return state }
-	tx.wr.world.set_container_slot(x, y, z, block.furnace_slot_fuel, spent_fuel(mut tx,
-		fuel, burning))
+	tx.wr.world.set_container_slot(x, y, z, block.furnace_slot_fuel, spent_fuel(mut tx, fuel, burning))
 	return db.FurnaceState{
 		burn_ticks: burning.burn_ticks
 		burn_total: burning.burn_ticks
@@ -222,7 +227,7 @@ fn broadcast_furnace_progress(mut tx worldrt.WorldTx, x int, y int, z int, state
 
 fn furnace_data_packet(id i32, value i32) &versioned.ContainerSetDataPacket {
 	return &versioned.ContainerSetDataPacket{
-		container_id: proto.ContainerID.first
+		container_id: enums_662.ContainerID.first
 		id:           id
 		value:        value
 	}
@@ -251,7 +256,7 @@ fn open_furnace(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPos
 	}
 	s.set_open_container_position(pos)
 	stacks := tx.wr.world.container_slots(pos.x, pos.y, pos.z)
-	mut descriptors := []proto.NetworkItemStackDescriptorV2{cap: block.furnace_slot_count}
+	mut descriptors := []types_2168.NetworkItemStackDescriptorV2{cap: block.furnace_slot_count}
 	mut slot_net_ids := map[int]int{}
 	for slot in 0 .. block.furnace_slot_count {
 		stack := stacks[slot] or { types.ItemStack{} }
@@ -264,17 +269,17 @@ fn open_furnace(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPos
 		}
 	}
 	s.set_open_container_slots(slot_net_ids)
-	s.deliver(&proto.ContainerOpenPacket{
-		container_id:    proto.ContainerID.first
+	s.deliver(&packets_944.ContainerOpenPacket{
+		container_id:    enums_662.ContainerID.first
 		container_type:  furnace_screen(variant)
 		position:        proto.block_pos(pos)
 		target_actor_id: proto.actor_unique_id(-1)
 	})
-	s.deliver(&proto.InventoryContentPacket{
+	s.deliver(&packets_2168.InventoryContentPacket{
 		inventory_id:        u32(chest_dynamic_container_id())
 		slots:               descriptors
-		container_name_data: proto.FullContainerName{
-			container:  proto.ContainerEnumName.dynamic_container
+		container_name_data: types_944.FullContainerName{
+			container:  enums_944.ContainerEnumName.dynamic_container
 			dynamic_id: i32(chest_dynamic_container_id())
 		}
 		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
@@ -285,11 +290,11 @@ fn open_furnace(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPos
 	s.deliver(furnace_data_packet(furnace_data_burn_total, i32(state.burn_total)))
 }
 
-fn furnace_screen(variant block.FurnaceVariant) proto.ContainerType {
+fn furnace_screen(variant block.FurnaceVariant) enums_662.ContainerType {
 	return match variant {
-		.furnace { proto.ContainerType.furnace }
-		.blast_furnace { proto.ContainerType.blast_furnace }
-		.smoker { proto.ContainerType.smoker }
+		.furnace { enums_662.ContainerType.furnace }
+		.blast_furnace { enums_662.ContainerType.blast_furnace }
+		.smoker { enums_662.ContainerType.smoker }
 	}
 }
 

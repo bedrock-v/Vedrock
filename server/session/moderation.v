@@ -5,6 +5,11 @@ import bedrock_v.protocol.current as proto
 import server.internal.logger
 import server.entity
 import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v712.packets as packets_712
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v662.types as types_662
 
 // op / deop
 
@@ -48,8 +53,8 @@ fn (mut s NetworkSession) set_operator(value bool) {
 // PlayerOpRefreshTask resends commands and abilities on the target's owning
 // world.
 struct PlayerOpRefreshTask {
-	id entity.ActorId
-	result     chan bool = chan bool{cap: 1}
+	id     entity.ActorId
+	result chan bool = chan bool{ cap: 1 }
 }
 
 fn (t PlayerOpRefreshTask) name() string {
@@ -194,25 +199,25 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 		s.chunk_stream_mutex.unlock()
 	}
 	own := s.player.position()
-	s.send_packet(&proto.ChunkRadiusUpdatedPacket{
+	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	}) or {}
-	s.send_packet(&proto.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   proto.BlockPos{
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []proto.ChunkPos{}
+		server_built_chunks: []types_662.ChunkPos{}
 	}) or {}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
 		return
 	}
 	s.remember_chunk_window(radius)
-	s.send_packet(&proto.PlayStatusPacket{
-		status: proto.PlayStatus.player_spawn
+	s.send_packet(&packets_662.PlayStatusPacket{
+		status: enums_662.PlayStatus.player_spawn
 	}) or {}
 }
 
@@ -289,7 +294,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
-		mut change_packet := &proto.ChangeDimensionPacket{
+		mut change_packet := &packets_712.ChangeDimensionPacket{
 			dimension_id: target.dimension.id
 			respawn:      false
 		}
@@ -297,16 +302,16 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		change_packet.position[1] = y
 		change_packet.position[2] = z
 		s.deliver(change_packet)
-		s.deliver(&proto.StopSoundPacket{
+		s.deliver(&packets_712.StopSoundPacket{
 			sound_name:      ''
 			stop_all_sounds: true
 		})
-		s.deliver(&proto.PlayStatusPacket{
-			status: proto.PlayStatus.player_spawn
+		s.deliver(&packets_662.PlayStatusPacket{
+			status: enums_662.PlayStatus.player_spawn
 		})
-		s.deliver(&proto.PlayerActionPacket{
+		s.deliver(&packets_944.PlayerActionPacket{
 			player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
-			action:            proto.PlayerActionType.change_dimension_ack
+			action:            enums_662.PlayerActionType.change_dimension_ack
 		})
 		s.expect_teleport_ack(types.Vector3{x, y, z})
 	}
