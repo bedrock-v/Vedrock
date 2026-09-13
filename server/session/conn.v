@@ -1,10 +1,11 @@
 module session
 
 import bedrock_v.protocol
-import bedrock_v.protocol.current as proto
 import server.internal.logger
 import server.internal.network
 import sync
+import bedrock_v.protocol.version.v1001.enums as enums_1001
+import bedrock_v.protocol.current.packets as packets_2192
 
 // Conn owns a session's connection: the transport, the outbound queue and the
 // writer thread that drains it. It holds no gameplay state and never reads
@@ -23,18 +24,18 @@ mut:
 	// The queue carries ticket ids, not packets. A V channel keeps whatever was
 	// written into a slot until that slot is written again.
 	// only until the writer takes it.
-	outbound       chan u64 = chan u64{cap: outbound_queue_capacity}
-	pending        map[u64]OutboundMessage
-	pending_mutex  &sync.Mutex = sync.new_mutex()
-	next_ticket    u64
-	done           chan bool = chan bool{cap: 1}
+	outbound      chan u64 = chan u64{ cap: outbound_queue_capacity }
+	pending       map[u64]OutboundMessage
+	pending_mutex &sync.Mutex = sync.new_mutex()
+	next_ticket   u64
+	done          chan bool = chan bool{ cap: 1 }
 	// abort wakes an idle writer with nothing queued, so close_once can always
 	// make it exit, not just when it's mid send.
-	abort chan bool = chan bool{cap: 1}
+	abort chan bool = chan bool{ cap: 1 }
 	// writer_exited fires once the writer loop actually returns. Tests use this
 	// to know the writer thread is gone, since done only proves close_once ran,
 	// not that the writer itself exited.
-	writer_exited chan bool   = chan bool{cap: 1}
+	writer_exited chan bool   = chan bool{ cap: 1 }
 	close_mutex   &sync.Mutex = sync.new_mutex()
 	close_started bool
 	// closing is set the moment a graceful disconnect is accepted. Different
@@ -207,8 +208,10 @@ fn (mut c Conn) close_once() {
 	c.close_mutex.unlock()
 	c.transport.close()
 	select {
-		c.abort <- true {}
-		else {}
+		c.abort <- true {
+		}
+		else {
+		}
 	}
 	// Anything still parked is never going to be written now.
 	c.discard()
@@ -225,8 +228,10 @@ fn (mut c Conn) run_writer(log &logger.Logger) {
 	}
 	defer {
 		select {
-			c.writer_exited <- true {}
-			else {}
+			c.writer_exited <- true {
+			}
+			else {
+			}
 		}
 	}
 	for {
@@ -251,9 +256,9 @@ fn (mut c Conn) run_writer(log &logger.Logger) {
 						}
 					}
 					OutboundDisconnect {
-						c.transport.send(&proto.DisconnectPacket{
-							reason:  proto.connection_fail_disconnect_packet
-							message: proto.DisconnectMessage{
+						c.transport.send(&packets_2192.DisconnectPacket{
+							reason:  enums_1001.ConnectionFailReason.disconnect_packet
+							message: packets_2192.DisconnectMessage{
 								kick_message:     msg.message
 								filtered_message: ''
 							}

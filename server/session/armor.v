@@ -8,6 +8,9 @@ import server.entity
 import server.world.sound
 import server.item
 import server.player
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v944.types as types_944
 
 // armor_max_points caps how much protection the worn pieces can add up to.
 // Beyond it extra defense points do nothing, the same way they do not in game.
@@ -85,8 +88,7 @@ fn (mut s NetworkSession) damage_armor_piece(index int, amount int) {
 		s.player.delete_stack(net)
 		s.player.delete_slot(slot)
 		s.player.send_armor_slot_update(index, empty_stack())
-		s.broadcast_actor_sound(s.current_position(), sound.Custom{ name: sound_armor_break },
-			entity.SoundSource{
+		s.broadcast_actor_sound(s.current_position(), sound.Custom{ name: sound_armor_break }, entity.SoundSource{
 			actor:      s.runtime_id
 			identifier: player_actor_identifier
 		})
@@ -114,7 +116,7 @@ fn changes_touch_armor(changes []SlotChange) bool {
 }
 
 // armor_descriptor is the wire form of the piece worn at index.
-fn (s &NetworkSession) armor_descriptor(index int) proto.NetworkItemStackDescriptorV2 {
+fn (s &NetworkSession) armor_descriptor(index int) types_2168.NetworkItemStackDescriptorV2 {
 	net := s.player.inv_slot(player.armor_slot(index)) or {
 		return proto.item_descriptor_v2(types.ItemStack{})
 	}
@@ -123,15 +125,15 @@ fn (s &NetworkSession) armor_descriptor(index int) proto.NetworkItemStackDescrip
 }
 
 // armor_content_packet is the full set of worn pieces, for the owning client.
-fn (s &NetworkSession) armor_content_packet() &proto.InventoryContentPacket {
-	mut slots := []proto.NetworkItemStackDescriptorV2{}
+fn (s &NetworkSession) armor_content_packet() &packets_2168.InventoryContentPacket {
+	mut slots := []types_2168.NetworkItemStackDescriptorV2{}
 	for index in 0 .. player.armor_slot_count {
 		slots << s.armor_descriptor(index)
 	}
-	return &proto.InventoryContentPacket{
+	return &packets_2168.InventoryContentPacket{
 		inventory_id:        u32(player.armor_window_id)
 		slots:               slots
-		container_name_data: proto.FullContainerName{
+		container_name_data: types_944.FullContainerName{
 			container: .armor_container
 		}
 		storage_item:        proto.item_descriptor_v2(types.ItemStack{})

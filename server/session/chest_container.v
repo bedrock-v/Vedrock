@@ -6,9 +6,15 @@ import server.entity
 import server.world.db
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v944.enums as enums_944
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v944.types as types_944
 
 fn chest_dynamic_container_id() int {
-	return int(proto.ContainerID.first)
+	return int(enums_662.ContainerID.first)
 }
 
 fn (s &NetworkSession) open_container_position() ?types.BlockPosition {
@@ -69,7 +75,7 @@ fn open_chest_container(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	}
 	s.set_open_container_position(pos)
 	stacks := tx.wr.world.container_slots(pos.x, pos.y, pos.z)
-	mut descriptors := []proto.NetworkItemStackDescriptorV2{cap: db.container_slot_count}
+	mut descriptors := []types_2168.NetworkItemStackDescriptorV2{cap: db.container_slot_count}
 	mut slot_net_ids := map[int]int{}
 	for slot, stack in stacks {
 		if stack.count > 0 && stack.id != 0 {
@@ -81,17 +87,17 @@ fn open_chest_container(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 		}
 	}
 	s.set_open_container_slots(slot_net_ids)
-	s.deliver(&proto.ContainerOpenPacket{
-		container_id:    proto.ContainerID.first
-		container_type:  proto.ContainerType.container
+	s.deliver(&packets_944.ContainerOpenPacket{
+		container_id:    enums_662.ContainerID.first
+		container_type:  enums_662.ContainerType.container
 		position:        proto.block_pos(pos)
 		target_actor_id: proto.actor_unique_id(-1)
 	})
-	s.deliver(&proto.InventoryContentPacket{
+	s.deliver(&packets_2168.InventoryContentPacket{
 		inventory_id:        u32(chest_dynamic_container_id())
 		slots:               descriptors
-		container_name_data: proto.FullContainerName{
-			container:  proto.ContainerEnumName.dynamic_container
+		container_name_data: types_944.FullContainerName{
+			container:  enums_944.ContainerEnumName.dynamic_container
 			dynamic_id: i32(chest_dynamic_container_id())
 		}
 		storage_item:        proto.item_descriptor_v2(types.ItemStack{})

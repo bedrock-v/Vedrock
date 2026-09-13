@@ -5,6 +5,16 @@ import bedrock_v.protocol.types
 import server.effect
 import server.player
 import server.worldrt
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v924.enums as enums_924
+import bedrock_v.protocol.version.v975.enums as enums_975
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.version.v975.packets as packets_975
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v662.types as types_662
 
 // NetworkSession is how a player.Viewer event reaches a real client: each
 // method turns one thing that happened into the packets this particular client
@@ -27,11 +37,11 @@ fn (mut s NetworkSession) view_teleport(p &player.Player, pos types.Vector3) {
 	}
 
 	current := p.movement()
-	mut move_packet := &proto.MovePlayerPacket{
+	mut move_packet := &packets_2168.MovePlayerPacket{
 		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     proto.PlayerPositionMode.teleport
-		teleport_data:     proto.MovePlayerTeleportData{}
+		position_mode:     enums_2168.PlayerPositionMode.teleport
+		teleport_data:     types_2168.MovePlayerTeleportData{}
 		on_ground:         false
 	}
 	move_packet.position[0] = pos.x
@@ -53,24 +63,24 @@ fn (mut s NetworkSession) view_movement(p &player.Player) {
 }
 
 fn (mut s NetworkSession) view_hurt(p &player.Player) {
-	s.deliver(&proto.ActorEventPacket{
+	s.deliver(&packets_975.ActorEventPacket{
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
-		event_id:          proto.ActorEvent.hurt
+		event_id:          enums_975.ActorEvent.hurt
 		data:              0
 	})
 }
 
 fn (mut s NetworkSession) view_death(p &player.Player, message_key string, parameters []string) {
 	if !s.is_self(p) {
-		s.deliver(&proto.ActorEventPacket{
+		s.deliver(&packets_975.ActorEventPacket{
 			target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
-			event_id:          proto.ActorEvent.death
+			event_id:          enums_975.ActorEvent.death
 			data:              0
 		})
 	}
-	s.deliver(&proto.TextPacket{
+	s.deliver(&packets_924.TextPacket{
 		localize:     true
-		message_type: proto.TextTranslate{
+		message_type: enums_924.TextTranslate{
 			message:        message_key
 			parameter_list: parameters
 		}
@@ -78,18 +88,18 @@ fn (mut s NetworkSession) view_death(p &player.Player, message_key string, param
 }
 
 fn (mut s NetworkSession) view_effect_added(p &player.Player, e effect.Effect) {
-	s.deliver(&proto.MobEffectPacket{
+	s.deliver(&packets_898.MobEffectPacket{
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
-		event_id:          proto.MobEffectEvent.remove
+		event_id:          packets_898.MobEffectEvent.remove
 		effect_id:         e.effect_type().id
 	})
-	s.deliver(s.mob_effect_packet(p, e, proto.MobEffectEvent.add))
+	s.deliver(s.mob_effect_packet(p, e, packets_898.MobEffectEvent.add))
 }
 
 fn (mut s NetworkSession) view_effect_removed(p &player.Player, typ effect.Type) {
-	s.deliver(&proto.MobEffectPacket{
+	s.deliver(&packets_898.MobEffectPacket{
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
-		event_id:          proto.MobEffectEvent.remove
+		event_id:          packets_898.MobEffectEvent.remove
 		effect_id:         typ.id
 	})
 }
@@ -136,7 +146,7 @@ fn (mut s NetworkSession) view_player_respawned(p &player.Player) {
 }
 
 fn (mut s NetworkSession) view_equipment(p &player.Player, hotbar_slot int, inventory_slot int, item types.ItemStackWrapper) {
-	s.deliver(&proto.MobEquipmentPacket{
+	s.deliver(&packets_2168.MobEquipmentPacket{
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
 		item:              proto.item_descriptor_v2(item.item_stack)
 		slot:              i8(inventory_slot)
@@ -146,23 +156,23 @@ fn (mut s NetworkSession) view_equipment(p &player.Player, hotbar_slot int, inve
 }
 
 fn (mut s NetworkSession) view_air_supply(p &player.Player, air i64) {
-	s.deliver(&proto.SetActorDataPacket{
+	s.deliver(&packets_2168.SetActorDataPacket{
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
 		actor_data:        [
-			proto.DataItem{
+			types_2168.DataItem{
 				data_item_id:   proto.meta_key_air_supply
-				data_item_type: proto.DataItemShort{
+				data_item_type: enums_2168.DataItemShort{
 					value: i16(air)
 				}
 			},
-			proto.DataItem{
+			types_2168.DataItem{
 				data_item_id:   proto.meta_key_air_supply_max
-				data_item_type: proto.DataItemShort{
+				data_item_type: enums_2168.DataItemShort{
 					value: i16(player.max_air_supply_ticks)
 				}
 			},
 		]
-		synced_properties: proto.PropertySyncData{}
+		synced_properties: types_662.PropertySyncData{}
 		tick:              0
 	})
 }
@@ -171,21 +181,21 @@ fn (mut s NetworkSession) view_air_supply(p &player.Player, air i64) {
 // whether a player or a mob did it.
 
 fn (mut s NetworkSession) view_actor_swing(actor u64) {
-	s.deliver(&proto.AnimatePacket{
-		action:            proto.AnimatePacketAction.swing
+	s.deliver(&packets_898.AnimatePacket{
+		action:            packets_898.AnimatePacketAction.swing
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(actor))
 	})
 }
 
 fn (mut s NetworkSession) view_actor_critical_hit(actor u64) {
-	s.deliver(&proto.AnimatePacket{
-		action:            proto.AnimatePacketAction.critical_hit
+	s.deliver(&packets_898.AnimatePacket{
+		action:            packets_898.AnimatePacketAction.critical_hit
 		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(actor))
 	})
 }
 
 fn (mut s NetworkSession) view_item_taken(item u64, taker u64) {
-	s.deliver(&proto.TakeItemActorPacket{
+	s.deliver(&packets_662.TakeItemActorPacket{
 		item_runtime_id:  proto.actor_runtime_id(s.wire_id_for(item))
 		actor_runtime_id: proto.actor_runtime_id(s.wire_id_for(taker))
 	})

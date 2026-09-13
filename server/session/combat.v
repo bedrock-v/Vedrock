@@ -10,6 +10,10 @@ import bedrock_v.protocol.current as proto
 import server.entity
 import server.player
 import server.worldrt
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -22,12 +26,12 @@ const sound_attack_strong = 'game.player.attack.strong'
 // registered mob. Resolved through the unified actor lookup since a player's
 // melee attack has no reason to be restricted to player-vs-player.
 struct PlayerAttackTask {
-	attacker entity.ActorId
-	victim_runtime_id   u64
-	damage              f32
-	knockback_force     f32 = knockback_horizontal
-	knockback_height    f32 = knockback_vertical
-	critical            bool
+	attacker          entity.ActorId
+	victim_runtime_id u64
+	damage            f32
+	knockback_force   f32 = knockback_horizontal
+	knockback_height  f32 = knockback_vertical
+	critical          bool
 }
 
 fn (t PlayerAttackTask) name() string {
@@ -77,7 +81,7 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 		play_actor_sound(mut tx, victim_actor.current_position(), sound.Custom{
 			name: sound_attack_strong
 		}, entity.SoundSource{
-			actor: victim_actor.runtime_id()
+			actor:      victim_actor.runtime_id()
 			// The victim may be a mob and this reports it as a player. That
 			// predates the per viewer numbering and is left as it was: naming
 			// it properly needs an actor type on entity.Actor.
@@ -277,8 +281,8 @@ fn (t PlayerRespawnTask) run(mut tx worldrt.WorldTx) {
 	target.apply_respawn(mut tx)
 }
 
-fn (mut s NetworkSession) handle_respawn(p proto.RespawnPacket) ! {
-	if p.state == proto.PlayerRespawnState.client_ready_to_spawn {
+fn (mut s NetworkSession) handle_respawn(p packets_662.RespawnPacket) ! {
+	if p.state == enums_662.PlayerRespawnState.client_ready_to_spawn {
 		s.request_respawn()
 	}
 }
@@ -316,18 +320,18 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())
-	mut respawn_packet := &proto.RespawnPacket{
-		state:             proto.PlayerRespawnState.ready_to_spawn
+	mut respawn_packet := &packets_662.RespawnPacket{
+		state:             enums_662.PlayerRespawnState.ready_to_spawn
 		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 	}
 	respawn_packet.position[0] = current.position.x
 	respawn_packet.position[1] = current.position.y
 	respawn_packet.position[2] = current.position.z
 	s.deliver(respawn_packet)
-	mut move_packet := &proto.MovePlayerPacket{
+	mut move_packet := &packets_2168.MovePlayerPacket{
 		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     proto.PlayerPositionMode.respawn
+		position_mode:     enums_2168.PlayerPositionMode.respawn
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x
@@ -365,7 +369,7 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 		y: height
 		z: dz / dist * force
 	}
-	mut motion_packet := &proto.SetActorMotionPacket{
+	mut motion_packet := &packets_662.SetActorMotionPacket{
 		target_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		server_tick:       0
 	}

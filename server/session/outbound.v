@@ -1,7 +1,8 @@
 module session
 
 import bedrock_v.protocol
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v1001.enums as enums_1001
+import bedrock_v.protocol.current.packets as packets_2192
 
 // Maximum number of packets a session may have waiting to be sent.
 // A full queue aborts the session instead of blocking the caller or
@@ -159,9 +160,9 @@ fn (mut s NetworkSession) reject_bootstrap(message string) {
 		s.disconnect(message)
 		return
 	}
-	s.conn.send_direct(&proto.DisconnectPacket{
-		reason:  proto.connection_fail_disconnect_packet
-		message: proto.DisconnectMessage{
+	s.conn.send_direct(&packets_2192.DisconnectPacket{
+		reason:  enums_1001.ConnectionFailReason.disconnect_packet
+		message: packets_2192.DisconnectMessage{
 			kick_message:     message
 			filtered_message: ''
 		}

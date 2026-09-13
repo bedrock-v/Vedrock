@@ -11,6 +11,7 @@ import server.item
 import server.block
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 // A break that never starts shows the player no crack animation and no
 // particles, which is the whole symptom of the server reading a different
@@ -25,7 +26,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.Wo
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world
@@ -42,7 +43,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.Wo
 
 fn sent_start_cracking(transport &FakeTransport, x int, y int, z int) bool {
 	for p in transport.sent {
-		if p is proto.LevelEventPacket {
+		if p is packets_662.LevelEventPacket {
 			if p.event_id == proto.level_event_start_block_cracking && p.position[0] == f32(x)
 				&& p.position[1] == f32(y) && p.position[2] == f32(z) {
 				return true
@@ -57,7 +58,8 @@ fn wait_for_start_cracking(transport &FakeTransport, x int, y int, z int, timeou
 	for !sent_start_cracking(transport, x, y, z) {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return sent_start_cracking(transport, x, y, z)
 			}

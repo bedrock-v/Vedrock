@@ -4,7 +4,8 @@ import os
 import bedrock_v.protocol
 import server.internal.gamedata
 import server.world
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v1001.packets as packets_1001
+import bedrock_v.protocol.version.v1001.types as types_1001
 
 struct BiomeDescriptor {
 	id          int
@@ -153,8 +154,7 @@ const vanilla_biome_descriptors = [
 // Mojang ships the biome registry as an NBT document; the client wants it as
 // a packet payload. Encoding it once at startup keeps the registry sourced
 // from the shipped data rather than a captured packet dump.
-const vanilla_biome_definitions = gamedata.load_biome_definitions(os.join_path('data',
-	'biome_definitions.nbt')) or { []u8{} }
+const vanilla_biome_definitions = gamedata.load_biome_definitions(os.join_path('data', 'biome_definitions.nbt')) or { []u8{} }
 
 const vanilla_biome_definitions_packet = &protocol.RawPacket{
 	packet_id: 122
@@ -174,18 +174,18 @@ fn biome_definition_list() protocol.Packet {
 
 // generated_biome_definition_list is the fallback used when the captured
 // registry is missing: it covers the ids the generators actually assign.
-fn generated_biome_definition_list() &proto.BiomeDefinitionListPacket {
+fn generated_biome_definition_list() &packets_1001.BiomeDefinitionListPacket {
 	mut strings := []string{}
-	mut biomes := []proto.BiomeEntry{}
+	mut biomes := []packets_1001.BiomeEntry{}
 	for d in vanilla_biome_descriptors {
 		name_index := u16(strings.len)
 		// The client matches these against its own registry, which is
 		// namespaced. A bare name resolves to nothing and leaves every biome
 		// id in the chunk data it receives next unresolvable.
 		strings << 'minecraft:${d.name}'
-		biomes << proto.BiomeEntry{
+		biomes << packets_1001.BiomeEntry{
 			name_index: name_index
-			definition: proto.BiomeDefinition{
+			definition: types_1001.BiomeDefinition{
 				id:              u16(d.id)
 				temperature:     d.temperature
 				downfall:        d.downfall
@@ -197,7 +197,7 @@ fn generated_biome_definition_list() &proto.BiomeDefinitionListPacket {
 			}
 		}
 	}
-	return &proto.BiomeDefinitionListPacket{
+	return &packets_1001.BiomeDefinitionListPacket{
 		biomes:  biomes
 		strings: strings
 	}

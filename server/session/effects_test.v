@@ -10,8 +10,9 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v944.types as types_944
 
 fn make_effects_test_player(name string, health f32) &player.Player {
 	mut pl := player.new_player()
@@ -162,8 +163,8 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	net_id := sess.player.track_stack(potion)
 	sess.player.set_slot(0, net_id)
 
-	changes := sess.apply_consume(mut tx, proto.ItemStackRequestSlotInfo{
-		container_name: proto.FullContainerName{
+	changes := sess.apply_consume(mut tx, types_2168.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0

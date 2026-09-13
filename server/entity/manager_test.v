@@ -6,7 +6,6 @@ import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.world
 import server.effect
-import bedrock_v.protocol.current as proto
 
 // FakeHost stands in for Hub: it hands out ids, counts broadcasts and backs a
 // small in-memory block grid so collision can be tested without a real world.

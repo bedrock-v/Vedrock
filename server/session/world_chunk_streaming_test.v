@@ -8,8 +8,8 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v2168.packets as packets_2168
 
 struct BlockingGenerator {
 	started chan bool
@@ -19,7 +19,7 @@ struct BlockingGenerator {
 }
 
 fn new_blocking_generator(started chan bool, release chan bool) BlockingGenerator {
-	claim := chan bool{cap: 1}
+	claim := chan bool{ cap: 1 }
 	claim <- true
 	return BlockingGenerator{
 		started: started
@@ -50,12 +50,15 @@ fn (g BlockingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
 		_ := <-g.claim {
 			claimed = true
 		}
-		else {}
+		else {
+		}
 	}
 	if claimed {
 		select {
-			g.started <- true {}
-			else {}
+			g.started <- true {
+			}
+			else {
+			}
 		}
 		_ := <-g.release
 	}
@@ -74,7 +77,7 @@ fn chunk_stream_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, gen world
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{ transport: transport }
 		world:         wr.world
 		world_runtime: wr
 		generator:     gen
@@ -92,7 +95,7 @@ fn chunk_stream_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, gen world
 }
 
 fn actor_is_responsive(mut wr worldrt.WorldRuntime, timeout_ms int) bool {
-	done := chan bool{cap: 1}
+	done := chan bool{ cap: 1 }
 	spawn fn [mut wr, done] () {
 		worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 			return true
@@ -115,17 +118,19 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 	deadline := time.now().add(timeout_ms * time.millisecond)
 	for time.now() < deadline {
 		for p in transport.sent {
-			if p is proto.LevelChunkPacket {
+			if p is packets_2168.LevelChunkPacket {
 				return true
 			}
 		}
 		select {
-			_ := <-transport.sent_notify {}
-			50 * time.millisecond {}
+			_ := <-transport.sent_notify {
+			}
+			50 * time.millisecond {
+			}
 		}
 	}
 	for p in transport.sent {
-		if p is proto.LevelChunkPacket {
+		if p is packets_2168.LevelChunkPacket {
 			return true
 		}
 	}
@@ -134,8 +139,8 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 
 fn test_chunk_streaming_doesnt_block_the_world_actor() {
 	mut hub := new_hub(gamedata.GameData{})
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	gen := new_blocking_generator(started, release)
 	register_blocking_generator(mut hub, 'blocking-chunk-stream', gen)
 	w := db.new_world('chunk-stream', none, 'blocking-chunk-stream', world.overworld)
@@ -159,8 +164,8 @@ fn test_chunk_streaming_doesnt_block_the_world_actor() {
 
 fn test_chunk_delivery_dropped_after_a_world_switch() {
 	mut hub := new_hub(gamedata.GameData{})
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	gen := new_blocking_generator(started, release)
 	register_blocking_generator(mut hub, 'blocking-chunk-switch-a', gen)
 	world_a := db.new_world('chunk-switch-a', none, 'blocking-chunk-switch-a', world.overworld)
@@ -196,7 +201,7 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	time.sleep(300 * time.millisecond) // bounded window for a wrongly delivered batch to show up
 	for p in transport.sent {
-		assert p !is proto.LevelChunkPacket
+		assert p !is packets_2168.LevelChunkPacket
 	}
 }
 
@@ -257,7 +262,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	mut tracker := &ConcurrencyTracker{
 		mutex: sync.new_mutex()
 	}
-	release := chan bool{cap: 512}
+	release := chan bool{ cap: 512 }
 	gen := ConcurrentBlockingGenerator{
 		tracker: tracker
 		release: release

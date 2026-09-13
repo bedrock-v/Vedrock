@@ -9,7 +9,7 @@ import server.internal.gamedata
 import server.internal.logger
 import server.item
 import server.player
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v944.types as types_944
 
 fn full_set(tier item.ArmorTier) ArmorProtection {
 	mut points := 0
@@ -64,7 +64,7 @@ fn test_piercing_never_reduces_below_the_floor() {
 }
 
 fn test_armor_container_maps_onto_the_worn_slots() {
-	container := proto.FullContainerName{
+	container := types_944.FullContainerName{
 		container: .armor_container
 	}
 	assert flat_slot(container, 0)? == player.armor_slot(0)
@@ -88,12 +88,12 @@ fn test_worn_slots_do_not_overlap_the_carried_ones() {
 
 fn test_changes_touch_armor() {
 	armor := SlotChange{
-		container: proto.FullContainerName{
+		container: types_944.FullContainerName{
 			container: .armor_container
 		}
 	}
 	carried := SlotChange{
-		container: proto.FullContainerName{
+		container: types_944.FullContainerName{
 			container: .inventory_container
 		}
 	}
@@ -180,7 +180,8 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
