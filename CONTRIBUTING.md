@@ -23,7 +23,7 @@ legacy: it stays in V for a while yet and then goes and nothing here is written 
 
 CI pins a commit so a build is reproducible and the pin is bumped as V moves:
 
-- V compiler: `0.5.2` (commit `9e9f7f0`)
+- V compiler: `0.5.2` (commit `c5e5cb2`)
 - vc bootstrap pin: `e658629`
 
 The pin is a version, not a ceiling: a newer V master is expected to work and a break against one
