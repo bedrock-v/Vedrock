@@ -15,6 +15,14 @@ import server.form
 import sync
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v1001.packets as packets_1001
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v685.packets as packets_685
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -73,7 +81,15 @@ mut:
 	// capture it at submission and drop stale work after a world switch.
 	world_epoch i64
 	// world_mutex guards world/generator/world_runtime/world_epoch.
-	world_mutex                 &sync.Mutex = sync.new_mutex()
+	world_mutex &sync.Mutex = sync.new_mutex()
+	// wire_ids/wire_actors are this session's own numbering for the actors it
+	// has been shown in both directions. See wire_ids.v; they are touched
+	// from the world actor while it renders and from the session thread while
+	// it decodes. So they take a lock.
+	wire_ids                    map[u64]u64
+	wire_actors                 map[u64]u64
+	next_wire_id                u64         = self_entity_runtime_id
+	wire_id_mutex               &sync.Mutex = sync.new_mutex()
 	runtime_id                  u64
 	spawned                     bool
 	inv_opened                  bool
@@ -170,6 +186,7 @@ fn (mut s NetworkSession) set_world_binding(wr &worldrt.WorldRuntime, generator 
 	s.generator = generator
 	s.world_epoch++
 	s.world_mutex.unlock()
+	s.forget_wire_ids()
 }
 
 fn (s &NetworkSession) world_binding() WorldBinding {
@@ -197,6 +214,20 @@ fn (s &NetworkSession) is_player() bool {
 
 fn (s &NetworkSession) runtime_id() u64 {
 	return s.runtime_id
+}
+
+// actor_id names this session for as long as it stays in the world it is bound
+// to now. Work submitted with it stops resolving the moment the session changes
+// worlds which is the point: the runtime id alone would still find them in a
+// world the work was never meant for.
+fn (s &NetworkSession) actor_id() entity.ActorId {
+	return entity.new_actor_id(s.runtime_id, s.world_binding().epoch)
+}
+
+// is_spawned reports the session's own spawn flag to the player.Sink. The
+// field cannot serve as the method, the two are named apart.
+fn (s &NetworkSession) is_spawned() bool {
+	return s.spawned
 }
 
 fn (s &NetworkSession) is_dead() bool {
@@ -249,7 +280,8 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 	}
 	mut p := player.new_player()
 	p.handle(hub.player_handler)
-	p.reset_position(types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0})
+	spawn_point := generator.spawn_point()
+	p.reset_position(types.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)})
 	mut s := &NetworkSession{
 		player:             p
 		conn:               &Conn{
@@ -268,6 +300,7 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		log:                log
 	}
 	s.player.sink = s
+	s.player.runtime_id = s.runtime_id
 	return s
 }
 
@@ -313,10 +346,8 @@ fn (mut s NetworkSession) leave() {
 	mut wr := s.current_world_runtime()
 	if !isnil(wr) {
 		rid := s.runtime_id
-		list_remove_pkt := s.player_list_remove_packet()
-		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx worldrt.WorldTx) bool {
+		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, held_container] (mut tx worldrt.WorldTx) bool {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
 			s.release_crafting_state(mut tx)
@@ -324,8 +355,9 @@ fn (mut s NetworkSession) leave() {
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}
-			tx.wr.broadcast_world(list_remove_pkt)
-			tx.wr.broadcast_world(remove_pkt)
+			for mut v in viewers_of(mut tx) {
+				v.view_player_removed(s.player)
+			}
 			return true
 		}) or {}
 	}
@@ -347,77 +379,76 @@ fn (mut s NetworkSession) leave() {
 fn (mut s NetworkSession) handle_packet(p protocol.Packet) ! {
 	match s.conn.state {
 		.handshake {
-			if p is proto.RequestNetworkSettingsPacket {
+			if p is packets_662.RequestNetworkSettingsPacket {
 				s.handle_request_network_settings(p)!
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state handshake')
 			}
 		}
 		.login {
-			if p is proto.LoginPacket {
+			if p is packets_662.LoginPacket {
 				s.handle_login(p)!
-			} else if p is proto.ClientToServerHandshakePacket {
+			} else if p is packets_662.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is proto.RequestChunkRadiusPacket {
+			} else if p is packets_662.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state login')
 			}
 		}
 		.resource_packs {
-			if p is proto.ResourcePackClientResponsePacket {
+			if p is packets_2168.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
-			} else if p is proto.ResourcePackChunkRequestPacket {
+			} else if p is packets_662.ResourcePackChunkRequestPacket {
 				s.handle_resource_pack_chunk_request(p)!
-			} else if p is proto.ClientToServerHandshakePacket {
+			} else if p is packets_662.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is proto.RequestChunkRadiusPacket {
+			} else if p is packets_662.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state resource_packs')
 			}
 		}
 		.play {
-			if p is proto.RequestChunkRadiusPacket {
+			if p is packets_662.RequestChunkRadiusPacket {
 				if should_stream_chunk_radius_async(s.conn.state, s.spawned) {
 					s.handle_play_chunk_radius_async(p)
 				} else {
 					s.handle_request_chunk_radius(p)!
 				}
-			} else if p is proto.SubChunkRequestPacket {
+			} else if p is packets_1001.SubChunkRequestPacket {
 				s.handle_sub_chunk_request(p)!
-			} else if p is proto.SetLocalPlayerAsInitializedPacket {
+			} else if p is packets_662.SetLocalPlayerAsInitializedPacket {
 				s.handle_player_initialized(p)!
-			} else if p is proto.TextPacket {
+			} else if p is packets_924.TextPacket {
 				s.handle_text(p)!
-			} else if p is proto.MovePlayerPacket {
-				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1],
-					p.y_head_rotation, p.on_ground)
-			} else if p is proto.PlayerAuthInputPacket {
+			} else if p is packets_2168.MovePlayerPacket {
+				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1], p.y_head_rotation, p.on_ground)
+			} else if p is packets_2192.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
-			} else if p is proto.InteractPacket {
+			} else if p is packets_898.InteractPacket {
 				s.handle_interact(p)!
-			} else if p is proto.ContainerClosePacket {
+			} else if p is packets_685.ContainerClosePacket {
 				s.handle_container_close(p)!
-			} else if p is proto.ItemStackRequestPacket {
+			} else if p is packets_2168.ItemStackRequestPacket {
 				s.handle_item_stack_request(p)!
-			} else if p is proto.CommandRequestPacket {
+			} else if p is packets_898.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is proto.InventoryTransactionPacket {
+			} else if p is packets_2192.InventoryTransactionPacket {
 				s.handle_inventory_transaction(p)!
-			} else if p is proto.PlayerActionPacket {
+			} else if p is packets_944.PlayerActionPacket {
 				s.handle_player_action(p)!
-			} else if p is proto.BlockPickRequestPacket {
+			} else if p is packets_662.BlockPickRequestPacket {
 				s.handle_block_pick_request(p)!
-			} else if p is proto.MobEquipmentPacket {
+			} else if p is packets_2168.MobEquipmentPacket {
 				s.handle_mob_equipment(p)!
-			} else if p is proto.RespawnPacket {
+			} else if p is packets_662.RespawnPacket {
 				s.handle_respawn(p)!
-			} else if p is proto.ModalFormResponsePacket {
+			} else if p is packets_662.ModalFormResponsePacket {
 				s.handle_modal_form_response(p)!
-			} else if p is proto.BookEditPacket {
+			} else if p is packets_924.BookEditPacket {
 				s.handle_book_edit(p)!
-			} else if p is proto.BlockActorDataPacket {
+			} else if p is packets_944.BlockActorDataPacket {
 				s.handle_block_actor_data(p)!
 			}
 		}

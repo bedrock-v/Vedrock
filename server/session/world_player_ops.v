@@ -20,7 +20,7 @@ fn consume_held_item(mut s NetworkSession) {
 // world's player registry and must run on its actor. Registration captures
 // the session's current binding epoch directly.
 fn register_player(mut tx worldrt.WorldTx, session &NetworkSession) {
-	tx.wr.entities.register_player_actor(session, session.runtime_id, session.world_binding().epoch)
+	tx.wr.entities.register_player_actor(session, session.actor_id())
 	tx.wr.publish_player_count()
 }
 
@@ -29,10 +29,10 @@ fn deregister_player(mut tx worldrt.WorldTx, runtime_id u64) {
 	tx.wr.publish_player_count()
 }
 
-// player_for_epoch resolves a player from the world's local registry and
-// rejects stale or missing registrations before any side effects occur.
-fn player_for_epoch(mut tx worldrt.WorldTx, runtime_id u64, epoch i64) ?&NetworkSession {
-	mut a := tx.wr.entities.player_actor_for_epoch(runtime_id, epoch) or { return none }
+// player_for_id resolves a player from the world's local registry and rejects
+// stale or missing registrations before any side effects occur.
+fn player_for_id(mut tx worldrt.WorldTx, id entity.ActorId) ?&NetworkSession {
+	mut a := tx.wr.entities.player_actor_for_id(id) or { return none }
 	return as_network_session(mut a)
 }
 

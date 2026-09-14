@@ -6,12 +6,27 @@ import bedrock_v.protocol
 import bedrock_v.protocol.types
 import bedrock_v.nbt
 import server.event
+import server.block
 import server.world
 import server.world.db
 import server.internal.logger
 import server.worldrt
 import bedrock_v.protocol.current as proto
+import server.entity
 import server.player
+import server.player.playerdb
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v1001.packets as packets_1001
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v712.packets as packets_712
+import bedrock_v.protocol.version.v776.packets as packets_776
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.version.v818.types as types_818
+import bedrock_v.protocol.version.v944.types as types_944
 
 // The initial spawn stream paces itself so the outbound queue is not filled
 // faster than the writer drains it. A radius 8 view is 289 columns, so the
@@ -48,7 +63,7 @@ fn saved_body_clear(id int) bool {
 }
 
 fn saved_floor_solid(id int) bool {
-	return id != world.air.network_id && id != world.water.network_id && id != world.lava.network_id
+	return id != world.air.network_id && block.liquid_at_id(id) == none
 }
 
 fn safe_player_position(gen world.Generator, pos types.Vector3) bool {
@@ -81,19 +96,35 @@ fn safe_player_position_in_world(wld &db.World, gen world.Generator, pos types.V
 // jigsaw_structure_data is the jigsaw registry the client reads before
 // StartGame. The server defines no jigsaw structures, but the four lists have
 // to be there for the client to find them empty rather than missing.
-fn jigsaw_structure_data() &proto.JigsawStructureDataPacket {
+fn jigsaw_structure_data() &packets_712.JigsawStructureDataPacket {
 	mut root := nbt.new_compound()
 	for key in ['processors', 'template_pools', 'jigsaws', 'structure_sets'] {
 		root.set(key, nbt.Tag(nbt.List{
 			element_type: nbt.tag_compound
 		}))
 	}
-	return &proto.JigsawStructureDataPacket{
+	return &packets_712.JigsawStructureDataPacket{
 		jigsaw_structure_data_tag: nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(root)
 		}
 	}
+}
+
+// resume_saved_world moves this session onto the world it logged out of and
+// reports whether the saved position still describes a place. An empty name is
+// a save written before worlds were recorded and the default world is the only
+// world it could have meant. A named world that is gone or unloaded is not: its
+// coordinates would otherwise be read against the default world which is
+// somewhere the player has never stood.
+fn (mut s NetworkSession) resume_saved_world(name string) bool {
+	if name == '' || name == s.world_name() {
+		return true
+	}
+	mut wr := s.hub.world_runtime(name) or { return false }
+	target := wr.world
+	s.set_world_binding(wr, target.make_generator(s.hub.build_generator(target)))
+	return true
 }
 
 // SpawnState is where player enters the world, resolved once by
@@ -103,37 +134,63 @@ struct SpawnState {
 	pitch          f32
 	yaw            f32
 	dimension_id   int
-	generator_type proto.GeneratorType
-	spawn_y        int
+	generator_type enums_662.GeneratorType
+	spawn_point    world.SpawnPoint
 }
 
 // resolve_spawn_state picks player's spawn position. A generator provided
 // default or a saved position from player_data_provider when one exists
 // and still lands somewhere safe to stand.
-fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
+//
+// A save that exists but cannot be read is an error rather than a new player:
+// spawning them with defaults would overwrite that save when they leave.
+fn (mut s NetworkSession) resolve_spawn_state() !SpawnState {
 	s.player.set_game_mode(player.gamemode_from_name(s.cfg.gamemode))
-	spawn_y := s.generator.spawn_y()
+	// The world comes first: everything below reads the dimension, generator
+	// and blocks of whichever world the session ends up on.
+	mut saved := ?playerdb.PlayerData(none)
+	if data := s.hub.player_data_provider.load(s.player_key()) {
+		saved = data
+	} else {
+		if err !is playerdb.NotSaved {
+			return err
+		}
+	}
+	mut saved_position_stands := true
+	if data := saved {
+		saved_position_stands = s.resume_saved_world(data.world)
+	}
+	spawn_point := s.generator.spawn_point()
 	dimension_id := if isnil(s.world) { world.overworld.id } else { s.world.dimension.id }
 	generator_type := if dimension_id == world.nether.id {
-		proto.GeneratorType.nether
+		enums_662.GeneratorType.nether
 	} else if dimension_id == world.the_end.id {
-		proto.GeneratorType.the_end
+		enums_662.GeneratorType.the_end
 	} else {
-		proto.GeneratorType.overworld
+		enums_662.GeneratorType.overworld
 	}
-	mut pos := types.Vector3{0.0, f32(spawn_y) + player_eye_height, 0.0}
+	mut pos := types.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)}
 	mut pitch := f32(0.0)
 	mut yaw := f32(0.0)
-	if data := s.hub.player_data_provider.load(s.player_key()) {
+	if data := saved {
 		saved_pos := types.Vector3{data.x, data.y, data.z}
-		if safe_player_position_in_world(s.world, s.generator, saved_pos) {
+		if saved_position_stands && safe_player_position_in_world(s.world, s.generator, saved_pos) {
 			pos = saved_pos
 		}
 		pitch = data.pitch
 		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
 		s.player.set_ender_items(data.ender_items)
-		s.player.set_game_mode(player.gamemode_from_wire(data.gamemode))
+		s.player.set_hunger(player.HungerState{
+			food_level: data.food_level
+			saturation: data.saturation
+			exhaustion: data.exhaustion
+		})
+		s.player.set_experience(player.ExperienceState{
+			level:    data.experience_level
+			progress: data.experience_progress
+		})
+		s.player.set_game_mode(gamemode_from_wire(data.gamemode))
 		if data.has_last_death {
 			s.player.set_last_death(types.Vector3{data.last_death_x, data.last_death_y, data.last_death_z})
 		}
@@ -146,7 +203,7 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 		yaw:            yaw
 		dimension_id:   dimension_id
 		generator_type: generator_type
-		spawn_y:        spawn_y
+		spawn_point:    spawn_point
 	}
 }
 
@@ -154,38 +211,38 @@ fn (mut s NetworkSession) resolve_spawn_state() SpawnState {
 // entry point's fixed defaults, plus the handful of fields (dimension,
 // generator, spawn position, permission level, view distance) that vary per
 // session.
-fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto.StartGamePacket {
+fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &packets_2168.StartGamePacket {
 	player_permission := if s.player.perm.op() {
-		proto.PlayerPermissionLevel.operator
+		enums_662.PlayerPermissionLevel.operator
 	} else {
-		proto.PlayerPermissionLevel.member
+		enums_662.PlayerPermissionLevel.member
 	}
-	mut start_packet := &proto.StartGamePacket{
-		target_actor_id:                       proto.actor_unique_id(i64(s.runtime_id))
-		target_runtime_id:                     proto.actor_runtime_id(s.runtime_id)
-		actor_game_type:                       proto.game_type(player.gamemode_to_wire(s.player.game_mode()))
-		settings:                              proto.LevelSettings{
+	mut start_packet := &packets_2168.StartGamePacket{
+		target_actor_id:                       proto.actor_unique_id(i64(self_entity_runtime_id))
+		target_runtime_id:                     proto.actor_runtime_id(self_entity_runtime_id)
+		actor_game_type:                       proto.game_type(gamemode_to_wire(s.player.game_mode()))
+		settings:                              types_2168.LevelSettings{
 			seed:                                         0
-			spawn_settings:                               proto.SpawnSettings{
-				spawn_type:              proto.SpawnBiomeType.default
+			spawn_settings:                               types_662.SpawnSettings{
+				spawn_type:              enums_662.SpawnBiomeType.default
 				user_defined_biome_name: ''
 				dimension:               i32(spawn_state.dimension_id)
 			}
 			generator_type:                               spawn_state.generator_type
-			game_type:                                    proto.game_type(player.gamemode_to_wire(s.player.game_mode()))
+			game_type:                                    proto.game_type(gamemode_to_wire(s.player.game_mode()))
 			is_hardcore_enabled:                          false
-			game_difficulty:                              unsafe { proto.Difficulty(s.hub.difficulty_value()) }
-			default_spawn_block_position:                 proto.NetworkBlockPosition{
-				x: 0
-				y: i32(spawn_state.spawn_y)
-				z: 0
+			game_difficulty:                              unsafe { enums_662.Difficulty(s.hub.difficulty_value()) }
+			default_spawn_block_position:                 types_944.NetworkBlockPosition{
+				x: i32(spawn_state.spawn_point.x)
+				y: i32(spawn_state.spawn_point.y)
+				z: i32(spawn_state.spawn_point.z)
 			}
 			achievements_disabled:                        false
-			editor_world_type:                            proto.EditorWorldType.non_editor
+			editor_world_type:                            enums_662.EditorWorldType.non_editor
 			is_created_in_editor:                         false
 			is_exported_from_editor:                      false
 			day_cycle_stop_time:                          0
-			education_edition_offer:                      proto.education_edition_offer_none
+			education_edition_offer:                      enums_662.EducationEditionOffer.@none
 			education_features_enabled:                   false
 			education_product_id:                         ''
 			rain_level:                                   0
@@ -193,12 +250,12 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 			has_confirmed_platform_locked_content:        false
 			multiplayer_enabled:                          true
 			lan_broadcasting_enabled:                     false
-			xbox_live_broadcast_setting:                  proto.GamePublishSetting.no_multi_play
-			platform_broadcast_setting:                   proto.GamePublishSetting.no_multi_play
+			xbox_live_broadcast_setting:                  enums_662.GamePublishSetting.no_multi_play
+			platform_broadcast_setting:                   enums_662.GamePublishSetting.no_multi_play
 			commands_enabled:                             true
 			texture_packs_required:                       false
-			rule_data:                                    proto.GameRuleLegacyData{}
-			experiments:                                  proto.Experiments{}
+			rule_data:                                    types_2168.GameRuleLegacyData{}
+			experiments:                                  types_662.Experiments{}
 			bonus_chest_enabled:                          false
 			starting_map_enabled:                         false
 			player_permissions:                           u8(player_permission)
@@ -213,15 +270,15 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 			persona_disabled:                             false
 			custom_skins_disabled:                        false
 			emote_chat_muted:                             false
-			base_game_version:                            proto.BaseGameVersion{
-				value: proto.selected_minecraft_version
+			base_game_version:                            types_662.BaseGameVersion{
+				value: proto.proto_version.minecraft_version()
 			}
 			limited_world_width:                          0
 			limited_world_depth:                          0
 			nether_type:                                  spawn_state.dimension_id == world.nether.id
-			edu_shared_uri_resource:                      proto.EduSharedUriResource{}
+			edu_shared_uri_resource:                      types_662.EduSharedUriResource{}
 			override_force_experimental_gameplay:         none
-			chat_restriction_level:                       proto.ChatRestrictionLevel.@none
+			chat_restriction_level:                       enums_662.ChatRestrictionLevel.@none
 			disable_player_interactions:                  false
 			server_editor_connection_policy:              0
 			allow_anonymous_block_drops_in_editor_worlds: false
@@ -230,7 +287,7 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 		level_name:                            s.cfg.motd
 		template_content_identity:             ''
 		is_trial:                              false
-		movement_settings:                     proto.SyncedPlayerMovementSettings{
+		movement_settings:                     types_818.SyncedPlayerMovementSettings{
 			server_authoritative_block_breaking: true
 		}
 		current_level_time:                    0
@@ -238,7 +295,7 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 		block_properties:                      s.custom_block_entries()
 		multiplayer_correlation_id:            '00000000-0000-0000-0000-000000000000'
 		enable_item_stack_net_manager:         true
-		server_version:                        proto.selected_minecraft_version
+		server_version:                        proto.proto_version.minecraft_version()
 		player_property_data:                  nbt.RootTag{
 			name: ''
 			tag:  nbt.Tag(nbt.new_compound())
@@ -247,7 +304,7 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 		world_template_id:                     proto.uuid_from_bytes([]u8{len: 16})
 		server_enabled_client_side_generation: false
 		block_network_ids_are_hashes:          true
-		network_permissions:                   proto.NetworkPermissions{}
+		network_permissions:                   types_662.NetworkPermissions{}
 		server_join_information:               none
 		server_id:                             ''
 		world_id:                              ''
@@ -263,7 +320,13 @@ fn (mut s NetworkSession) build_start_game_packet(spawn_state SpawnState) &proto
 }
 
 fn (mut s NetworkSession) start_game() ! {
-	spawn_state := s.resolve_spawn_state()
+	// Refused before the session spawns, and a session that never spawned
+	// leaves without saving, so the unreadable save stays on disk as it was.
+	spawn_state := s.resolve_spawn_state() or {
+		s.log.warn('Refusing ${s.player.identity.display_name}: ${err}')
+		s.reject_bootstrap('Your saved player data could not be read')
+		return
+	}
 	start_packet := s.build_start_game_packet(spawn_state)
 	s.conn.transport.send(jigsaw_structure_data())!
 	// The client builds its collision registry from this while it reads the
@@ -274,31 +337,31 @@ fn (mut s NetworkSession) start_game() ! {
 	s.conn.transport.send(s.item_registry())!
 	// Sent unconditionally: the client resolves its own player actor against
 	// this list, so the actor data below has nothing to attach to without it.
-	s.conn.transport.send(&proto.AvailableActorIdentifiersPacket{
+	s.conn.transport.send(&packets_662.AvailableActorIdentifiersPacket{
 		actor_info_list: s.entity_identifiers()
 	})!
 	s.conn.transport.send(s.creative_content())!
 	s.conn.transport.send(crafting_data_packet(s.hub.data))!
 	s.conn.transport.send(biome_definition_list())!
-	s.conn.transport.send(&proto.SetDifficultyPacket{
+	s.conn.transport.send(&packets_662.SetDifficultyPacket{
 		difficulty: u32(s.hub.difficulty_value())
 	})!
-	s.conn.transport.send(&proto.UpdateAbilitiesPacket{
+	s.conn.transport.send(&packets_776.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	})!
 	s.conn.transport.send(adventure_settings())!
 	s.conn.transport.send(s.update_attributes())!
-	s.conn.transport.send(s.set_actor_data())!
+	s.conn.transport.send(s.set_actor_data(s.player))!
 	s.log.info('${s.player.identity.display_name} joined the game')
 	s.conn.state = .play
 	if s.pending_radius > 0 {
 		radius := s.pending_radius
 		s.pending_radius = 0
-		s.handle_request_chunk_radius(proto.RequestChunkRadiusPacket{ chunk_radius: radius })!
+		s.handle_request_chunk_radius(packets_662.RequestChunkRadiusPacket{ chunk_radius: radius })!
 	}
 }
 
-fn (mut s NetworkSession) handle_request_chunk_radius(p proto.RequestChunkRadiusPacket) ! {
+fn (mut s NetworkSession) handle_request_chunk_radius(p packets_662.RequestChunkRadiusPacket) ! {
 	mut radius := p.chunk_radius
 	if radius > s.cfg.view_distance {
 		radius = s.cfg.view_distance
@@ -307,20 +370,20 @@ fn (mut s NetworkSession) handle_request_chunk_radius(p proto.RequestChunkRadius
 		radius = 1
 	}
 	own := s.player.position()
-	s.conn.transport.send(&proto.ChunkRadiusUpdatedPacket{
+	s.conn.transport.send(&packets_662.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	})!
-	s.conn.transport.send(&proto.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   proto.BlockPos{
+	s.conn.transport.send(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []proto.ChunkPos{}
+		server_built_chunks: []types_662.ChunkPos{}
 	})!
-	s.conn.transport.send(&proto.PlayStatusPacket{
-		status: proto.PlayStatus.player_spawn
+	s.conn.transport.send(&packets_662.PlayStatusPacket{
+		status: enums_662.PlayStatus.player_spawn
 	})!
 	spawn s.stream_spawn_chunks_background(radius)
 }
@@ -346,11 +409,11 @@ fn should_stream_chunk_radius_async(state State, spawned bool) bool {
 	return state == .play && spawned
 }
 
-fn (mut s NetworkSession) handle_play_chunk_radius_async(p proto.RequestChunkRadiusPacket) {
+fn (mut s NetworkSession) handle_play_chunk_radius_async(p packets_662.RequestChunkRadiusPacket) {
 	spawn s.handle_play_chunk_radius_background(p)
 }
 
-fn (mut s NetworkSession) handle_play_chunk_radius_background(p proto.RequestChunkRadiusPacket) {
+fn (mut s NetworkSession) handle_play_chunk_radius_background(p packets_662.RequestChunkRadiusPacket) {
 	logger.name_thread('Chunk Stream/${s.player.identity.display_name}')
 	defer {
 		logger.unname_thread()
@@ -360,7 +423,7 @@ fn (mut s NetworkSession) handle_play_chunk_radius_background(p proto.RequestChu
 	}
 }
 
-fn (mut s NetworkSession) handle_play_chunk_radius(p proto.RequestChunkRadiusPacket) ! {
+fn (mut s NetworkSession) handle_play_chunk_radius(p packets_662.RequestChunkRadiusPacket) ! {
 	mut radius := p.chunk_radius
 	if radius > s.cfg.view_distance {
 		radius = s.cfg.view_distance
@@ -378,17 +441,17 @@ fn (mut s NetworkSession) handle_play_chunk_radius(p proto.RequestChunkRadiusPac
 	old_radius := s.view_radius
 	old_cx := s.last_chunk_x
 	old_cz := s.last_chunk_z
-	s.send_packet(&proto.ChunkRadiusUpdatedPacket{
+	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	})!
-	s.send_packet(&proto.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   proto.BlockPos{
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []proto.ChunkPos{}
+		server_built_chunks: []types_662.ChunkPos{}
 	})!
 	if old_radius <= 0 {
 		s.send_needed_chunks(cx, cz, radius)!
@@ -436,14 +499,14 @@ fn (mut s NetworkSession) stream_chunks_if_moved() {
 	}
 	s.chunk_stream_mutex.unlock()
 
-	s.send_packet(&proto.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   proto.BlockPos{
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []proto.ChunkPos{}
+		server_built_chunks: []types_662.ChunkPos{}
 	}) or {
 		s.forget_sent_chunks(claimed)
 		return
@@ -488,8 +551,7 @@ fn (mut s NetworkSession) generate_and_deliver_chunks(binding WorldBinding, targ
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
 	for {
 		target, result := pipeline.next_result() or { break }
-		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, binding.world,
-			dim, target.x, target.z)
+		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, binding.world, dim, target.x, target.z)
 		batch << tile_data_packets(binding.world, target.x, target.z)
 		batch_keys << worldrt.chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
@@ -534,9 +596,8 @@ fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []proto
 	}
 	mut wr := binding.world_runtime
 	return wr.try_submit(ChunkDeliveryTask{
-		runtime_id: s.runtime_id
-		epoch:      binding.epoch
-		packets:    batch
+		id:      s.actor_id()
+		packets: batch
 	})
 }
 
@@ -544,9 +605,8 @@ fn (mut s NetworkSession) commit_chunk_batch(binding WorldBinding, batch []proto
 // captured world binding, then queues it for delivery. Chunk streaming only
 // runs for spawned players, so normal send_batch is sufficient here.
 struct ChunkDeliveryTask {
-	runtime_id u64
-	epoch      i64
-	packets    []protocol.Packet
+	id      entity.ActorId
+	packets []protocol.Packet
 }
 
 fn (t ChunkDeliveryTask) name() string {
@@ -554,7 +614,7 @@ fn (t ChunkDeliveryTask) name() string {
 }
 
 fn (t ChunkDeliveryTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut s := player_for_id(mut tx, t.id) or { return }
 	s.send_batch(t.packets) or {}
 }
 
@@ -614,8 +674,7 @@ fn chunk_send_targets(cx int, cz int, radius int, sent map[u64]bool) []ChunkSend
 				x:        x
 				z:        z
 				distance: dx * dx + dz * dz
-				order:    (dx * dx + dz * dz) * span * span + (x - (cx - radius)) * span +
-					(z - (cz - radius))
+				order:    (dx * dx + dz * dz) * span * span + (x - (cx - radius)) * span + (z - (cz - radius))
 			}
 		}
 	}
@@ -655,8 +714,7 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 	mut batch_keys := []u64{cap: chunk_send_batch_size}
 	for {
 		target, result := pipeline.next_result() or { break }
-		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, wld, dim,
-			target.x, target.z)
+		batch << s.chunk_delivery_packet_from_result(result, binding.world_runtime, wld, dim, target.x, target.z)
 		batch << tile_data_packets(wld, target.x, target.z)
 		batch_keys << worldrt.chunk_cache_key(target.x, target.z)
 		if batch_keys.len >= chunk_send_batch_size {
@@ -680,9 +738,9 @@ fn (mut s NetworkSession) send_needed_chunks(cx int, cz int, radius int) ! {
 // level_chunk_packet sends every section inline. Truncated mode, where only
 // biome data goes inline and the client pulls sections with
 // SubChunkRequestPacket, leaves it without the terrain it needs to spawn.
-fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &proto.LevelChunkPacket {
-	return &proto.LevelChunkPacket{
-		chunk_position:                 proto.ChunkPos{
+fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &packets_2168.LevelChunkPacket {
+	return &packets_2168.LevelChunkPacket{
+		chunk_position:                 types_662.ChunkPos{
 			x: i32(x)
 			z: i32(z)
 		}
@@ -696,9 +754,9 @@ fn level_chunk_packet(dim world.Dimension, x int, z int, chunk world.Chunk) &pro
 
 // level_chunk_packet_from_bytes builds the same packet as
 // level_chunk_packet but from an already-serialized column.
-fn level_chunk_packet_from_bytes(dim world.Dimension, x int, z int, section_count int, serialized []u8) &proto.LevelChunkPacket {
-	return &proto.LevelChunkPacket{
-		chunk_position:                 proto.ChunkPos{
+fn level_chunk_packet_from_bytes(dim world.Dimension, x int, z int, section_count int, serialized []u8) &packets_2168.LevelChunkPacket {
+	return &packets_2168.LevelChunkPacket{
+		chunk_position:                 types_662.ChunkPos{
 			x: i32(x)
 			z: i32(z)
 		}
@@ -811,7 +869,7 @@ fn (mut p ChunkPipeline) submit_next() {
 	target := p.targets[p.next]
 	slot := (p.head + p.count) % p.pending.len
 	if isnil(p.runtime) {
-		ch := chan worldrt.ChunkResult{cap: 1}
+		ch := chan worldrt.ChunkResult{ cap: 1 }
 		ch <- empty_chunk_result()
 		p.pending[slot] = ch
 	} else {
@@ -894,7 +952,7 @@ fn tile_data_packets(wld &db.World, cx int, cz int) []protocol.Packet {
 		return packets
 	}
 	for entry in wld.tile_entries_in_chunk(cx, cz) {
-		packets << &proto.BlockActorDataPacket{
+		packets << &packets_944.BlockActorDataPacket{
 			block_position:  proto.block_pos(types.BlockPosition{entry.x, entry.y, entry.z})
 			actor_data_tags: build_sign_nbt(entry.x, entry.y, entry.z, entry.text)
 		}
@@ -902,15 +960,15 @@ fn tile_data_packets(wld &db.World, cx int, cz int) []protocol.Packet {
 	return packets
 }
 
-fn subchunk_center(pos [3]i32) proto.SubChunkPos {
-	return proto.SubChunkPos{
+fn subchunk_center(pos [3]i32) types_2168.SubChunkPos {
+	return types_2168.SubChunkPos{
 		x: pos[0]
 		y: pos[1]
 		z: pos[2]
 	}
 }
 
-fn subchunk_height_map(height_map []int, abs_index int) (proto.HeightMapDataType, [272]i8) {
+fn subchunk_height_map(height_map []int, abs_index int) (packets_2192.HeightMapDataType, [272]i8) {
 	section_min_y := abs_index * 16
 	section_max_y := section_min_y + 15
 	mut out := [272]i8{}
@@ -933,29 +991,29 @@ fn subchunk_height_map(height_map []int, abs_index int) (proto.HeightMapDataType
 		}
 	}
 	if all_too_high {
-		return proto.HeightMapDataType.all_too_high, [272]i8{}
+		return packets_2192.HeightMapDataType.all_too_high, [272]i8{}
 	}
 	if all_too_low {
-		return proto.HeightMapDataType.all_too_low, [272]i8{}
+		return packets_2192.HeightMapDataType.all_too_low, [272]i8{}
 	}
-	return proto.HeightMapDataType.has_data, out
+	return packets_2192.HeightMapDataType.has_data, out
 }
 
 // handle_sub_chunk_request may run before outbound activation because
 // SubChunkRequestPacket is accepted in play state without requiring spawn.
-fn (mut s NetworkSession) handle_sub_chunk_request(p proto.SubChunkRequestPacket) ! {
+fn (mut s NetworkSession) handle_sub_chunk_request(p packets_1001.SubChunkRequestPacket) ! {
 	binding := s.world_binding()
 	wld := binding.world
 	dim := if isnil(wld) { world.overworld } else { wld.dimension }
 	if p.dimension_type != dim.id {
-		mut entries := []proto.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+		mut entries := []packets_2192.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 		for off in p.sub_chunk_pos_offsets {
-			entries << proto.SubChunkDataEntry{
+			entries << packets_2192.SubChunkDataEntry{
 				sub_chunk_pos_offset:     off
 				sub_chunk_request_result: .wrong_dimension
 			}
 		}
-		s.send_maybe_queued(&proto.SubChunkPacket{
+		s.send_maybe_queued(&packets_2192.SubChunkPacket{
 			cache_enabled:  false
 			dimension_type: p.dimension_type
 			center_pos:     subchunk_center(p.center_pos)
@@ -964,7 +1022,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p proto.SubChunkRequestPacket
 		return
 	}
 
-	mut entries := []proto.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
+	mut entries := []packets_2192.SubChunkDataEntry{cap: p.sub_chunk_pos_offsets.len}
 	mut height_cache := map[u64][]int{}
 	mut tile_sent_columns := map[u64]bool{}
 	for off in p.sub_chunk_pos_offsets {
@@ -987,13 +1045,13 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p proto.SubChunkRequestPacket
 		}
 		height_map_type, height_map_data := subchunk_height_map(height_map, abs_index)
 		terrain := chunk.serialize_subchunk(abs_index) or {
-			entries << proto.SubChunkDataEntry{
+			entries << packets_2192.SubChunkDataEntry{
 				sub_chunk_pos_offset:     off
 				sub_chunk_request_result: .index_out_of_bounds
 			}
 			continue
 		}
-		entries << proto.SubChunkDataEntry{
+		entries << packets_2192.SubChunkDataEntry{
 			sub_chunk_pos_offset:        off
 			sub_chunk_request_result:    .success
 			serialized_sub_chunk:        terrain
@@ -1003,7 +1061,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p proto.SubChunkRequestPacket
 			render_height_map_data:      height_map_data
 		}
 	}
-	s.send_maybe_queued(&proto.SubChunkPacket{
+	s.send_maybe_queued(&packets_2192.SubChunkPacket{
 		cache_enabled:  false
 		dimension_type: p.dimension_type
 		center_pos:     subchunk_center(p.center_pos)
@@ -1011,7 +1069,7 @@ fn (mut s NetworkSession) handle_sub_chunk_request(p proto.SubChunkRequestPacket
 	})!
 }
 
-fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInitializedPacket) ! {
+fn (mut s NetworkSession) handle_player_initialized(_ packets_662.SetLocalPlayerAsInitializedPacket) ! {
 	if s.spawned {
 		return
 	}
@@ -1034,32 +1092,29 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 		// share one world actor call. Existing players are collected before
 		// registration so the joining player is never included in its own list.
 		// Later transfers use change_world's deregister/rebind/register path.
-		list_add_pkt := s.player_list_add_packet()
-		add_player_pkt := s.add_player_packet()
-		self := s.self_ref()
-		deliver_packets := worldrt.world_call[[]protocol.Packet]('PlayerInitialized', mut wr, fn [self, list_add_pkt, add_player_pkt] (mut tx worldrt.WorldTx) []protocol.Packet {
-			mut out := []protocol.Packet{}
+		mut self := s.self_ref()
+		// The joining session is shown everyone already here and everyone
+		// already here is shown the joiner. Both directions are built by the
+		// viewer being shown because the id in each packet is that viewer's
+		// own numbering.
+		worldrt.world_call[bool]('PlayerInitialized', mut wr, fn [mut self] (mut tx worldrt.WorldTx) bool {
 			for mut a in tx.wr.entities.player_actors() {
-				if mut a is NetworkSession {
-					out << a.player_list_add_packet()
-					out << a.add_player_packet()
-				}
+				mut other := as_network_session(mut a) or { continue }
+				self.view_player_added(other.player)
 			}
 			register_player(mut tx, self)
-			tx.wr.broadcast_world(list_add_pkt)
-			tx.wr.broadcast_world_except(self.runtime_id, add_player_pkt)
-			for e in tx.wr.entities.snapshot() {
-				out << e.spawn_packet()
+			for mut v in viewers_except(mut tx, self.runtime_id) {
+				v.view_player_added(self.player)
 			}
-			return out
-		}) or { []protocol.Packet{} }
-		for pkt in deliver_packets {
-			s.deliver(pkt)
-		}
+			for e in tx.wr.entities.snapshot() {
+				self.view_entity_spawn(e)
+			}
+			return true
+		}) or { false }
 	}
 	s.hub.add(s)
 	if !isnil(wr) {
-		s.send_active_effects(mut wr)
+		s.player.show_active_effects(mut wr)
 	}
 	mut ctx := event.new_context(player.JoinData{
 		player:  s.player
@@ -1071,6 +1126,8 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 	}
 	inventory_packet := s.restore_inventory()
 	s.send_packet(inventory_packet)!
+	s.send_packet(s.armor_content_packet())!
+	s.broadcast_armor()
 	s.refresh_available_commands()
 	s.log.debug('${s.player.identity.display_name} spawned in the world (${s.hub.count()} online)')
 }
@@ -1083,4 +1140,15 @@ fn (mut s NetworkSession) handle_player_initialized(_ proto.SetLocalPlayerAsInit
 fn (mut s NetworkSession) refresh_available_commands() {
 	available := s.hub.commands.available_commands(s)
 	s.deliver(available)
+}
+
+// adventure_settings is the world wide movement and name tag policy, sent once
+// on spawn. It says nothing about the player so it takes none.
+fn adventure_settings() &packets_662.UpdateAdventureSettingsPacket {
+	return &packets_662.UpdateAdventureSettingsPacket{
+		adventure_settings: types_662.AdventureSettings{
+			show_name_tags: true
+			auto_jump:      true
+		}
+	}
 }

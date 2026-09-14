@@ -11,13 +11,15 @@ import server.world.db
 import server.block
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -62,7 +64,7 @@ fn test_sign_text_wrong_shape_none() {
 
 fn test_sign_editor_opens_only_for_signs() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -72,7 +74,7 @@ fn test_sign_editor_opens_only_for_signs() {
 			}
 		}
 		runtime_id: 1
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 	}
@@ -90,7 +92,7 @@ fn test_sign_editor_opens_only_for_signs() {
 	maybe_open_sign_editor(mut s, types.BlockPosition{0, 0, 0}, sign_id)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.OpenSignPacket {
+	if sent is packets_944.OpenSignPacket {
 		assert sent.is_front
 	} else {
 		assert false
@@ -102,7 +104,7 @@ fn test_sign_editor_opens_only_for_signs() {
 
 fn test_handle_block_actor_data_updates_sign_text() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -112,7 +114,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 			}
 		}
 		runtime_id: 1
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.VoidGenerator{}
@@ -131,7 +133,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, sign_id)
 
-	s.handle_block_actor_data(proto.BlockActorDataPacket{
+	s.handle_block_actor_data(packets_944.BlockActorDataPacket{
 		block_position:  proto.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Welcome!')
 	})!
@@ -139,7 +141,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	assert target.tile_text(pos.x, pos.y, pos.z) or { '' } == 'Welcome!'
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.BlockActorDataPacket {
+	if sent is packets_944.BlockActorDataPacket {
 		compound := sent.actor_data_tags.tag as nbt.Compound
 		text := extract_sign_text(compound) or { panic('expected text') }
 		assert text == 'Welcome!'
@@ -150,7 +152,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 
 fn test_block_actor_data_ignores_non_sign_blocks() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -160,7 +162,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 			}
 		}
 		runtime_id: 1
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 		generator:  world.VoidGenerator{}
@@ -172,7 +174,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, dirt_id)
 
-	s.handle_block_actor_data(proto.BlockActorDataPacket{
+	s.handle_block_actor_data(packets_944.BlockActorDataPacket{
 		block_position:  proto.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Should not be saved')
 	})!
@@ -185,7 +187,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 
 fn test_sign_tile_starts_empty_and_broadcasts() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -195,7 +197,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 			}
 		}
 		runtime_id: 1
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 	}
@@ -215,7 +217,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 	assert target.tile_text(pos.x, pos.y, pos.z) or { 'missing' } == ''
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.BlockActorDataPacket {
+	if sent is packets_944.BlockActorDataPacket {
 		assert sent.block_position == proto.block_pos(pos)
 	} else {
 		assert false
@@ -224,7 +226,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 
 fn test_create_sign_tile_ignores_non_sign_block() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
@@ -234,7 +236,7 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 			}
 		}
 		runtime_id: 1
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 		hub:        hub
 		world:      target
 	}

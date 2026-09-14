@@ -17,6 +17,14 @@ pub fn new_random(seed u32) Random {
 	return r
 }
 
+// new_random_wide seeds from 64 bits. With the high half zero it is exactly
+// new_random of the low half.
+fn new_random_wide(seed u64) Random {
+	mut r := new_random(u32(seed))
+	r.w ^= u32(seed >> 32)
+	return r
+}
+
 pub fn (mut r Random) set_seed(seed u32) {
 	r.x = u32(123456789) ^ seed
 	r.y = u32(362436069) ^ (seed << 17) ^ (seed >> 15)

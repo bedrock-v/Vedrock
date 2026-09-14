@@ -6,8 +6,10 @@ pub struct VoidGenerator {
 	dim Dimension = overworld
 }
 
-pub fn (g VoidGenerator) spawn_y() int {
-	return void_spawn_y
+pub fn (g VoidGenerator) spawn_point() SpawnPoint {
+	return SpawnPoint{
+		y: void_spawn_y
+	}
 }
 
 pub fn (g VoidGenerator) uses_blocks() bool {

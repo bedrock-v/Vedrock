@@ -39,8 +39,8 @@ pub fn (r &PackRegistry) find(id string) ?&ResourcePack {
 }
 
 // parse_cdn_packs decodes the vedrock.toml cdn-packs value. Format:
-//   uuid,version,url,size ; uuid,version,url,size
-// size is optional. Malformed entries are skipped.
+//   uuid,version,url,size,key ; uuid,version,url,size,key
+// size and key are optional. Malformed entries are skipped.
 pub fn parse_cdn_packs(encoded string) []&ResourcePack {
 	mut out := []&ResourcePack{}
 	if encoded.trim_space() == '' {
@@ -59,8 +59,11 @@ pub fn parse_cdn_packs(encoded string) []&ResourcePack {
 		if fields.len >= 4 {
 			size = fields[3].trim_space().u64()
 		}
-		pack := new_cdn_pack(fields[0].trim_space(), fields[1].trim_space(),
+		mut pack := new_cdn_pack(fields[0].trim_space(), fields[1].trim_space(),
 			fields[2].trim_space(), size) or { continue }
+		if fields.len >= 5 {
+			pack = pack.with_content_key(fields[4].trim_space()) or { continue }
+		}
 		out << pack
 	}
 	return out

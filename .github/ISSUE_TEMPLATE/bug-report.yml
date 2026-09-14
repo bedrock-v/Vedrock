@@ -69,8 +69,8 @@ body:
   - type: input
     attributes:
       label: V compiler version
-      description: Output of `v version`. Note that Vedrock is pinned to V 0.5.2 (commit d5c6067).
-      placeholder: e.g. V 0.5.2 d5c6067
+      description: Output of `v version`. Note that Vedrock builds with V 3 and CI pins V 0.5.2 (commit 9e9f7f0).
+      placeholder: e.g. V 0.5.2 9e9f7f0
     validations:
       required: true
 

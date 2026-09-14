@@ -12,6 +12,9 @@ import server.player.bossbar
 import server.player.scoreboard
 import server.player.title
 import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v898.enums as enums_898
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v898.types as types_898
 
 fn full_registry() cmd.Registry {
 	mut r := cmd.new_registry()
@@ -32,38 +35,40 @@ fn base_ctx() cmd.Context {
 
 struct RecordingSender {
 mut:
-	messages         []string
-	broadcasts       []string
-	gamemode         ?player.Gamemode
-	perm             permission.Permissible
-	peers            map[string]cmd.Sender
-	sender_name      string = 'Steve'
-	killed           bool
-	disconnected     bool
-	disconnect_msg   string
-	pos_x            f32
-	pos_y            f32
-	pos_z            f32
-	cleared          bool
-	given_id         string
-	given_count      int
-	given_ok         bool = true
-	whitelisted      []string
-	whitelist_on     bool
-	difficulty_value int
-	shown_title      string
-	broadcast_titles []string
-	is_player_val    bool = true
-	sent_form        ?form.Form
-	worlds           []string
-	unloaded_worlds  []string
-	created_dim      string
-	created_gen      string
-	tp_world         string
-	bossbar_text     string
-	scoreboard_title string
-	scoreboard_lines []string
-	scoreboard_shown bool
+	messages                []string
+	broadcasts              []string
+	gamemode                ?player.Gamemode
+	perm                    permission.Permissible
+	peers                   map[string]cmd.Sender
+	sender_name             string = 'Steve'
+	killed                  bool
+	disconnected            bool
+	disconnect_msg          string
+	pos_x                   f32
+	pos_y                   f32
+	pos_z                   f32
+	cleared                 bool
+	given_id                string
+	given_experience        int
+	given_experience_levels int
+	given_count             int
+	given_ok                bool = true
+	whitelisted             []string
+	whitelist_on            bool
+	difficulty_value        int
+	shown_title             string
+	broadcast_titles        []string
+	is_player_val           bool = true
+	sent_form               ?form.Form
+	worlds                  []string
+	unloaded_worlds         []string
+	created_dim             string
+	created_gen             string
+	tp_world                string
+	bossbar_text            string
+	scoreboard_title        string
+	scoreboard_lines        []string
+	scoreboard_shown        bool
 }
 
 fn (mut s RecordingSender) send_message(message string) ! {
@@ -113,6 +118,8 @@ fn (mut s RecordingSender) position() types.Vector3 {
 
 fn (mut s RecordingSender) place_water(x int, y int, z int) {}
 
+fn (mut s RecordingSender) place_lava(x int, y int, z int) {}
+
 fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 	s.pos_x = x
 	s.pos_y = y
@@ -121,6 +128,18 @@ fn (mut s RecordingSender) teleport(x f32, y f32, z f32) {
 
 fn (mut s RecordingSender) clear_inventory() {
 	s.cleared = true
+}
+
+fn (mut s RecordingSender) give_experience(points int) {
+	s.given_experience += points
+}
+
+fn (mut s RecordingSender) give_experience_levels(levels int) {
+	s.given_experience_levels += levels
+}
+
+fn (s RecordingSender) experience_level() int {
+	return s.given_experience_levels
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -217,10 +236,14 @@ fn (mut s RecordingSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
 	}
 }
 
-fn (mut s RecordingSender) world_create(name string, dimension string, generator string) ! {
+fn (mut s RecordingSender) world_create(name string, dimension string, generator string, seed ?i64) ! {
 	s.worlds << name
 	s.created_dim = dimension
 	s.created_gen = generator
+}
+
+fn (mut s RecordingSender) current_world_name() string {
+	return ''
 }
 
 fn (mut s RecordingSender) world_load(name string) ! {
@@ -247,8 +270,8 @@ fn test_version_command() {
 	r.dispatch('/version', mut sender, base_ctx())!
 	assert sender.messages.len == 1
 	assert sender.messages[0].contains('Vedrock')
-	assert sender.messages[0].contains(proto.selected_minecraft_version)
-	assert sender.messages[0].contains(proto.selected_protocol.str())
+	assert sender.messages[0].contains(proto.proto_version.minecraft_version())
+	assert sender.messages[0].contains(int(proto.proto_version.protocol_id()).str())
 }
 
 fn test_version_alias() {
@@ -365,23 +388,23 @@ fn test_resolve_missing() {
 }
 
 fn test_command_request_roundtrip() {
-	pkt := proto.CommandRequestPacket{
+	pkt := packets_898.CommandRequestPacket{
 		command:        '/version'
-		command_origin: proto.CommandOriginData{
-			command_type: proto.CommandOriginType.player
+		command_origin: types_898.CommandOriginData{
+			command_type: enums_898.CommandOriginType.player
 			request_id:   'req-1'
 		}
 		version:        '1'
 	}
 	encoded := protocol.encode_packet_to_bytes(&pkt)
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'CommandRequestPacket'
-	mut request := proto.CommandRequestPacket{}
+	mut request := packets_898.CommandRequestPacket{}
 	decode_into(&pkt, mut request)!
 	assert request.command == '/version'
-	assert request.command_origin.command_type == proto.CommandOriginType.player
+	assert request.command_origin.command_type == enums_898.CommandOriginType.player
 	assert request.command_origin.request_id == 'req-1'
 }
 
@@ -390,15 +413,15 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 14
+	assert pkt.commands.len == 16
 	encoded := protocol.encode_packet_to_bytes(pkt)
-	mut pool := proto.new_packet_pool()
+	mut pool := proto.new_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
-	mut available := proto.AvailableCommandsPacket{}
+	mut available := packets_898.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 14
+	assert available.commands.len == 16
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }
@@ -507,8 +530,8 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 		assert !seen[v], 'enum_values contains a duplicate: ${v}'
 		seen[v] = true
 	}
-	mut gamemode_enum := proto.EnumDataEntry{}
-	mut difficulty_enum := proto.EnumDataEntry{}
+	mut gamemode_enum := packets_898.EnumDataEntry{}
+	mut difficulty_enum := packets_898.EnumDataEntry{}
 	for e in pkt.enum_data {
 		if e.name == 'gamemode_mode' {
 			gamemode_enum = e
@@ -540,4 +563,55 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 	mut r := serializer.new_reader(protocol.encode_packet_to_bytes(p))
 	protocol.read_packet_header(mut r)!
 	out.decode_payload(mut r)!
+}
+
+fn test_xp_command_gives_points_to_the_sender() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/xp 30', mut sender, base_ctx())!
+	assert sender.given_experience == 30
+	assert sender.given_experience_levels == 0
+}
+
+fn test_xp_command_reads_the_level_suffix() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/xp 5L', mut sender, base_ctx())!
+	assert sender.given_experience_levels == 5
+	assert sender.given_experience == 0
+}
+
+fn test_xp_command_targets_another_player() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/xp 12 Alex', mut sender, base_ctx())!
+	assert target.given_experience == 12
+	assert sender.given_experience == 0
+}
+
+fn test_xp_command_rejects_a_malformed_amount() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/xp lots', mut sender, base_ctx())!
+	assert sender.given_experience == 0
+	assert sender.messages[0].contains('Usage')
+}
+
+fn test_xp_command_denied_without_op() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	r.dispatch('/xp 10', mut sender, base_ctx())!
+	assert sender.given_experience == 0
+	assert sender.messages[0].contains('permission')
 }

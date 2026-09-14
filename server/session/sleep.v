@@ -1,0 +1,125 @@
+module session
+
+import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.types
+import server.block
+import server.world
+import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v944.packets as packets_944
+
+// bed_block is the one block id every bed colour shares; the colour lives in
+// the block entity rather than in the block itself.
+const bed_block = 'minecraft:bed'
+
+// bed_reach is how far a player may stand from a bed and still use it.
+const bed_reach = f32(2.0)
+
+// bed_standing_offsets are the blocks a respawning player is placed in,
+// searched in this order.
+const bed_standing_offsets = [
+	types.BlockPosition{-1, 0, 0},
+	types.BlockPosition{1, 0, 0},
+	types.BlockPosition{0, 0, -1},
+	types.BlockPosition{0, 0, 1},
+	types.BlockPosition{-1, 0, -1},
+	types.BlockPosition{-1, 0, 1},
+	types.BlockPosition{1, 0, -1},
+	types.BlockPosition{1, 0, 1},
+	types.BlockPosition{0, 1, 0},
+]
+
+// is_bed reports whether a block runtime id is a bed.
+fn is_bed(block_id int) bool {
+	b := block.get(block_id) or { return false }
+	return b.identifier() == bed_block
+}
+
+// use_bed is what right clicking a bed does: it becomes the player's spawn
+// point and then the night skip is refused because sleeping itself doesn't
+// exist yet. Vanilla sets the spawn before it decides whether the player may
+// sleep, so a bed used at the wrong time still moves the spawn.
+//
+// Beds outside the overworld explode in vanilla. Explosions don't exist yet
+// either, so the use is refused instead; the client already knows a bed there
+// is not somewhere to sleep.
+fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) bool {
+	if tx.wr.world.dimension.id != world.overworld.id {
+		s.player.send_translation('%tile.bed.noSleep', [])
+		return true
+	}
+	if !within_bed_reach(s.feet_position(), pos) {
+		s.player.send_translation('%tile.bed.tooFar', [])
+		return true
+	}
+	// A bed nobody can arrive beside is not a spawn point. Falling through
+	// leaves the click to ordinary placement as vanilla does.
+	bed_standing_spot(mut tx, pos) or {
+		s.player.send_translation('%tile.bed.obstructed', [])
+		return false
+	}
+	key := s.player_key()
+	if tx.wr.world.player_spawn(key) or { types.BlockPosition{} } != pos {
+		tx.wr.world.set_player_spawn(key, pos)
+		s.send_spawn_position(pos, tx.wr.world.dimension.id)
+		s.player.send_translation('%tile.bed.respawnSet', [])
+	}
+	s.player.send_translation('%tile.bed.noSleep', [])
+	return true
+}
+
+// send_spawn_position tells the client which block its spawn point is now.
+// The server decides where a respawn lands either way; this is what the client
+// draws its own respawn marker and compass from.
+fn (mut s NetworkSession) send_spawn_position(pos types.BlockPosition, dimension_id int) {
+	block_pos := proto.block_pos(pos)
+	s.deliver(&packets_944.SetSpawnPositionPacket{
+		spawn_position_type: enums_662.SpawnPositionType.player_respawn
+		block_position:      block_pos
+		dimension_type:      i32(dimension_id)
+		spawn_block_pos:     block_pos
+	})
+}
+
+fn within_bed_reach(feet types.Vector3, pos types.BlockPosition) bool {
+	dx := feet.x - (f32(pos.x) + 0.5)
+	dy := feet.y - (f32(pos.y) + 0.5)
+	dz := feet.z - (f32(pos.z) + 0.5)
+	return dx * dx + dy * dy + dz * dz <= bed_reach * bed_reach
+}
+
+// bed_standing_spot is where a player using or returning to the bed at pos is
+// put: the first neighbouring block with a floor under it and room to stand.
+// none means the bed is walled in which is what makes it unusable.
+fn bed_standing_spot(mut tx worldrt.WorldTx, pos types.BlockPosition) ?types.Vector3 {
+	for offset in bed_standing_offsets {
+		x := pos.x + offset.x
+		y := pos.y + offset.y
+		z := pos.z + offset.z
+		if !saved_floor_solid(block_at(tx, x, y - 1, z)) {
+			continue
+		}
+		if !saved_body_clear(block_at(tx, x, y, z)) || !saved_body_clear(block_at(tx, x, y + 1, z)) {
+			continue
+		}
+		return types.Vector3{f32(x) + 0.5, f32(y) + player_eye_height, f32(z) + 0.5}
+	}
+	return none
+}
+
+// respawn_position is where a player comes back: beside their own bed when it
+// is still standing with room to arrive and the world's spawn otherwise. The
+// bed is looked up rather than remembered, so mining it out is enough to lose
+// it, and the world is asked rather than the player, so a bed somewhere else
+// is never this world's answer.
+fn respawn_position(mut tx worldrt.WorldTx, mut s NetworkSession) types.Vector3 {
+	world_spawn := world_spawn_position(tx.wr.world, s.world_binding().generator)
+	bed := tx.wr.world.player_spawn(s.player_key()) or { return world_spawn }
+	if is_bed(block_at(tx, bed.x, bed.y, bed.z)) {
+		if spot := bed_standing_spot(mut tx, bed) {
+			return spot
+		}
+	}
+	s.player.send_translation('%tile.bed.notValid', [])
+	return world_spawn
+}

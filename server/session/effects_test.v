@@ -5,12 +5,14 @@ import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.internal.gamedata
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v944.types as types_944
 
 fn make_effects_test_player(name string, health f32) &player.Player {
 	mut pl := player.new_player()
@@ -46,9 +48,8 @@ fn add_effect_directly(wr &worldrt.WorldRuntime, rid u64, e effect.Effect) {
 	}
 
 	PlayerAddEffectTask{
-		runtime_id: rid
-		epoch:      0
-		effect:     e
+		id:     entity.new_actor_id(rid, 0)
+		effect: e
 	}.run(mut tx)
 }
 
@@ -58,9 +59,8 @@ fn remove_effect_directly(wr &worldrt.WorldRuntime, rid u64, typ effect.Type) {
 	}
 
 	PlayerRemoveEffectTask{
-		runtime_id: rid
-		epoch:      0
-		typ:        typ
+		id:  entity.new_actor_id(rid, 0)
+		typ: typ
 	}.run(mut tx)
 }
 
@@ -163,8 +163,8 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	net_id := sess.player.track_stack(potion)
 	sess.player.set_slot(0, net_id)
 
-	changes := sess.apply_consume(mut tx, proto.ItemStackRequestSlotInfo{
-		container_name: proto.FullContainerName{
+	changes := sess.apply_consume(mut tx, types_2168.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0

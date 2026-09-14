@@ -2,7 +2,6 @@ module db
 
 import rand
 import server.block
-import server.world
 
 // ScheduledEntry represents one pending scheduled tick for a block position.
 // It becomes due when current_tick reaches due.
@@ -25,14 +24,19 @@ pub:
 }
 
 // block_id returns the block at the given position. It first checks for an
-// in memory override, then falls back to the world's configured generator.
+// in memory override, then falls back to the world's ground as stored.
+//
+// The fallback goes through the store rather than straight to the generator:
+// an edit lives in the chunk data once it has been baked, and the override that
+// carried it is gone once the column is evicted or the world is loaded again.
 //
 // This matches the override first lookup used by session.block_at().
-pub fn (w &World) block_id(x int, y int, z int) int {
+pub fn (mut w World) block_id(x int, y int, z int) int {
 	if id := w.block_override(x, y, z) {
 		return id
 	}
-	return world.new_generator(w.generator_name).block_at(x, y, z)
+	mut generator := w.stored_generator()
+	return generator.block_at(x, y, z)
 }
 
 // schedule_tick queues one scheduled tick for the given position.
@@ -76,24 +80,32 @@ pub fn (w &World) scheduled_backlog_count() int {
 	return w.scheduled.len
 }
 
-// override_positions returns the positions of all currently overridden blocks.
-// Callers can use the snapshot to perform their own random tick selection.
+// override_positions returns the overridden positions in the columns currently
+// resident. Callers can use the snapshot to perform their own random tick
+// selection; an unloaded column is not simulated, which is what confines
+// random ticking to the area in play.
 pub fn (w &World) override_positions() []TickPosition {
 	mut m := w.mutex
 	m.lock()
 	defer {
 		m.unlock()
 	}
-	mut positions := []TickPosition{cap: w.overrides.len}
-	for key, _ in w.overrides {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		positions << TickPosition{
-			x: parts[0].int()
-			y: parts[1].int()
-			z: parts[2].int()
+	return w.locked_override_positions()
+}
+
+// locked_override_positions lists every overridden position in the resident
+// columns, in whatever order they were loaded. Callers hold w.mutex.
+fn (w &World) locked_override_positions() []TickPosition {
+	mut positions := []TickPosition{}
+	for key, col in w.columns {
+		cx, cz := column_coords(key)
+		for local, _ in col.blocks {
+			x, y, z := local_coords(cx, cz, local)
+			positions << TickPosition{
+				x: x
+				y: y
+				z: z
+			}
 		}
 	}
 	return positions
@@ -107,6 +119,7 @@ pub fn (w &World) override_positions() []TickPosition {
 // so broadcasting these to connected players is the caller's responsibility.
 pub fn (mut w World) tick(registry &block.Registry) []BlockOverride {
 	mut changed := []BlockOverride{}
+	w.drain_pending_migrations()
 
 	w.mutex.lock()
 	w.current_tick++
@@ -121,18 +134,7 @@ pub fn (mut w World) tick(registry &block.Registry) []BlockOverride {
 		}
 	}
 	w.scheduled = pending
-	mut positions := []TickPosition{cap: w.overrides.len}
-	for key, _ in w.overrides {
-		parts := key.split(':')
-		if parts.len != 3 {
-			continue
-		}
-		positions << TickPosition{
-			x: parts[0].int()
-			y: parts[1].int()
-			z: parts[2].int()
-		}
-	}
+	positions := w.locked_override_positions()
 	w.mutex.unlock()
 
 	for entry in due {

@@ -6,7 +6,14 @@ import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import server.entity
 import server.player
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.version.v944.types as types_944
 
 const crafting_grid_small = [28, 29, 30, 31]
 const crafting_grid_large = [32, 33, 34, 35, 36, 37, 38, 39, 40]
@@ -152,7 +159,7 @@ fn try_craft_recipe(mut s NetworkSession, recipe item.Recipe, times int) ?[]Slot
 			new_net = s.player.track_stack(leftover)
 		}
 		s.set_crafting_slot_net_id(p.slot, new_net)
-		changes << slot_change(proto.FullContainerName{
+		changes << slot_change(types_944.FullContainerName{
 			container: .crafting_input_container
 		}, i8(p.slot), remaining, new_net)
 	}
@@ -232,7 +239,7 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 			new_net = s.player.track_stack(leftover)
 		}
 		s.set_crafting_slot_net_id(slot, new_net)
-		changes << slot_change(proto.FullContainerName{
+		changes << slot_change(types_944.FullContainerName{
 			container: .crafting_input_container
 		}, i8(slot), left, new_net)
 	}
@@ -258,7 +265,7 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 		} else {
 			s.player.delete_slot(slot)
 		}
-		changes << slot_change(proto.FullContainerName{
+		changes << slot_change(types_944.FullContainerName{
 			container: .combined_hotbar_and_inventory_container
 		}, i8(slot), left, new_net)
 	}
@@ -301,9 +308,9 @@ fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 	s.log.debug('open_workbench: opening at ${pos}')
 	s.close_open_container(mut tx)
 	s.set_workbench_open(true)
-	s.deliver(&proto.ContainerOpenPacket{
-		container_id:    proto.ContainerID.first
-		container_type:  proto.ContainerType.workbench
+	s.deliver(&packets_944.ContainerOpenPacket{
+		container_id:    enums_662.ContainerID.first
+		container_type:  enums_662.ContainerType.workbench
 		position:        proto.block_pos(pos)
 		target_actor_id: proto.actor_unique_id(-1)
 	})
@@ -375,8 +382,7 @@ fn (mut s NetworkSession) close_workbench(mut tx worldrt.WorldTx) {
 }
 
 struct CloseWorkbenchTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 }
 
 fn (t CloseWorkbenchTask) name() string {
@@ -384,7 +390,7 @@ fn (t CloseWorkbenchTask) name() string {
 }
 
 fn (t CloseWorkbenchTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	target.close_workbench(mut tx)
 }
 
@@ -393,57 +399,55 @@ fn (mut s NetworkSession) release_workbench() {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
+	id := s.actor_id()
 	wr.submit(CloseWorkbenchTask{
-		runtime_id: rid
-		epoch:      epoch
+		id: id
 	})
 }
 
-fn recipe_uuid(id string) proto.Uuid {
+fn recipe_uuid(id string) types_662.Uuid {
 	sum := md5.sum(id.bytes())
 	mut bytes := [16]u8{}
 	for i in 0 .. 16 {
 		bytes[i] = sum[i]
 	}
-	return proto.Uuid{
+	return types_662.Uuid{
 		bytes: bytes
 	}
 }
 
-const always_unlocked = proto.RecipeUnlockingRequirement{
-	context: proto.UnlockingContext.always_unlocked
+const always_unlocked = types_2168.RecipeUnlockingRequirement{
+	context: types_2168.UnlockingContext.always_unlocked
 }
 
-fn crafting_data_packet(data gamedata.GameData) &proto.CraftingDataPacket {
-	mut shaped_recipes := []proto.ShapedRecipe{}
-	mut shapeless_recipes := []proto.ShapelessRecipe{}
+fn crafting_data_packet(data gamedata.GameData) &packets_2168.CraftingDataPacket {
+	mut shaped_recipes := []types_2168.ShapedRecipe{}
+	mut shapeless_recipes := []types_2168.ShapelessRecipe{}
 	for r in item.all_recipes() {
 		output_id := data.item_id(r.output_name)
 		production_list := [
-			proto.NetworkItemInstanceDescriptor{
+			types_2168.NetworkItemInstanceDescriptor{
 				id:         output_id
 				stack_size: u16(r.output_count)
 			},
 		]
 		if r.width > 0 && r.height > 0 {
-			mut cells := []proto.CraftingRecipeIngredient{cap: r.pattern.len}
+			mut cells := []types_2168.CraftingRecipeIngredient{cap: r.pattern.len}
 			for cell in r.pattern {
 				if cell == '' {
-					cells << proto.CraftingRecipeIngredient{
-						descriptor: proto.CraftingDescEmpty{}
+					cells << types_2168.CraftingRecipeIngredient{
+						descriptor: types_2168.CraftingDescEmpty{}
 					}
 					continue
 				}
-				cells << proto.CraftingRecipeIngredient{
-					descriptor: proto.CraftingDescName{
+				cells << types_2168.CraftingRecipeIngredient{
+					descriptor: types_2168.CraftingDescName{
 						item_id: cell
 					}
 					stack_size: 1
 				}
 			}
-			shaped_recipes << proto.ShapedRecipe{
+			shaped_recipes << types_2168.ShapedRecipe{
 				recipe_unique_id:      r.id
 				width:                 r.width
 				height:                r.height
@@ -458,16 +462,16 @@ fn crafting_data_packet(data gamedata.GameData) &proto.CraftingDataPacket {
 			}
 			continue
 		}
-		mut ingredients := []proto.CraftingRecipeIngredient{cap: r.ingredients.len}
+		mut ingredients := []types_2168.CraftingRecipeIngredient{cap: r.ingredients.len}
 		for ingredient in r.ingredients {
-			ingredients << proto.CraftingRecipeIngredient{
-				descriptor: proto.CraftingDescName{
+			ingredients << types_2168.CraftingRecipeIngredient{
+				descriptor: types_2168.CraftingDescName{
 					item_id: ingredient.name
 				}
 				stack_size: ingredient.count
 			}
 		}
-		shapeless_recipes << proto.ShapelessRecipe{
+		shapeless_recipes << types_2168.ShapelessRecipe{
 			recipe_unique_id:      r.id
 			ingredient_list:       ingredients
 			production_list:       production_list
@@ -478,7 +482,7 @@ fn crafting_data_packet(data gamedata.GameData) &proto.CraftingDataPacket {
 			network_id:            i32(r.network_id)
 		}
 	}
-	return &proto.CraftingDataPacket{
+	return &packets_2168.CraftingDataPacket{
 		shaped_recipes:    shaped_recipes
 		shapeless_recipes: shapeless_recipes
 		clear_recipes:     true

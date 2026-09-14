@@ -24,6 +24,8 @@ import server.player.playerdb
 import bedrock_v.protocol.current as proto
 import server.worldrt
 import server.player
+import bedrock_v.protocol.version.v924.enums as enums_924
+import bedrock_v.protocol.version.v924.packets as packets_924
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
@@ -62,11 +64,11 @@ mut:
 	// session_wg tracks sessions from registration until leave completes.
 	// wait_for_sessions_to_leave blocks until every session has finished
 	// leaving including saving player data and removing itself.
-	session_wg         &sync.WaitGroup = sync.new_waitgroup()
-	oidc_verifier      auth.Verifier
-	data               gamedata.GameData
-	lang               &language.Lang               = unsafe { nil }
-	commands           cmd.Registry                 = cmd.new_registry()
+	session_wg    &sync.WaitGroup = sync.new_waitgroup()
+	oidc_verifier auth.Verifier
+	data          gamedata.GameData
+	lang          &language.Lang = unsafe { nil }
+	commands      cmd.Registry   = cmd.new_registry()
 	// Defaults handed to every player and world this Hub creates. One handler
 	// each, not a list: ordering between several listeners is the caller's to
 	// arrange, in a handler that calls them in the order it wants.
@@ -80,6 +82,9 @@ mut:
 	// fallback generator name for freshly created worlds. Both are set at boot.
 	worlds_dir      string = 'worlds'
 	world_generator string = 'flat'
+	// creating names the worlds being created right now. A second create of
+	// the same name is refused rather than racing the first for its folder.
+	creating map[string]bool
 	// world_factory creates/opens/lists/deletes named world backends.
 	// Defaults to db.LevelDBFactory the first time set_world_config runs,
 	// unless HubOptions already supplied one at construction time.
@@ -270,12 +275,13 @@ pub fn (h &Hub) uptime_seconds() i64 {
 // unless one is already set.
 fn (mut h Hub) add_world(loaded_world &db.World) {
 	mut wr := worldrt.new_world_runtime(
-		world:      loaded_world
-		services:   h
-		generators: h
-		handler:    h.world_handler
-		players:    SessionPlayerTicker{}
-		entity_host: new_world_entity_host
+		world:          loaded_world
+		services:       h
+		generators:     h
+		handler:        h.world_handler
+		players:        SessionPlayerTicker{}
+		block_entities: SessionFurnaceTicker{}
+		entity_host:    new_world_entity_host
 	)
 	h.restore_world_entities(mut wr)
 	h.world_registry.add(wr)
@@ -341,20 +347,21 @@ pub fn (mut h Hub) request_tick_all(n i64) {
 	}
 }
 
-// flush_worlds durably flushes every loaded world's queued override/tile
-// writes to disk. Writes otherwise only become durable on a graceful
-// shutdown (close_worlds). Calling this periodically bounds how much a
-// crash or forced kill can lose to the flush interval instead of however
-// long the server has been running since it last shut down cleanly. Returns
-// one "world: error" message per world that failed to flush rather than
-// stopping at the first failure, so one bad store doesn't hide the rest.
-pub fn (mut h Hub) flush_worlds() []string {
-	mut errors := []string{}
+// request_world_flushes queues a durability sync on every loaded world and
+// returns. Writes otherwise only become durable on a graceful shutdown
+// (close_worlds); calling this periodically bounds how much a crash or forced
+// kill can lose to the flush interval instead of however long the server has
+// been running since it last shut down cleanly.
+//
+// The sync happens on each world's storage worker. The caller is the
+// server tick loop and waiting on a device there is what turns a routine
+// durability sync into a tick overrun. A sync that fails is reported the same
+// way a failed write is, through the world's persistence error metrics.
+pub fn (mut h Hub) request_world_flushes() {
 	mut r := h.world_registry
 	for mut wr in r.each_runtime() {
-		wr.world.flush() or { errors << '${wr.world.name}: ${err.msg()}' }
+		wr.world.request_flush()
 	}
-	return errors
 }
 
 // persist_pressure_warnings returns a warning for each loaded world whose
@@ -438,9 +445,12 @@ pub fn (mut h Hub) list_worlds() []string {
 // WorldInfo is a read-only snapshot describing a loaded world.
 pub struct WorldInfo {
 pub:
-	name       string
-	generator  string
-	dimension  string
+	name      string
+	generator string
+	dimension string
+	seed      i64
+	// overrides counts the block overrides in the world's resident columns,
+	// not everything it has ever stored.
 	overrides  int
 	is_default bool
 	players    int
@@ -457,7 +467,8 @@ fn (mut h Hub) world_info(name string) ?WorldInfo {
 		name:       loaded_world.name
 		generator:  loaded_world.generator_name
 		dimension:  loaded_world.dimension.name()
-		overrides:  loaded_world.block_count()
+		seed:       loaded_world.seed
+		overrides:  loaded_world.resident_block_count()
 		is_default: is_default
 		players:    h.players_in_world(name)
 	}
@@ -485,7 +496,7 @@ fn (mut h Hub) players_in_world(name string) int {
 
 // register_generator adds or overrides a named world generator, reachable
 // through Server.register_generator.
-pub fn (mut h Hub) register_generator(name string, factory fn (dim blockworld.Dimension) blockworld.Generator) {
+pub fn (mut h Hub) register_generator(name string, factory blockworld.GeneratorFactory) {
 	h.generators.register(name, factory)
 }
 
@@ -498,22 +509,34 @@ fn (mut h Hub) generator_type_names() []string {
 // build_generator resolves a world's own generator by name and dimension
 // through the registry.
 pub fn (h &Hub) build_generator(w &db.World) blockworld.Generator {
-	return h.generators.create(w.generator_name, w.dimension) or {
-		h.generators.create(w.dimension.default_generator, w.dimension) or {
-			blockworld.new_generator(w.generator_name)
-		}
+	return h.generator_for(w.generator_name, w.dimension, w.seed)
+}
+
+// generator_for resolves a generator by name for dim and seed, falling back to
+// the dimension's own default and then to the built-in of that name.
+fn (h &Hub) generator_for(name string, dim blockworld.Dimension, seed i64) blockworld.Generator {
+	opts := blockworld.GeneratorOptions{
+		dim:  dim
+		seed: seed
+	}
+	return h.generators.create(name, opts) or {
+		h.generators.create(dim.default_generator, opts) or { blockworld.new_generator(name) }
 	}
 }
 
 // create_world creates a fresh empty world on disk and registers it as loaded.
 // Refuses to clobber an already-loaded or already-on-disk world. Safe to call
 // off the actor thread - it only adds to the worlds map, never mutates a
-// player's active world.
-pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator string) !string {
+// player's active world. Without a seed the world gets a new random one.
+pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator string, seed ?i64) !string {
 	if _ := h.world(name) {
 		return error('world "${name}" is already loaded')
 	}
 	h.mutex.lock()
+	if name in h.creating {
+		h.mutex.unlock()
+		return error('world "${name}" is already being created')
+	}
 	mut factory := h.world_factory or {
 		h.mutex.unlock()
 		return error('world factory not configured')
@@ -524,12 +547,22 @@ pub fn (mut h Hub) create_world(name string, dim blockworld.Dimension, generator
 	} else {
 		dim.default_generator
 	}
+	h.creating[name] = true
 	h.mutex.unlock()
+	defer {
+		h.mutex.lock()
+		h.creating.delete(name)
+		h.mutex.unlock()
+	}
 	resolved_generator := if generator.trim_space() == '' { default_generator } else { generator }
-	provider := factory.create(name, dim, resolved_generator) or {
+	resolved_seed := seed or { blockworld.new_world_seed() }
+	spawn_point := h.generator_for(resolved_generator, dim, resolved_seed).spawn_point()
+	provider := factory.create(name, dim, resolved_generator, resolved_seed, spawn_point) or {
 		return error('failed to create world "${name}": ${err}')
 	}
-	loaded_world := db.new_world(name, provider, resolved_generator, dim)
+	mut loaded_world := db.new_world(name, provider, resolved_generator, dim)
+	loaded_world.seed = resolved_seed
+	loaded_world.spawn_point = spawn_point
 	h.add_world(loaded_world)
 	return name
 }
@@ -558,7 +591,7 @@ pub fn (mut h Hub) load_world(name string) !string {
 
 // load_or_create_world loads name from storage when it already exists there
 // or creates it fresh otherwise.
-pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, generator string) !string {
+pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, generator string, seed ?i64) !string {
 	h.mutex.lock()
 	factory := h.world_factory or {
 		h.mutex.unlock()
@@ -569,7 +602,7 @@ pub fn (mut h Hub) load_or_create_world(name string, dim blockworld.Dimension, g
 	if factory.exists(name) {
 		return h.load_world(name)
 	}
-	return h.create_world(name, dim, generator)
+	return h.create_world(name, dim, generator, seed)
 }
 
 // unload_world flushes and releases a loaded world without deleting its
@@ -653,6 +686,7 @@ fn (mut h Hub) add(target &NetworkSession) {
 	// have no sink yet. Wiring it again here is harmless for the rest.
 	mut claimed := unsafe { target }
 	claimed.player.sink = claimed
+	claimed.player.runtime_id = claimed.runtime_id
 	h.mutex.lock()
 	h.sessions[target.runtime_id] = target
 	h.pending_names.delete(normal_player_name(target.player.identity.display_name))
@@ -766,8 +800,8 @@ pub fn (mut h Hub) chunk_cache_totals() (int, i64) {
 
 // broadcast_message sends a raw chat line to every connected player.
 fn (mut h Hub) broadcast_message(text string) {
-	h.broadcast(&proto.TextPacket{
-		message_type: proto.TextRaw{
+	h.broadcast(&packets_924.TextPacket{
+		message_type: enums_924.TextRaw{
 			message: text
 		}
 	})

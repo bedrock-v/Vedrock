@@ -142,8 +142,11 @@ other = "§cUtilisation : /say <message>§r"
 [cmd.title.usage]
 other = "§cUtilisation : /title <joueur|@a> <title|subtitle|actionbar> <texte>§r"
 
+[cmd.seed.body]
+other = "§aGraine : [{{.Seed}}]§r"
+
 [cmd.world.usage]
-other = "§cUtilisation : /world <list|info|metrics|create|load|delete|tp> [nom] [dimension] [générateur]§r"
+other = "§cUtilisation : /world <list|info|metrics|create|load|delete|tp> [nom] [dimension] [générateur] [graine]§r"
 
 [cmd.world.none]
 other = "§eAucun monde chargé§r"

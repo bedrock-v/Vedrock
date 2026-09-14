@@ -9,10 +9,9 @@ fn (mut s NetworkSession) set_gamemode(mode player.Gamemode) {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
-	worldrt.world_call[bool]('Player.set_gamemode', mut wr, fn [rid, epoch, mode] (mut tx worldrt.WorldTx) bool {
-		mut target := player_for_epoch(mut tx, rid, epoch) or { return false }
+	id := s.actor_id()
+	worldrt.world_call[bool]('Player.set_gamemode', mut wr, fn [id, mode] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
 		target.player.set_gamemode(mut tx, mode)
 		return true
 	}) or { false }

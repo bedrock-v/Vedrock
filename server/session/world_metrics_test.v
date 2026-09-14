@@ -11,8 +11,8 @@ import server.player
 import server.world
 import server.world.db
 import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v924.packets as packets_924
 
 struct MetricsBarrierTask {
 	started chan bool
@@ -76,8 +76,8 @@ fn test_metrics_reports_queued_work_while_world_is_stalled() {
 		hub.close_worlds()
 	}
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	assert wr.submit(MetricsBarrierTask{
 		started: started
 		release: release
@@ -134,7 +134,9 @@ fn test_metrics_reports_player_and_entity_counts() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{
+			transport: transport
+		}
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -203,10 +205,11 @@ fn test_metrics_liquid_backlog_matches_actor_owned_state_after_a_tick() {
 		hub.close_worlds()
 	}
 
-	assert wr.submit(PlaceWaterTask{
-		x: 0
-		y: 60
-		z: 0
+	assert wr.submit(PlaceLiquidTask{
+		kind: .water
+		x:    0
+		y:    60
+		z:    0
 	})
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
@@ -227,8 +230,8 @@ fn test_metrics_liquid_backlog_matches_actor_owned_state_after_a_tick() {
 @[heap]
 struct StallingTransport {
 mut:
-	blocked chan bool = chan bool{cap: 1}
-	started chan bool = chan bool{cap: 1}
+	blocked chan bool = chan bool{ cap: 1 }
+	started chan bool = chan bool{ cap: 1 }
 }
 
 fn (mut t StallingTransport) wait_started() {
@@ -237,8 +240,10 @@ fn (mut t StallingTransport) wait_started() {
 
 fn (mut t StallingTransport) send(p protocol.Packet) ! {
 	select {
-		t.started <- true {}
-		else {}
+		t.started <- true {
+		}
+		else {
+		}
 	}
 	_ := <-t.blocked
 }
@@ -257,8 +262,10 @@ fn (t &StallingTransport) remote_addr() string {
 
 fn (mut t StallingTransport) close() {
 	select {
-		t.blocked <- true {}
-		else {}
+		t.blocked <- true {
+		}
+		else {
+		}
 	}
 }
 
@@ -286,7 +293,9 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{
+			transport: transport
+		}
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -304,15 +313,15 @@ fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	// Deliver one packet and wait for the writer to actually be blocked
 	// inside send() before filling the queue, so the fill loop below always
 	// lands exactly at capacity regardless of thread scheduling.
-	s.deliver(&proto.TextPacket{})
+	s.deliver(&packets_924.TextPacket{})
 	transport.wait_started()
 
 	for _ in 0 .. outbound_queue_capacity {
-		s.deliver(&proto.TextPacket{})
+		s.deliver(&packets_924.TextPacket{})
 	}
 	assert wr.metrics().outbound_overflow_count == 0
 
-	s.deliver(&proto.TextPacket{}) // one past capacity, this overflows
+	s.deliver(&packets_924.TextPacket{}) // one past capacity, this overflows
 
 	assert wr.metrics().outbound_overflow_count == 1
 	assert wr.metrics().outbound_peak_depth == 0 // no tick has sampled it yet

@@ -6,8 +6,9 @@ import bedrock_v.protocol.types
 import server.block
 import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v944.packets as packets_944
 
-fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) ! {
+fn (mut s NetworkSession) handle_block_actor_data(p packets_944.BlockActorDataPacket) ! {
 	pos := proto.block_pos_from(p.block_position)
 	if s.player.is_dead() || !s.can_interact() {
 		return
@@ -48,7 +49,7 @@ struct SetSignTextTask {
 	y    int
 	z    int
 	text string
-	done chan bool = chan bool{cap: 1}
+	done chan bool = chan bool{ cap: 1 }
 }
 
 fn (t SetSignTextTask) name() string {
@@ -60,10 +61,7 @@ fn (t SetSignTextTask) run(mut tx worldrt.WorldTx) {
 		t.done <- true
 	}
 	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(types.BlockPosition{t.x, t.y, t.z})
-		actor_data_tags: build_sign_nbt(t.x, t.y, t.z, t.text)
-	})
+	broadcast_block_entity(mut tx, types.BlockPosition{t.x, t.y, t.z}, build_sign_nbt(t.x, t.y, t.z, t.text))
 }
 
 // max_sign_text_bytes bounds the text a client may write onto a sign. The NBT

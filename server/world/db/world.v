@@ -1,6 +1,5 @@
 module db
 
-import json2
 import server.world
 
 pub struct ContainerSlotItem {
@@ -16,16 +15,26 @@ pub mut:
 // Provider is the storage backend contract a world needs, the same shape
 // WorldStore (LevelDB) already implements, extracted so a framework user can
 // bring their own backend instead of being stuck with LevelDB.
+//
+// Everything the server writes into the terrain travels as a column: one
+// record holding a chunk footprint's block overrides and block entities. The
+// bytes are opaque here, which keeps a backend to storing and returning them
+// and keeps their meaning in one place (encode_column).
 pub interface Provider {
 	dimension() world.Dimension
 	load_chunk(cx int, cz int) ?world.Chunk
-	each_block(cb fn (x int, y int, z int, runtime_id int))
-	each_tile(cb fn (x int, y int, z int, text string))
-	each_container(cb fn (x int, y int, z int, items []ContainerSlotItem))
+	// load_column returns one column's record or none when the world has
+	// stored nothing in that footprint. Columns are read one at a time and on
+	// demand. It keeps resident memory tied to the area in play
+	// rather than to how much the world has ever been edited.
+	load_column(cx int, cz int) ?[]u8
+	// each_player_spawn walks the beds players have bound themselves to in
+	// this world. key is whatever the caller identifies a player by.
+	each_player_spawn(cb fn (key string, x int, y int, z int))
 mut:
-	set_block(x int, y int, z int, runtime_id int) !
-	set_tile_text(x int, y int, z int, text string) !
-	set_container_items(x int, y int, z int, items []ContainerSlotItem) !
+	store_column(cx int, cz int, data []u8) !
+	store_chunk_blocks(cx int, cz int, encoded map[int][]u8) !
+	set_player_spawn(key string, x int, y int, z int) !
 	flush() !
 	close() !
 }
@@ -38,9 +47,19 @@ pub struct WorldStore {
 }
 
 pub fn open_world(path string, dim world.Dimension) !&WorldStore {
+	overrides := open_leveldb(path + '_overrides')!
+	vanilla := open_leveldb(path) or {
+		overrides.close() or {}
+		return err
+	}
+	migrate_legacy_records(overrides) or {
+		overrides.close() or {}
+		vanilla.close() or {}
+		return err
+	}
 	return &WorldStore{
-		db:        open_leveldb(path)!
-		overrides: open_leveldb(path + '_overrides')!
+		db:        vanilla
+		overrides: overrides
 		dimension: dim
 	}
 }
@@ -62,78 +81,63 @@ fn read_i32(b []u8, offset int) int {
 		offset + 3]) << 24))
 }
 
-fn block_key(x int, y int, z int) []u8 {
+fn put_i64(mut b []u8, v i64) {
+	u := u64(v)
+	for shift in [0, 8, 16, 24, 32, 40, 48, 56] {
+		b << u8(u >> shift)
+	}
+}
+
+fn read_i64(b []u8, offset int) i64 {
+	mut u := u64(0)
+	for i in 0 .. 8 {
+		u |= u64(b[offset + i]) << (i * 8)
+	}
+	return i64(u)
+}
+
+// column_record_key is 9 bytes where every legacy position key below is 13,
+// which is what lets both shapes sit in one LevelDB handle while a world is
+// being migrated.
+fn column_record_key(cx int, cz int) []u8 {
 	mut b := []u8{}
-	b << u8(`b`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
+	b << u8(`C`)
+	put_i32(mut b, cx)
+	put_i32(mut b, cz)
 	return b
 }
 
-// tile_key uses the same 13-byte x/y/z layout as block_key with a distinct
-// prefix byte ('t' instead of 'b'), so tile data safely coexists with block
-// overrides in the same LevelDB handle.
-fn tile_key(x int, y int, z int) []u8 {
+// player_spawn_key is the one key here that is not a position. The player key
+// is variable length which is also what keeps it clear of the position keys.
+fn player_spawn_key(key string) []u8 {
 	mut b := []u8{}
-	b << u8(`t`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
+	b << u8(`s`)
+	b << key.bytes()
 	return b
 }
 
-fn container_key(x int, y int, z int) []u8 {
-	mut b := []u8{}
-	b << u8(`c`)
-	put_i32(mut b, x)
-	put_i32(mut b, y)
-	put_i32(mut b, z)
-	return b
+pub fn (w &WorldStore) store_column(cx int, cz int, data []u8) ! {
+	w.overrides.put(column_record_key(cx, cz), data)!
 }
 
-pub fn (w &WorldStore) set_block(x int, y int, z int, runtime_id int) ! {
+pub fn (w &WorldStore) load_column(cx int, cz int) ?[]u8 {
+	return w.overrides.get(column_record_key(cx, cz))
+}
+
+pub fn (w &WorldStore) set_player_spawn(key string, x int, y int, z int) ! {
 	mut v := []u8{}
-	put_i32(mut v, runtime_id)
-	w.overrides.put(block_key(x, y, z), v)!
+	put_i32(mut v, x)
+	put_i32(mut v, y)
+	put_i32(mut v, z)
+	w.overrides.put(player_spawn_key(key), v)!
 }
 
-pub fn (w &WorldStore) each_block(cb fn (x int, y int, z int, runtime_id int)) {
+pub fn (w &WorldStore) each_player_spawn(cb fn (key string, x int, y int, z int)) {
 	w.overrides.each(fn [cb] (key []u8, value []u8) {
-		if key.len != 13 || value.len != 4 || key[0] != u8(`b`) {
+		if key.len < 2 || value.len != 12 || key[0] != u8(`s`) {
 			return
 		}
-		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), read_i32(value, 0))
-	})
-}
-
-// set_tile_text persists a block-entity's tex at a position, sharing the overrides handle with a distinct key
-// prefix rather than opening a third LevelDB handle for no isolation benefit.
-pub fn (w &WorldStore) set_tile_text(x int, y int, z int, text string) ! {
-	w.overrides.put(tile_key(x, y, z), text.bytes())!
-}
-
-pub fn (w &WorldStore) each_tile(cb fn (x int, y int, z int, text string)) {
-	w.overrides.each(fn [cb] (key []u8, value []u8) {
-		if key.len != 13 || key[0] != u8(`t`) {
-			return
-		}
-		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), value.bytestr())
-	})
-}
-
-// set_container_items persists a container's contents.
-pub fn (w &WorldStore) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
-	w.overrides.put(container_key(x, y, z), json2.encode(items).bytes())!
-}
-
-pub fn (w &WorldStore) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {
-	w.overrides.each(fn [cb] (key []u8, value []u8) {
-		if key.len != 13 || key[0] != u8(`c`) {
-			return
-		}
-		items := json2.decode[[]ContainerSlotItem](value.bytestr()) or { return }
-		cb(read_i32(key, 1), read_i32(key, 5), read_i32(key, 9), items)
+		cb(key[1..].bytestr(), read_i32(value, 0), read_i32(value, 4), read_i32(value, 8))
 	})
 }
 

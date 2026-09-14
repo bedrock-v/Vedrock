@@ -1,7 +1,20 @@
 module world
 
+import rand
+
+// SpawnPoint is where a player new to a world arrives: the block their feet
+// are in.
+pub struct SpawnPoint {
+pub:
+	x int
+	y int
+	z int
+}
+
 pub interface Generator {
-	spawn_y() int
+	// spawn_point picks the column as well as the height since the generator
+	// is what knows where its dry land is.
+	spawn_point() SpawnPoint
 	uses_blocks() bool
 	generate(chunk_x int, chunk_z int) Chunk
 	block_at(x int, y int, z int) int
@@ -48,23 +61,26 @@ fn safe_spawn_y(g Generator, dim Dimension, x int, z int, preferred int) int {
 // Extra nether biomes, structures, netherite and portals are out of scope.
 pub const nether_lava_level = 31
 const nether_spawn_floor_y = 63
-const nether_floor_salt = u32(401)
-const nether_ceiling_salt = u32(409)
-const nether_density_salt = u32(419)
-const nether_detail_salt = u32(421)
-const nether_surface_salt = u32(431)
-const nether_glowstone_salt = u32(457)
+const nether_floor_salt = u64(401)
+const nether_ceiling_salt = u64(409)
+const nether_density_salt = u64(419)
+const nether_detail_salt = u64(421)
+const nether_surface_salt = u64(431)
+const nether_glowstone_salt = u64(457)
 const density_cell_xz = 4
 const density_cell_y = 8
 const density_grid_xz = 5
 const density_grid_y = 17
 
 pub struct NetherGenerator {
-	dim Dimension = nether
+	dim  Dimension = nether
+	seed i64
 }
 
-pub fn (g NetherGenerator) spawn_y() int {
-	return safe_spawn_y(g, g.dim, 0, 0, nether_spawn_floor_y + 1)
+pub fn (g NetherGenerator) spawn_point() SpawnPoint {
+	return SpawnPoint{
+		y: safe_spawn_y(g, g.dim, 0, 0, nether_spawn_floor_y + 1)
+	}
 }
 
 pub fn (g NetherGenerator) uses_blocks() bool {
@@ -92,7 +108,7 @@ fn (g NetherGenerator) floor_bedrock_at(x int, y int, z int) bool {
 		return false
 	}
 	threshold := 0.70 - f64(y - g.dim.min_y) * 0.13
-	return hash3_unit(x, y, z, nether_floor_salt + 17) < threshold
+	return hash3_unit(x, y, z, (nether_floor_salt + 17) ^ seed_mask(g.seed)) < threshold
 }
 
 fn (g NetherGenerator) roof_bedrock_at(x int, y int, z int) bool {
@@ -104,7 +120,7 @@ fn (g NetherGenerator) roof_bedrock_at(x int, y int, z int) bool {
 		return false
 	}
 	threshold := 0.28 + f64(y - (roof_y - 4)) * 0.12
-	return hash3_unit(x, y, z, nether_ceiling_salt + 29) < threshold
+	return hash3_unit(x, y, z, (nether_ceiling_salt + 29) ^ seed_mask(g.seed)) < threshold
 }
 
 fn f64_clamp(v f64, min f64, max f64) f64 {
@@ -126,8 +142,9 @@ fn density_grid_index(gx int, gy int, gz int) int {
 }
 
 fn (g NetherGenerator) density_at(x int, y int, z int) f64 {
-	main := (fbm3d(f64(x) / 38.0, f64(y) / 28.0, f64(z) / 38.0, nether_density_salt, 4) - 0.5) * 2.0
-	detail := (fbm3d(f64(x) / 16.0, f64(y) / 14.0, f64(z) / 16.0, nether_detail_salt, 2) - 0.5) * 0.65
+	mask := seed_mask(g.seed)
+	main := (fbm3d(f64(x) / 38.0, f64(y) / 28.0, f64(z) / 38.0, nether_density_salt ^ mask, 4) - 0.5) * 2.0
+	detail := (fbm3d(f64(x) / 16.0, f64(y) / 14.0, f64(z) / 16.0, nether_detail_salt ^ mask, 2) - 0.5) * 0.65
 	lower := f64_clamp((38.0 - f64(y)) / 28.0, 0.0, 1.0) * 1.35
 	upper := f64_clamp((f64(y) - 82.0) / 32.0, 0.0, 1.0) * 1.35
 	middle_open := 0.22 + f64_clamp((f64(y) - 38.0) / 26.0, 0.0, 1.0) * 0.10
@@ -249,7 +266,7 @@ fn (g NetherGenerator) raw_block_at(x int, y int, z int) int {
 }
 
 fn (g NetherGenerator) surface_patch_at(x int, y int, z int) int {
-	n := hash3_unit(x / 2, y / 2, z / 2, nether_surface_salt)
+	n := hash3_unit(x / 2, y / 2, z / 2, nether_surface_salt ^ seed_mask(g.seed))
 	if y >= nether_lava_level - 1 && y <= nether_lava_level + 4 && n > 0.62 {
 		return soul_sand.network_id
 	}
@@ -273,7 +290,7 @@ fn (g NetherGenerator) glowstone_at_raw(x int, y int, z int, raw int, above int)
 		|| above == air.network_id {
 		return false
 	}
-	return hash3_unit(x / 2, y / 2, z / 2, nether_glowstone_salt) > 0.965
+	return hash3_unit(x / 2, y / 2, z / 2, nether_glowstone_salt ^ seed_mask(g.seed)) > 0.965
 }
 
 fn (g NetherGenerator) decorate_nether_raw(x int, y int, z int, raw int, above int) int {
@@ -340,19 +357,22 @@ const end_platform_size = 5
 const end_island_radius = 96.0
 const end_edge_jitter = 10.0
 const end_hill_amplitude = 8.0
-const end_island_salt = u32(601)
-const end_hill_salt = u32(619)
+const end_island_salt = u64(601)
+const end_hill_salt = u64(619)
 
 pub struct EndGenerator {
-	dim Dimension = the_end
+	dim  Dimension = the_end
+	seed i64
 }
 
 fn (g EndGenerator) layers() []Block {
 	return [bedrock, end_stone, end_stone, end_stone]
 }
 
-pub fn (g EndGenerator) spawn_y() int {
-	return g.dim.min_y + g.layers().len
+pub fn (g EndGenerator) spawn_point() SpawnPoint {
+	return SpawnPoint{
+		y: g.dim.min_y + g.layers().len
+	}
 }
 
 pub fn (g EndGenerator) uses_blocks() bool {
@@ -361,7 +381,8 @@ pub fn (g EndGenerator) uses_blocks() bool {
 
 fn (g EndGenerator) island_top_y(x int, z int) ?int {
 	dist := dist2d(x, z)
-	edge_noise := (fbm2d(f64(x) / 40.0, f64(z) / 40.0, end_island_salt, 3) - 0.5) * 2.0 * end_edge_jitter
+	mask := seed_mask(g.seed)
+	edge_noise := (fbm2d(f64(x) / 40.0, f64(z) / 40.0, end_island_salt ^ mask, 3) - 0.5) * 2.0 * end_edge_jitter
 	effective_radius := end_island_radius + edge_noise
 	if dist > effective_radius {
 		return none
@@ -371,7 +392,7 @@ fn (g EndGenerator) island_top_y(x int, z int) ?int {
 	if falloff < 0 {
 		falloff = 0
 	}
-	hill_noise := fbm2d(f64(x) / 30.0, f64(z) / 30.0, end_hill_salt, 3)
+	hill_noise := fbm2d(f64(x) / 30.0, f64(z) / 30.0, end_hill_salt ^ mask, 3)
 	extra := int(hill_noise * end_hill_amplitude * falloff)
 	return floor_top + extra
 }
@@ -442,9 +463,28 @@ pub fn new_generator(name string) Generator {
 	return g
 }
 
-// GeneratorFactory builds a fresh Generator sized for dim. Each lookup gets
+// GeneratorOptions is what a registered generator is built from for one
+// world: the dimension it is sized for and that world's seed.
+@[params]
+pub struct GeneratorOptions {
+pub:
+	dim  Dimension = overworld
+	seed i64
+}
+
+// new_world_seed picks the seed a new world is generated from. Never 0, which
+// is the seed of worlds made before seeds existed.
+pub fn new_world_seed() i64 {
+	mut seed := rand.i64()
+	for seed == 0 {
+		seed = rand.i64()
+	}
+	return seed
+}
+
+// GeneratorFactory builds a fresh Generator for one world. Each lookup gets
 // its own instance, mirroring entity.Registry's BehaviourFactory.
-pub type GeneratorFactory = fn (dim Dimension) Generator
+pub type GeneratorFactory = fn (opts GeneratorOptions) Generator
 
 pub struct GeneratorRegistry {
 mut:
@@ -453,29 +493,32 @@ mut:
 
 pub fn new_generator_registry() GeneratorRegistry {
 	mut r := GeneratorRegistry{}
-	r.register('void', fn (dim Dimension) Generator {
+	r.register('void', fn (opts GeneratorOptions) Generator {
 		return VoidGenerator{
-			dim: dim
+			dim: opts.dim
 		}
 	})
-	r.register('flat', fn (dim Dimension) Generator {
+	r.register('flat', fn (opts GeneratorOptions) Generator {
 		return FlatGenerator{
-			dim: dim
+			dim: opts.dim
 		}
 	})
-	r.register('normal', fn (dim Dimension) Generator {
+	r.register('normal', fn (opts GeneratorOptions) Generator {
 		return NormalGenerator{
-			dim: dim
+			dim:  opts.dim
+			seed: opts.seed
 		}
 	})
-	r.register('nether', fn (dim Dimension) Generator {
+	r.register('nether', fn (opts GeneratorOptions) Generator {
 		return NetherGenerator{
-			dim: dim
+			dim:  opts.dim
+			seed: opts.seed
 		}
 	})
-	r.register('end', fn (dim Dimension) Generator {
+	r.register('end', fn (opts GeneratorOptions) Generator {
 		return EndGenerator{
-			dim: dim
+			dim:  opts.dim
+			seed: opts.seed
 		}
 	})
 	return r
@@ -485,16 +528,16 @@ pub fn (mut r GeneratorRegistry) register(name string, factory GeneratorFactory)
 	r.factories[name.to_lower()] = factory
 }
 
-// create resolves name to a Generator sized for dim. An empty name or the
+// create resolves name to a Generator built from opts. An empty name or the
 // literal name "default" both mean "whatever this dimension's own default
 // generator is" (dim.default_generator - 'normal' for overworld, 'nether' for
 // nether, 'end' for end), so callers (e.g. /world create ... default) don't
 // need to know each dimension's concrete generator name.
-pub fn (r &GeneratorRegistry) create(name string, dim Dimension) ?Generator {
+pub fn (r &GeneratorRegistry) create(name string, opts GeneratorOptions) ?Generator {
 	lower := name.to_lower().trim_space()
-	resolved := if lower == '' || lower == 'default' { dim.default_generator } else { lower }
+	resolved := if lower == '' || lower == 'default' { opts.dim.default_generator } else { lower }
 	factory := r.factories[resolved.to_lower()] or { return none }
-	return factory(dim)
+	return factory(opts)
 }
 
 pub fn (r &GeneratorRegistry) names() []string {

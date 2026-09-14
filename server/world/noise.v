@@ -13,32 +13,63 @@ fn hash_unit(h u32) f64 {
 	return f64(h % 1_000_000) / 1_000_000.0
 }
 
+// seed_mask is what a world's seed changes every salt by. Seed 0 changes
+// nothing, which keeps a world made before seeds existed generating exactly as
+// it did. All 64 bits are kept, so no two seeds share a world.
+fn seed_mask(seed i64) u64 {
+	if seed == 0 {
+		return 0
+	}
+	mask := splitmix64(u64(seed))
+	return if mask == 0 { splitmix64(0) } else { mask }
+}
+
+// splitmix64 is a bijection on u64, so seeds a bit apart still give unrelated
+// masks.
+fn splitmix64(x u64) u64 {
+	mut z := x + u64(0x9e3779b97f4a7c15)
+	z = (z ^ (z >> 30)) * u64(0xbf58476d1ce4e5b9)
+	z = (z ^ (z >> 27)) * u64(0x94d049bb133111eb)
+	return z ^ (z >> 31)
+}
+
+// hash_salt folds a salt into h. Only a seed sets a salt's high half, a
+// salt from before seeds hashes exactly as it did.
+fn hash_salt(h u32, salt u64) u32 {
+	mut out := hash_step(h, u32(salt))
+	high := u32(salt >> 32)
+	if high != 0 {
+		out = hash_step(out, high)
+	}
+	return out
+}
+
 // hash3_unit returns a deterministic pseudo random value in [0, 1) for an
 // integer (x, y, z, salt) tuple. Used directly for independent per block
 // decisions (ore placement) where no smoothing between neighbours is wanted.
-fn hash3_unit(x int, y int, z int, salt u32) f64 {
+fn hash3_unit(x int, y int, z int, salt u64) f64 {
 	mut h := noise_hash_offset
 	h = hash_step(h, u32(x))
 	h = hash_step(h, u32(y))
 	h = hash_step(h, u32(z))
-	h = hash_step(h, salt)
+	h = hash_salt(h, salt)
 	return hash_unit(h)
 }
 
-fn lattice_value(x int, z int, salt u32) f64 {
+fn lattice_value(x int, z int, salt u64) f64 {
 	mut h := noise_hash_offset
 	h = hash_step(h, u32(x))
 	h = hash_step(h, u32(z))
-	h = hash_step(h, salt)
+	h = hash_salt(h, salt)
 	return hash_unit(h)
 }
 
-fn lattice_value3d(x int, y int, z int, salt u32) f64 {
+fn lattice_value3d(x int, y int, z int, salt u64) f64 {
 	mut h := noise_hash_offset
 	h = hash_step(h, u32(x))
 	h = hash_step(h, u32(y))
 	h = hash_step(h, u32(z))
-	h = hash_step(h, salt)
+	h = hash_salt(h, salt)
 	return hash_unit(h)
 }
 
@@ -49,7 +80,7 @@ fn smoothstep(t f64) f64 {
 // value_noise2d samples smoothed value noise at fractional (x, z), bilinearly
 // interpolating between the 4 surrounding integer lattice points. Returns a
 // value in [0, 1).
-fn value_noise2d(x f64, z f64, salt u32) f64 {
+fn value_noise2d(x f64, z f64, salt u64) f64 {
 	x0 := int(math.floor(x))
 	z0 := int(math.floor(z))
 	fx := smoothstep(x - f64(x0))
@@ -63,7 +94,7 @@ fn value_noise2d(x f64, z f64, salt u32) f64 {
 	return top + (bottom - top) * fz
 }
 
-fn value_noise3d(x f64, y f64, z f64, salt u32) f64 {
+fn value_noise3d(x f64, y f64, z f64, salt u64) f64 {
 	x0 := int(math.floor(x))
 	y0 := int(math.floor(y))
 	z0 := int(math.floor(z))
@@ -92,20 +123,20 @@ fn value_noise3d(x f64, y f64, z f64, salt u32) f64 {
 // fbm2d sums octaves of value_noise2d (fractal Brownian motion) for a more
 // natural looking terrain/biome map than a single noise layer would give.
 // Returns a value in [0, 1).
-fn fbm2d(x f64, z f64, salt u32, octaves int) f64 {
+fn fbm2d(x f64, z f64, salt u64, octaves int) f64 {
 	return fbm2d_persist(x, z, salt, octaves, 0.5)
 }
 
 // fbm2d_persist is fbm2d with an explicit amplitude falloff per octave. A low
 // persistence keeps the first octave dominant, which is what wide biome maps
 // want; terrain detail wants the default 0.5.
-fn fbm2d_persist(x f64, z f64, salt u32, octaves int, persistence f64) f64 {
+fn fbm2d_persist(x f64, z f64, salt u64, octaves int, persistence f64) f64 {
 	mut total := 0.0
 	mut amplitude := 1.0
 	mut frequency := 1.0
 	mut max_amplitude := 0.0
 	for i in 0 .. octaves {
-		total += value_noise2d(x * frequency, z * frequency, salt + u32(i) * 7919) * amplitude
+		total += value_noise2d(x * frequency, z * frequency, salt + u64(i) * 7919) * amplitude
 		max_amplitude += amplitude
 		amplitude *= persistence
 		frequency *= 2.0
@@ -113,17 +144,17 @@ fn fbm2d_persist(x f64, z f64, salt u32, octaves int, persistence f64) f64 {
 	return total / max_amplitude
 }
 
-fn fbm3d(x f64, y f64, z f64, salt u32, octaves int) f64 {
+fn fbm3d(x f64, y f64, z f64, salt u64, octaves int) f64 {
 	return fbm3d_persist(x, y, z, salt, octaves, 0.5)
 }
 
-fn fbm3d_persist(x f64, y f64, z f64, salt u32, octaves int, persistence f64) f64 {
+fn fbm3d_persist(x f64, y f64, z f64, salt u64, octaves int, persistence f64) f64 {
 	mut total := 0.0
 	mut amplitude := 1.0
 	mut frequency := 1.0
 	mut max_amplitude := 0.0
 	for i in 0 .. octaves {
-		total += value_noise3d(x * frequency, y * frequency, z * frequency, salt + u32(i) * 7919) * amplitude
+		total += value_noise3d(x * frequency, y * frequency, z * frequency, salt + u64(i) * 7919) * amplitude
 		max_amplitude += amplitude
 		amplitude *= persistence
 		frequency *= 2.0

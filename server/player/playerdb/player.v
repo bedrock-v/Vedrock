@@ -3,6 +3,13 @@ module playerdb
 import os
 import json2
 
+// A save written before hunger existed has neither field, so both default to
+// what a fresh player starts with rather than to a starving one. They live
+// here because the save format is the lower layer: player builds its own
+// constants on top of these, not the other way round.
+pub const max_food_level = 20
+pub const initial_saturation = f32(5.0)
+
 pub struct InvItem {
 pub mut:
 	slot             int = -1
@@ -15,18 +22,24 @@ pub mut:
 
 pub struct PlayerData {
 pub mut:
-	x              f32
-	y              f32
-	z              f32
-	yaw            f32
-	pitch          f32
-	gamemode       int
-	items          []InvItem
-	ender_items    []InvItem
-	has_last_death bool
-	last_death_x   f32
-	last_death_y   f32
-	last_death_z   f32
+	world               string
+	x                   f32
+	y                   f32
+	z                   f32
+	yaw                 f32
+	pitch               f32
+	gamemode            int
+	items               []InvItem
+	ender_items         []InvItem
+	food_level          int = max_food_level
+	saturation          f32 = initial_saturation
+	exhaustion          f32
+	experience_level    int
+	experience_progress f32
+	has_last_death      bool
+	last_death_x        f32
+	last_death_y        f32
+	last_death_z        f32
 }
 
 // safe_key strips anything that could let a key (which may come from an
@@ -53,13 +66,33 @@ fn player_path(dir string, key string) string {
 	return os.join_path(dir, '${safe_key(key)}.json')
 }
 
-pub fn load_player(dir string, key string) ?PlayerData {
+// NotSaved is returned when this player has no save file yet.
+//
+// It's the one outcome a caller should answer with defaults. Every other
+// failure means a save exists and could not be read and treating that as a new
+// player hands them an empty inventory and then overwrites the file they still
+// own on the next save.
+pub struct NotSaved {
+	Error
+}
+
+// load_player reads a player's save.
+//
+// A file that is not there is NotSaved. A file that is there and will not read
+// or will not decode is an error because the difference between "new player"
+// and "damaged save" is the difference between correct defaults and silently
+// discarding everything the player owned.
+pub fn load_player(dir string, key string) !PlayerData {
 	path := player_path(dir, key)
 	if !os.exists(path) {
-		return none
+		return NotSaved{}
 	}
-	text := os.read_file(path) or { return none }
-	return json2.decode[PlayerData](text) or { return none }
+	text := os.read_file(path) or {
+		return error('playerdb: cannot read ${path}: ${err.msg()}')
+	}
+	return json2.decode[PlayerData](text) or {
+		return error('playerdb: ${path} does not decode as player data: ${err.msg()}')
+	}
 }
 
 // save_player writes player data atomically - the JSON goes to a temp file

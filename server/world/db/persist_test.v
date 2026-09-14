@@ -4,7 +4,7 @@ import time
 import server.world
 
 // RecordingProvider is a test only Provider that records calls in order
-// and can block the first set_block until released, proving that world
+// and can block the first store_column until released, proving that world
 // mutation and persistence happen on different threads.
 @[heap]
 struct RecordingProvider {
@@ -31,11 +31,11 @@ fn (p &RecordingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (p &RecordingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
+fn (p &RecordingProvider) load_column(cx int, cz int) ?[]u8 {
+	return none
+}
 
-fn (p &RecordingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
-
-fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) ! {
+fn (mut p RecordingProvider) store_column(cx int, cz int, data []u8) ! {
 	mut claimed := false
 	select {
 		_ := <-p.claim {
@@ -50,18 +50,15 @@ fn (mut p RecordingProvider) set_block(x int, y int, z int, runtime_id int) ! {
 		}
 		_ := <-p.release
 	}
-	p.calls << 'set_block'
+	p.calls << 'store_column'
 }
 
-fn (mut p RecordingProvider) set_tile_text(x int, y int, z int, text string) ! {
-	p.calls << 'set_tile_text'
-}
+fn (p &RecordingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
-fn (p &RecordingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+fn (mut p RecordingProvider) store_chunk_blocks(cx int, cz int, encoded map[int][]u8) ! {}
 
-fn (mut p RecordingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
-	p.calls << 'set_container_items'
-}
+fn (mut p RecordingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
+
 
 fn (mut p RecordingProvider) flush() ! {
 	p.calls << 'flush'
@@ -86,26 +83,21 @@ fn (p &FailingProvider) load_chunk(cx int, cz int) ?world.Chunk {
 	return none
 }
 
-fn (p &FailingProvider) each_block(cb fn (x int, y int, z int, runtime_id int)) {}
+fn (p &FailingProvider) load_column(cx int, cz int) ?[]u8 {
+	return none
+}
 
-fn (p &FailingProvider) each_tile(cb fn (x int, y int, z int, text string)) {}
-
-fn (mut p FailingProvider) set_block(x int, y int, z int, runtime_id int) ! {
+fn (mut p FailingProvider) store_column(cx int, cz int, data []u8) ! {
 	p.calls++
 	return error('simulated disk full')
 }
 
-fn (mut p FailingProvider) set_tile_text(x int, y int, z int, text string) ! {
-	p.calls++
-	return error('simulated disk full')
-}
+fn (p &FailingProvider) each_player_spawn(cb fn (key string, x int, y int, z int)) {}
 
-fn (p &FailingProvider) each_container(cb fn (x int, y int, z int, items []ContainerSlotItem)) {}
+fn (mut p FailingProvider) store_chunk_blocks(cx int, cz int, encoded map[int][]u8) ! {}
 
-fn (mut p FailingProvider) set_container_items(x int, y int, z int, items []ContainerSlotItem) ! {
-	p.calls++
-	return error('simulated disk full')
-}
+fn (mut p FailingProvider) set_player_spawn(key string, x int, y int, z int) ! {}
+
 
 fn (mut p FailingProvider) flush() ! {}
 
@@ -173,7 +165,7 @@ fn test_close_waits_for_pending_storage_writes() {
 	}
 
 	// The write landed strictly before the provider was closed, never after.
-	assert provider.calls == ['set_block', 'close']
+	assert provider.calls == ['store_column', 'close']
 }
 
 fn test_flush_waits_for_the_storage_worker() {
@@ -208,7 +200,7 @@ fn test_flush_waits_for_the_storage_worker() {
 		}
 	}
 
-	assert provider.calls == ['set_block', 'flush']
+	assert provider.calls == ['store_column', 'flush']
 }
 
 fn test_persist_worker_records_write_failure_and_keeps_running() {

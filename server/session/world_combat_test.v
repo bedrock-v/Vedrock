@@ -3,6 +3,7 @@ module session
 import server.event
 import server.internal.gamedata
 import server.internal.logger
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
@@ -76,7 +77,7 @@ fn test_player_attack_event_reaches_only_the_attacker() {
 	mut bystander := combat_world_test_session(mut hub, mut wr_b, 'Notch', 20)
 	bystander.handle(handler_b)
 
-	attacker.handle_attack(victim.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -100,7 +101,7 @@ fn test_attack_cross_world_victim_produces_no_effect() {
 	mut attacker := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
 	mut victim := combat_world_test_session(mut hub, mut wr_b, 'Steve', 20)
 
-	attacker.handle_attack(victim.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -127,10 +128,9 @@ fn test_attack_stale_epoch_produces_no_effect() {
 	assert attacker.change_world('world-b', 0.0, 0.0, 0.0)
 
 	task := PlayerAttackTask{
-		attacker_runtime_id: attacker.runtime_id
-		attacker_epoch:      stale_epoch
-		victim_runtime_id:   victim.runtime_id
-		damage:              10.0
+		attacker:          entity.new_actor_id(attacker.runtime_id, stale_epoch)
+		victim_runtime_id: victim.runtime_id
+		damage:            10.0
 	}
 	assert wr_a.submit(task)
 	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
@@ -159,7 +159,7 @@ fn test_kill_stale_epoch_produces_no_effect() {
 
 	rid := s.runtime_id
 	killed := worldrt.world_call[bool]('test.kill', mut wr_a, fn [rid, stale_epoch] (mut tx worldrt.WorldTx) bool {
-		mut target := player_for_epoch(mut tx, rid, stale_epoch) or { return false }
+		mut target := player_for_id(mut tx, entity.new_actor_id(rid, stale_epoch)) or { return false }
 		target.player.kill(mut tx)
 		return true
 	}) or { panic('stale kill rejected') }
@@ -189,8 +189,7 @@ fn test_respawn_stale_epoch_produces_no_effect() {
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
 
 	task := PlayerRespawnTask{
-		runtime_id: s.runtime_id
-		epoch:      stale_epoch
+		id: entity.new_actor_id(s.runtime_id, stale_epoch)
 	}
 	assert wr_a.submit(task)
 	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {

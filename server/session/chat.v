@@ -6,6 +6,9 @@ import server.event
 import server.player.chat
 import bedrock_v.protocol.current as proto
 import server.player
+import bedrock_v.protocol.version.v924.enums as enums_924
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v924.packets as packets_924
 
 // The wire message is an unbounded string, while the vanilla client caps chat
 // at 512 characters and a command line well below that. Without a bound here
@@ -36,7 +39,7 @@ fn sanitize_chat_message(text string) string {
 	return out.bytestr().trim_space()
 }
 
-fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
+fn (mut s NetworkSession) handle_text(p packets_924.TextPacket) ! {
 	text := proto.text_chat(p.message_type) or { return }
 	if text.message.len > max_chat_message_bytes {
 		return error('chat message of ${text.message.len} bytes exceeds the limit')
@@ -62,15 +65,15 @@ fn (mut s NetworkSession) handle_text(p proto.TextPacket) ! {
 	}
 	final := ctx.val.message
 	s.log.info('<${s.player.identity.display_name}> ${final}')
-	s.hub.broadcast(&proto.TextPacket{
-		message_type: proto.TextChat{
+	s.hub.broadcast(&packets_924.TextPacket{
+		message_type: enums_924.TextChat{
 			player_name: s.player.identity.display_name
 			message:     final
 		}
 	})
 }
 
-fn (mut s NetworkSession) handle_command_request(p proto.CommandRequestPacket) ! {
+fn (mut s NetworkSession) handle_command_request(p packets_898.CommandRequestPacket) ! {
 	if p.command.len > max_command_bytes {
 		return error('command line of ${p.command.len} bytes exceeds the limit')
 	}

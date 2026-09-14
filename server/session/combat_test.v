@@ -9,15 +9,16 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -71,7 +72,7 @@ fn test_handle_attack_rejects_out_of_reach() {
 	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
-	attacker.handle_attack(victim.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -87,7 +88,7 @@ fn combat_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, he
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr
-		conn: &Conn{ transport: &FakeTransport{} }
+		conn:          &Conn{ transport: &FakeTransport{} }
 	}
 	hub.add(s)
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
@@ -111,7 +112,7 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{1.0, 0.0, 0.0})
 
-	attacker.handle_attack(victim.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	// worldrt.world_call as a synchronization barrier, guarantees the attack task
 	// above has actually landed before checking state.
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
@@ -144,7 +145,7 @@ fn test_handle_attack_damages_a_mob() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{1.0, 0.0, 0.0})
 
-	attacker.handle_attack(mob.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -170,7 +171,7 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{100.0, 0.0, 0.0})
 
-	attacker.handle_attack(mob.runtime_id)!
+	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -204,7 +205,7 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 		player:     make_combat_test_player('Steve', 5, .survival)
 		runtime_id: 2
 		hub:        hub
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 	}
 	hub.add(victim)
 
@@ -340,7 +341,7 @@ fn test_apply_respawn_resets_health_and_position() {
 		player:     pl
 		runtime_id: 2
 		hub:        hub
-		conn: &Conn{ transport: transport }
+		conn:       &Conn{ transport: transport }
 		generator:  world.VoidGenerator{}
 	}
 	// Give it a nonzero vy the same way real movement would, to prove
@@ -353,8 +354,7 @@ fn test_apply_respawn_resets_health_and_position() {
 	assert !victim.player.is_dead()
 	assert victim.player.health() == 20.0
 	assert victim.player.movement().vy == 0.0
-	assert victim.player.movement().position.y == f32(world.VoidGenerator{}.spawn_y()) +
-		player_eye_height
+	assert victim.player.movement().position.y == f32(world.VoidGenerator{}.spawn_point().y) + player_eye_height
 }
 
 fn test_apply_respawn_is_noop_when_not_dead() {
@@ -387,14 +387,14 @@ fn test_apply_respawn_is_noop_when_not_dead() {
 fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:    player.new_player()
-		conn: &Conn{ transport: transport }
+		player: player.new_player()
+		conn:   &Conn{ transport: transport }
 	}
 	s.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.SetActorMotionPacket {
+	if sent is packets_662.SetActorMotionPacket {
 		assert sent.motion[0] == 0.0
 		assert sent.motion[2] == 0.0
 		assert sent.motion[1] == knockback_vertical
@@ -406,14 +406,14 @@ fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 fn test_apply_knockback_pushes_away_from_attacker() {
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:    player.new_player()
-		conn: &Conn{ transport: transport }
+		player: player.new_player()
+		conn:   &Conn{ transport: transport }
 	}
 	s.player.reset_position(types.Vector3{10.0, 0.0, 0.0})
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.SetActorMotionPacket {
+	if sent is packets_662.SetActorMotionPacket {
 		assert sent.motion[0] == knockback_horizontal
 		assert sent.motion[2] == 0.0
 	} else {
@@ -480,7 +480,7 @@ fn test_handle_entity_interact_milks_cow_with_bucket() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(cow.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(cow.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 201
@@ -509,7 +509,7 @@ fn test_handle_entity_interact_non_cow_is_noop() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(pig.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(pig.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200
@@ -538,7 +538,7 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(cow.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(cow.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200

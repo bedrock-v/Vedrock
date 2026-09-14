@@ -1,22 +1,20 @@
 module session
 
-import math
 import server.effect
-import server.event
-import bedrock_v.protocol.current as proto
-import server.player
+import server.entity
 import server.worldrt
 
-const mob_effect_add = proto.MobEffectEvent.add
-const mob_effect_remove = proto.MobEffectEvent.remove
+// Effects live on player.Player. What is left here is the way into them: a
+// command or an item is handled on the session thread, which holds no
+// transaction. Each entry point submits a task that enters the owning
+// world's actor and calls the verb there.
 
 // PlayerAddEffectTask/PlayerRemoveEffectTask are add_effect()/remove_effect()
 // run through the owning world's actor. epoch is checked via
 // player_for_epoch so a stale request (submitted before a world switch)
 // produces zero side effects, same as the block-write tasks.
 struct PlayerAddEffectTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	effect     effect.Effect
 }
 
@@ -25,13 +23,12 @@ fn (t PlayerAddEffectTask) name() string {
 }
 
 fn (t PlayerAddEffectTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	s.apply_add_effect(mut tx, t.effect)
+	mut s := player_for_id(mut tx, t.id) or { return }
+	s.player.add_effect(mut tx, t.effect)
 }
 
 struct PlayerRemoveEffectTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 	typ        effect.Type
 }
 
@@ -40,8 +37,8 @@ fn (t PlayerRemoveEffectTask) name() string {
 }
 
 fn (t PlayerRemoveEffectTask) run(mut tx worldrt.WorldTx) {
-	mut s := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
-	s.apply_remove_effect(mut tx, t.typ)
+	mut s := player_for_id(mut tx, t.id) or { return }
+	s.player.remove_effect(mut tx, t.typ)
 }
 
 fn (mut s NetworkSession) add_effect(e effect.Effect) {
@@ -50,9 +47,8 @@ fn (mut s NetworkSession) add_effect(e effect.Effect) {
 		return
 	}
 	wr.submit(PlayerAddEffectTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-		effect:     e
+		id:     s.actor_id()
+		effect: e
 	})
 }
 
@@ -62,209 +58,7 @@ fn (mut s NetworkSession) remove_effect(typ effect.Type) {
 		return
 	}
 	wr.submit(PlayerRemoveEffectTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-		typ:        typ
+		id:  s.actor_id()
+		typ: typ
 	})
-}
-
-// Effect mutation takes the transaction: event dispatch, effect packets and
-// effect damage are all world scoped and run on the owning actor. The send_*
-// helpers below take the runtime instead because they only broadcast and the
-// login path calls them from the session thread.
-fn (mut s NetworkSession) apply_add_effect(mut tx worldrt.WorldTx, e effect.Effect) {
-	mut ctx := event.new_context(player.EffectAddData{
-		effect_name:    e.effect_type().name
-		level:          e.level()
-		duration_ticks: e.duration_ticks()
-		player:         s.player
-	})
-	s.player.handler.on_effect_add(mut ctx)
-	if ctx.is_cancelled() {
-		return
-	}
-	result := s.player.add_effect_result(e)
-	if result.accepted {
-		if result.replaced {
-			s.apply_effect_end(result.previous)
-		}
-		s.apply_effect_start(result.effect)
-		if !result.stored {
-			s.apply_effect_tick(mut tx, result.effect)
-		}
-	}
-	s.send_effect(mut tx.wr, result.effect)
-}
-
-fn (mut s NetworkSession) apply_remove_effect(mut tx worldrt.WorldTx, typ effect.Type) {
-	mut ctx := event.new_context(player.EffectRemoveData{
-		effect_name: typ.name
-		player:      s.player
-	})
-	s.player.handler.on_effect_remove(mut ctx)
-	if ctx.is_cancelled() {
-		return
-	}
-	removed := s.player.remove_effect(typ) or { return }
-	s.apply_effect_end(removed)
-	s.send_effect_removal(mut tx.wr, typ)
-}
-
-// tick_effects advances one player's active effects during the owning world's
-// simulation step. Environmental damage and death stay on that world's
-// runtime.
-fn (mut s NetworkSession) tick_effects(mut tx worldrt.WorldTx) {
-	result := s.player.tick_effects()
-	for e in result.active {
-		s.apply_effect_tick(mut tx, e)
-	}
-	for e in result.expired {
-		s.apply_effect_end(e)
-		s.send_effect_removal(mut tx.wr, e.effect_type())
-	}
-}
-
-fn (mut s NetworkSession) send_active_effects(mut wr worldrt.WorldRuntime) {
-	for e in s.player.active_effects() {
-		s.send_effect(mut wr, e)
-	}
-}
-
-fn (mut s NetworkSession) send_effect(mut wr worldrt.WorldRuntime, e effect.Effect) {
-	s.send_effect_removal(mut wr, e.effect_type())
-	s.send_mob_effect(mut wr, e, mob_effect_add)
-}
-
-// Effect packets are visible only to players in the same world.
-fn (mut s NetworkSession) send_effect_removal(mut wr worldrt.WorldRuntime, typ effect.Type) {
-	if !s.spawned {
-		return
-	}
-	wr.broadcast_world(&proto.MobEffectPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		event_id:          mob_effect_remove
-		effect_id:         typ.id
-	})
-}
-
-fn (mut s NetworkSession) send_mob_effect(mut wr worldrt.WorldRuntime, e effect.Effect, event_id proto.MobEffectEvent) {
-	if !s.spawned {
-		return
-	}
-	wr.broadcast_world(s.mob_effect_packet(e, event_id))
-}
-
-fn (s &NetworkSession) mob_effect_packet(e effect.Effect, event_id proto.MobEffectEvent) &proto.MobEffectPacket {
-	return &proto.MobEffectPacket{
-		target_runtime_id:     proto.actor_runtime_id(s.runtime_id)
-		event_id:              event_id
-		effect_id:             e.effect_type().id
-		effect_amplifier:      e.level() - 1
-		show_particles:        !e.particles_hidden()
-		effect_duration_ticks: e.duration_ticks()
-		tick:                  u64(e.tick())
-		ambient:               e.ambient()
-	}
-}
-
-fn (mut s NetworkSession) apply_effect_start(e effect.Effect) {
-	match e.effect_type().id {
-		effect.absorption.id {
-			s.send_health()
-		}
-		else {}
-	}
-}
-
-fn (mut s NetworkSession) apply_effect_end(e effect.Effect) {
-	match e.effect_type().id {
-		effect.absorption.id {
-			s.send_health()
-		}
-		else {}
-	}
-}
-
-fn (mut s NetworkSession) apply_effect_tick(mut tx worldrt.WorldTx, e effect.Effect) {
-	match e.effect_type().id {
-		effect.instant_health.id {
-			amount := f32((2 << e.level())) * f32(e.potency())
-			s.heal(amount)
-		}
-		effect.instant_damage.id {
-			amount := f32((3 << e.level())) * f32(e.potency())
-			s.apply_damage_from_effect(mut tx, amount, true)
-		}
-		effect.regeneration.id {
-			interval := math.max(50 >> (e.level() - 1), 1)
-			if e.tick() % interval == 0 {
-				s.heal(1)
-			}
-		}
-		effect.poison.id {
-			interval := math.max(50 >> (e.level() - 1), 1)
-			if e.tick() % interval == 0 && s.player.health() > 1 {
-				s.apply_damage_from_effect(mut tx, 1, false)
-			}
-		}
-		effect.wither.id, effect.fatal_poison.id {
-			interval := math.max(80 >> e.level(), 1)
-			if e.tick() % interval == 0 {
-				s.apply_damage_from_effect(mut tx, 1, true)
-			}
-		}
-		else {}
-	}
-}
-
-fn (mut s NetworkSession) heal(amount f32) {
-	if s.player.is_dead() || amount <= 0 {
-		return
-	}
-	old := s.player.health()
-	mut new_health := old + amount
-	if new_health > 20 {
-		new_health = 20
-	}
-	s.player.set_health(new_health)
-	if new_health != old {
-		s.send_health()
-	}
-}
-
-// apply_damage_from_effect handles damage caused by effects. Poison style
-// non-fatal damage floors at one health; fatal effects may kill and use
-// Player.die so all deaths share one path. Effect damage has no attacker, so
-// it does not dispatch player_hurt.
-fn (mut s NetworkSession) apply_damage_from_effect(mut tx worldrt.WorldTx, amount f32, fatal bool) {
-	if s.player.is_dead() || amount <= 0 || !s.player.game_mode().allows_taking_damage() {
-		return
-	}
-	if !fatal && s.player.health() - amount < 1 {
-		s.player.set_health(1)
-	} else {
-		s.player.set_health(s.player.health() - amount)
-	}
-	if s.player.health() < 0 {
-		s.player.set_health(0)
-	}
-	s.send_health()
-	if s.spawned {
-		tx.wr.broadcast_world(&proto.ActorEventPacket{
-			target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-			event_id:          proto.ActorEvent.hurt
-			data:              0
-		})
-	}
-	if s.player.health() <= 0 {
-		key, params := MagicDamageSource{}.death_message_key(s.player.identity.display_name)
-		s.player.die(mut tx, key, params)
-	}
-}
-
-fn (mut s NetworkSession) send_health() {
-	if !s.spawned {
-		return
-	}
-	s.deliver(s.health_update())
 }

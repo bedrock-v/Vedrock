@@ -12,12 +12,13 @@ fn new_test_world_runtime() &worldrt.WorldRuntime {
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('test', none, 'flat', world.overworld)
 	return worldrt.new_world_runtime(
-		world:      w
-		services:   hub
-		generators: hub
-		handler:    hub.world_handler
-		players:    SessionPlayerTicker{}
-		entity_host: new_world_entity_host
+		world:          w
+		services:       hub
+		generators:     hub
+		handler:        hub.world_handler
+		players:        SessionPlayerTicker{}
+		block_entities: SessionFurnaceTicker{}
+		entity_host:    new_world_entity_host
 	)
 }
 

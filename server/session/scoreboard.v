@@ -1,8 +1,11 @@
 module session
 
 import bedrock_v.protocol
-import bedrock_v.protocol.current as proto
 import server.player.scoreboard
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v662.types as types_662
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the
@@ -21,20 +24,20 @@ const sidebar_slot = 'sidebar'
 fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 	mut packets := []protocol.Packet{cap: lines.len + 2}
 	// Drop any previous board first so re-showing replaces cleanly.
-	packets << &proto.RemoveObjectivePacket{
+	packets << &packets_662.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	}
-	packets << &proto.SetDisplayObjectivePacket{
+	packets << &packets_662.SetDisplayObjectivePacket{
 		display_slot_name:      sidebar_slot
 		objective_name:         sidebar_objective
 		objective_display_name: title
 		criteria_name:          'dummy'
-		sort_order:             proto.ObjectiveSortOrder.ascending
+		sort_order:             enums_662.ObjectiveSortOrder.ascending
 	}
-	mut entries := proto.ScorePacketEntries{}
+	mut entries := []packets_2168.ScorePacketEntry{}
 	for i, line in lines {
-		entries << proto.ScoreEntryChangeFakePlayer{
-			scoreboard_id:    proto.ScoreboardId{
+		entries << packets_2168.ScoreEntryChangeFakePlayer{
+			scoreboard_id:    types_662.ScoreboardId{
 				id: i64(i + 1)
 			}
 			objective_name:   sidebar_objective
@@ -42,7 +45,7 @@ fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 			fake_player_name: line
 		}
 	}
-	packets << &proto.SetScorePacket{
+	packets << &packets_2168.SetScorePacket{
 		score_info: entries
 	}
 	return packets
@@ -64,7 +67,7 @@ fn (mut s NetworkSession) send_scoreboard(board &scoreboard.Scoreboard) {
 }
 
 fn (mut s NetworkSession) remove_scoreboard() {
-	s.deliver(&proto.RemoveObjectivePacket{
+	s.deliver(&packets_662.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	})
 }

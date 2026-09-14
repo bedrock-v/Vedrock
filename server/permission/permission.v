@@ -37,10 +37,12 @@ pub const command_teleport_other = 'vedrock.cmd.teleport.other'
 pub const command_clear_self = 'vedrock.cmd.clear.self'
 pub const command_clear_other = 'vedrock.cmd.clear.other'
 pub const command_give = 'vedrock.cmd.give'
+pub const command_xp = 'vedrock.cmd.xp'
 pub const command_difficulty = 'vedrock.cmd.difficulty'
 pub const command_say = 'vedrock.cmd.say'
 pub const command_title = 'vedrock.cmd.title'
 pub const command_world = 'vedrock.cmd.world'
+pub const command_seed = 'vedrock.cmd.seed'
 
 // Registry is a mutable set of known permissions. The shared `registry`
 // below is the one every Permissible checks against; register() may be
@@ -121,6 +123,11 @@ fn new_registry() &Registry {
 		default:     .op
 	})
 	r.register(Permission{
+		name:        command_xp
+		description: 'Allows granting experience to players'
+		default:     .op
+	})
+	r.register(Permission{
 		name:        command_difficulty
 		description: "Allows changing the world's difficulty"
 		default:     .op
@@ -138,6 +145,11 @@ fn new_registry() &Registry {
 	r.register(Permission{
 		name:        command_world
 		description: 'Allows managing worlds (list/info/create/delete/tp)'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_seed
+		description: 'Allows viewing the seed of the current world'
 		default:     .op
 	})
 	return r

@@ -15,3 +15,20 @@ pub interface Sound {
 
 // no_data is the payload of a sound event that carries nothing extra.
 pub const no_data = i32(-1)
+
+// Custom is a sound named by its event directly, for the sounds the server
+// picks by name rather than by kind. It exists for the same reason
+// particle.Custom does: a caller that has only a name should still play a
+// Sound rather than reach past this package for a packet.
+pub struct Custom {
+pub:
+	name string
+}
+
+pub fn (s Custom) event_name() string {
+	return s.name
+}
+
+pub fn (s Custom) data() i32 {
+	return no_data
+}

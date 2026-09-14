@@ -1,5 +1,5 @@
 name: Setup V
-description: Build the pinned V compiler (0.5.2 @ d5c6067, vc @ 84d9186) and install module dependencies
+description: Build the pinned V compiler (0.5.2 @ 9e9f7f0, vc @ e658629) and install module dependencies
 
 runs:
   using: composite
@@ -9,7 +9,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/vlang
-        key: vlang-d5c6067-84d9186-${{ runner.os }}
+        key: vlang-9e9f7f0-e658629-${{ runner.os }}
 
     - name: Build pinned V
       if: steps.cache-v.outputs.cache-hit != 'true'
@@ -17,9 +17,9 @@ runs:
       run: |
         git clone --filter=blob:none https://github.com/vlang/v ~/vlang
         cd ~/vlang
-        git checkout d5c6067
+        git checkout 9e9f7f0
         git clone --filter=blob:none https://github.com/vlang/vc vc
-        git -C vc checkout 84d9186
+        git -C vc checkout e658629
         git clone --depth 1 --branch thirdparty-linux-amd64 https://github.com/vlang/tccbin thirdparty/tcc
         make local=1
 
@@ -32,9 +32,4 @@ runs:
     - name: Install module dependencies
       shell: bash
       run: |
-        ~/vlang/v install nepinhum.i18n
-        git clone --depth 1 https://github.com/vlang/leveldb "$HOME/.vmodules/leveldb"
-        ~/vlang/v install -f bedrock-v.nbt@v0.1.0
-        ~/vlang/v install -f bedrock-v.webrtc@v0.1.1
-        ~/vlang/v install -f bedrock-v.protocol@v2.0.1
-        ~/vlang/v install -f bedrock-v.nethernet@v0.2.0
+        ~/vlang/v install

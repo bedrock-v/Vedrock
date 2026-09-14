@@ -13,8 +13,10 @@ pub fn register_all(mut r cmd.Registry) {
 	r.register(TeleportCommand{})
 	r.register(ClearCommand{})
 	r.register(GiveCommand{})
+	r.register(XpCommand{})
 	r.register(DifficultyCommand{})
 	r.register(SayCommand{})
 	r.register(TitleCommand{})
 	r.register(WorldCommand{})
+	r.register(SeedCommand{})
 }
