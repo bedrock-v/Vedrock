@@ -1,7 +1,7 @@
 module entity
 
 import os
-import json2
+import x.json2 as json2
 import bedrock_v.protocol.types
 import server.effect
 

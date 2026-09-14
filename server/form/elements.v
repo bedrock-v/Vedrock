@@ -1,6 +1,6 @@
 module form
 
-import json2
+import x.json2 as json2
 
 pub type Element = Divider | Dropdown | Header | Input | Label | Slider | StepSlider | Toggle
 
