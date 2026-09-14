@@ -1,6 +1,7 @@
 module session
 
 import server.internal.auth
+import server.internal.network
 import server.internal.logger
 import server.internal.encryption
 import server.resourcepack
@@ -70,6 +71,11 @@ fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 	s.validate_identity(claimed) or {
 		s.log.warn('Rejected login from ${s.conn.transport.remote_addr()}: ${err}')
 		s.reject_bootstrap('Login failed: invalid identity')
+		return
+	}
+	if reason := s.transport_identity_refusal(claimed) {
+		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${reason}')
+		s.reject_bootstrap('Login failed: ${reason}')
 		return
 	}
 	identity := trusted_identity(claimed)
@@ -144,6 +150,36 @@ fn (mut s NetworkSession) handle_client_to_server_handshake(_ packets_662.Client
 		return
 	}
 	s.log.debug('Client confirmed encryption handshake')
+}
+
+// transport_identity_refusal reports why a login chain cannot be trusted over
+// this transport, or none when the two agree.
+//
+// On RakNet the encryption handshake bound the two by itself: the session key
+// came out of an exchange against the chain key, so only its holder could read
+// what followed. NetherNet runs inside DTLS and skips that handshake, which
+// leaves the chain unbound, and an unbound chain is replayable by anyone who
+// captured one elsewhere. The signalling assertion is what binds it, because
+// the peer proved it holds the key the assertion names before the transport was
+// accepted, and that is the same key the chain is signed with.
+//
+// Offline mode has already given up on proving who anybody is, so there is no
+// key there worth comparing against.
+fn (s &NetworkSession) transport_identity_refusal(identity auth.Identity) ?string {
+	if !s.cfg.xbox_auth {
+		return none
+	}
+	transport_key := s.transport.transport_identity()
+	if transport_key == '' {
+		// Either the transport has no such notion, or the peer connected without
+		// an assertion, which only happens where the server was configured to
+		// accept one. There is nothing to compare against in both cases.
+		return none
+	}
+	if !network.identity_key_matches(transport_key, identity.client_public_key) {
+		return 'the login chain is signed with a different key than the one that opened the connection'
+	}
+	return none
 }
 
 // validate_identity rejects empty, oversized, or malformed identity fields
