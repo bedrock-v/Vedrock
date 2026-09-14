@@ -79,12 +79,39 @@ fn open_container_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	if !s.hold_container(mut tx, kind, pos) {
 		return
 	}
+	set_barrel_open(mut tx, pos, kind, true)
 	container := OpenContainer{
 		kind: kind
 		pos:  pos
 	}
 	s.set_open_container(container)
 	s.send_container_contents(mut tx, container)
+}
+
+// set_barrel_open keeps the barrel's visible block state in sync with its
+// container screen. Other containers either animate through packets or do not
+// have an open_bit state.
+fn set_barrel_open(mut tx worldrt.WorldTx, pos types.BlockPosition, kind block.ContainerKind, opened bool) {
+	if kind.identifier != 'minecraft:barrel' || isnil(tx.wr.services.block_palette()) {
+		return
+	}
+	old_id := block_at(tx, pos.x, pos.y, pos.z)
+	b := block.get(old_id) or { return }
+	if b.identifier() != kind.identifier {
+		return
+	}
+	new_id := tx.wr.services.block_palette().with_state(old_id, 'open_bit', if opened {
+		'1'
+	} else {
+		'0'
+	}) or {
+		return
+	}
+	if new_id == old_id {
+		return
+	}
+	tx.set_block(pos.x, pos.y, pos.z, new_id)
+	notify_block_changed(mut tx, pos)
 }
 
 // hold_container claims the block for this session, so nobody else can open it
@@ -153,9 +180,9 @@ fn (mut s NetworkSession) store_container_slot(mut tx worldrt.WorldTx, container
 // container. Safe to call even if nothing is open.
 fn (mut s NetworkSession) close_open_container(mut tx worldrt.WorldTx) {
 	if container := s.open_container() {
+		set_barrel_open(mut tx, container.pos, container.kind, false)
 		if !container.kind.player_scoped {
-			tx.wr.world.release_container_hold(container.pos.x, container.pos.y, container.pos.z,
-				s.runtime_id)
+			tx.wr.world.release_container_hold(container.pos.x, container.pos.y, container.pos.z, s.runtime_id)
 		}
 	}
 	s.set_open_container(none)
@@ -177,8 +204,7 @@ fn drop_container_contents(mut tx worldrt.WorldTx, mut s NetworkSession, x int, 
 			y: 0.2
 			z: (rand.f32() * 0.2) - 0.1
 		}
-		spawn_dropped_item_entity(mut tx, stack, max_stack, center, velocity,
-			entity.item_pickup_delay_ticks)
+		spawn_dropped_item_entity(mut tx, stack, max_stack, center, velocity, entity.item_pickup_delay_ticks)
 	}
 	tx.wr.world.clear_container(x, y, z)
 }
