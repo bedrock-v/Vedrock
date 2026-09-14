@@ -30,6 +30,7 @@ pub mut:
 	pitch               f32
 	gamemode            int
 	items               []InvItem
+	ender_items         []InvItem
 	food_level          int = max_food_level
 	saturation          f32 = initial_saturation
 	exhaustion          f32

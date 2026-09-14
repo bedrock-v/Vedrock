@@ -485,8 +485,10 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 	}
 
 	if b := block.get(old_id) {
-		if b is block.ChestBlock {
-			drop_chest_contents(mut tx, mut s, pos.x, pos.y, pos.z)
+		if kind := block.container_kind(b.identifier()) {
+			if !kind.player_scoped {
+				drop_container_contents(mut tx, mut s, pos.x, pos.y, pos.z)
+			}
 		}
 		if _ := block.furnace_variant(b.identifier()) {
 			drop_chest_contents(mut tx, mut s, pos.x, pos.y, pos.z)

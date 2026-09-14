@@ -315,4 +315,3 @@ fn clamp_food(value int) int {
 fn clamp_saturation(value f32, food_level int) f32 {
 	return math.min(math.max(f32(0), value), f32(food_level))
 }
-

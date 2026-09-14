@@ -93,7 +93,7 @@ mut:
 	runtime_id                  u64
 	spawned                     bool
 	inv_opened                  bool
-	open_container_pos          ?types.BlockPosition
+	open_container              ?OpenContainer
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
 	crafting_slot_net_ids       map[int]int

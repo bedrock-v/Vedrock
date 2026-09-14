@@ -285,6 +285,7 @@ fn (mut s NetworkSession) save_player_data() {
 		pitch:               current.pitch
 		gamemode:            gamemode_to_wire(s.player.game_mode())
 		items:               items
+		ender_items:         s.player.ender_items_for_save()
 		food_level:          hunger.food_level
 		saturation:          hunger.saturation
 		exhaustion:          hunger.exhaustion

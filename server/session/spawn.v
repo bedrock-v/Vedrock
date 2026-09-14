@@ -180,6 +180,7 @@ fn (mut s NetworkSession) resolve_spawn_state() !SpawnState {
 		pitch = data.pitch
 		yaw = data.yaw
 		s.player.set_loaded_items(data.items)
+		s.player.set_ender_items(data.ender_items)
 		s.player.set_hunger(player.HungerState{
 			food_level: data.food_level
 			saturation: data.saturation
