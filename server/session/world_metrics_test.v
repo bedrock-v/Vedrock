@@ -271,6 +271,10 @@ fn (t &StallingTransport) disable_encryption() bool {
 	return false
 }
 
+fn (t &StallingTransport) transport_identity() string {
+	return ''
+}
+
 fn test_metrics_tracks_outbound_overflow_and_peak_depth() {
 	mut hub, mut wr := metrics_test_world_runtime()
 	defer {

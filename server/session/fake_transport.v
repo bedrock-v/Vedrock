@@ -55,3 +55,7 @@ pub fn (mut t FakeTransport) enable_encryption(mut ctx encryption.Context) {}
 pub fn (t &FakeTransport) disable_encryption() bool {
 	return false
 }
+
+pub fn (t &FakeTransport) transport_identity() string {
+	return ''
+}

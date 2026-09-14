@@ -103,6 +103,13 @@ fn (mut h Hub) current_tick() i64 {
 	return h.current_tick_bits.load()
 }
 
+// auth_verifier is the token verifier the login path uses. The transport layer
+// takes the same one, so an offer and the login that follows it are judged
+// against the same keys.
+pub fn (h &Hub) auth_verifier() auth.Verifier {
+	return h.oidc_verifier
+}
+
 pub fn (mut h Hub) set_current_tick(v i64) {
 	h.current_tick_bits.store(v)
 }

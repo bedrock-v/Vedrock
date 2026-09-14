@@ -101,6 +101,10 @@ fn (t &BlockingFakeTransport) disable_encryption() bool {
 	return false
 }
 
+fn (t &BlockingFakeTransport) transport_identity() string {
+	return ''
+}
+
 fn outbound_test_session(mut transport BlockingFakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
