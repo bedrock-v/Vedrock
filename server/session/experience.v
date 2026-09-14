@@ -61,15 +61,21 @@ fn (t PlayerExperienceTask) name() string {
 	return 'PlayerExperienceTask'
 }
 
-fn (t PlayerExperienceTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_id(mut tx, t.id) or { return }
-	if t.levels != 0 {
-		target.player.add_experience_levels(mut tx, t.levels)
+// award_experience_to adds levels, points, or both, and resends the bar once
+// for the whole change.
+fn award_experience_to(mut tx worldrt.WorldTx, id entity.ActorId, levels int, points int) {
+	mut target := player_for_id(mut tx, id) or { return }
+	if levels != 0 {
+		target.player.add_experience_levels(mut tx, levels)
 	}
-	if t.points != 0 {
-		target.player.add_experience(t.points)
+	if points != 0 {
+		target.player.add_experience(points)
 	}
 	target.send_experience()
+}
+
+fn (t PlayerExperienceTask) run(mut tx worldrt.WorldTx) {
+	award_experience_to(mut tx, t.id, t.levels, t.points)
 }
 
 // give_experience is the View entry point: it takes the award to the player's

@@ -34,7 +34,11 @@ fn (t PlayerAttackTask) name() string {
 	return 'PlayerAttackTask'
 }
 
-fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
+// apply_player_attack resolves both sides, checks reach against the positions
+// the world holds now and deals the hit. The attack carries its own numbers
+// rather than reading them back, so a swing is judged on what the attacker
+// had when they swung.
+fn apply_player_attack(mut tx worldrt.WorldTx, t PlayerAttackTask) {
 	mut attacker := player_for_id(mut tx, t.attacker) or { return }
 	mut victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
 	if victim_actor.is_dead() {
@@ -84,6 +88,10 @@ fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
 			identifier: player_actor_identifier
 		})
 	}
+}
+
+fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
+	apply_player_attack(mut tx, t)
 }
 
 // max_attack_reach_sq caps how far an attack/entity interaction can land,
@@ -261,42 +269,15 @@ fn (mut s NetworkSession) apply_hurt(mut tx worldrt.WorldTx, amount f32, source 
 	}
 }
 
-// PlayerRespawnTask respawns a player on the owning world runtime. Respawn
-// does not transfer dimensions; the destination is the player's current world
-// and generator.
-struct PlayerRespawnTask {
-	id entity.ActorId
-}
-
-fn (t PlayerRespawnTask) name() string {
-	return 'PlayerRespawnTask'
-}
-
-fn (t PlayerRespawnTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_id(mut tx, t.id) or { return }
-	target.apply_respawn(mut tx)
-}
-
-fn (mut s NetworkSession) handle_respawn(p proto.RespawnPacket) ! {
+fn (mut s NetworkSession) handle_respawn(mut tx worldrt.WorldTx, p proto.RespawnPacket) ! {
 	if p.state == proto.PlayerRespawnState.client_ready_to_spawn {
-		s.request_respawn()
+		s.apply_respawn(mut tx)
 	}
 }
 
-// request_respawn is the single entry point for respawning a player.
-fn (mut s NetworkSession) request_respawn() {
-	mut wr := s.current_world_runtime()
-	if isnil(wr) {
-		return
-	}
-	// A dropped respawn has no natural retry. The client only sends
-	// client_ready_to_spawn once, so losing it under queue pressure could
-	// leave the player stuck on the death screen.
-	wr.submit(PlayerRespawnTask{
-		id: s.actor_id()
-	})
-}
-
+// apply_respawn brings a dead player back. Respawn doesn't transfer
+// dimensions: the destination is in the player's current world, found with its
+// generator.
 fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	if !s.player.is_dead() {
 		return

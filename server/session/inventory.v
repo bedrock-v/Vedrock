@@ -238,56 +238,27 @@ fn (s &NetworkSession) resolve_request_stack(container proto.FullContainerName, 
 	return types.ItemStack{}, 0
 }
 
-// send_slot_update keeps the client's inventory view in sync after slot
-// changes, including mutations performed by world owned gameplay tasks.
-// wrapped.stack_id must reach the wire via item_descriptor_v2_tracked,
-// not the bare item_descriptor_v2. A descriptor with no net id teaches
-// the client nothing about this slot's id.
-// PlayerMobEquipmentTask applies held slot changes on the owning world
-// runtime, so the equipment packet other players see is scoped to that
-// world.
-struct PlayerMobEquipmentTask {
-	id entity.ActorId
-	hotbar_slot    int
-	item           types.ItemStackWrapper
-	inventory_slot int
-	window_id      int
-}
-
-fn (t PlayerMobEquipmentTask) name() string {
-	return 'PlayerMobEquipmentTask'
-}
-
-fn (t PlayerMobEquipmentTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_id(mut tx, t.id) or { return }
-	target.player.set_held(t.hotbar_slot, t.item)
-	for mut v in viewers_except(mut tx, t.id.value) {
-		v.view_equipment(target.player, t.hotbar_slot, t.inventory_slot, t.item)
+// equip_held_item moves a player to another hotbar slot and shows everyone
+// what they are now holding.
+fn equip_held_item(mut tx worldrt.WorldTx, id entity.ActorId, hotbar_slot int, inventory_slot int, item types.ItemStackWrapper) {
+	mut target := player_for_id(mut tx, id) or { return }
+	target.player.set_held(hotbar_slot, item)
+	for mut v in viewers_except(mut tx, id.value) {
+		v.view_equipment(target.player, hotbar_slot, inventory_slot, item)
 	}
 }
 
-fn (mut s NetworkSession) handle_mob_equipment(p proto.MobEquipmentPacket) ! {
+fn (mut s NetworkSession) handle_mob_equipment(mut tx worldrt.WorldTx, p proto.MobEquipmentPacket) ! {
 	// Reject an out-of-range hotbar slot before it feeds held_slot (used to
 	// index the server inventory for combat damage).
 	hotbar_slot := int(p.selected_slot)
 	if hotbar_slot < 0 || hotbar_slot > 8 {
 		return
 	}
-	mut wr := s.current_world_runtime()
-	if isnil(wr) {
-		return
+	item := types.ItemStackWrapper{
+		item_stack: proto.item_stack_from_descriptor_v2(p.item)
 	}
-	if !wr.try_submit(PlayerMobEquipmentTask{
-		id:          s.actor_id()
-		hotbar_slot: hotbar_slot
-		item:        types.ItemStackWrapper{
-			item_stack: proto.item_stack_from_descriptor_v2(p.item)
-		}
-		inventory_slot: int(p.slot)
-		window_id:      int(p.container_id)
-	}) {
-		s.log.debug('Dropped mob equipment task - actor queue full')
-	}
+	equip_held_item(mut tx, s.actor_id(), hotbar_slot, int(p.slot), item)
 }
 
 fn slot_change(container proto.FullContainerName, slot i8, count int, net_id int) SlotChange {
@@ -315,11 +286,7 @@ fn stack_merge_compatible(a types.ItemStack, b types.ItemStack) bool {
 const max_stack_requests_per_packet = 64
 const max_actions_per_stack_request = 64
 
-fn (mut s NetworkSession) handle_item_stack_request(p proto.ItemStackRequestPacket) ! {
-	mut wr := s.current_world_runtime()
-	if isnil(wr) {
-		return
-	}
+fn (mut s NetworkSession) handle_item_stack_request(mut tx worldrt.WorldTx, p proto.ItemStackRequestPacket) ! {
 	if p.requests.len > max_stack_requests_per_packet {
 		return error('item stack request carried ${p.requests.len} requests')
 	}
@@ -328,11 +295,7 @@ fn (mut s NetworkSession) handle_item_stack_request(p proto.ItemStackRequestPack
 			return error('item stack request carried ${request.actions.len} actions')
 		}
 	}
-	id := s.actor_id()
-	requests := p.requests
-	responses := worldrt.world_call[[]proto.ItemStackResponseInfo]('ItemStackRequest', mut wr, fn [id, requests] (mut tx worldrt.WorldTx) []proto.ItemStackResponseInfo {
-		return process_item_stack_requests(mut tx, id, requests)
-	}) or { []proto.ItemStackResponseInfo{} }
+	responses := process_item_stack_requests(mut tx, s.actor_id(), p.requests)
 	s.send_maybe_queued(&proto.ItemStackResponsePacket{
 		responses: responses
 	})!

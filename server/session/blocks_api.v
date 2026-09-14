@@ -108,11 +108,15 @@ fn (t PlaceLiquidTask) name() string {
 	return 'PlaceLiquidTask'
 }
 
-fn (t PlaceLiquidTask) run(mut tx worldrt.WorldTx) {
-	match t.kind {
-		.water { tx.place_water(t.x, t.y, t.z) }
-		.lava { tx.place_lava(t.x, t.y, t.z) }
+fn place_liquid(mut tx worldrt.WorldTx, kind block.LiquidKind, x int, y int, z int) {
+	match kind {
+		.water { tx.place_water(x, y, z) }
+		.lava { tx.place_lava(x, y, z) }
 	}
+}
+
+fn (t PlaceLiquidTask) run(mut tx worldrt.WorldTx) {
+	place_liquid(mut tx, t.kind, t.x, t.y, t.z)
 }
 
 // place_water sets a water source in the default world and lets that world's

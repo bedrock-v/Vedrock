@@ -169,40 +169,6 @@ fn test_kill_stale_epoch_produces_no_effect() {
 	assert !s.player.is_dead()
 }
 
-fn test_respawn_stale_epoch_produces_no_effect() {
-	mut hub := new_hub(gamedata.GameData{})
-	world_a := db.new_world('world-a', none, 'flat', world.overworld)
-	hub.add_world(world_a)
-	world_b := db.new_world('world-b', none, 'flat', world.overworld)
-	hub.add_world(world_b)
-	mut wr_a := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
-	mut wr_b := hub.world_runtime('world-b') or { panic('expected world-b runtime') }
-	defer {
-		hub.close_worlds()
-	}
-
-	mut s := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
-	s.player.set_health(0)
-	mut tx := &worldrt.WorldTx{
-		wr: wr_a
-	}
-	s.player.set_dead(mut tx, true)
-
-	stale_epoch := s.world_binding().epoch
-	assert s.change_world('world-b', 0.0, 0.0, 0.0)
-
-	task := PlayerRespawnTask{
-		id: entity.new_actor_id(s.runtime_id, stale_epoch)
-	}
-	assert wr_a.submit(task)
-	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
-		return true
-	}) or { panic('sync barrier rejected') }
-
-	assert s.player.is_dead()
-	assert s.player.health() == 0
-}
-
 fn test_player_death_event_reaches_only_the_dying_player() {
 	mut hub := new_hub(gamedata.GameData{})
 	world_a := db.new_world('world-a', none, 'flat', world.overworld)

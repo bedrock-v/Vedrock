@@ -80,9 +80,10 @@ fn test_handle_mob_equipment_selects_hotbar_slot() {
 			count: 1
 		}
 	}
-	s.handle_mob_equipment(mob_equipment_packet(s.runtime_id, stack, 4)) or {
-		panic('handle_mob_equipment failed: ${err}')
-	}
+	equipment_packet := mob_equipment_packet(s.runtime_id, stack, 4)
+	in_world(mut s, fn [mut s, equipment_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_mob_equipment(mut tx, equipment_packet)!
+	}) or { panic('handle_mob_equipment failed: ${err}') }
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -116,9 +117,10 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 			count: 1
 		}
 	}
-	actor.handle_mob_equipment(mob_equipment_packet(actor.runtime_id, stack, 4)) or {
-		panic('handle_mob_equipment failed: ${err}')
-	}
+	equipment_packet := mob_equipment_packet(actor.runtime_id, stack, 4)
+	in_world(mut actor, fn [mut actor, equipment_packet] (mut tx worldrt.WorldTx) ! {
+		actor.handle_mob_equipment(mut tx, equipment_packet)!
+	}) or { panic('handle_mob_equipment failed: ${err}') }
 	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
@@ -141,41 +143,6 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 	}
 	assert a_saw_it
 	assert !b_saw_it
-}
-
-fn test_mob_equipment_stale_epoch_produces_no_effect() {
-	mut hub := new_hub(gamedata.GameData{})
-	world_a := db.new_world('world-a', none, 'flat', world.overworld)
-	hub.add_world(world_a)
-	world_b := db.new_world('world-b', none, 'flat', world.overworld)
-	hub.add_world(world_b)
-	mut wr_a := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
-	mut wr_b := hub.world_runtime('world-b') or { panic('expected world-b runtime') }
-	defer {
-		hub.close_worlds()
-	}
-
-	mut s := mob_equipment_test_session(mut hub, mut wr_a, 'Alex', &FakeTransport{})
-
-	stale_epoch := s.world_binding().epoch
-	assert s.change_world('world-b', 0.0, 0.0, 0.0)
-
-	task := PlayerMobEquipmentTask{
-		id:          entity.new_actor_id(s.runtime_id, stale_epoch)
-		hotbar_slot: 4
-		item:        types.ItemStackWrapper{
-			item_stack: types.ItemStack{
-				id:    123
-				count: 1
-			}
-		}
-	}
-	assert wr_a.submit(task)
-	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
-		return true
-	}) or { panic('sync barrier rejected') }
-
-	assert s.player.held_item().item_stack.id != 123
 }
 
 fn test_creative_stack_request_rejected_for_survival_player() {
@@ -312,5 +279,23 @@ fn test_flat_slot_rejects_a_slot_outside_the_inventory() {
 fn detached_tx() &worldrt.WorldTx {
 	return &worldrt.WorldTx{
 		wr: unsafe { nil }
+	}
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
 	}
 }

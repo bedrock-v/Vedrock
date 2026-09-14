@@ -131,9 +131,12 @@ fn test_handle_block_actor_data_updates_sign_text() {
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, sign_id)
 
-	s.handle_block_actor_data(proto.BlockActorDataPacket{
+	sign_packet := proto.BlockActorDataPacket{
 		block_position:  proto.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Welcome!')
+	}
+	in_world(mut s, fn [mut s, sign_packet] (mut tx worldrt.WorldTx) ! {
+		s.handle_block_actor_data(mut tx, sign_packet)!
 	})!
 
 	assert target.tile_text(pos.x, pos.y, pos.z) or { '' } == 'Welcome!'
@@ -172,7 +175,7 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 	pos := types.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, dirt_id)
 
-	s.handle_block_actor_data(proto.BlockActorDataPacket{
+	s.handle_block_actor_data(mut detached_tx(), proto.BlockActorDataPacket{
 		block_position:  proto.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Should not be saved')
 	})!
@@ -259,5 +262,31 @@ fn test_validate_sign_text_bounds_client_supplied_text() {
 	assert validate_sign_text('line one\n')? == 'line one'
 	if _ := validate_sign_text('a'.repeat(max_sign_text_bytes + 1)) {
 		assert false, 'expected oversized sign text to be rejected'
+	}
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
+}
+
+// detached_tx is a transaction token for a path that returns before it reaches
+// the world. These tests have no world behind them on purpose.
+fn detached_tx() &worldrt.WorldTx {
+	return &worldrt.WorldTx{
+		wr: unsafe { nil }
 	}
 }

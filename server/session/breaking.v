@@ -98,64 +98,17 @@ fn (mut s NetworkSession) swap_breaking_if_current(expected BreakProgress, updat
 	return true
 }
 
-// broadcast_cracking routes one block cracking level event through the world
-// runtime this session is bound to, so it reaches that world's players only.
-// The event is dropped when the session has no bound world.
-fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
-	binding := s.world_binding()
-	if isnil(binding.world_runtime) {
-		return
-	}
-	mut wr := binding.world_runtime
-	wr.submit(BlockCrackingTask{
-		id:       s.actor_id()
-		event_id: event_id
-		pos:      pos
-		data:     data
-	})
-}
-
-// BlockCrackingTask broadcasts a cracking animation on the owning world actor.
-// The session runtime id and binding epoch are captured at submission time, so
-// an event queued just before a world change is discarded instead of animating
-// a block in a world the player has already left.
-struct BlockCrackingTask {
-	id entity.ActorId
-	event_id           int
-	pos                types.BlockPosition
-	data               int
-}
-
-fn (t BlockCrackingTask) name() string {
-	return 'BlockCrackingTask'
-}
-
-fn (t BlockCrackingTask) run(mut tx worldrt.WorldTx) {
-	player_for_id(mut tx, t.id) or { return }
-	broadcast_cracking(mut tx, t.event_id, t.pos, t.data)
-}
-
-// StartBreakAnimationTask emits both animations a mining start produces - the
-// initial crack and the arm swing - in one pass over the world's players.
-struct StartBreakAnimationTask {
-	id entity.ActorId
-	pos                types.BlockPosition
-	crack_speed        int
-}
-
-fn (t StartBreakAnimationTask) name() string {
-	return 'StartBreakAnimationTask'
-}
-
-fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
-	s := player_for_id(mut tx, t.id) or { return }
-	if t.crack_speed > 0 {
-		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
+// start_break_animation shows everyone the swing and the crack overlay when
+// the block takes more than one tick to break.
+fn start_break_animation(mut tx worldrt.WorldTx, id entity.ActorId, pos types.BlockPosition, crack_speed int) {
+	s := player_for_id(mut tx, id) or { return }
+	if crack_speed > 0 {
+		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, pos, crack_speed)
 	}
 	broadcast_swing(mut tx, s)
 }
 
-fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
+fn (mut s NetworkSession) handle_start_break(mut tx worldrt.WorldTx, pos types.BlockPosition, click_face int) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -197,32 +150,23 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 			}
 		}
 	}
-	binding := s.world_binding()
-	if isnil(binding.world_runtime) {
-		return
-	}
-	mut wr := binding.world_runtime
-	wr.submit(StartBreakAnimationTask{
-		id:          s.actor_id()
-		pos:         pos
-		crack_speed: int(break_crack_scale * speed)
-	})
+	start_break_animation(mut tx, s.actor_id(), pos, int(break_crack_scale * speed))
 }
 
-fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_face int) {
+fn (mut s NetworkSession) handle_continue_break(mut tx worldrt.WorldTx, pos types.BlockPosition, click_face int) {
 	if bp := s.breaking_snapshot() {
 		if bp.x == pos.x && bp.y == pos.y && bp.z == pos.z {
 			return
 		}
-		s.broadcast_cracking(proto.level_event_stop_block_cracking, types.BlockPosition{bp.x, bp.y, bp.z},
-			0)
+		previous := types.BlockPosition{bp.x, bp.y, bp.z}
+		broadcast_cracking(mut tx, proto.level_event_stop_block_cracking, previous, 0)
 	}
-	s.handle_start_break(pos, click_face)
+	s.handle_start_break(mut tx, pos, click_face)
 }
 
-fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
+fn (mut s NetworkSession) handle_abort_break(mut tx worldrt.WorldTx, pos types.BlockPosition) {
 	s.set_breaking(none)
-	s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
+	broadcast_cracking(mut tx, proto.level_event_stop_block_cracking, pos, 0)
 }
 
 // tick_breaking advances the block this player is mining by one tick and

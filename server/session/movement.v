@@ -18,14 +18,13 @@ struct MovementSnapshot {
 	on_ground bool
 }
 
-// update_movement replaces the pending movement snapshot and schedules one
-// PlayerMoveTask if none is already queued. movement_scheduled must be set
-// before submission to prevent a lost wakeup if the actor processes the task
-// immediately. Routes to whichever world the session is bound to right now.
+// update_movement records a movement report as the pending snapshot and applies
+// it through the transaction of the world the player is in. A report that
+// disagrees with an unacknowledged teleport is discarded.
 //
 // on_ground is the client reported ground state, trusted like every other
 // movement field here.
-fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) {
+fn (mut s NetworkSession) update_movement(mut tx worldrt.WorldTx, position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) {
 	if !s.spawned {
 		return
 	}
@@ -52,22 +51,8 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	s.movement_scheduled = true
 	s.movement_mutex.unlock()
 
-	binding := s.world_binding()
-	mut submitted := false
-	if !isnil(binding.world_runtime) {
-		mut wr := binding.world_runtime
-		submitted = wr.try_submit(PlayerMoveTask{
-			id:  s.actor_id()
-			hub: s.hub
-		})
-	}
-	if !submitted {
-		// No world runtime bound yet, queue full, or the world is stopping:
-		// allow a later movement packet to retry.
-		s.movement_mutex.lock()
-		s.movement_scheduled = false
-		s.movement_mutex.unlock()
-	}
+	mut hub := s.hub
+	drain_pending_movement(mut tx, mut hub, s.actor_id())
 }
 
 // sanitize_movement replaces non-finite position or rotation components
@@ -165,28 +150,14 @@ fn (mut s NetworkSession) clear_movement_scheduled_if_idle() bool {
 	return false
 }
 
-// PlayerMoveTask is update_movement's actual application, running entirely
-// on the owning world's own actor.
-struct PlayerMoveTask {
-	id entity.ActorId
-	// hub is carried rather than reached for through the transaction: the
-	// world runtime deliberately has no route to a session and this task
-	// still has to find one whose epoch has since moved on.
-	hub &Hub = unsafe { nil }
-}
-
-// run resolves the session through Hub because stale tasks must still clear
-// movement_scheduled even after the player leaves this world or its epoch changes.
-// The lookup happens once per coalesced movement batch, not per packet.
-fn (t PlayerMoveTask) name() string {
-	return 'PlayerMoveTask'
-}
-
-fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
-	mut hub := unsafe { t.hub }
-	mut s := hub.session_by_runtime(t.id.value) or { return }
+// drain_pending_movement applies every movement report a session has waiting
+// and leaves the scheduled flag clear once there is nothing left. The session
+// is resolved through Hub because a report whose epoch has moved on still has
+// to clear that flag.
+fn drain_pending_movement(mut tx worldrt.WorldTx, mut hub Hub, id entity.ActorId) {
+	mut s := hub.session_by_runtime(id.value) or { return }
 	for {
-		if s.world_binding().epoch != t.id.epoch || !tx.wr.entities.is_player_actor(t.id.value) {
+		if s.world_binding().epoch != id.epoch || !tx.wr.entities.is_player_actor(id.value) {
 			s.movement_mutex.lock()
 			s.movement_scheduled = false
 			s.movement_mutex.unlock()

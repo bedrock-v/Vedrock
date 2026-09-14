@@ -24,83 +24,12 @@ fn movement_isolation_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, pos
 	}
 	s.player.reset_position(pos)
 	hub.add(s)
-	// PlayerMoveTask requires world membership.
+	// Movement requires world membership.
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
-}
-
-struct MovementIsolationBarrierTask {
-	started chan bool
-	release chan bool
-}
-
-fn (t MovementIsolationBarrierTask) name() string {
-	return 'MovementIsolationBarrierTask'
-}
-
-fn (t MovementIsolationBarrierTask) run(mut tx worldrt.WorldTx) {
-	t.started <- true
-	_ := <-t.release
-}
-
-fn test_stale_movement_task_dropped_after_world_switch() {
-	mut hub := new_hub(gamedata.GameData{})
-	world_a := db.new_world('world-a', none, 'void', world.overworld)
-	hub.add_world(world_a)
-	world_b := db.new_world('world-b', none, 'void', world.overworld)
-	hub.add_world(world_b)
-	mut wr_a := hub.world_runtime('world-a') or { panic('expected world-a runtime') }
-	mut wr_b := hub.world_runtime('world-b') or { panic('expected world-b runtime') }
-	defer {
-		hub.close_worlds()
-	}
-
-	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
-
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
-	assert wr_a.submit(MovementIsolationBarrierTask{
-		started: started
-		release: release
-	})
-	_ := <-started
-
-	stale_pos := types.Vector3{50.0, 0.0, 0.0}
-	s.update_movement(stale_pos, 0.0, 0.0, 0.0, false)
-	assert s.movement_scheduled == true
-
-	// Simulate the session switching to world B while the task above is
-	// still stuck behind A's stalled actor. A real change_world would also
-	// register the session in B's players set as part of the same
-	// transfer.
-	gen := world_b.make_generator(hub.build_generator(world_b))
-	s.set_world_binding(wr_b, gen)
-	worldrt.world_call[bool]('test', mut wr_b, fn [s] (mut tx worldrt.WorldTx) bool {
-		register_player(mut tx, s)
-		return true
-	}) or { panic('registration rejected - world unexpectedly stopped') }
-
-	release <- true
-
-	// A's actor now runs the stale PlayerMoveTask. It must not apply
-	// stale_pos and must clear movement_scheduled so recovery is possible.
-	deadline := time.now().add(2 * time.second)
-	for time.now() < deadline && s.movement_scheduled {
-		time.sleep(2 * time.millisecond)
-	}
-	assert s.movement_scheduled == false
-	assert s.player.position() != stale_pos
-
-	fresh_pos := types.Vector3{1.0, 2.0, 3.0}
-	s.update_movement(fresh_pos, 0.0, 0.0, 0.0, false)
-	deadline2 := time.now().add(2 * time.second)
-	for time.now() < deadline2 && s.player.position() != fresh_pos {
-		time.sleep(2 * time.millisecond)
-	}
-	assert s.player.position() == fresh_pos
 }
 
 struct CountingMoveHandler {
@@ -134,7 +63,9 @@ fn test_player_move_event_reaches_only_the_moving_player() {
 	mut other := movement_isolation_test_session(mut hub, mut wr_b, types.Vector3{0, 0, 0})
 	other.handle(handler_b)
 
-	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
+	in_world(mut s, fn [mut s] (mut tx worldrt.WorldTx) ! {
+		s.update_movement(mut tx, types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
+	})!
 
 	deadline := time.now().add(2 * time.second)
 	for time.now() < deadline && s.movement_scheduled {
@@ -165,7 +96,9 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 	observer_b.conn.transport = b_transport
 
 	mut mover := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
-	mover.update_movement(target_pos, 0.0, 0.0, 0.0, false)
+	in_world(mut mover, fn [mut mover, target_pos] (mut tx worldrt.WorldTx) ! {
+		mover.update_movement(mut tx, target_pos, 0.0, 0.0, 0.0, false)
+	})!
 
 	deadline := time.now().add(2 * time.second)
 	for time.now() < deadline && mover.movement_scheduled {
@@ -279,4 +212,22 @@ fn test_teleport_snaps_its_client_and_moves_body_for_others() {
 		}
 	}
 	assert observer_saw_move, 'the other player was not shown the move'
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
+	}
 }

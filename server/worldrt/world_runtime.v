@@ -320,7 +320,18 @@ fn (mut h WorldLiquidHost) set_block_id(id int, x int, y int, z int) {
 	h.wr.show_block(x, y, z, id)
 }
 
+// report_nested_submit names a task queued from the actor thread that is
+// already running one. Such a task cannot run until the current one returns,
+// and it blocks the actor permanently if the queue is full. TEMPORARY: a
+// detector for the transaction scoped dispatch work, not a permanent check.
+fn (mut wr WorldRuntime) report_nested_submit(task WorldTask) {
+	if wr.on_actor_thread() {
+		eprintln('NESTED SUBMIT: ${task.name()} queued from world "${wr.world.name}" actor thread')
+	}
+}
+
 pub fn (mut wr WorldRuntime) submit(task WorldTask) bool {
+	wr.report_nested_submit(task)
 	wr.mutex.lock()
 	if wr.lifecycle != .running {
 		wr.mutex.unlock()
@@ -347,6 +358,7 @@ pub fn (mut wr WorldRuntime) submit(task WorldTask) bool {
 // try_submit attempts to queue task without blocking. It returns false if the
 // runtime is stopping or the queue has no available capacity.
 pub fn (mut wr WorldRuntime) try_submit(task WorldTask) bool {
+	wr.report_nested_submit(task)
 	wr.mutex.lock()
 	defer {
 		wr.mutex.unlock()

@@ -92,7 +92,9 @@ fn test_break_block_damages_held_item_exactly_once() {
 	}
 	hub.set_current_tick(20)
 
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -133,7 +135,9 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 	}
 	hub.set_current_tick(20)
 
-	s.break_block(pos)!
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.break_block(mut tx, pos)!
+	})!
 
 	assert target.block_override(pos.x, pos.y, pos.z) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -172,7 +176,9 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 	}
 	hub.set_current_tick(20)
 
-	breaker.break_block(pos)!
+	in_world(mut breaker, fn [mut breaker, pos] (mut tx worldrt.WorldTx) ! {
+		breaker.break_block(mut tx, pos)!
+	})!
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
@@ -230,7 +236,9 @@ fn test_break_block_event_reaches_only_the_breaking_player() {
 	}
 	hub.set_current_tick(20)
 
-	s_a.break_block(pos)!
+	in_world(mut s_a, fn [mut s_a, pos] (mut tx worldrt.WorldTx) ! {
+		s_a.break_block(mut tx, pos)!
+	})!
 
 	assert handler_a.hits == 1
 	assert handler_b.hits == 0
@@ -288,7 +296,9 @@ fn test_start_break_cracking_scoped_to_owning_world() {
 	break_test_session(mut hub, mut observer_transport, mut other_wr)
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
-	breaker.handle_start_break(pos, 1)
+	in_world(mut breaker, fn [mut breaker, pos] (mut tx worldrt.WorldTx) ! {
+		breaker.handle_start_break(mut tx, pos, 1)
+	})!
 
 	assert break_wait_for_level_event(breaker_transport, 5000)
 	assert !break_wait_for_level_event(observer_transport, 500)
@@ -390,7 +400,9 @@ fn test_server_finishes_the_break_without_a_client_destroy() {
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	assert old_id != world.air.network_id
 
-	s.handle_start_break(pos, 1)
+	in_world(mut s, fn [mut s, pos] (mut tx worldrt.WorldTx) ! {
+		s.handle_start_break(mut tx, pos, 1)
+	})!
 	speed := s.break_progress_per_tick(old_id)
 	assert speed > 0
 	needed := int(1.0 / speed) + 2
@@ -459,7 +471,9 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 		progress:     1.0
 	}
 	hub.set_current_tick(20)
-	s_b.break_block(pos)!
+	in_world(mut s_b, fn [mut s_b, pos] (mut tx worldrt.WorldTx) ! {
+		s_b.break_block(mut tx, pos)!
+	})!
 
 	assert world_b.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 
@@ -471,5 +485,23 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 fn detached_tx() &worldrt.WorldTx {
 	return &worldrt.WorldTx{
 		wr: unsafe { nil }
+	}
+}
+
+// in_world runs f on the actor of the world s is in, the way a play packet is
+// handled and returns what f returned.
+fn in_world(mut s NetworkSession, f fn (mut tx worldrt.WorldTx) !) ! {
+	mut wr := s.current_world_runtime()
+	outcome := worldrt.world_call[ExecOutcome]('test', mut wr, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
+		f(mut tx) or {
+			return ExecOutcome{
+				failed: true
+				msg:    err.msg()
+			}
+		}
+		return ExecOutcome{}
+	}) or { return error('world stopped') }
+	if outcome.failed {
+		return error(outcome.msg)
 	}
 }

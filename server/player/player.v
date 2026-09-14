@@ -409,8 +409,7 @@ pub fn (p &Player) position() types.Vector3 {
 }
 
 // apply_movement updates the player's position and orientation as one unit,
-// deriving vertical velocity from the change in Y. Registered session callers
-// must invoke it on the owning world's actor thread (see PlayerMoveTask).
+// deriving vertical velocity from the change in Y.
 pub fn (mut p Player) apply_movement(mut tx worldrt.WorldTx, position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) f32 {
 	p.pos_mutex.lock()
 	p.vy = position.y - p.prev_y

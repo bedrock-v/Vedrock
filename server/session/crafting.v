@@ -6,7 +6,6 @@ import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
 import server.worldrt
-import server.entity
 import server.player
 
 const crafting_grid_small = [28, 29, 30, 31]
@@ -373,30 +372,6 @@ fn (mut s NetworkSession) close_workbench(mut tx worldrt.WorldTx) {
 	}
 	s.release_crafting_grid_slots(mut tx, crafting_grid_large)
 	s.set_workbench_open(false)
-}
-
-struct CloseWorkbenchTask {
-	id entity.ActorId
-}
-
-fn (t CloseWorkbenchTask) name() string {
-	return 'CloseWorkbenchTask'
-}
-
-fn (t CloseWorkbenchTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_id(mut tx, t.id) or { return }
-	target.close_workbench(mut tx)
-}
-
-fn (mut s NetworkSession) release_workbench() {
-	mut wr := s.current_world_runtime()
-	if isnil(wr) {
-		return
-	}
-	id := s.actor_id()
-	wr.submit(CloseWorkbenchTask{
-		id: id
-	})
 }
 
 fn recipe_uuid(id string) proto.Uuid {

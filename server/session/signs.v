@@ -7,7 +7,7 @@ import server.block
 import bedrock_v.protocol.current as proto
 import server.worldrt
 
-fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) ! {
+fn (mut s NetworkSession) handle_block_actor_data(mut tx worldrt.WorldTx, p proto.BlockActorDataPacket) ! {
 	pos := proto.block_pos_from(p.block_position)
 	if s.player.is_dead() || !s.can_interact() {
 		return
@@ -25,43 +25,15 @@ fn (mut s NetworkSession) handle_block_actor_data(p proto.BlockActorDataPacket) 
 	}
 	compound := p.actor_data_tags.tag as nbt.Compound
 	text := extract_sign_text(compound) or { return }
-	binding := s.world_binding()
-	if isnil(binding.world_runtime) {
-		return
-	}
-	mut wr := binding.world_runtime
-	task := SetSignTextTask{
-		x:    pos.x
-		y:    pos.y
-		z:    pos.z
-		text: text
-	}
-	if wr.submit(task) {
-		_ := <-task.done
-	}
+	set_sign_text(mut tx, pos.x, pos.y, pos.z, text)
 }
 
-// SetSignTextTask writes a sign's block entity text and broadcasts the
-// update, entirely on the owning world's own actor thread.
-struct SetSignTextTask {
-	x    int
-	y    int
-	z    int
-	text string
-	done chan bool = chan bool{cap: 1}
-}
-
-fn (t SetSignTextTask) name() string {
-	return 'SetSignTextTask'
-}
-
-fn (t SetSignTextTask) run(mut tx worldrt.WorldTx) {
-	defer {
-		t.done <- true
-	}
-	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	broadcast_block_entity(mut tx, types.BlockPosition{t.x, t.y, t.z}, build_sign_nbt(t.x,
-		t.y, t.z, t.text))
+// set_sign_text writes a sign's block entity text and shows the update to
+// everyone in the world.
+fn set_sign_text(mut tx worldrt.WorldTx, x int, y int, z int, text string) {
+	tx.wr.world.set_tile_text(x, y, z, text)
+	broadcast_block_entity(mut tx, types.BlockPosition{x, y, z}, build_sign_nbt(x, y, z,
+		text))
 }
 
 // max_sign_text_bytes bounds the text a client may write onto a sign. The NBT
