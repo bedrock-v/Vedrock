@@ -1,6 +1,6 @@
 module db
 
-import x.json2 as json2
+import json2
 import server.world
 
 pub struct ContainerSlotItem {

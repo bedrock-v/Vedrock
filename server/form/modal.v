@@ -1,6 +1,6 @@
 module form
 
-import x.json2 as json2
+import json2
 
 pub struct ModalForm {
 mut:

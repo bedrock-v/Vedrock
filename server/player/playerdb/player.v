@@ -1,7 +1,7 @@
 module playerdb
 
 import os
-import x.json2 as json2
+import json2
 
 pub struct InvItem {
 pub mut:

@@ -1,6 +1,6 @@
 module skin
 
-import x.json2 as json2
+import json2
 
 // default_geometry is the geometry a skin falls back to when it carries no
 // model of its own.
