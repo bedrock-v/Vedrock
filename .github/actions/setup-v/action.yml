@@ -1,6 +1,6 @@
 name: Setup V
 description: Build the pinned V compiler (0.5.2 @ 02ab53a, vc @ 21490f7) and install module dependencies
-21490f7
+
 runs:
   using: composite
   steps:
