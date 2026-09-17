@@ -74,7 +74,7 @@ fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 		return
 	}
 	if reason := s.transport_identity_refusal(claimed) {
-		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${reason}')
+		s.log.warn('Rejected login from ${s.conn.transport.remote_addr()}: ${reason}')
 		s.reject_bootstrap('Login failed: ${reason}')
 		return
 	}
@@ -169,7 +169,7 @@ fn (s &NetworkSession) transport_identity_refusal(identity auth.Identity) ?strin
 	if !s.cfg.xbox_auth {
 		return none
 	}
-	transport_key := s.transport.transport_identity()
+	transport_key := s.conn.transport.transport_identity()
 	if transport_key == '' {
 		// Either the transport has no such notion, or the peer connected without
 		// an assertion, which only happens where the server was configured to

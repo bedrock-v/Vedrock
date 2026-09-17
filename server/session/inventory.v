@@ -146,7 +146,7 @@ fn persist_container_changes(mut tx worldrt.WorldTx, mut target NetworkSession, 
 		target.store_container_slot(mut tx, container, slot, stack)
 		target.set_open_container_slot_net_id(slot, net_id)
 	}
-	wake_furnace(mut tx, pos.x, pos.y, pos.z)
+	wake_furnace(mut tx, container.pos.x, container.pos.y, container.pos.z)
 }
 
 fn (s &NetworkSession) cursor_slot_net_id() int {

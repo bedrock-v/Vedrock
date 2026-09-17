@@ -106,6 +106,8 @@ fn (mut s NetworkSession) handle_item_use_transaction(tx types_2192.PackedItemUs
 // handle_item_use runs one click on a block. Both transports of the same body
 // end here, so a click means the same thing whichever the client used.
 fn (mut s NetworkSession) handle_item_use(action enums_662.ItemUseInventoryTransactionType, pos types.BlockPosition, face int, clicked_y f32) ! {
+	// A value outside the three the game defines matches no branch: it is not
+	// a click at all.
 	match action {
 		.place {
 			s.handle_place_click(pos, face, clicked_y)
@@ -115,10 +117,6 @@ fn (mut s NetworkSession) handle_item_use(action enums_662.ItemUseInventoryTrans
 		}
 		.use {
 			s.use_held_item_in_air()
-		}
-		else {
-			// The alias keeps V from seeing the enum as exhaustive; a value
-			// outside the three the game defines is not a click at all.
 		}
 	}
 }
@@ -491,7 +489,7 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 			}
 		}
 		if _ := block.furnace_variant(b.identifier()) {
-			drop_chest_contents(mut tx, mut s, pos.x, pos.y, pos.z)
+			drop_container_contents(mut tx, mut s, pos.x, pos.y, pos.z)
 			tx.wr.world.clear_furnace_state(pos.x, pos.y, pos.z)
 		}
 		if b is block.JukeboxBlock {

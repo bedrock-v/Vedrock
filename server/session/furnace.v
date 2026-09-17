@@ -250,11 +250,17 @@ fn wake_furnace(mut tx worldrt.WorldTx, x int, y int, z int) {
 // The contents live in the same per-position container storage every other
 // container uses; only the screen and the slot count differ.
 fn open_furnace(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, variant block.FurnaceVariant) {
-	s.close_chest_container(mut tx)
+	s.close_open_container(mut tx)
 	if !tx.wr.world.try_hold_container(pos.x, pos.y, pos.z, s.runtime_id) {
 		return
 	}
-	s.set_open_container_position(pos)
+	s.set_open_container(OpenContainer{
+		kind: block.ContainerKind{
+			identifier: 'minecraft:${variant}'
+			slots:      block.furnace_slot_count
+		}
+		pos:  pos
+	})
 	stacks := tx.wr.world.container_slots(pos.x, pos.y, pos.z)
 	mut descriptors := []types_2168.NetworkItemStackDescriptorV2{cap: block.furnace_slot_count}
 	mut slot_net_ids := map[int]int{}
