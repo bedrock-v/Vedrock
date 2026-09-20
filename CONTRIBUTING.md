@@ -158,4 +158,4 @@ optional - only add one when the subject doesn't explain the "why".
 - Make sure `v -check .` and `v test server` pass before opening the PR.
 - Fill in the pull request template and link any related issue.
 
-By participating in this project, you are expected to follow the bedrock-v Code of Conduct.
+By participating in this project, you are expected to follow the bedrock-v [Code of Conduct](https://github.com/bedrock-v/.github/blob/master/profile/CODE_OF_CONDUCT.MD).
