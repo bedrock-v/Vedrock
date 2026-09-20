@@ -117,7 +117,7 @@ fn (mut s NetworkSession) kill() {
 		mut target := player_for_id(mut tx, id) or { return false }
 		target.player.kill(mut tx)
 		return true
-	}) or { false }
+	}) or {}
 }
 
 // position is where the player is right now. It reads session state rather
@@ -348,7 +348,7 @@ fn (mut s NetworkSession) clear_inventory() {
 		// else has to be told or they keep rendering the old set.
 		target.broadcast_armor()
 		return true
-	}) or { false }
+	}) or {}
 }
 
 // give_item adds count of the item named id to the player's inventory,

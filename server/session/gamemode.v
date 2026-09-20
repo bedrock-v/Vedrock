@@ -14,5 +14,5 @@ fn (mut s NetworkSession) set_gamemode(mode player.Gamemode) {
 		mut target := player_for_id(mut tx, id) or { return false }
 		target.player.set_gamemode(mut tx, mode)
 		return true
-	}) or { false }
+	}) or {}
 }

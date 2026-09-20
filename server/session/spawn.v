@@ -1110,7 +1110,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ packets_662.SetLocalPlayer
 				self.view_entity_spawn(e)
 			}
 			return true
-		}) or { false }
+		}) or {}
 	}
 	s.hub.add(s)
 	if !isnil(wr) {
