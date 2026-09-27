@@ -10,6 +10,5 @@
 ## Checklist
 - [ ] `v -check .` is clean
 - [ ] `v test server` is fully green
-- [ ] Follows the conventions in AGENTS.md (OOP, `pub`/capitalized exports, no import cycles, minimal comments)
 - [ ] Cross-session gameplay state is only mutated on its owning world's actor thread (via `world_call`/`wr.submit`/`WorldTx`), never through a global Hub actor
 - [ ] No unrelated changes bundled in

@@ -26,7 +26,6 @@ docs:
   - changed-files:
       - any-glob-to-any-file:
           - "**/*.md"
-          - AGENTS.md
           - README.md
 
 ci:
