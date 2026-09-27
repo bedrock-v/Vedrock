@@ -1,0 +1,2 @@
+I think we can have a better example (or examples) instead of a basic server run (joinable) example at main.v
+Just like minestom does, including nearly everything (command api, events, scheduler, blablabla...)
