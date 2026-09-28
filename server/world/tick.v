@@ -56,6 +56,10 @@ fn (mut tx Tx) tick() {
 		handles << h
 	}
 	for h in handles {
+		held := tx.world.entities[h.id_] or { continue }
+		if voidptr(held) != voidptr(h) {
+			continue
+		}
 		mut e := h.entity
 		if mut e is Ticker {
 			e.tick(mut tx, current)
