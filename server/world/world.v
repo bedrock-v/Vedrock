@@ -28,6 +28,9 @@ mut:
 	name_    string
 	tasks    chan Task
 	entities map[u64]&Handle
+	// current_tick counts the ticks this world has run. Only the actor
+	// touches it.
+	current_tick i64
 	// actor holds the thread id of the actor once it is running.
 	actor  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	closed &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -44,8 +47,17 @@ struct Task {
 	run  fn (mut tx Tx) = unsafe { nil }
 }
 
-// start brings up a world and its actor thread.
+// start brings up a world, its actor thread and its tick loop.
 pub fn start(name string) &Runtime {
+	mut wr := start_manual(name)
+	spawn wr.tick_loop()
+	return wr
+}
+
+// start_manual brings up a world that does not tick on its own. It ticks when
+// advance_tick is called, which is what a caller wants when the number of ticks
+// has to be exactly the number it asked for.
+pub fn start_manual(name string) &Runtime {
 	mut wr := &Runtime{
 		name_:    name
 		tasks:    chan Task{cap: queue_cap}

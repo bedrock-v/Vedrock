@@ -372,3 +372,156 @@ fn test_transfer_to_the_same_world_is_a_no_op() {
 		return tx.count()
 	})! == 1
 }
+
+// Ticked is an entity that counts its ticks and remembers the thread it was
+// ticked on.
+struct Ticked {
+	id_ u64
+mut:
+	ticks     int
+	last      i64
+	ticked_on u64
+}
+
+fn (t &Ticked) id() u64 {
+	return t.id_
+}
+
+fn (mut t Ticked) tick(mut tx Tx, current i64) {
+	t.ticks++
+	t.last = current
+	t.ticked_on = sync.thread_id()
+}
+
+fn spawn_ticked(mut wr Runtime, id u64) &Handle {
+	h := new_handle(id, &Ticked{
+		id_: id
+	})
+	call[bool](mut wr, 'test.add', fn [h] (mut tx Tx) !bool {
+		tx.add(h)
+		return true
+	}) or { panic(err) }
+	return h
+}
+
+fn test_a_tick_reaches_the_entities_that_tick() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	h := spawn_ticked(mut wr, 1)
+	r := ref[Ticked](h)
+
+	before := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
+		return tx.current_tick()
+	})!
+	wr.advance_tick()!
+
+	state := call_ref[Ticked, string](r, 'test.state', fn (mut tx Tx, e &Ticked) !string {
+		return '${e.ticks}:${e.last == tx.current_tick()}'
+	})!
+	assert state == '1:true'
+	after := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
+		return tx.current_tick()
+	})!
+	assert after == before + 1
+
+	on := call_ref[Ticked, u64](r, 'test.thread', fn (mut tx Tx, e &Ticked) !u64 {
+		return e.ticked_on
+	})!
+	assert on != sync.thread_id()
+}
+
+fn test_an_entity_that_does_not_tick_is_left_alone() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	spawn_dummy(mut wr, 2)
+	wr.advance_tick()!
+	assert call[int](mut wr, 'test.count', fn (mut tx Tx) !int {
+		return tx.count()
+	})! == 1
+}
+
+fn test_a_world_ticks_by_itself() {
+	mut wr := start('overworld')
+	defer {
+		wr.close()
+	}
+	time.sleep(250 * time.millisecond)
+	ticks := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
+		return tx.current_tick()
+	})!
+
+	assert ticks >= 2, 'the world ticked ${ticks} times in 250ms'
+	assert ticks <= 10, 'the world ticked ${ticks} times in 250ms'
+}
+
+fn test_missed_ticks_are_dropped_not_owed() {
+	mut wr := start('overworld')
+	defer {
+		wr.close()
+	}
+
+	call[bool](mut wr, 'test.slow', fn (mut tx Tx) !bool {
+		time.sleep(300 * time.millisecond)
+		return true
+	})!
+	after_slow := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
+		return tx.current_tick()
+	})!
+	time.sleep(100 * time.millisecond)
+	later := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
+		return tx.current_tick()
+	})!
+
+	caught_up := later - after_slow
+	assert caught_up <= 4, 'the world ran ${caught_up} ticks in 100ms, so missed ticks were owed'
+}
+
+// Remover takes another entity out of the world when it ticks.
+struct Remover {
+	id_    u64
+	target u64
+}
+
+fn (r &Remover) id() u64 {
+	return r.id_
+}
+
+fn (mut r Remover) tick(mut tx Tx, current i64) {
+	tx.remove(r.target) or { return }
+}
+
+fn test_an_entity_removed_during_a_tick_is_not_ticked() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+
+	remover := new_handle(1, &Remover{
+		id_:    1
+		target: 2
+	})
+	call[bool](mut wr, 'test.add', fn [remover] (mut tx Tx) !bool {
+		tx.add(remover)
+		return true
+	})!
+	victim := spawn_ticked(mut wr, 2)
+	r := ref[Ticked](victim)
+
+	wr.advance_tick()!
+
+	e := victim.entity
+	if e is Ticked {
+		assert e.ticks == 0, 'an entity removed during the tick was ticked ${e.ticks} time(s)'
+	} else {
+		assert false, 'the handle lost the entity'
+	}
+	if _ := call_ref[Ticked, int](r, 'test.reach', fn (mut tx Tx, e &Ticked) !int {
+		return 1
+	}) {
+		assert false, 'the removed entity is still in the world'
+	}
+}
