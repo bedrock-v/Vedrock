@@ -8,12 +8,11 @@ import sync.stdatomic
 // into a process that runs out of memory. Producers block instead.
 const queue_cap = 256
 
-// Tx is access to one world's state, the only way anything reaches it. It
-// exists for the length of one task and is constructed on the actor's own
-// thread.
+// Tx is access to one world's state and the only way anything reaches it. It
+// is built on the actor's thread and lasts for one task.
 //
 // Nothing may keep a Tx past the callback it was handed to. Keep a Handle or a
-// Ref instead: those are made to outlive a transaction.
+// Ref, which are made to outlive a transaction.
 pub struct Tx {
 mut:
 	world &Runtime
@@ -184,17 +183,16 @@ pub fn (mut wr Runtime) close() {
 	_ := <-wr.done or { false }
 }
 
-// defer queues work to run on this world once the current callback returns, in
-// the order it was queued before the task is done. It is how an operation
-// finishes what it started without queueing a task for the actor it is already
-// running on.
+// defer queues work to run on this world after the current callback returns and
+// before the task is done, in the order it was queued. Use it for follow-up
+// work: the actor can't queue a task for itself.
 pub fn (mut tx Tx) defer(f fn (mut tx Tx)) {
 	tx.ensure_live()
 	tx.deferred << f
 }
 
-// ensure_live stops a transaction being used once its task is over. By then the
-// actor has moved on and anything reached through it would be reached from
+// ensure_live panics if the transaction's task is already over. The actor has
+// moved on by then, so anything reached through it would be reached from
 // whatever thread still holds it.
 fn (tx &Tx) ensure_live() {
 	if tx.finished {
@@ -210,8 +208,8 @@ pub fn (tx &Tx) world_name() string {
 
 // add puts an entity into this world. The handle is the caller's to keep.
 //
-// The entity must be in no world. Adding one that another world already holds
-// would leave it in both their hands with its handle naming only the second.
+// The entity must be in no world: one that another world already holds would
+// end up in both of their maps.
 pub fn (mut tx Tx) add(h &Handle) {
 	tx.ensure_live()
 	mut handle := unsafe { h }
@@ -222,9 +220,8 @@ pub fn (mut tx Tx) add(h &Handle) {
 	tx.world.entities[handle.id_] = handle
 }
 
-// remove takes an entity out of this world and hands back its handle which
-// then belongs to no world. Adding it to another world is a separate
-// transaction on that world: a world's transaction never reaches into another.
+// remove takes an entity out of this world and hands back its handle, which
+// then belongs to no world. Use transfer to move it to another world.
 pub fn (mut tx Tx) remove(id u64) ?&Handle {
 	tx.ensure_live()
 	mut handle := tx.world.entities[id] or { return none }

@@ -1,15 +1,15 @@
 module world
 
-// Moving an entity between worlds is two transactions: it leaves in
-// a transaction on the source and joins in one on the destination. The Handle
-// carries its state in between.
+// Moving an entity between worlds takes two transactions: one on the source to
+// take it out, one on the destination to put it in. Its Handle carries its
+// state in between.
 
-// transfer moves the entity into another world for callers already holding a
-// transaction.
+// transfer moves an entity into another world. Use it from inside a
+// transaction such as when a player walks into a portal.
 //
-// It leaves once the callback returns and work still reading it is not cut off
-// halfway. It arrives on its own thread. In between it is in no world and a Ref
-// to it fails. A destination that will not take it sends it home.
+// The entity leaves once the current callback returns. Work still reading it
+// finishes first and it arrives on a thread of its own. While it is in neither
+// world a Ref to it fails. A destination that refuses it sends it home.
 pub fn (mut tx Tx) transfer(id u64, dst &Runtime) {
 	tx.defer(fn [id, dst] (mut tx Tx) {
 		src := tx.world
@@ -29,10 +29,12 @@ pub fn (mut tx Tx) transfer(id u64, dst &Runtime) {
 }
 
 // transfer_ref moves an entity to another world from outside any transaction.
+// The two transactions run one after the other and the entity has arrived by
+// the time it returns.
 //
-// It fails if the entity is in no world, if either world is closed, or if it has
-// since left the world its reference pointed at. An entity the destination will
-// not take goes home and the caller still hears why.
+// It fails if the entity is in no world, if either world is closed, or if it
+// has since left the world its reference pointed at. A destination that refuses
+// it sends it home and the caller is told why.
 pub fn transfer_ref[T](r Ref[T], dst &Runtime) ! {
 	mut src := r.handle.world
 	if isnil(src) {
