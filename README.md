@@ -2,7 +2,7 @@
 
 # Vedrock
 
-![CI](https://img.shields.io/github/actions/workflow/status/bedrock-v/Vedrock/docs.yml?branch=stable&label=CI&style=flat-square)
+![CI](https://img.shields.io/github/actions/workflow/status/bedrock-v/Vedrock/ci.yml?branch=rewrite&label=CI&style=flat-square)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 A lightweight Minecraft: Bedrock Edition server software in [V](https://vlang.io/).
