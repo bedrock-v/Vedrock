@@ -405,7 +405,7 @@ fn spawn_ticked(mut wr Runtime, id u64) &Handle {
 }
 
 fn test_a_tick_reaches_the_entities_that_tick() {
-	mut wr := start('overworld')
+	mut wr := start_manual('overworld')
 	defer {
 		wr.close()
 	}
@@ -433,7 +433,7 @@ fn test_a_tick_reaches_the_entities_that_tick() {
 }
 
 fn test_an_entity_that_does_not_tick_is_left_alone() {
-	mut wr := start('overworld')
+	mut wr := start_manual('overworld')
 	defer {
 		wr.close()
 	}
@@ -478,4 +478,50 @@ fn test_missed_ticks_are_dropped_not_owed() {
 
 	caught_up := later - after_slow
 	assert caught_up <= 4, 'the world ran ${caught_up} ticks in 100ms, so missed ticks were owed'
+}
+
+// Remover takes another entity out of the world when it ticks.
+struct Remover {
+	id_    u64
+	target u64
+}
+
+fn (r &Remover) id() u64 {
+	return r.id_
+}
+
+fn (mut r Remover) tick(mut tx Tx, current i64) {
+	tx.remove(r.target) or { return }
+}
+
+fn test_an_entity_removed_during_a_tick_is_not_ticked() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+
+	remover := new_handle(1, &Remover{
+		id_:    1
+		target: 2
+	})
+	call[bool](mut wr, 'test.add', fn [remover] (mut tx Tx) !bool {
+		tx.add(remover)
+		return true
+	})!
+	victim := spawn_ticked(mut wr, 2)
+	r := ref[Ticked](victim)
+
+	wr.advance_tick()!
+
+	e := victim.entity
+	if e is Ticked {
+		assert e.ticks == 0, 'an entity removed during the tick was ticked ${e.ticks} time(s)'
+	} else {
+		assert false, 'the handle lost the entity'
+	}
+	if _ := call_ref[Ticked, int](r, 'test.reach', fn (mut tx Tx, e &Ticked) !int {
+		return 1
+	}) {
+		assert false, 'the removed entity is still in the world'
+	}
 }
