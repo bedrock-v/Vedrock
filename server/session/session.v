@@ -1,8 +1,8 @@
 module session
 
-import protocol
-import protocol.packets
-import vedrock.server.world
+import bedrock_v.protocol
+import bedrock_v.protocol.packets
+import server.world
 
 // Transport is one client's connection, framed into packets. A session reads
 // and writes packets through it and knows nothing about how they travel.

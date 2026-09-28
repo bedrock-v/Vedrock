@@ -1,10 +1,10 @@
 module session
 
 import sync
-import protocol
-import protocol.packets
-import protocol.types
-import vedrock.server.world
+import bedrock_v.protocol
+import bedrock_v.protocol.packets
+import bedrock_v.protocol.types
+import server.world
 
 // FakeTransport hands over a fixed list of packets and keeps what was written
 // and a test drives a session without a socket. It also records the thread each
