@@ -1,6 +1,7 @@
 module world
 
 import sync
+import time
 
 // A test entity. Nothing about it is guarded.
 struct Dummy {
@@ -228,4 +229,146 @@ fn test_closing_while_callers_submit_does_not_crash() {
 	}
 	wr.close()
 	threads.wait()
+}
+
+fn wait_for_count(mut wr Runtime, want int) bool {
+	for _ in 0 .. 200 {
+		got := call[int](mut wr, 'test.count', fn (mut tx Tx) !int {
+			return tx.count()
+		}) or { return false }
+		if got == want {
+			return true
+		}
+		time.sleep(time.millisecond)
+	}
+	return false
+}
+
+fn test_transfer_from_inside_a_transaction_moves_the_entity() {
+	mut a := start('a')
+	mut b := start('b')
+	defer {
+		a.close()
+		b.close()
+	}
+
+	h := spawn_dummy(mut a, 1)
+	r := ref[Dummy](h)
+	call_ref[Dummy, bool](r, 'test.mark', fn (mut tx Tx, e &Dummy) !bool {
+		mut d := unsafe { e }
+		d.ticks = 17
+		d.note = 'carried'
+		return true
+	})!
+
+	call[bool](mut a, 'test.portal', fn [b] (mut tx Tx) !bool {
+		tx.transfer(1, b)
+		tx.entity(1) or { return error('the entity left during the callback') }
+		return true
+	})!
+
+	assert wait_for_count(mut b, 1), 'the entity never arrived in b'
+	assert wait_for_count(mut a, 0), 'the entity is still in a'
+
+	note := call_ref[Dummy, string](r, 'test.read', fn (mut tx Tx, e &Dummy) !string {
+		return '${tx.world_name()}:${e.ticks}:${e.note}'
+	})!
+	assert note == 'b:17:carried'
+}
+
+fn test_transfer_ref_moves_the_entity_and_reports_it() {
+	mut a := start('a')
+	mut b := start('b')
+	defer {
+		a.close()
+		b.close()
+	}
+
+	h := spawn_dummy(mut a, 2)
+	r := ref[Dummy](h)
+	transfer_ref[Dummy](r, b)!
+
+	assert call[int](mut b, 'test.count_b', fn (mut tx Tx) !int {
+		return tx.count()
+	})! == 1
+	assert call[int](mut a, 'test.count_a', fn (mut tx Tx) !int {
+		return tx.count()
+	})! == 0
+	where := call_ref[Dummy, string](r, 'test.where', fn (mut tx Tx, e &Dummy) !string {
+		return tx.world_name()
+	})!
+	assert where == 'b'
+}
+
+fn test_worlds_transferring_to_each_other_do_not_deadlock() {
+	mut a := start('a')
+	mut b := start('b')
+	defer {
+		a.close()
+		b.close()
+	}
+
+	ha := spawn_dummy(mut a, 10)
+	hb := spawn_dummy(mut b, 20)
+
+	t1 := spawn fn [mut a, b, ha] () {
+		call[bool](mut a, 'test.send_a', fn [b] (mut tx Tx) !bool {
+			tx.transfer(10, b)
+			return true
+		}) or { panic(err) }
+		_ := ha
+	}()
+	t2 := spawn fn [mut b, a, hb] () {
+		call[bool](mut b, 'test.send_b', fn [a] (mut tx Tx) !bool {
+			tx.transfer(20, a)
+			return true
+		}) or { panic(err) }
+		_ := hb
+	}()
+	t1.wait()
+	t2.wait()
+
+	assert wait_for_count(mut a, 1), "a never received b's entity"
+	assert wait_for_count(mut b, 1), "b never received a's entity"
+	held_by_a := call[u64](mut a, 'test.who_a', fn (mut tx Tx) !u64 {
+		e := tx.entity(20) or { return error('a does not hold 20') }
+		return e.id()
+	})!
+	assert held_by_a == 20
+}
+
+fn test_a_transfer_to_a_closed_world_returns_the_entity() {
+	mut a := start('a')
+	mut b := start('b')
+	defer {
+		a.close()
+	}
+	b.close()
+
+	h := spawn_dummy(mut a, 4)
+	r := ref[Dummy](h)
+
+	if _ := transfer_ref[Dummy](r, b) {
+		assert false, 'a transfer into a closed world reported success'
+	}
+	assert wait_for_count(mut a, 1), 'the entity did not come back to a'
+	where := call_ref[Dummy, string](r, 'test.where', fn (mut tx Tx, e &Dummy) !string {
+		return tx.world_name()
+	})!
+	assert where == 'a'
+}
+
+fn test_transfer_to_the_same_world_is_a_no_op() {
+	mut a := start('a')
+	defer {
+		a.close()
+	}
+
+	h := spawn_dummy(mut a, 6)
+	r := ref[Dummy](h)
+	transfer_ref[Dummy](r, a)!
+
+	assert call[int](mut a, 'test.count', fn (mut tx Tx) !int {
+		return tx.count()
+	})! == 1
 }

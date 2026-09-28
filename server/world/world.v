@@ -209,11 +209,16 @@ pub fn (tx &Tx) world_name() string {
 }
 
 // add puts an entity into this world. The handle is the caller's to keep.
+//
+// The entity must be in no world. Adding one that another world already holds
+// would leave it in both their hands with its handle naming only the second.
 pub fn (mut tx Tx) add(h &Handle) {
 	tx.ensure_live()
 	mut handle := unsafe { h }
+	if !isnil(handle.world) {
+		panic('world "${tx.world.name_}": entity ${handle.id_} is already in world "${handle.world.name_}"')
+	}
 	handle.world = tx.world
-	handle.version++
 	tx.world.entities[handle.id_] = handle
 }
 
@@ -225,7 +230,6 @@ pub fn (mut tx Tx) remove(id u64) ?&Handle {
 	mut handle := tx.world.entities[id] or { return none }
 	tx.world.entities.delete(id)
 	handle.world = unsafe { nil }
-	handle.version++
 	return handle
 }
 

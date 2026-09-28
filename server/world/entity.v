@@ -18,21 +18,17 @@ mut:
 	id_ u64
 	// world is the runtime holding the entity or nil while it is held by
 	// nobody, between being removed from one world and added to the next.
-	world &Runtime = unsafe { nil }
-	// version counts every change of world. A reference taken before a move
-	// can tell that it happened.
-	version u64
-	entity  Entity
+	world  &Runtime = unsafe { nil }
+	entity Entity
 }
 
 // new_handle takes an entity out of any world's hands. Add it to a world with
 // Tx.add before anything can reach it.
 pub fn new_handle(id u64, entity Entity) &Handle {
 	return &Handle{
-		id_:     id
-		world:   unsafe { nil }
-		version: 0
-		entity:  entity
+		id_:    id
+		world:  unsafe { nil }
+		entity: entity
 	}
 }
 
