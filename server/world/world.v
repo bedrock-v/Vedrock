@@ -28,6 +28,9 @@ mut:
 	name_    string
 	tasks    chan Task
 	entities map[u64]&Handle
+	// current_tick counts the ticks this world has run. Only the actor
+	// touches it.
+	current_tick i64
 	// actor holds the thread id of the actor once it is running.
 	actor  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
 	closed &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](0)
@@ -53,6 +56,7 @@ pub fn start(name string) &Runtime {
 		done:     chan bool{cap: 1}
 	}
 	spawn wr.run()
+	spawn wr.tick_loop()
 	return wr
 }
 
