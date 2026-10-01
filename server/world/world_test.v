@@ -60,7 +60,8 @@ fn test_a_transaction_reaches_only_its_own_world() {
 	if _ := call[bool](mut b, 'test.in_b', fn [r] (mut tx Tx) !bool {
 		r.get(&tx) or { return error('not in this world') }
 		return true
-	}) {
+	})
+	{
 		assert false, 'the entity resolved in a world that does not hold it'
 	}
 	assert call[int](mut b, 'test.count', fn (mut tx Tx) !int {
@@ -112,7 +113,8 @@ fn test_a_reference_to_a_worldless_entity_fails() {
 
 	if _ := call_ref[Dummy, int](r, 'test.orphan', fn (mut tx Tx, e &Dummy) !int {
 		return 1
-	}) {
+	})
+	{
 		assert false, 'work ran against an entity that is in no world'
 	}
 }
@@ -182,7 +184,8 @@ fn test_a_closed_world_refuses_work() {
 
 	if _ := call[int](mut wr, 'test.after_close', fn (mut tx Tx) !int {
 		return 1
-	}) {
+	})
+	{
 		assert false, 'a closed world ran work'
 	}
 	wr.submit('test.after_close', fn (mut tx Tx) {}) or { return }
@@ -521,7 +524,8 @@ fn test_an_entity_removed_during_a_tick_is_not_ticked() {
 	}
 	if _ := call_ref[Ticked, int](r, 'test.reach', fn (mut tx Tx, e &Ticked) !int {
 		return 1
-	}) {
+	})
+	{
 		assert false, 'the removed entity is still in the world'
 	}
 }
