@@ -33,10 +33,16 @@ mut:
 	// conns holds every accepted connection, logged in or not. Shutting down
 	// ends them instead of leaving their threads on a socket nobody reads.
 	conns map[u64]&net.Conn
+	// pending holds when each connection that has not logged in yet arrived.
+	pending map[u64]time.Time
 	// players is how many of them were admitted. It is what max_players counts
 	// and what a client is told before it joins.
 	players    int
 	live_mutex &sync.Mutex = sync.new_mutex()
+	// announce_mutex orders what listeners are told. The count is read inside
+	// it and the last announcement to run is the one that read the current
+	// count.
+	announce_mutex &sync.Mutex = sync.new_mutex()
 }
 
 // new binds the configured listeners and brings up the world players join.
@@ -80,10 +86,14 @@ fn (mut s Server) accept_loop(index int) {
 		s.loops.done()
 	}
 	for s.running.load() != 0 {
+		s.drop_slow_logins()
 		mut listener := s.listeners[index]
 		mut wire := listener.accept(accept_poll) or { continue }
 		mut conn := net.new_conn(mut wire)
-		cid := s.add_conn(mut conn)
+		cid := s.add_conn(mut conn) or {
+			conn.close()
+			continue
+		}
 		s.sessions.add(1)
 		spawn s.admit(cid, mut conn)
 	}
@@ -104,6 +114,7 @@ fn (mut s Server) admit(cid u64, mut conn net.Conn) {
 		net.disconnect(mut conn, 'Login failed.')
 		return
 	}
+	s.finished_login(cid)
 	if !s.reserve_slot() {
 		net.disconnect(mut conn, 'The server is full!')
 		return
@@ -158,18 +169,56 @@ pub fn (mut s Server) player_count() int {
 	return s.players
 }
 
-fn (mut s Server) add_conn(mut conn net.Conn) u64 {
-	cid := s.next_conn.add(1)
+// add_conn takes a connection the server will answer or refuses it.
+fn (mut s Server) add_conn(mut conn net.Conn) ?u64 {
 	s.live_mutex.lock()
+	defer {
+		s.live_mutex.unlock()
+	}
+	if s.running.load() == 0 {
+		return none
+	}
+	if s.cfg.max_pending > 0 && s.pending.len >= s.cfg.max_pending {
+		return none
+	}
+	cid := s.next_conn.add(1)
 	s.conns[cid] = conn
-	s.live_mutex.unlock()
+	s.pending[cid] = time.now()
 	return cid
 }
 
 fn (mut s Server) remove_conn(cid u64) {
 	s.live_mutex.lock()
 	s.conns.delete(cid)
+	s.pending.delete(cid)
 	s.live_mutex.unlock()
+}
+
+// finished_login frees the place this client held among the ones logging in.
+fn (mut s Server) finished_login(cid u64) {
+	s.live_mutex.lock()
+	s.pending.delete(cid)
+	s.live_mutex.unlock()
+}
+
+// drop_slow_logins ends the connections that have been logging in for longer
+// than login_timeout. Closing one is what ends the read its thread is on and
+// that thread takes it from there.
+fn (mut s Server) drop_slow_logins() {
+	now := time.now()
+	s.live_mutex.lock()
+	mut late := []&net.Conn{}
+	for cid, since in s.pending {
+		if now - since > s.cfg.login_timeout {
+			if conn := s.conns[cid] {
+				late << conn
+			}
+		}
+	}
+	s.live_mutex.unlock()
+	for mut conn in late {
+		conn.close()
+	}
 }
 
 // reserve_slot takes one of the player slots or reports that there is none
@@ -182,22 +231,25 @@ fn (mut s Server) reserve_slot() bool {
 		return false
 	}
 	s.players++
-	count := s.players
 	s.live_mutex.unlock()
-	s.announce(count)
+	s.announce()
 	return true
 }
 
 fn (mut s Server) free_slot() {
 	s.live_mutex.lock()
 	s.players--
-	count := s.players
 	s.live_mutex.unlock()
-	s.announce(count)
+	s.announce()
 }
 
 // announce tells every listener how many players are connected.
-fn (mut s Server) announce(online int) {
+fn (mut s Server) announce() {
+	s.announce_mutex.lock()
+	defer {
+		s.announce_mutex.unlock()
+	}
+	online := s.player_count()
 	for mut listener in s.listeners {
 		listener.announce(online)
 	}
