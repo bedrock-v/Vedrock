@@ -171,9 +171,13 @@ fn (s &NetworkSession) transport_identity_refusal(identity auth.Identity) ?strin
 	}
 	transport_key := s.conn.transport.transport_identity()
 	if transport_key == '' {
-		// Either the transport has no such notion, or the peer connected without
-		// an assertion, which only happens where the server was configured to
-		// accept one. There is nothing to compare against in both cases.
+		// RakNet has no such notion and binds the chain through the encryption
+		// handshake instead. A transport that skips that handshake has nothing
+		// else left to bind it with, so an anonymous peer on it could be
+		// replaying anybody's chain.
+		if s.conn.transport.disable_encryption() {
+			return 'the connection was opened without an identity to bind the login chain to'
+		}
 		return none
 	}
 	if !network.identity_key_matches(transport_key, identity.client_public_key) {

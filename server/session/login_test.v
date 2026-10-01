@@ -153,3 +153,47 @@ fn test_max_players_counts_pending_logins_before_reserving_name() {
 	assert wait_for_sent[packets_2192.DisconnectPacket](second_transport, 5000)
 	assert second.conn.state == .closed
 }
+
+const login_test_client_key = 'MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAECRXueJeTDqNRRgJi/vlRufByu/2G0i2Ebt6YMar5QX/R0DIIyrJMcUpruK4QveTfJSTp3Shlq4Gk34cD/4GUWwkv0DVuzeuB+tXija7HBxii03NHDbPAD0AKnLr2wdAp'
+
+fn identity_refusal_session(mut hub Hub, mut transport FakeTransport) &NetworkSession {
+	return &NetworkSession{
+		player: player.new_player()
+		conn:   &Conn{ transport: transport }
+		hub:    hub
+		cfg:    conf.Config{
+			xbox_auth: true
+		}
+		log:    logger.new(.info)
+	}
+}
+
+fn test_transport_identity_refuses_anonymous_nethernet_peer() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{
+		encrypts: true
+	}
+	s := identity_refusal_session(mut hub, mut transport)
+
+	assert s.transport_identity_refusal(auth.Identity{ client_public_key: login_test_client_key }) != none
+}
+
+fn test_transport_identity_refuses_chain_signed_with_another_key() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{
+		encrypts:     true
+		identity_key: login_test_client_key
+	}
+	s := identity_refusal_session(mut hub, mut transport)
+
+	assert s.transport_identity_refusal(auth.Identity{ client_public_key: auth.mojang_public_key.reverse() }) != none
+	assert s.transport_identity_refusal(auth.Identity{ client_public_key: login_test_client_key }) == none
+}
+
+fn test_transport_identity_leaves_raknet_to_the_encryption_handshake() {
+	mut hub := new_hub(gamedata.GameData{})
+	mut transport := &FakeTransport{}
+	s := identity_refusal_session(mut hub, mut transport)
+
+	assert s.transport_identity_refusal(auth.Identity{ client_public_key: login_test_client_key }) == none
+}

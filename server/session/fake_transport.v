@@ -18,6 +18,10 @@ pub struct FakeTransport {
 pub mut:
 	sent        []protocol.Packet
 	sent_notify chan bool = chan bool{cap: 256}
+	// identity_key and encrypts stand in for what a NetherNet connection
+	// reports about its peer and itself.
+	identity_key string
+	encrypts     bool
 }
 
 pub fn (mut t FakeTransport) send(p protocol.Packet) ! {
@@ -53,9 +57,9 @@ pub fn (mut t FakeTransport) enable_compression(threshold int) {}
 pub fn (mut t FakeTransport) enable_encryption(mut ctx encryption.Context) {}
 
 pub fn (t &FakeTransport) disable_encryption() bool {
-	return false
+	return t.encrypts
 }
 
 pub fn (t &FakeTransport) transport_identity() string {
-	return ''
+	return t.identity_key
 }
