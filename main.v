@@ -1,5 +1,14 @@
 module main
 
+import server
+import server.transport.nethernet
+
 fn main() {
-	println('Hello World!')
+	mut srv := server.new(
+		listeners: [nethernet.listener(nethernet.Config{})]
+	) or {
+		eprintln('vedrock: ${err}')
+		exit(1)
+	}
+	srv.run()
 }

@@ -16,7 +16,8 @@ mut:
 // Player is the entity a session controls. Like any entity, it belongs to a
 // world and is reached through that world's transaction.
 pub struct Player {
-	id_ u64
+	id_   u64
+	name_ string
 pub mut:
 	position [3]f32
 	rotation [2]f32
@@ -24,8 +25,22 @@ pub mut:
 	moves int
 }
 
+// new_player builds the entity for a client that has logged in. Put it in a
+// world with Tx.add before anything can reach it.
+pub fn new_player(id u64, name string) &Player {
+	return &Player{
+		id_:   id
+		name_: name
+	}
+}
+
 pub fn (p &Player) id() u64 {
 	return p.id_
+}
+
+// name is what the player logged in as.
+pub fn (p &Player) name() string {
+	return p.name_
 }
 
 // Session runs one client: it reads that client's packets and handles them on
