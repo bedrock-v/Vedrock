@@ -130,7 +130,7 @@ fn test_spoofed_xid_is_not_xbox_authenticated() {
 }
 
 // A self-signed single token chain is the closed exploit: the attacker signs
-// with their own key and cannot make is_trusted_key true, so authenticated stays
+// with their own key and cannot root the chain in Mojang's key, so authenticated stays
 // false even if the payload claims to be Mojang's.
 fn test_self_signed_chain_not_authenticated() {
 	mut verifier := new_oidc_verifier()
@@ -151,12 +151,101 @@ fn test_self_signed_chain_not_authenticated() {
 	}
 }
 
-// Trust anchor: authenticated is true only when a token was verified using the
-// Mojang key, regardless of any payload field.
-fn test_trust_anchor_is_verifying_key() {
-	assert is_trusted_key(mojang_public_key) == true
-	assert is_trusted_key(test_public_key_spki) == false
-	assert is_trusted_key('') == false
+// rooted_chain_keys stand in for Mojang, the Xbox intermediate it hands off to,
+// and the client, so a test can build a chain the way the real services sign it.
+struct RootedChainKeys {
+mut:
+	anchor       &encryption.ServerKeyPair
+	intermediate &encryption.ServerKeyPair
+	client       &encryption.ServerKeyPair
+}
+
+fn new_rooted_chain_keys() !RootedChainKeys {
+	return RootedChainKeys{
+		anchor:       encryption.new_server_key_pair()!
+		intermediate: encryption.new_server_key_pair()!
+		client:       encryption.new_server_key_pair()!
+	}
+}
+
+fn (mut k RootedChainKeys) free() {
+	k.anchor.free()
+	k.intermediate.free()
+	k.client.free()
+}
+
+fn spki_of(keys &encryption.ServerKeyPair) !string {
+	return base64.encode(keys.public_key_der()!)
+}
+
+fn named_extra(name string, xuid string) string {
+	return '{"displayName":"${name}","identity":"00000000-0000-0000-0000-000000000001","XUID":"${xuid}"}'
+}
+
+// genuine_chain is the three token chain a real client sends: self-signed, then
+// signed by the anchor, then signed by the intermediate naming the player.
+fn genuine_chain(k RootedChainKeys, name string, xuid string) ![]string {
+	anchor := spki_of(k.anchor)!
+	intermediate := spki_of(k.intermediate)!
+	client := spki_of(k.client)!
+	naming := '{"extraData":${named_extra(name, xuid)},"identityPublicKey":"${client}"}'
+	return [
+		make_token('{"alg":"ES384","x5u":"${client}"}', '{"identityPublicKey":"${anchor}"}',
+			k.client)!,
+		make_token('{"alg":"ES384","x5u":"${anchor}"}', '{"identityPublicKey":"${intermediate}"}',
+			k.anchor)!,
+		make_token('{"alg":"ES384","x5u":"${intermediate}"}', naming, k.intermediate)!,
+	]
+}
+
+fn test_rooted_chain_is_authenticated() {
+	mut k := new_rooted_chain_keys()!
+	defer {
+		k.free()
+	}
+	identity := verify_chain_rooted_in(genuine_chain(k, 'Steve', '1')!, spki_of(k.anchor)!)!
+	assert identity.xbox_authenticated
+	assert identity.display_name == 'Steve'
+	assert identity.client_public_key == spki_of(k.client)!
+	// A chain the anchor never signed proves nothing, whatever it says.
+	assert !verify_chain_rooted_in(genuine_chain(k, 'Steve', '1')!, test_public_key_spki)!.xbox_authenticated
+}
+
+// The client holds the key the last token hands off to, so it can sign one more
+// token naming anybody it likes. That token must not be taken as the player.
+fn test_rooted_chain_rejects_token_appended_by_client() {
+	mut k := new_rooted_chain_keys()!
+	defer {
+		k.free()
+	}
+	client := spki_of(k.client)!
+	forged := '{"extraData":${named_extra('Notch', '2535400000000000')},"identityPublicKey":"${client}"}'
+	mut chain := genuine_chain(k, 'Steve', '1')!
+	chain << make_token('{"alg":"ES384","x5u":"${client}"}', forged, k.client)!
+	if _ := verify_chain_rooted_in(chain, spki_of(k.anchor)!) {
+		assert false
+	}
+}
+
+// Dropping the token that names the player would leave the self-signed first
+// token's extraData as the only identity in an otherwise rooted chain.
+fn test_rooted_chain_rejects_identity_from_self_signed_token() {
+	mut k := new_rooted_chain_keys()!
+	defer {
+		k.free()
+	}
+	anchor := spki_of(k.anchor)!
+	intermediate := spki_of(k.intermediate)!
+	client := spki_of(k.client)!
+	forged := '{"extraData":${named_extra('Notch', '2535400000000000')},"identityPublicKey":"${anchor}"}'
+	chain := [
+		make_token('{"alg":"ES384","x5u":"${client}"}', forged, k.client)!,
+		make_token('{"alg":"ES384","x5u":"${anchor}"}', '{"identityPublicKey":"${intermediate}"}',
+			k.anchor)!,
+	]
+	if _ := verify_chain_rooted_in(chain, anchor) {
+		assert false
+	}
 }
 
 // A mis-linked chain - the second token is not signed by the key the first token
