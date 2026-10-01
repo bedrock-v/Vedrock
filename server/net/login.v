@@ -33,9 +33,9 @@ pub:
 	// packs_required refuses a client that will not accept the server's
 	// resource packs.
 	packs_required bool
-	// max_login_packets bounds what a client that has not logged in can make
-	// the server do. The sequence itself is a handful of packets.
-	max_login_packets int = 64
+	// max_login_messages bounds what a client that has not logged in can make
+	// the server do. The sequence itself is a handful of messages.
+	max_login_messages int = 64
 }
 
 // handshake runs the server side of the login sequence and returns once the
@@ -43,7 +43,7 @@ pub:
 pub fn handshake(mut c Conn, cfg LoginConfig) !Identity {
 	mut h := Handshake{
 		conn:   c
-		budget: cfg.max_login_packets
+		budget: cfg.max_login_messages
 	}
 	h.network_settings(cfg)!
 	identity := h.login()!
@@ -57,18 +57,20 @@ struct Handshake {
 mut:
 	conn         &Conn
 	budget       int
-	budget_spent int
+	spent  		 int
 }
 
 // read takes the next packet and refuses a client that keeps sending without
 // finishing the sequence.
 fn (mut h Handshake) read() !protocol.Packet {
-	if h.budget <= 0 {
-		return error('client sent ${h.budget_spent} packets without finishing the login sequence')
+	if h.spent >= h.budget {
+		return error('client sent ${h.spent} messages without finishing the login sequence')
 	}
-	h.budget--
-	h.budget_spent++
-	return h.conn.read()!
+	before := h.conn.reads()
+	p := h.conn.read()!
+	after := h.conn.reads()
+	h.spent += if after > before { after - before } else { 1 }
+	return p
 }
 
 // network_settings answers the client's first packet and turns compression on.

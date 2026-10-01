@@ -1,5 +1,6 @@
 module net
 
+import compress.deflate
 import encoding.base64
 import x.json2
 import bedrock_v.protocol
@@ -229,6 +230,85 @@ fn test_an_unexpected_packet_does_not_stop_the_login() {
 		}),
 	], true)
 	w.inbound.insert(2, radius)
+	mut c := new_conn(mut w)
+	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
+	assert identity.display_name == 'Scher'
+}
+
+fn test_a_batch_that_expands_past_the_limit_is_refused() {
+	bomb := deflate.compress_raw([]u8{len: max_decompressed_batch + 1024}) or { panic(err) }
+	assert bomb.len < 64 * 1024, 'the test needs a frame far smaller than what it expands to'
+	mut framed := [compression_flate]
+	framed << bomb
+	if _ := decode_batch(framed, true) {
+		assert false, 'a batch that expands past the limit was accepted'
+	} else {
+		assert err.msg().contains('limit'), 'refused for another reason: ${err}'
+	}
+}
+
+// JunkWire sends batches that decode to nothing, for as long as it is read.
+struct JunkWire {
+mut:
+	sent int
+}
+
+fn (mut w JunkWire) read_message() ![]u8 {
+	w.sent++
+	mut unknown := serializer.new_writer()
+	protocol.write_packet_header(mut unknown, 0xfe, 0, 0)
+	return encode_batch([unknown.bytes()], false, 0)!
+}
+
+fn (mut w JunkWire) write_message(b []u8) ! {}
+
+fn (mut w JunkWire) remote() string {
+	return 'junk'
+}
+
+fn (mut w JunkWire) encrypted() bool {
+	return true
+}
+
+fn (mut w JunkWire) close() {}
+
+fn test_a_read_gives_up_on_messages_that_carry_no_packet() {
+	mut w := &JunkWire{}
+	mut c := new_conn(mut w)
+	if _ := c.read() {
+		assert false, 'a read returned a packet out of messages that had none'
+	}
+	assert w.sent == max_empty_reads + 1, 'the read did not stop at the limit'
+}
+
+fn junk_batch() []u8 {
+	mut unknown := serializer.new_writer()
+	protocol.write_packet_header(mut unknown, 0xfe, 0, 0)
+	return encode_batch([unknown.bytes()], false, 0) or { panic(err) }
+}
+
+fn test_messages_that_carry_no_packet_still_spend_the_login_budget() {
+	mut junk := [][]u8{}
+	for _ in 0 .. 10 {
+		junk << junk_batch()
+	}
+	mut w := logging_in_client('Scher')
+	w.inbound.prepend(junk)
+	mut c := new_conn(mut w)
+	if _ := handshake(mut c, LoginConfig{ max_login_messages: 8 }) {
+		assert false, 'a client logged in on a budget its junk should have spent'
+	} else {
+		assert err.msg().contains('messages'), 'refused for another reason: ${err}'
+	}
+}
+
+fn test_a_login_survives_junk_within_the_budget() {
+	mut junk := [][]u8{}
+	for _ in 0 .. 10 {
+		junk << junk_batch()
+	}
+	mut w := logging_in_client('Scher')
+	w.inbound.prepend(junk)
 	mut c := new_conn(mut w)
 	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
 	assert identity.display_name == 'Scher'

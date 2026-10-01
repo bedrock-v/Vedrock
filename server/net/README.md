@@ -19,11 +19,9 @@ line.
 
 ```v
 import vedrock.server.net
-import vedrock.server.transport
+import vedrock.server.transport.nethernet
 
-mut listener := transport.listen(transport.ListenConfig{
-	motd: 'Vedrock'
-})!
+mut listener := nethernet.listen(nethernet.Config{}, net.Status{ motd: 'Vedrock' })!
 mut wire := listener.accept(500 * time.millisecond)!
 mut conn := net.new_conn(mut wire)
 
@@ -36,13 +34,12 @@ compression, the login itself and resource pack negotiation. It returns the
 identity the client claims. A client that gets through it is waiting for
 `StartGame`, which needs game data the caller owns and is sent from there.
 
-Two things the sequence deliberately does not do:
+One thing the sequence deliberately does not do is **verify the login chain**.
+The chain's signatures are not checked. `Identity.xbox_authenticated` is false
+for every login and the name is self-declared. Until verification exists, a
+caller must not treat the name or the account ids as proof of who the player is.
 
-- **Verify the login chain.** The chain's signatures are not checked.
-  `Identity.xbox_authenticated` is false for every login and the name is
-  self-declared. Until verification exists, a caller must not treat the name or
-  the account ids as proof of who the player is.
-Encryption is not one of them. A transport that encrypts every byte on its own
+Encryption is not in that company. A transport that encrypts every byte on its own
 says so through `Wire.encrypted`, and NetherNet does, running over DTLS. When a
 transport does not, the login sequence runs the game's own handshake: ECDH on
 P-384 against the client's key, a key derived from a random salt and AES-256-CTR
@@ -51,6 +48,8 @@ send. The token telling the client the salt goes out in the clear and everything
 after it is enciphered, in both directions, in order.
 
 Everything a client sends before it has logged in is bounded: the message size,
-the decompressed batch size, the packet count per batch, the size of one packet
-and how many packets the login sequence itself will read. A peer decides what it
-sends, without those it would also decide how much work a read costs.
+the packet count per batch, the size of one packet, how far a batch may expand
+while it is being decompressed, how many messages in a row may carry nothing
+this server can decode and how many messages the login sequence itself will
+read. A peer decides what it sends and without those it would also decide how
+much work a read costs.

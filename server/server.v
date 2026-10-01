@@ -22,13 +22,20 @@ mut:
 	listeners []net.Listener
 	overworld &world.Runtime
 	// loops is held by the accept loop of each listener.
-	loops   &sync.WaitGroup           = sync.new_waitgroup()
-	running &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
+	loops &sync.WaitGroup = sync.new_waitgroup()
+	// sessions is held by the thread of every accepted client from the moment
+	// it is accepted until it is gone.
+	sessions &sync.WaitGroup           = sync.new_waitgroup()
+	running  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
 	// next_id hands out entity ids. Players are entities and share the space.
-	next_id &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
-	// live holds every connection that is past login. Shutting down ends
-	// them instead of leaving their threads on a socket nobody reads.
-	live       map[u64]&net.Conn
+	next_id   &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
+	next_conn &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
+	// conns holds every accepted connection, logged in or not. Shutting down
+	// ends them instead of leaving their threads on a socket nobody reads.
+	conns map[u64]&net.Conn
+	// players is how many of them were admitted. It is what max_players counts
+	// and what a client is told before it joins.
+	players    int
 	live_mutex &sync.Mutex = sync.new_mutex()
 }
 
@@ -76,12 +83,19 @@ fn (mut s Server) accept_loop(index int) {
 		mut listener := s.listeners[index]
 		mut wire := listener.accept(accept_poll) or { continue }
 		mut conn := net.new_conn(mut wire)
-		spawn s.admit(mut conn)
+		cid := s.add_conn(mut conn)
+		s.sessions.add(1)
+		spawn s.admit(cid, mut conn)
 	}
 }
 
 // admit takes a client through login and runs its session.
-fn (mut s Server) admit(mut conn net.Conn) {
+fn (mut s Server) admit(cid u64, mut conn net.Conn) {
+	defer {
+		s.remove_conn(cid)
+		conn.close()
+		s.sessions.done()
+	}
 	remote := conn.remote()
 	identity := net.handshake(mut conn, s.cfg.login) or {
 		// TODO There's no logger in the rewrite yet and a login that fails without
@@ -90,7 +104,7 @@ fn (mut s Server) admit(mut conn net.Conn) {
 		net.disconnect(mut conn, 'Login failed.')
 		return
 	}
-	if s.cfg.max_players > 0 && s.player_count() >= s.cfg.max_players {
+	if !s.reserve_slot() {
 		net.disconnect(mut conn, 'The server is full!')
 		return
 	}
@@ -100,19 +114,18 @@ fn (mut s Server) admit(mut conn net.Conn) {
 		tx.add(h)
 		return true
 	}) or {
+		s.free_slot()
 		net.disconnect(mut conn, 'The world could not take you.')
 		return
 	}
-	s.track(id, mut conn)
 	mut sess := session.new_session(mut conn, h)
 	sess.run()
 	// The client is gone or the session gave up on it.
-	s.untrack(id)
 	world.call[bool](mut s.overworld, 'server.quit', fn [id] (mut tx world.Tx) !bool {
 		tx.remove(id) or { return error('player ${id} had already left') }
 		return true
 	}) or {}
-	conn.close()
+	s.free_slot()
 }
 
 // close stops the server. No new client is accepted, every connected client is
@@ -126,10 +139,13 @@ pub fn (mut s Server) close() {
 		listener.close()
 	}
 	s.live_mutex.lock()
-	for _, mut conn in s.live {
+	for _, mut conn in s.conns {
 		conn.close()
 	}
 	s.live_mutex.unlock()
+	// A closed connection is what ends the read its thread is blocked on. The
+	// world stays up until those threads are done with it.
+	s.sessions.wait()
 	s.overworld.close()
 }
 
@@ -139,21 +155,43 @@ pub fn (mut s Server) player_count() int {
 	defer {
 		s.live_mutex.unlock()
 	}
-	return s.live.len
+	return s.players
 }
 
-fn (mut s Server) track(id u64, mut conn net.Conn) {
+fn (mut s Server) add_conn(mut conn net.Conn) u64 {
+	cid := s.next_conn.add(1)
 	s.live_mutex.lock()
-	s.live[id] = conn
-	count := s.live.len
+	s.conns[cid] = conn
+	s.live_mutex.unlock()
+	return cid
+}
+
+fn (mut s Server) remove_conn(cid u64) {
+	s.live_mutex.lock()
+	s.conns.delete(cid)
+	s.live_mutex.unlock()
+}
+
+// reserve_slot takes one of the player slots or reports that there is none
+// left. Taking it under the same lock that holds the count is what keeps two
+// clients arriving together from both getting the last one.
+fn (mut s Server) reserve_slot() bool {
+	s.live_mutex.lock()
+	if s.cfg.max_players > 0 && s.players >= s.cfg.max_players {
+		s.live_mutex.unlock()
+		return false
+	}
+	s.players++
+	count := s.players
 	s.live_mutex.unlock()
 	s.announce(count)
+	return true
 }
 
-fn (mut s Server) untrack(id u64) {
+fn (mut s Server) free_slot() {
 	s.live_mutex.lock()
-	s.live.delete(id)
-	count := s.live.len
+	s.players--
+	count := s.players
 	s.live_mutex.unlock()
 	s.announce(count)
 }

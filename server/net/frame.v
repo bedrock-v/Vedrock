@@ -39,6 +39,47 @@ fn encode_batch(packets [][]u8, compression bool, threshold int) ![]u8 {
 	return out
 }
 
+// inflate decompresses a batch and gives up once the output passes limit.
+//
+// Deflate expands by up to about a thousand to one, so a message that fits
+// inside max_compressed_batch can still ask for gigabytes. The limit is checked
+// as the output arrives rather than afterwards, which is the difference between
+// refusing the message and allocating what it asked for first.
+fn inflate(body []u8, limit int) ![]u8 {
+	mut out := &Inflated{
+		limit: limit
+	}
+	deflate.decompress_with_callback(body, keep_chunk, out) or {
+		if out.over {
+			return error('batch decompressed past the ${limit} byte limit')
+		}
+		return err
+	}
+	if out.over {
+		return error('batch decompressed past the ${limit} byte limit')
+	}
+	return out.data
+}
+
+struct Inflated {
+	limit int
+mut:
+	data []u8
+	over bool
+}
+
+// keep_chunk takes one chunk of decompressed output. Returning zero stops the
+// decompressor.
+fn keep_chunk(chunk []u8, userdata voidptr) int {
+	mut out := unsafe { &Inflated(userdata) }
+	if out.data.len + chunk.len > out.limit {
+		out.over = true
+		return 0
+	}
+	out.data << chunk
+	return chunk.len
+}
+
 // decode_batch splits a message into the encoded packets it carries.
 fn decode_batch(payload []u8, compression bool) ![][]u8 {
 	if payload.len == 0 {
@@ -55,12 +96,9 @@ fn decode_batch(payload []u8, compression bool) ![][]u8 {
 		body := payload[1..]
 		batch = match algorithm {
 			compression_none { body.clone() }
-			compression_flate { deflate.decompress(body)! }
+			compression_flate { inflate(body, max_decompressed_batch)! }
 			else { return error('unknown compression algorithm 0x${algorithm.hex()}') }
 		}
-	}
-	if batch.len > max_decompressed_batch {
-		return error('batch of ${batch.len} bytes decompressed is over the ${max_decompressed_batch} byte limit')
 	}
 	mut r := serializer.new_reader(batch)
 	mut packets := [][]u8{}

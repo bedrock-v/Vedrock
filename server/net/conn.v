@@ -34,7 +34,9 @@ mut:
 	pending []protocol.Packet
 	next    int
 	// dropped counts packets this server has no type for.
-	dropped     int
+	dropped int
+	// reads counts the messages taken off the wire.
+	reads       int
 	compression bool
 	threshold   int = default_compression_threshold
 	// cipher is the game's own encryption, installed when the transport does
@@ -53,10 +55,23 @@ pub fn new_conn(mut w Wire) &Conn {
 	}
 }
 
+// max_empty_reads is how many messages in a row may carry nothing this server
+// can decode. A peer that sends only packets with no type here would otherwise
+// keep a read going for as long as it likes.
+const max_empty_reads = 16
+
 // read returns the next packet the client sent, waiting for one if it has to.
 pub fn (mut c Conn) read() !protocol.Packet {
+	mut empty := 0
 	for c.next >= c.pending.len {
 		c.fill()!
+		if c.pending.len > 0 {
+			continue
+		}
+		empty++
+		if empty > max_empty_reads {
+			return error('${max_empty_reads} messages in a row carried no packet this server knows')
+		}
 	}
 	p := c.pending[c.next]
 	c.next++
@@ -70,6 +85,7 @@ pub fn (mut c Conn) read() !protocol.Packet {
 // drop the connection.
 fn (mut c Conn) fill() ! {
 	mut message := c.wire.read_message()!
+	c.reads++
 	if c.cipher != unsafe { nil } {
 		// Only the reading thread decrypts. The receive keystream needs no lock
 		// of its own.
@@ -145,6 +161,11 @@ pub fn (mut c Conn) encrypted() bool {
 // dropped is how many packets this server had no type for.
 pub fn (mut c Conn) dropped() int {
 	return c.dropped
+}
+
+// reads is how many messages this connection has taken off the wire.
+pub fn (mut c Conn) reads() int {
+	return c.reads
 }
 
 pub fn (mut c Conn) close() {
