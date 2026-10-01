@@ -21,12 +21,13 @@ pub struct Server {
 mut:
 	listeners []net.Listener
 	overworld &world.Runtime
-	// loops is held by the accept loop of each listener.
+	// loops is held by the accept loop of each listener. An accept loop waits for
+	// the clients it accepted before it lets go and this covers every thread the
+	// server started.
 	loops &sync.WaitGroup = sync.new_waitgroup()
-	// sessions is held by the thread of every accepted client from the moment
-	// it is accepted until it is gone.
-	sessions &sync.WaitGroup           = sync.new_waitgroup()
-	running  &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
+	// stopped is closed once the server is down. It is what run waits on.
+	stopped chan bool                 = chan bool{}
+	running &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
 	// next_id hands out entity ids. Players are entities and share the space.
 	next_id   &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
 	next_conn &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
@@ -69,22 +70,33 @@ pub fn new(cfg Config) !&Server {
 	}
 }
 
-// run accepts clients until the server is closed. It blocks the calling thread
-// and every player gets a thread of its own, reading that client's packets.
+// run accepts clients until the server is closed and returns once it is down.
+// Every player gets a thread of its own, reading that client's packets.
+//
+// The accept loops are counted under the lock close takes. A server closed
+// before or during this call is one this returns from instead of starting.
 pub fn (mut s Server) run() {
+	s.live_mutex.lock()
+	if s.running.load() == 0 {
+		s.live_mutex.unlock()
+		return
+	}
+	s.loops.add(s.listeners.len)
+	s.live_mutex.unlock()
 	for i in 0 .. s.listeners.len {
-		s.loops.add(1)
 		spawn s.accept_loop(i)
 	}
-	s.loops.wait()
+	_ := <-s.stopped or {}
 }
 
 // accept_loop takes clients from one listener. Each listener has its own and a
 // client that arrives on any of them is admitted the same way.
+//
+// The loop owns the threads of the clients it accepted. It counts and waits for
+// them itself, which is the only reason that count can't be waited on while
+// another thread is still adding to it.
 fn (mut s Server) accept_loop(index int) {
-	defer {
-		s.loops.done()
-	}
+	mut handlers := sync.new_waitgroup()
 	for s.running.load() != 0 {
 		s.drop_slow_logins()
 		mut listener := s.listeners[index]
@@ -94,17 +106,21 @@ fn (mut s Server) accept_loop(index int) {
 			conn.close()
 			continue
 		}
-		s.sessions.add(1)
-		spawn s.admit(cid, mut conn)
+		handlers.add(1)
+		spawn s.admit(cid, mut conn, mut handlers)
 	}
+	// Their connections are closed by then, ending the reads they
+	// are on.
+	handlers.wait()
+	s.loops.done()
 }
 
 // admit takes a client through login and runs its session.
-fn (mut s Server) admit(cid u64, mut conn net.Conn) {
+fn (mut s Server) admit(cid u64, mut conn net.Conn, mut handlers sync.WaitGroup) {
 	defer {
 		s.remove_conn(cid)
 		conn.close()
-		s.sessions.done()
+		handlers.done()
 	}
 	remote := conn.remote()
 	identity := net.handshake(mut conn, s.cfg.login) or {
@@ -139,9 +155,16 @@ fn (mut s Server) admit(cid u64, mut conn net.Conn) {
 	s.free_slot()
 }
 
-// close stops the server. No new client is accepted, every connected client is
-// dropped, and the world shuts down once the work it has already taken is
-// done.
+// close stops the server in the order the parts depend on each other:
+//
+//  1. nothing new is accepted
+//  2. every connection is dropped, ending the read its thread is on
+//  3. every thread the server started is waited for
+//  4. the worlds shut down, once nothing is left to ask them for anything
+//
+// It waits as long as that takes. A client or a world task that never finishes
+// is a server that never finishes closing, the same contract the world runtime
+// has.
 pub fn (mut s Server) close() {
 	if s.running.swap(0) == 0 {
 		return
@@ -154,10 +177,9 @@ pub fn (mut s Server) close() {
 		conn.close()
 	}
 	s.live_mutex.unlock()
-	// A closed connection is what ends the read its thread is blocked on. The
-	// world stays up until those threads are done with it.
-	s.sessions.wait()
+	s.loops.wait()
 	s.overworld.close()
+	s.stopped.close()
 }
 
 // player_count is how many players are connected.
