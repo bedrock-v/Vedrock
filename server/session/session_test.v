@@ -68,9 +68,10 @@ fn test_a_packet_is_handled_on_the_world_that_holds_the_player() {
 	s.run()
 
 	r := world.ref[Player](h)
-	pos := world.call_ref[Player, [3]f32](r, 'test.pos', fn (mut tx world.Tx, e &Player) ![3]f32 {
+	pos := server.world.call_ref[Player, [3]f32{}](r, 'test.pos', fn (mut tx world.Tx, e &Player) ![3]f32 {
 		return e.position
 	})!
+
 	assert pos == [f32(1), 2, 3]!
 
 	actor := world.call[u64](mut wr, 'test.actor', fn (mut tx world.Tx) !u64 {

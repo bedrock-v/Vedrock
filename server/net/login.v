@@ -55,9 +55,9 @@ pub fn handshake(mut c Conn, cfg LoginConfig) !Identity {
 // is left of the client's packet budget.
 struct Handshake {
 mut:
-	conn         &Conn
-	budget       int
-	spent  		 int
+	conn   &Conn
+	budget int
+	spent  int
 }
 
 // read takes the next packet and refuses a client that keeps sending without

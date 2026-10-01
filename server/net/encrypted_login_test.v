@@ -35,28 +35,36 @@ fn (mut c FakeClient) read_message() ![]u8 {
 	step := c.step
 	c.step++
 	if step == 0 {
-		return c.send([protocol.Packet(&packets.RequestNetworkSettingsPacket{
-			client_network_version: i32(protocol.protocol_id)
-		})])!
+		return c.send([
+			protocol.Packet(&packets.RequestNetworkSettingsPacket{
+				client_network_version: i32(protocol.protocol_id)
+			}),
+		])!
 	}
 	if step == 1 {
-		return c.send([protocol.Packet(&packets.LoginPacket{
-			client_network_version: i32(protocol.protocol_id)
-			connection_request:     c.connection_request()
-		})])!
+		return c.send([
+			protocol.Packet(&packets.LoginPacket{
+				client_network_version: i32(protocol.protocol_id)
+				connection_request:     c.connection_request()
+			}),
+		])!
 	}
 	if step == 2 {
 		return c.send([protocol.Packet(&packets.ClientToServerHandshakePacket{})])!
 	}
 	if step == 3 {
-		return c.send([protocol.Packet(&packets.ResourcePackClientResponsePacket{
-			response: packets.ResourcePackResponseDownloadingFinished{}
-		})])!
+		return c.send([
+			protocol.Packet(&packets.ResourcePackClientResponsePacket{
+				response: packets.ResourcePackResponseDownloadingFinished{}
+			}),
+		])!
 	}
 	if step == 4 {
-		return c.send([protocol.Packet(&packets.ResourcePackClientResponsePacket{
-			response: packets.ResourcePackResponseStackFinished{}
-		})])!
+		return c.send([
+			protocol.Packet(&packets.ResourcePackClientResponsePacket{
+				response: packets.ResourcePackResponseStackFinished{}
+			}),
+		])!
 	}
 	return error('the client has nothing left to send')
 }
