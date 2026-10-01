@@ -91,14 +91,6 @@ fn to_string_array(value json2.Any) []string {
 	return result
 }
 
-// is_trusted_key reports whether a token verified with this key roots the
-// chain in Mojang's authority. Only the pinned Mojang public key counts as
-// trusted. This anchor must never come from a payload field the client
-// controls.
-fn is_trusted_key(current_key string) bool {
-	return current_key == mojang_public_key
-}
-
 // verify_chain walks the login chain in order, tracking the key that
 // verifies the current token. Token 0 is checked against its own x5u
 // header; every later token is checked against the identityPublicKey the
@@ -106,6 +98,19 @@ fn is_trusted_key(current_key string) bool {
 // some token was actually verified with the Mojang public key, never
 // because a payload field claims to be Mojang's.
 fn verify_chain(chain []string) !Identity {
+	return verify_chain_rooted_in(chain, mojang_public_key)
+}
+
+// verify_chain_rooted_in is verify_chain with the trust anchor spelled out so
+// tests can root a chain in a key they hold. The anchor must never come from a
+// payload field the client controls.
+//
+// Once the chain is rooted, only a token signed under the anchor's authority
+// may name the player, and that token ends the chain. Otherwise a player could
+// append a token signed with their own key carrying somebody else's extraData,
+// or cut a genuine chain short so the self-signed first token's extraData is
+// the only one left.
+fn verify_chain_rooted_in(chain []string, anchor string) !Identity {
 	first := decode_jwt(chain[0])!
 	if 'x5u' !in first.header {
 		return error('first chain token is missing x5u header')
@@ -114,11 +119,15 @@ fn verify_chain(chain []string) !Identity {
 	mut authenticated := false
 	mut client_key := ''
 	mut extra := map[string]json2.Any{}
+	mut named := false
 	for i, token in chain {
+		if named {
+			return error('chain token ${i} follows the token that names the player')
+		}
 		if !verify_jwt(token, current_key)! {
 			return error('signature verification failed for chain token ${i}')
 		}
-		if is_trusted_key(current_key) {
+		if current_key == anchor {
 			authenticated = true
 		}
 		payload := decode_jwt(token)!.payload
@@ -129,7 +138,11 @@ fn verify_chain(chain []string) !Identity {
 		}
 		if 'extraData' in payload {
 			extra = (payload['extraData'] or { json2.Any('') }).as_map()
+			named = authenticated
 		}
+	}
+	if authenticated && !named {
+		return error('chain rooted in Mojang never names the player under its authority')
 	}
 	return Identity{
 		xuid:               map_string(extra, 'XUID')
