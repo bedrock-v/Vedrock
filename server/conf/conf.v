@@ -27,8 +27,9 @@ pub mut:
 	// require_identity rejects a NetherNet offer that carries no identity
 	// assertion. On by default: an anonymous offer gives up the binding between
 	// the peer's key and the connection, which is the only thing keeping a login
-	// chain captured elsewhere from being replayed onto it. Turn it off for a LAN
-	// where the game connects without one and the network is trusted.
+	// chain captured elsewhere from being replayed onto it. Turning it off only
+	// lets such a peer through with xbox_auth off, since an authenticated login
+	// has no key to be checked against over an anonymous connection.
 	require_identity bool = true
 	// verify_identity_token checks the identity token in an offer against
 	// Microsoft's published signing keys before the offer is answered. Off leaves
