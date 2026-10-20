@@ -55,6 +55,10 @@ mut:
 	display_objective       string
 	given_experience        int
 	given_experience_levels int
+	enchanted_name          string
+	enchanted_level         int
+	enchant_ok              bool   = true
+	held_item               string = 'minecraft:diamond_sword'
 	given_count             int
 	given_ok                bool = true
 	whitelisted             []string
@@ -194,6 +198,19 @@ fn (mut s RecordingSender) scoreboard_reset_score(entry string) {
 			s.scores.delete(key)
 		}
 	}
+}
+
+fn (s RecordingSender) held_item_name() string {
+	return s.held_item
+}
+
+fn (mut s RecordingSender) enchant_held_item(name string, level int) player.EnchantResult {
+	if !s.enchant_ok {
+		return .cannot_combine
+	}
+	s.enchanted_name = name
+	s.enchanted_level = level
+	return .applied
 }
 
 fn (mut s RecordingSender) give_experience(points int) {
@@ -480,7 +497,7 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 17
+	assert pkt.commands.len == 18
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := proto.new_pool()
 	mut reader := serializer.new_reader(encoded)
@@ -488,7 +505,7 @@ fn test_available_commands_roundtrip() {
 	assert decoded.name() == 'AvailableCommandsPacket'
 	mut available := packets_898.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 17
+	assert available.commands.len == 18
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }
@@ -742,5 +759,68 @@ fn test_scoreboard_denied_without_op() {
 	mut sender := RecordingSender{}
 	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
 	assert sender.objectives.len == 0
+	assert sender.messages[0].contains('permission')
+}
+
+fn test_enchant_command_applies_to_the_target() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/enchant Alex sharpness 3', mut sender, base_ctx())!
+	assert target.enchanted_name == 'sharpness'
+	assert target.enchanted_level == 3
+}
+
+fn test_enchant_command_defaults_to_level_one() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/enchant Alex unbreaking', mut sender, base_ctx())!
+	assert target.enchanted_level == 1
+}
+
+fn test_enchant_command_reports_a_refusal() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+		enchant_ok:  false
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	sender.perm.set_op(true)
+	r.dispatch('/enchant Alex sharpness 3', mut sender, base_ctx())!
+	assert target.enchanted_name == ''
+	assert sender.messages[0].contains("can't be combined")
+}
+
+fn test_enchant_command_denied_without_op() {
+	r := full_registry()
+	mut target := RecordingSender{
+		sender_name: 'Alex'
+	}
+	mut sender := RecordingSender{
+		peers: {
+			'alex': cmd.Sender(&target)
+		}
+	}
+	r.dispatch('/enchant Alex sharpness', mut sender, base_ctx())!
+	assert target.enchanted_name == ''
 	assert sender.messages[0].contains('permission')
 }

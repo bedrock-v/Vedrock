@@ -169,6 +169,21 @@ other = "Added {{.Amount}} to {{.Objective}} for player {{.Name}} (now {{.Score}
 [cmd.scoreboard.players.reset]
 other = "Reset all scores of player {{.Name}}"
 
+[cmd.enchant.usage]
+other = "Usage: /enchant <player: target> <enchantmentName: EnchantmentName> [level: int]"
+
+[cmd.enchant.no_item]
+other = "The target doesn't hold an item"
+
+[cmd.enchant.not_found]
+other = "There is no such enchantment with ID {{.Enchantment}}"
+
+[cmd.enchant.cant_combine]
+other = "{{.Enchantment}} can't be combined with {{.Item}}"
+
+[cmd.enchant.success]
+other = "Enchanting succeeded"
+
 [cmd.xp.usage]
 other = "Usage: /xp <amount: int> [player: target] OR /xp <amount: int>L [player: target]"
 
