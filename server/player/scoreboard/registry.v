@@ -2,8 +2,8 @@ module scoreboard
 
 import sync
 
-// Registry holds the objectives, scores and teams of one server. It is shared
-// across sessions, so every read and write goes through its own lock.
+// Registry holds the objectives and scores of one server. It is shared across
+// sessions, so every read and write goes through its own lock.
 @[heap]
 pub struct Registry {
 mut:
@@ -13,10 +13,11 @@ mut:
 	// name or any other label an objective counts.
 	scores   map[string]map[string]int
 	displays map[string]string
-	teams    map[string]Team
-	// membership maps an entry name to the team it is in, so the common
-	// lookup does not have to scan every team.
-	membership map[string]string
+	// entry_ids gives every entry the one scoreboard id the client knows it by.
+	// yeah, it has to stay the same for the entry's whole life, otherwise a
+	// score update or a reset can't name the line it is changing.
+	entry_ids     map[string]i64
+	next_entry_id i64
 }
 
 pub fn new_registry() &Registry {
@@ -37,23 +38,27 @@ pub fn (mut r Registry) add_objective(objective Objective) bool {
 	return true
 }
 
-// remove_objective drops an objective, its scores and any slot showing it.
-pub fn (mut r Registry) remove_objective(name string) bool {
+// remove_objective drops an objective, its scores and any slot showing it,
+// and returns the slots it cleared so only those need redrawing. none means
+// there was no such objective.
+pub fn (mut r Registry) remove_objective(name string) ?[]DisplaySlot {
 	r.mutex.lock()
 	defer {
 		r.mutex.unlock()
 	}
 	if name !in r.objectives {
-		return false
+		return none
 	}
 	r.objectives.delete(name)
 	r.scores.delete(name)
-	for slot, shown in r.displays.clone() {
-		if shown == name {
-			r.displays.delete(slot)
+	mut cleared := []DisplaySlot{}
+	for slot in all_display_slots {
+		if r.displays[slot.wire_name()] or { '' } == name {
+			r.displays.delete(slot.wire_name())
+			cleared << slot
 		}
 	}
-	return true
+	return cleared
 }
 
 pub fn (r &Registry) objective(name string) ?Objective {
@@ -106,6 +111,41 @@ pub fn (r &Registry) display(slot DisplaySlot) ?string {
 	return r.displays[slot.wire_name()] or { return none }
 }
 
+// slots_showing lists the slots an objective is drawn in, which is everywhere
+// a change to one of its scores has to reach.
+pub fn (r &Registry) slots_showing(objective_name string) []DisplaySlot {
+	mut m := r.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	mut out := []DisplaySlot{}
+	for slot in all_display_slots {
+		if r.displays[slot.wire_name()] or { '' } == objective_name {
+			out << slot
+		}
+	}
+	return out
+}
+
+// entry_id is the scoreboard id of an entry that has been scored at least once.
+pub fn (r &Registry) entry_id(entry string) ?i64 {
+	mut m := r.mutex
+	m.lock()
+	defer {
+		m.unlock()
+	}
+	return r.entry_ids[entry] or { return none }
+}
+
+// assign_entry_id must be called with the lock held.
+fn (mut r Registry) assign_entry_id(entry string) {
+	if entry !in r.entry_ids {
+		r.next_entry_id++
+		r.entry_ids[entry] = r.next_entry_id
+	}
+}
+
 // set_score records an entry's score under an objective, reporting false when
 // the objective does not exist.
 pub fn (mut r Registry) set_score(objective_name string, entry string, value int) bool {
@@ -117,6 +157,7 @@ pub fn (mut r Registry) set_score(objective_name string, entry string, value int
 		return false
 	}
 	r.scores[objective_name][entry] = value
+	r.assign_entry_id(entry)
 	return true
 }
 
@@ -132,6 +173,7 @@ pub fn (mut r Registry) add_score(objective_name string, entry string, delta int
 	current := r.scores[objective_name][entry] or { 0 }
 	updated := current + delta
 	r.scores[objective_name][entry] = updated
+	r.assign_entry_id(entry)
 	return updated
 }
 
@@ -160,137 +202,4 @@ pub fn (r &Registry) scores(objective_name string) map[string]int {
 	return (r.scores[objective_name] or {
 		map[string]int{}
 	}).clone()
-}
-
-// add_team registers a team, reporting false when one already goes by that
-// name.
-pub fn (mut r Registry) add_team(team Team) bool {
-	r.mutex.lock()
-	defer {
-		r.mutex.unlock()
-	}
-	if team.name in r.teams {
-		return false
-	}
-	r.teams[team.name] = team
-	return true
-}
-
-// remove_team drops a team and empties it.
-pub fn (mut r Registry) remove_team(name string) bool {
-	r.mutex.lock()
-	defer {
-		r.mutex.unlock()
-	}
-	if name !in r.teams {
-		return false
-	}
-	r.teams.delete(name)
-	for entry, team in r.membership.clone() {
-		if team == name {
-			r.membership.delete(entry)
-		}
-	}
-	return true
-}
-
-// update_team replaces a team's settings, keeping its members.
-pub fn (mut r Registry) update_team(team Team) bool {
-	r.mutex.lock()
-	defer {
-		r.mutex.unlock()
-	}
-	if team.name !in r.teams {
-		return false
-	}
-	r.teams[team.name] = team
-	return true
-}
-
-pub fn (r &Registry) team(name string) ?Team {
-	mut m := r.mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	return r.teams[name] or { return none }
-}
-
-pub fn (r &Registry) teams() []Team {
-	mut m := r.mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	mut out := []Team{cap: r.teams.len}
-	for _, team in r.teams {
-		out << team
-	}
-	return out
-}
-
-// join_team moves an entry into a team, leaving whichever it was in.
-pub fn (mut r Registry) join_team(team_name string, entry string) bool {
-	r.mutex.lock()
-	defer {
-		r.mutex.unlock()
-	}
-	if team_name !in r.teams {
-		return false
-	}
-	r.membership[entry] = team_name
-	return true
-}
-
-// leave_team takes an entry out of whatever team it is in.
-pub fn (mut r Registry) leave_team(entry string) bool {
-	r.mutex.lock()
-	defer {
-		r.mutex.unlock()
-	}
-	if entry !in r.membership {
-		return false
-	}
-	r.membership.delete(entry)
-	return true
-}
-
-// team_of returns the team an entry belongs to.
-pub fn (r &Registry) team_of(entry string) ?Team {
-	mut m := r.mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	name := r.membership[entry] or { return none }
-	return r.teams[name] or { return none }
-}
-
-// members lists who is in a team.
-pub fn (r &Registry) members(team_name string) []string {
-	mut m := r.mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	mut out := []string{}
-	for entry, name in r.membership {
-		if name == team_name {
-			out << entry
-		}
-	}
-	return out
-}
-
-// same_team reports whether two entries share a team. Two entries in no team
-// are not on the same team.
-pub fn (r &Registry) same_team(a string, b string) bool {
-	mut m := r.mutex
-	m.lock()
-	defer {
-		m.unlock()
-	}
-	first := r.membership[a] or { return false }
-	second := r.membership[b] or { return false }
-	return first == second
 }

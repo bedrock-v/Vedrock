@@ -1,13 +1,14 @@
 module session
 
-import bedrock_v.protocol.current as proto
 import server.player.bossbar
+import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.version.v662.types as types_662
 
 // bossbar_actor_id is the unique id the boss bar is attached to. The bar is
 // bound to the player's own entity so it never depends on a boss entity being
 // spawned, and reusing one id means re-sending a bar replaces the previous one.
-fn (s &NetworkSession) bossbar_actor_id() proto.ActorUniqueID {
-	return proto.ActorUniqueID{
+fn (s &NetworkSession) bossbar_actor_id() types_662.ActorUniqueID {
+	return types_662.ActorUniqueID{
 		value: i64(s.runtime_id)
 	}
 }
@@ -16,7 +17,7 @@ fn (s &NetworkSession) bossbar_actor_id() proto.ActorUniqueID {
 // bar was shown before.
 fn (mut s NetworkSession) send_bossbar(bar bossbar.BossBar) {
 	s.remove_bossbar()
-	s.deliver(&proto.BossEventPacket{
+	s.deliver(&packets_2192.BossEventPacket{
 		target_actor_id: s.bossbar_actor_id()
 		event_type:      .add
 		name:            bar.text()
@@ -28,7 +29,7 @@ fn (mut s NetworkSession) send_bossbar(bar bossbar.BossBar) {
 // remove_bossbar hides the boss bar currently shown to the player. It is a
 // no-op on the client if no bar is up.
 fn (mut s NetworkSession) remove_bossbar() {
-	s.deliver(&proto.BossEventPacket{
+	s.deliver(&packets_2192.BossEventPacket{
 		target_actor_id: s.bossbar_actor_id()
 		event_type:      .remove
 	})

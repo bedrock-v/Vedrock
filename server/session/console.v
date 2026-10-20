@@ -78,10 +78,22 @@ fn (mut c ConsoleSender) place_water(x int, y int, z int) {
 	c.hub.place_water(x, y, z)
 }
 
+fn (mut c ConsoleSender) place_lava(x int, y int, z int) {
+	c.hub.place_lava(x, y, z)
+}
+
 fn (mut c ConsoleSender) clear_inventory() {}
 
 fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
 	return false
+}
+
+fn (mut c ConsoleSender) give_experience(_ int) {}
+
+fn (mut c ConsoleSender) give_experience_levels(_ int) {}
+
+fn (c ConsoleSender) experience_level() int {
+	return 0
 }
 
 fn (mut c ConsoleSender) send_form(_ form.Form) ! {
@@ -140,28 +152,4 @@ fn (mut c ConsoleSender) scoreboard_add_score(objective string, entry string, de
 
 fn (mut c ConsoleSender) scoreboard_reset_score(entry string) {
 	c.hub.reset_score(entry)
-}
-
-fn (mut c ConsoleSender) scoreboard_teams() []cmd.TeamInfo {
-	return c.hub.team_infos()
-}
-
-fn (mut c ConsoleSender) scoreboard_add_team(name string, display_name string) bool {
-	return c.hub.add_team(name, display_name)
-}
-
-fn (mut c ConsoleSender) scoreboard_remove_team(name string) bool {
-	return c.hub.remove_team(name)
-}
-
-fn (mut c ConsoleSender) scoreboard_team_join(team string, entry string) bool {
-	return c.hub.team_join(team, entry)
-}
-
-fn (mut c ConsoleSender) scoreboard_team_leave(entry string) bool {
-	return c.hub.team_leave(entry)
-}
-
-fn (mut c ConsoleSender) scoreboard_team_option(team string, option string, value string) bool {
-	return c.hub.team_option(team, option, value)
 }

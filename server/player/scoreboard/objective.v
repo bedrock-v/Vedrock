@@ -7,6 +7,9 @@ pub enum DisplaySlot {
 	belowname
 }
 
+// all_display_slots is every slot, in the order they are drawn.
+pub const all_display_slots = [DisplaySlot.sidebar, .list, .belowname]
+
 // wire_name is the name the client knows a slot by.
 pub fn (slot DisplaySlot) wire_name() string {
 	return match slot {

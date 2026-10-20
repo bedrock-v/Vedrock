@@ -21,6 +21,9 @@ pub:
 	size    u64
 	sha256  string
 	cdn_url string
+	// content_key is the AES key the client needs to read an encrypted pack.
+	// It is empty for packs served in the clear.
+	content_key string
 mut:
 	uuid_raw []u8
 	data     []u8
@@ -32,6 +35,24 @@ pub fn (p &ResourcePack) id() string {
 
 pub fn (p &ResourcePack) is_cdn() bool {
 	return p.cdn_url != ''
+}
+
+// has_content_key reports whether the pack is served under a content key.
+pub fn (p &ResourcePack) has_content_key() bool {
+	return p.content_key != ''
+}
+
+// with_content_key returns a copy of the pack served under the given content
+// key. It exists for packs whose key does not come from a key file next to
+// them - a CDN pack, or one a server builds itself.
+pub fn (p &ResourcePack) with_content_key(key string) !&ResourcePack {
+	if key.len != content_key_length {
+		return error('content key is ${key.len} characters, expected ${content_key_length}')
+	}
+	return &ResourcePack{
+		...p
+		content_key: key
+	}
 }
 
 pub fn (p &ResourcePack) uuid_bytes() []u8 {
@@ -72,20 +93,34 @@ pub fn discover(dir string) []string {
 }
 
 // new_local_pack reads a pack file, extracts its uuid/version from the embedded
-// manifest.json and hashes its bytes for the chunked-upload handshake.
+// manifest.json and hashes its bytes for the chunked-upload handshake. A pack
+// with encrypted content is only loaded when its key file is there to go with
+// it; the manifest itself stays readable either way.
 pub fn new_local_pack(path string) !&ResourcePack {
 	data := os.read_bytes(path)!
 	manifest := read_manifest(path)!
 	uuid, version := parse_manifest(manifest)!
 	raw := uuid_to_bytes(uuid) or { return error('invalid uuid ${uuid}') }
+	key := local_content_key(path)!
 	return &ResourcePack{
-		uuid:     uuid
-		version:  version
-		size:     u64(data.len)
-		sha256:   sha256.sum(data).bytestr()
-		uuid_raw: raw
-		data:     data
+		uuid:        uuid
+		version:     version
+		size:        u64(data.len)
+		sha256:      sha256.sum(data).bytestr()
+		content_key: key
+		uuid_raw:    raw
+		data:        data
 	}
+}
+
+fn local_content_key(path string) !string {
+	if has_key_file(path) {
+		return read_content_key(path)!
+	}
+	if is_encrypted(path)! {
+		return error('${path} has encrypted content but no ${path}${key_file_suffix} beside it')
+	}
+	return ''
 }
 
 // new_cdn_pack builds a pack the client downloads from a url instead of over the

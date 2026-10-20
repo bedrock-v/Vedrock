@@ -9,15 +9,16 @@ import server.internal.auth
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v2168.packets as packets_2168
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -38,7 +39,7 @@ fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut w
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -82,14 +83,14 @@ fn test_entity_spawn_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_spawn := false
 	for p in a_transport.sent {
-		if p is proto.AddActorPacket {
+		if p is packets_2168.AddActorPacket {
 			a_saw_spawn = true
 		}
 	}
 	assert a_saw_spawn
 
 	for p in b_transport.sent {
-		assert p !is proto.AddActorPacket
+		assert p !is packets_2168.AddActorPacket
 	}
 }
 
@@ -138,8 +139,8 @@ fn test_entity_tick_isolated_to_owning_world() {
 	wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
 	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	a_ok := wr_a.submit(EntityTickBarrierTask{
 		started: started
 		release: release

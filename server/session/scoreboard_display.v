@@ -1,103 +1,191 @@
 module session
 
 import bedrock_v.protocol
-import bedrock_v.protocol.current as proto
 import server.player.scoreboard
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v662.types as types_662
 
-// broadcast_display sends whatever a slot is showing to everyone, or clears it
-// when the slot shows nothing. It is the one place a display slot is drawn, so
-// sidebar, list and belowname all render the same way.
-fn (mut h Hub) broadcast_display(slot scoreboard.DisplaySlot) {
-	objective_name := h.scoreboards.display(slot) or {
-		h.broadcast(&proto.RemoveObjectivePacket{
-			objective_name: slot_objective_name(slot)
-		})
-		return
+// Only setdisplay and a new viewer redraw a whole slot. A score change sends
+// the one line that changed, and only for the slots showing its objective.
+//
+// The sidebar draws every entry as a fake player line. list and belowname hang
+// the score off a player instead, so those entries name the player by the id
+// the viewer knows them by and are skipped for anyone the viewer was never
+// shown: there is nothing on their screen to attach the score to.
+
+// display_objective_name is the objective name the client is given for a slot.
+// Each slot gets its own so showing one does not disturb another, and none of
+// them can collide with the per-player sidebar_objective.
+fn display_objective_name(slot scoreboard.DisplaySlot) string {
+	return 'vedrock.display.${slot.wire_name()}'
+}
+
+// score_entry is how one entry of a slot reads to viewer, or none when the
+// viewer has nothing to show it against.
+fn (mut h Hub) score_entry(mut viewer NetworkSession, slot scoreboard.DisplaySlot, entry string, value int) ?packets_2168.ScorePacketEntry {
+	id := h.scoreboards.entry_id(entry) or { return none }
+	if slot == .sidebar {
+		return packets_2168.ScoreEntryChangeFakePlayer{
+			scoreboard_id:    types_662.ScoreboardId{
+				id: id
+			}
+			objective_name:   display_objective_name(slot)
+			score_value:      i32(value)
+			fake_player_name: entry
+		}
 	}
-	objective := h.scoreboards.objective(objective_name) or { return }
-	for p in h.display_packets(slot, objective) {
-		h.broadcast(p)
+	target := h.session_by_name(entry) or { return none }
+	wire_id := viewer.known_wire_id(target.runtime_id) or { return none }
+	return packets_2168.ScoreEntryChangePlayer{
+		scoreboard_id:    types_662.ScoreboardId{
+			id: id
+		}
+		objective_name:   display_objective_name(slot)
+		score_value:      i32(value)
+		player_unique_id: i64(wire_id)
 	}
 }
 
-// display_packets is the packet sequence that draws one objective in one slot.
-// Built as its own function so the wiring can be tested without a connection.
-fn (h &Hub) display_packets(slot scoreboard.DisplaySlot, objective scoreboard.Objective) []protocol.Packet {
+// slot_packets is the packet sequence that draws one objective in one slot for
+// one viewer.
+fn (mut h Hub) slot_packets(mut viewer NetworkSession, slot scoreboard.DisplaySlot, objective scoreboard.Objective) []protocol.Packet {
 	scores := h.scoreboards.scores(objective.name)
-	name := slot_objective_name(slot)
-	mut packets := []protocol.Packet{cap: scores.len + 2}
-	packets << &proto.RemoveObjectivePacket{
+	name := display_objective_name(slot)
+	mut packets := []protocol.Packet{cap: 3}
+	packets << &packets_662.RemoveObjectivePacket{
 		objective_name: name
 	}
-	packets << &proto.SetDisplayObjectivePacket{
+	packets << &packets_662.SetDisplayObjectivePacket{
 		display_slot_name:      slot.wire_name()
 		objective_name:         name
 		objective_display_name: objective.display_title()
 		criteria_name:          'dummy'
 		sort_order:             if objective.descending {
-			proto.ObjectiveSortOrder.descending
+			enums_662.ObjectiveSortOrder.descending
 		} else {
-			proto.ObjectiveSortOrder.ascending
+			enums_662.ObjectiveSortOrder.ascending
 		}
 	}
-	mut entries := proto.ScorePacketEntries{}
-	mut id := i64(1)
+	mut entries := []packets_2168.ScorePacketEntry{cap: scores.len}
 	for entry, value in scores {
-		entries << proto.ScoreEntryChangeFakePlayer{
-			scoreboard_id:    proto.ScoreboardId{
-				id: id
-			}
-			objective_name:   name
-			score_value:      i32(value)
-			fake_player_name: entry
-		}
-		id++
+		entries << h.score_entry(mut viewer, slot, entry, value) or { continue }
 	}
-	packets << &proto.SetScorePacket{
-		score_info: entries
+	if entries.len > 0 {
+		packets << &packets_2168.SetScorePacket{
+			score_info: entries
+		}
 	}
 	return packets
 }
 
-// slot_objective_name is the objective name the client is given for a slot.
-// Each slot gets its own so showing one does not disturb another.
-fn slot_objective_name(slot scoreboard.DisplaySlot) string {
-	return 'vedrock.${slot.wire_name()}'
-}
-
-// refresh_displays redraws every slot that is showing something, which is what
-// a score change or a new objective needs.
-fn (mut h Hub) refresh_displays() {
-	for slot in [scoreboard.DisplaySlot.sidebar, .list, .belowname] {
-		h.broadcast_display(slot)
+// draw_slot sends viewer whatever a slot is showing, or clears it when the
+// slot shows nothing.
+fn (mut h Hub) draw_slot(mut viewer NetworkSession, slot scoreboard.DisplaySlot) {
+	objective_name := h.scoreboards.display(slot) or {
+		viewer.deliver(&packets_662.RemoveObjectivePacket{
+			objective_name: display_objective_name(slot)
+		})
+		return
+	}
+	objective := h.scoreboards.objective(objective_name) or { return }
+	for p in h.slot_packets(mut viewer, slot, objective) {
+		viewer.deliver(p)
 	}
 }
 
-// team_display_name is a player's name as their team says it should be shown,
-// or their plain name when they are in no team.
-fn (h &Hub) team_display_name(name string) string {
-	team := h.scoreboards.team_of(name) or { return name }
-	return team.decorate(name)
+// broadcast_display redraws one slot for everyone, which only setdisplay
+// needs.
+fn (mut h Hub) broadcast_display(slot scoreboard.DisplaySlot) {
+	for mut viewer in h.snapshot() {
+		h.draw_slot(mut viewer, slot)
+	}
 }
 
-// friendly_fire_allowed reports whether one player's hit lands on another. Two
-// players on a team that has friendly fire turned off cannot hurt each other.
-fn (h &Hub) friendly_fire_allowed(attacker string, victim string) bool {
-	if attacker == victim {
-		return true
+// clear_slots takes slots off everyone's screen, after the objective they
+// showed went away.
+fn (mut h Hub) clear_slots(slots []scoreboard.DisplaySlot) {
+	if slots.len == 0 {
+		return
 	}
-	team := h.scoreboards.team_of(attacker) or { return true }
-	if !h.scoreboards.same_team(attacker, victim) {
-		return true
+	for mut viewer in h.snapshot() {
+		for slot in slots {
+			viewer.deliver(&packets_662.RemoveObjectivePacket{
+				objective_name: display_objective_name(slot)
+			})
+		}
 	}
-	return team.friendly_fire
 }
 
-// shown_name is the name other players see for this session: decorated by the
-// player's team when there is a server to ask, and the plain name otherwise.
-fn (s &NetworkSession) shown_name() string {
-	if isnil(s.hub) {
-		return s.player.identity.display_name
+// send_score_change pushes one entry's new score to the slots showing its
+// objective.
+fn (mut h Hub) send_score_change(objective string, entry string, value int) {
+	slots := h.scoreboards.slots_showing(objective)
+	if slots.len == 0 {
+		return
 	}
-	return s.hub.team_display_name(s.player.identity.display_name)
+	for mut viewer in h.snapshot() {
+		mut entries := []packets_2168.ScorePacketEntry{cap: slots.len}
+		for slot in slots {
+			entries << h.score_entry(mut viewer, slot, entry, value) or { continue }
+		}
+		if entries.len > 0 {
+			viewer.deliver(&packets_2168.SetScorePacket{
+				score_info: entries
+			})
+		}
+	}
+}
+
+// send_score_reset takes an entry's line out of every slot. Removing a line the
+// viewer never had is a noop on the client, so this does not bother checking.
+fn (mut h Hub) send_score_reset(entry string) {
+	id := h.scoreboards.entry_id(entry) or { return }
+	mut entries := []packets_2168.ScorePacketEntry{}
+	for slot in scoreboard.all_display_slots {
+		if _ := h.scoreboards.display(slot) {
+			entries << packets_2168.ScoreEntryRemove{
+				scoreboard_id:  types_662.ScoreboardId{
+					id: id
+				}
+				objective_name: display_objective_name(slot)
+			}
+		}
+	}
+	if entries.len == 0 {
+		return
+	}
+	// hmm, a remove names no actor, so unlike the other score packets this one
+	// really is the same for every viewer.
+	h.broadcast(&packets_2168.SetScorePacket{
+		score_info: entries
+	})
+}
+
+// sync_scoreboard_for brings a session up to date after it joined or changed
+// worlds. The session gets every slot drawn from scratch, since a world change
+// threw away the ids its old lines named players by. Everyone else gets this
+// player's own list and belowname lines, which they could not be shown before
+// they knew the player.
+fn (mut h Hub) sync_scoreboard_for(mut s NetworkSession) {
+	for slot in scoreboard.all_display_slots {
+		if _ := h.scoreboards.display(slot) {
+			h.draw_slot(mut s, slot)
+		}
+	}
+	name := s.player.identity.display_name
+	for slot in [scoreboard.DisplaySlot.list, .belowname] {
+		objective := h.scoreboards.display(slot) or { continue }
+		value := h.scoreboards.scores(objective)[name] or { continue }
+		for mut viewer in h.snapshot() {
+			if viewer.runtime_id == s.runtime_id {
+				continue
+			}
+			entry := h.score_entry(mut viewer, slot, name, value) or { continue }
+			viewer.deliver(&packets_2168.SetScorePacket{
+				score_info: [entry]
+			})
+		}
+	}
 }

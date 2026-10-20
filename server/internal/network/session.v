@@ -65,7 +65,7 @@ pub mut:
 pub fn new_session(mut conn nethernet.Conn, log &logger.Logger) &Session {
 	return &Session{
 		conn:         conn
-		pool:         proto.new_packet_pool()
+		pool:         proto.new_pool()
 		write_mutex:  sync.new_mutex()
 		window_start: time.now()
 		log:          log
@@ -211,6 +211,15 @@ pub fn (mut s Session) send_batch(packets []protocol.Packet) ! {
 
 pub fn (mut s Session) remote_addr() string {
 	return remote_endpoint(s.conn.remote_addr())
+}
+
+// transport_identity is the key the peer proved it holds during signalling, in
+// the base64 SubjectPublicKeyInfo form a login chain names a key in.
+//
+// It is empty for a peer that connected without an identity assertion, and for
+// a transport that has no such notion at all.
+pub fn (s &Session) transport_identity() string {
+	return transport_identity_key(s.conn)
 }
 
 // disable_encryption reports that the transport already encrypts every byte, so

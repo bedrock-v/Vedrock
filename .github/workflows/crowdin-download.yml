@@ -40,7 +40,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Download translations from Crowdin
-        uses: crowdin/github-action@v2
+        uses: crowdin/github-action@v3
         with:
           upload_sources: true
           upload_translations: false

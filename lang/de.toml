@@ -142,8 +142,11 @@ other = "§cVerwendung: /say <Nachricht>§r"
 [cmd.title.usage]
 other = "§cVerwendung: /title <Spieler|@a> <title|subtitle|actionbar> <Text>§r"
 
+[cmd.seed.body]
+other = "§aStartwert: [{{.Seed}}]§r"
+
 [cmd.world.usage]
-other = "§cVerwendung: /world <list|info|metrics|create|load|delete|tp> [Name] [Dimension] [Generator]§r"
+other = "§cVerwendung: /world <list|info|metrics|create|load|delete|tp> [Name] [Dimension] [Generator] [Startwert]§r"
 
 [cmd.world.none]
 other = "§eKeine Welten wurden geladen§r"

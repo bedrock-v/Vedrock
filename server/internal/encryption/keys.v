@@ -6,9 +6,9 @@ import encoding.base64
 // The Bedrock encryption handshake needs a P-384 keypair, an ECDH derive
 // against the client key and an ES384 signature. crypto.ecdsa does all three;
 // this file only bridges the key format. Bedrock carries public keys as base64
-// SubjectPublicKeyInfo DER while crypto.ecdsa emits a raw EC point and reads
-// PEM. Both are the same bytes in different wrappers, so no OpenSSL binding
-// of our own is involved.
+// SubjectPublicKeyInfo DER while crypto.ecdsa, on its default backend, reads
+// and writes only the raw EC point. For P-384 an SPKI is that point behind a
+// fixed header, so the conversion is done here in both directions.
 
 // p384_spki_prefix is the SubjectPublicKeyInfo header for a secp384r1 key: the
 // SEQUENCE, the id-ecPublicKey/secp384r1 AlgorithmIdentifier and the BIT
@@ -23,8 +23,8 @@ const p384_point_size = 97
 const p384_component_size = 48
 
 // ServerKeyPair holds the ephemeral P-384 ECDH/signing keypair the server
-// generates once per session for the encryption handshake. It owns two OpenSSL
-// key handles and must be freed when the handshake is done.
+// generates once per session for the encryption handshake. It owns two
+// crypto.ecdsa key handles and must be freed when the handshake is done.
 pub struct ServerKeyPair {
 mut:
 	private_key ecdsa.PrivateKey
@@ -69,17 +69,17 @@ fn spki_from_p384_point(point []u8) ![]u8 {
 	return out
 }
 
-// pem_from_spki_der puts DER into the PEM armor crypto.ecdsa's parser reads.
-// PEM is base64 DER wrapped at 64 columns, so this adds no key material.
-fn pem_from_spki_der(der []u8) string {
-	body := base64.encode(der)
-	mut out := '-----BEGIN PUBLIC KEY-----\n'
-	for i := 0; i < body.len; i += 64 {
-		end := if i + 64 < body.len { i + 64 } else { body.len }
-		out += body[i..end] + '\n'
+// p384_public_key_from_spki reads a P-384 SubjectPublicKeyInfo, the form
+// Bedrock carries every public key in: the client's handshake key and each key
+// in the login chain. A key on any other curve is refused.
+pub fn p384_public_key_from_spki(der []u8) !ecdsa.PublicKey {
+	if der.len != p384_spki_prefix.len + p384_point_size {
+		return error('expected a ${p384_spki_prefix.len + p384_point_size}-byte P-384 SubjectPublicKeyInfo, got ${der.len} bytes')
 	}
-	out += '-----END PUBLIC KEY-----\n'
-	return out
+	if der[..p384_spki_prefix.len] != p384_spki_prefix {
+		return error('not a P-384 SubjectPublicKeyInfo')
+	}
+	return ecdsa.PublicKey.from_uncompressed_bytes(der[p384_spki_prefix.len..], nid: .secp384r1)!
 }
 
 // derive_shared_secret runs ECDH against the client public key (a base64 SPKI
@@ -90,7 +90,7 @@ pub fn (k &ServerKeyPair) derive_shared_secret(client_public_key_b64 string) ![]
 	if der.len == 0 {
 		return error('client public key is empty or not valid base64')
 	}
-	peer := ecdsa.pubkey_from_string(pem_from_spki_der(der)) or {
+	peer := p384_public_key_from_spki(der) or {
 		return error('failed to parse client public key DER: ${err}')
 	}
 	defer {

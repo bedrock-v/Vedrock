@@ -11,7 +11,7 @@ pub fn (c ScoreboardCommand) name() string {
 }
 
 pub fn (c ScoreboardCommand) description() string {
-	return 'Manages objectives, scores and teams'
+	return 'Manages objectives and scores'
 }
 
 pub fn (c ScoreboardCommand) aliases() []string {
@@ -50,7 +50,6 @@ pub fn (c ScoreboardCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 	match ctx.args[0].to_lower() {
 		'objectives' { run_objectives(mut sender, ctx)! }
 		'players' { run_players(mut sender, ctx)! }
-		'teams' { run_teams(mut sender, ctx)! }
 		else { sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))! }
 	}
 }
@@ -184,109 +183,4 @@ fn run_players(mut sender cmd.Sender, ctx cmd.Context) ! {
 		'Name':      entry
 		'Score':     updated.str()
 	}))!
-}
-
-fn run_teams(mut sender cmd.Sender, ctx cmd.Context) ! {
-	action := if ctx.args.len > 1 { ctx.args[1].to_lower() } else { '' }
-	match action {
-		'add' {
-			if ctx.args.len < 3 {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-				return
-			}
-			name := ctx.args[2]
-			display := if ctx.args.len > 3 { ctx.args[3] } else { '' }
-			if !sender.scoreboard_add_team(name, display) {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.team_exists'))!
-				return
-			}
-			sender.send_message(ctx.lang.tf('cmd.scoreboard.teams.add', {
-				'Team': name
-			}))!
-		}
-		'remove' {
-			if ctx.args.len < 3 {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-				return
-			}
-			name := ctx.args[2]
-			if !sender.scoreboard_remove_team(name) {
-				sender.send_message(ctx.lang.tf('cmd.scoreboard.team_not_found', {
-					'Team': name
-				}))!
-				return
-			}
-			sender.send_message(ctx.lang.tf('cmd.scoreboard.teams.remove', {
-				'Team': name
-			}))!
-		}
-		'join' {
-			if ctx.args.len < 4 {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-				return
-			}
-			team := ctx.args[2]
-			entry := ctx.args[3]
-			if !sender.scoreboard_team_join(team, entry) {
-				sender.send_message(ctx.lang.tf('cmd.scoreboard.team_not_found', {
-					'Team': team
-				}))!
-				return
-			}
-			sender.send_message(ctx.lang.tf('cmd.scoreboard.teams.join', {
-				'Name': entry
-				'Team': team
-			}))!
-		}
-		'leave' {
-			if ctx.args.len < 3 {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-				return
-			}
-			entry := ctx.args[2]
-			if !sender.scoreboard_team_leave(entry) {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-				return
-			}
-			sender.send_message(ctx.lang.tf('cmd.scoreboard.teams.leave', {
-				'Name': entry
-			}))!
-		}
-		'option' {
-			if ctx.args.len < 5 {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-				return
-			}
-			team := ctx.args[2]
-			option := ctx.args[3]
-			value := ctx.args[4]
-			if !sender.scoreboard_team_option(team, option, value) {
-				sender.send_message(ctx.lang.tf('cmd.scoreboard.team_not_found', {
-					'Team': team
-				}))!
-				return
-			}
-			sender.send_message(ctx.lang.tf('cmd.scoreboard.teams.option', {
-				'Option': option
-				'Team':   team
-				'Value':  value
-			}))!
-		}
-		'list' {
-			teams := sender.scoreboard_teams()
-			if teams.len == 0 {
-				sender.send_message(ctx.lang.t('cmd.scoreboard.teams.list_empty'))!
-				return
-			}
-			sender.send_message(ctx.lang.tf('cmd.scoreboard.teams.list', {
-				'Count': teams.len.str()
-			}))!
-			for team in teams {
-				sender.send_message('- ${team.name}: ${team.display_name} (${team.members})')!
-			}
-		}
-		else {
-			sender.send_message(ctx.lang.t('cmd.scoreboard.usage'))!
-		}
-	}
 }

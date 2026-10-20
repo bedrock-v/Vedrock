@@ -9,8 +9,8 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn entity_ref_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport FakeTransport, display_name string) &NetworkSession {
 	mut pl := player.new_player()
@@ -21,7 +21,7 @@ fn entity_ref_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transpo
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -41,7 +41,8 @@ fn entity_ref_wait_for_sent_len(transport &FakeTransport, want int, timeout_ms i
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -150,7 +151,7 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 	assert found_move
 	mut saw_move := false
 	for p in transport.sent {
-		if p is proto.MoveActorAbsolutePacket {
+		if p is packets_662.MoveActorAbsolutePacket {
 			saw_move = true
 		}
 	}

@@ -77,7 +77,9 @@ pub fn (e EntityRef) teleport(pos types.Vector3) ! {
 	applied := worldrt.world_call[bool]('EntityRef.teleport', mut w.runtime, fn [e, pos] (mut tx worldrt.WorldTx) bool {
 		mut target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		target.pos = pos
-		tx.wr.broadcast_world(target.move_packet())
+		for mut v in tx.wr.viewers() {
+			v.view_entity_movement(target)
+		}
 		return true
 	}) or { return error('world "${e.world_.name()}" is shutting down') }
 	if !applied {
@@ -95,7 +97,7 @@ pub type AttackerRef = EntityRef | PlayerRef
 fn (a AttackerRef) runtime_id() u64 {
 	return match a {
 		EntityRef { a.runtime_id }
-		PlayerRef { a.runtime_id }
+		PlayerRef { a.id.value }
 	}
 }
 

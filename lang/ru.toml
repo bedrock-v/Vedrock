@@ -141,8 +141,11 @@ other = "§cИспользование: /say <сообщение>§r"
 [cmd.title.usage]
 other = "§cИспользование: /title <игрок|@a> <title|subtitle|actionbar> <текст>§r"
 
+[cmd.seed.body]
+other = "§aКлюч генератора: [{{.Seed}}]§r"
+
 [cmd.world.usage]
-other = "§cИспользование: /world <list|info|create|load|delete|tp> [имя] [измерение] [генератор]§r"
+other = "§cИспользование: /world <list|info|create|load|delete|tp> [имя] [измерение] [генератор] [ключ генератора]§r"
 
 [cmd.world.none]
 other = "§eНи один мир не загружен§r"

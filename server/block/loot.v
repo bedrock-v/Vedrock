@@ -73,3 +73,26 @@ pub fn loot_for_block(identifier string) ?BlockLoot {
 	}
 	return none
 }
+
+// BlockExperience is the range of experience a block leaves when it is mined
+// without silk touch.
+pub struct BlockExperience {
+pub:
+	min_amount int
+	max_amount int
+}
+
+// experience_for_block returns what mining a block is worth. Only the ores
+// that carry experience in game have any; everything else has none.
+pub fn experience_for_block(identifier string) ?BlockExperience {
+	return match identifier {
+		'minecraft:coal_ore', 'minecraft:deepslate_coal_ore' { BlockExperience{0, 2} }
+		'minecraft:diamond_ore', 'minecraft:deepslate_diamond_ore' { BlockExperience{3, 7} }
+		'minecraft:emerald_ore', 'minecraft:deepslate_emerald_ore' { BlockExperience{3, 7} }
+		'minecraft:lapis_ore', 'minecraft:deepslate_lapis_ore' { BlockExperience{2, 5} }
+		'minecraft:redstone_ore', 'minecraft:deepslate_redstone_ore' { BlockExperience{1, 5} }
+		'minecraft:nether_gold_ore' { BlockExperience{0, 1} }
+		'minecraft:nether_quartz_ore' { BlockExperience{2, 5} }
+		else { none }
+	}
+}

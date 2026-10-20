@@ -17,12 +17,14 @@ fn test_removing_an_objective_takes_its_scores_and_display_with_it() {
 	r.set_score('kills', 'Alex', 4)
 	r.set_display(.sidebar, 'kills')
 
-	assert r.remove_objective('kills')
+	assert r.remove_objective('kills')? == [DisplaySlot.sidebar]
 	assert r.scores('kills').len == 0
 	if _ := r.display(.sidebar) {
 		assert false, 'the slot still shows a removed objective'
 	}
-	assert !r.remove_objective('kills')
+	if _ := r.remove_objective('kills') {
+		assert false, 'removed an objective twice'
+	}
 }
 
 fn test_scores_only_exist_under_a_known_objective() {
@@ -64,64 +66,37 @@ fn test_a_slot_only_shows_a_known_objective() {
 	}
 }
 
-fn test_membership_moves_between_teams() {
-	mut r := new_registry()
-	r.add_team(Team{ name: 'red' })
-	r.add_team(Team{ name: 'blue' })
-	assert r.join_team('red', 'Alex')
-	assert r.team_of('Alex')?.name == 'red'
-
-	assert r.join_team('blue', 'Alex')
-	assert r.team_of('Alex')?.name == 'blue'
-	assert r.members('red').len == 0
-	assert r.members('blue') == ['Alex']
-
-	assert r.leave_team('Alex')
-	assert !r.leave_team('Alex')
-	if _ := r.team_of('Alex') {
-		assert false, 'Alex is still on a team'
-	}
-}
-
-fn test_removing_a_team_empties_it() {
-	mut r := new_registry()
-	r.add_team(Team{ name: 'red' })
-	r.join_team('red', 'Alex')
-	assert r.remove_team('red')
-	if _ := r.team_of('Alex') {
-		assert false, 'Alex kept a team that no longer exists'
-	}
-	assert !r.remove_team('red')
-}
-
-fn test_same_team_needs_both_to_be_on_one() {
-	mut r := new_registry()
-	r.add_team(Team{ name: 'red' })
-	r.join_team('red', 'Alex')
-	assert !r.same_team('Alex', 'Steve')
-	r.join_team('red', 'Steve')
-	assert r.same_team('Alex', 'Steve')
-	// Two players in no team are not teammates.
-	assert !r.same_team('Nobody', 'Nobody else')
-}
-
-fn test_a_team_decorates_its_members_names() {
-	team := Team{
-		name:   'red'
-		colour: 'c'
-		prefix: '[R] '
-	}
-	assert team.decorate('Alex') == '§c[R] Alex§r'
-	plain := Team{
-		name: 'plain'
-	}
-	assert plain.decorate('Alex') == 'Alex'
-}
-
 fn test_display_slots_map_to_their_wire_names() {
 	assert DisplaySlot.sidebar.wire_name() == 'sidebar'
 	assert display_slot_from_name('BelowName')? == .belowname
 	if _ := display_slot_from_name('nowhere') {
 		assert false, 'an unknown slot resolved'
 	}
+}
+
+fn test_an_entry_keeps_its_id_across_objectives_and_resets() {
+	mut r := new_registry()
+	r.add_objective(Objective{ name: 'kills' })
+	r.add_objective(Objective{ name: 'deaths' })
+	if _ := r.entry_id('Alex') {
+		assert false, 'an entry that was never scored has an id'
+	}
+	r.set_score('kills', 'Alex', 1)
+	id := r.entry_id('Alex')?
+	r.add_score('deaths', 'Alex', 1)
+	r.set_score('kills', 'Steve', 1)
+	r.reset_score('', 'Alex')
+	assert r.entry_id('Alex')? == id
+	assert r.entry_id('Steve')? != id
+}
+
+fn test_slots_showing_lists_every_slot_an_objective_is_in() {
+	mut r := new_registry()
+	r.add_objective(Objective{ name: 'kills' })
+	r.add_objective(Objective{ name: 'deaths' })
+	r.set_display(.sidebar, 'kills')
+	r.set_display(.belowname, 'kills')
+	r.set_display(.list, 'deaths')
+	assert r.slots_showing('kills') == [DisplaySlot.sidebar, .belowname]
+	assert r.slots_showing('missing').len == 0
 }

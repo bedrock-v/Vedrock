@@ -1,7 +1,5 @@
 module encryption
 
-import crypto.ecdsa
-
 const openssl_p384_spki_hex = '3076301006072a8648ce3d020106052b81040022036200047603ab9946d88aea4b191aa5414277b541b1f76ea1c2d287df301322113de9b569c65e55448ea5535e40fecda5c4989013cd40588563f88b91e4b4d3f09f328f83c2e07a62a2a262a66841dd5d36e630bc24961031947c4cc6472a633ee88121'
 
 fn spki_vector() []u8 {
@@ -39,8 +37,8 @@ fn test_spki_from_point_rejects_a_bad_point() {
 	}
 }
 
-// test_generated_spki_parses_back proves the SPKI we hand the client is valid
-// DER: OpenSSL's own parser reads it back to the same point.
+// test_generated_spki_parses_back proves the SPKI we hand the client reads
+// back to the same point.
 fn test_generated_spki_parses_back() {
 	mut keys := new_server_key_pair()!
 	defer {
@@ -48,7 +46,7 @@ fn test_generated_spki_parses_back() {
 	}
 	der := keys.public_key_der()!
 	assert der.len == p384_spki_prefix.len + p384_point_size
-	parsed := ecdsa_pubkey_for_test(der)!
+	parsed := p384_public_key_from_spki(der)!
 	defer {
 		parsed.free()
 	}
@@ -63,7 +61,25 @@ fn test_free_is_idempotent() {
 	keys.free()
 }
 
-// ecdsa_pubkey_for_test parses SPKI DER the same way derive_shared_secret does.
-fn ecdsa_pubkey_for_test(der []u8) !ecdsa.PublicKey {
-	return ecdsa.pubkey_from_string(pem_from_spki_der(der))!
+// test_openssl_spki_reads_to_its_point reads a key as OpenSSL encodes it, which
+// is how a client's key arrives.
+fn test_openssl_spki_reads_to_its_point() {
+	vector := spki_vector()
+	key := p384_public_key_from_spki(vector)!
+	defer {
+		key.free()
+	}
+	assert key.bytes()! == vector[p384_spki_prefix.len..]
+}
+
+fn test_spki_that_is_not_p384_is_rejected() {
+	mut other_curve := spki_vector()
+	other_curve[19] = 0x23
+	if _ := p384_public_key_from_spki(other_curve) {
+		assert false, 'expected an error for a key on another curve'
+	}
+	short := spki_vector()[..p384_spki_prefix.len + p384_point_size - 1]
+	if _ := p384_public_key_from_spki(short) {
+		assert false, 'expected an error for a truncated key'
+	}
 }

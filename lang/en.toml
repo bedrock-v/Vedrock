@@ -134,19 +134,13 @@ other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
 other = "§aYou received {{.Count}}x {{.Item}}§r"
 
 [cmd.scoreboard.usage]
-other = "Usage: /scoreboard <objectives|players|teams> ..."
+other = "Usage: /scoreboard <objectives|players> ..."
 
 [cmd.scoreboard.objective_exists]
 other = "An objective already exists by that name"
 
 [cmd.scoreboard.objective_not_found]
 other = "No objective was found by the name '{{.Objective}}'"
-
-[cmd.scoreboard.team_exists]
-other = "A team already exists by that name"
-
-[cmd.scoreboard.team_not_found]
-other = "No team was found by the name '{{.Team}}'"
 
 [cmd.scoreboard.objectives.add]
 other = "Added new objective '{{.Objective}}' successfully"
@@ -175,26 +169,14 @@ other = "Added {{.Amount}} to {{.Objective}} for player {{.Name}} (now {{.Score}
 [cmd.scoreboard.players.reset]
 other = "Reset all scores of player {{.Name}}"
 
-[cmd.scoreboard.teams.add]
-other = "Added new team '{{.Team}}' successfully"
+[cmd.xp.usage]
+other = "Usage: /xp <amount: int> [player: target] OR /xp <amount: int>L [player: target]"
 
-[cmd.scoreboard.teams.remove]
-other = "Removed team {{.Team}}"
+[cmd.xp.success]
+other = "Given {{.Amount}} experience to {{.Name}}"
 
-[cmd.scoreboard.teams.join]
-other = "Added {{.Name}} to team {{.Team}}"
-
-[cmd.scoreboard.teams.leave]
-other = "Removed {{.Name}} from their teams"
-
-[cmd.scoreboard.teams.option]
-other = "Set option {{.Option}} for team {{.Team}} to {{.Value}}"
-
-[cmd.scoreboard.teams.list]
-other = "There are {{.Count}} team(s) on the scoreboard:"
-
-[cmd.scoreboard.teams.list_empty]
-other = "There are no teams on the scoreboard"
+[cmd.xp.success_levels]
+other = "Given {{.Amount}} levels to {{.Name}}"
 
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
@@ -208,8 +190,11 @@ other = "§cUsage: /say <message>§r"
 [cmd.title.usage]
 other = "§cUsage: /title <player|@a> <title|subtitle|actionbar> <text>§r"
 
+[cmd.seed.body]
+other = "§aSeed: [{{.Seed}}]§r"
+
 [cmd.world.usage]
-other = "§cUsage: /world <list|info|metrics|create|load|delete|tp> [name] [dimension] [generator]§r"
+other = "§cUsage: /world <list|info|metrics|create|load|delete|tp> [name] [dimension] [generator] [seed]§r"
 
 [cmd.world.none]
 other = "§eNo worlds are loaded§r"
