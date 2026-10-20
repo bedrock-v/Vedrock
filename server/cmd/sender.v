@@ -34,6 +34,13 @@ mut:
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool
+	// held_item_name is the id of whatever the player is holding, empty for an
+	// empty hand.
+	held_item_name() string
+	// enchant_held_item puts an enchantment on whatever the player is holding
+	// and reports what happened, so a caller can say which of the ways it
+	// failed applies.
+	enchant_held_item(name string, level int) player.EnchantResult
 	// give_experience awards points, and give_experience_levels whole levels.
 	give_experience(points int)
 	give_experience_levels(levels int)
