@@ -24,6 +24,7 @@ import server.player.playerdb
 import bedrock_v.protocol.current as proto
 import server.worldrt
 import server.player
+import server.player.scoreboard
 import bedrock_v.protocol.version.v924.enums as enums_924
 import bedrock_v.protocol.version.v924.packets as packets_924
 
@@ -69,6 +70,8 @@ mut:
 	data          gamedata.GameData
 	lang          &language.Lang = unsafe { nil }
 	commands      cmd.Registry   = cmd.new_registry()
+	// scoreboards holds this server's objectives and scores.
+	scoreboards &scoreboard.Registry = scoreboard.new_registry()
 	// Defaults handed to every player and world this Hub creates. One handler
 	// each, not a list: ordering between several listeners is the caller's to
 	// arrange, in a handler that calls them in the order it wants.

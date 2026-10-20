@@ -49,6 +49,10 @@ mut:
 	pos_z                   f32
 	cleared                 bool
 	given_id                string
+	objectives              map[string]string
+	scores                  map[string]int
+	display_slot            string
+	display_objective       string
 	given_experience        int
 	given_experience_levels int
 	enchanted_name          string
@@ -134,6 +138,68 @@ fn (mut s RecordingSender) clear_inventory() {
 	s.cleared = true
 }
 
+fn (mut s RecordingSender) scoreboard_objectives() []cmd.ObjectiveInfo {
+	mut out := []cmd.ObjectiveInfo{}
+	for name, display in s.objectives {
+		out << cmd.ObjectiveInfo{
+			name:         name
+			display_name: display
+		}
+	}
+	return out
+}
+
+fn (mut s RecordingSender) scoreboard_add_objective(name string, display_name string) bool {
+	if name in s.objectives {
+		return false
+	}
+	s.objectives[name] = display_name
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_remove_objective(name string) bool {
+	if name !in s.objectives {
+		return false
+	}
+	s.objectives.delete(name)
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_set_display(slot string, objective string) bool {
+	if slot !in ['sidebar', 'list', 'belowname'] {
+		return false
+	}
+	s.display_slot = slot
+	s.display_objective = objective
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_set_score(objective string, entry string, value int) bool {
+	if objective !in s.objectives {
+		return false
+	}
+	s.scores['${objective}/${entry}'] = value
+	return true
+}
+
+fn (mut s RecordingSender) scoreboard_add_score(objective string, entry string, delta int) ?int {
+	if objective !in s.objectives {
+		return none
+	}
+	key := '${objective}/${entry}'
+	updated := (s.scores[key] or { 0 }) + delta
+	s.scores[key] = updated
+	return updated
+}
+
+fn (mut s RecordingSender) scoreboard_reset_score(entry string) {
+	for key, _ in s.scores.clone() {
+		if key.all_after('/') == entry {
+			s.scores.delete(key)
+		}
+	}
+}
+
 fn (s RecordingSender) held_item_name() string {
 	return s.held_item
 }
@@ -156,7 +222,8 @@ fn (mut s RecordingSender) give_experience_levels(levels int) {
 }
 
 fn (s RecordingSender) experience_level() int {
-	return s.given_experience_levels
+	return s.given_experience_levels >>>
+	 > origin / dev
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -430,7 +497,7 @@ fn test_available_commands_roundtrip() {
 	mut sender := RecordingSender{}
 	sender.perm.set_op(true)
 	pkt := r.available_commands(sender)
-	assert pkt.commands.len == 17
+	assert pkt.commands.len == 18
 	encoded := protocol.encode_packet_to_bytes(pkt)
 	mut pool := proto.new_pool()
 	mut reader := serializer.new_reader(encoded)
@@ -438,7 +505,7 @@ fn test_available_commands_roundtrip() {
 	assert decoded.name() == 'AvailableCommandsPacket'
 	mut available := packets_898.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
-	assert available.commands.len == 17
+	assert available.commands.len == 18
 	assert available.commands[0].alias_enum == -1
 	assert available.commands[0].overloads.len == 1
 }
@@ -629,7 +696,69 @@ fn test_xp_command_denied_without_op() {
 	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/xp 10', mut sender, base_ctx())!
-	assert sender.given_experience == 0
+	assert sender.given_experience == 0 >>>
+	 > origin / dev
+	assert sender.messages[0].contains('permission')
+}
+
+fn test_scoreboard_objectives_are_added_and_listed() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard objectives add kills Kills', mut sender, base_ctx())!
+	assert sender.objectives['kills'] == 'Kills'
+	assert sender.messages[0].contains("Added new objective 'kills'")
+
+	r.dispatch('/scoreboard objectives add kills Kills', mut sender, base_ctx())!
+	assert sender.messages[1].contains('already exists')
+
+	r.dispatch('/scoreboard objectives list', mut sender, base_ctx())!
+	assert sender.messages[2].contains('There are 1 objective(s)')
+}
+
+fn test_scoreboard_setdisplay_and_clear() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
+	r.dispatch('/scoreboard objectives setdisplay sidebar kills', mut sender, base_ctx())!
+	assert sender.display_slot == 'sidebar'
+	assert sender.display_objective == 'kills'
+
+	r.dispatch('/scoreboard objectives setdisplay sidebar', mut sender, base_ctx())!
+	assert sender.display_objective == ''
+	assert sender.messages.last().contains('Cleared objective display slot')
+}
+
+fn test_scoreboard_scores_are_set_and_added() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
+	r.dispatch('/scoreboard players set Alex kills 3', mut sender, base_ctx())!
+	assert sender.scores['kills/Alex'] == 3
+
+	r.dispatch('/scoreboard players add Alex kills 2', mut sender, base_ctx())!
+	assert sender.scores['kills/Alex'] == 5
+	assert sender.messages.last().contains('now 5')
+
+	r.dispatch('/scoreboard players reset Alex', mut sender, base_ctx())!
+	assert 'kills/Alex' !in sender.scores
+}
+
+fn test_scoreboard_scores_need_an_objective() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	sender.perm.set_op(true)
+	r.dispatch('/scoreboard players set Alex missing 1', mut sender, base_ctx())!
+	assert sender.messages[0].contains('No objective was found')
+}
+
+fn test_scoreboard_denied_without_op() {
+	r := full_registry()
+	mut sender := RecordingSender{}
+	r.dispatch('/scoreboard objectives add kills', mut sender, base_ctx())!
+	assert sender.objectives.len == 0
 	assert sender.messages[0].contains('permission')
 }
 

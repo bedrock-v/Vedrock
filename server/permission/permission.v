@@ -37,6 +37,7 @@ pub const command_teleport_other = 'vedrock.cmd.teleport.other'
 pub const command_clear_self = 'vedrock.cmd.clear.self'
 pub const command_clear_other = 'vedrock.cmd.clear.other'
 pub const command_give = 'vedrock.cmd.give'
+pub const command_scoreboard = 'vedrock.cmd.scoreboard'
 pub const command_enchant = 'vedrock.cmd.enchant'
 pub const command_xp = 'vedrock.cmd.xp'
 pub const command_difficulty = 'vedrock.cmd.difficulty'
@@ -121,6 +122,11 @@ fn new_registry() &Registry {
 	r.register(Permission{
 		name:        command_give
 		description: 'Allows giving items to players'
+		default:     .op
+	})
+	r.register(Permission{
+		name:        command_scoreboard
+		description: 'Allows managing objectives and scores'
 		default:     .op
 	})
 	r.register(Permission{

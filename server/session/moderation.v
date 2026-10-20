@@ -291,6 +291,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		s.disconnect('World transfer failed')
 		return false
 	}
+	s.hub.sync_scoreboard_for(mut s)
 
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {

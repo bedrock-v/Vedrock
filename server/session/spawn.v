@@ -1113,6 +1113,7 @@ fn (mut s NetworkSession) handle_player_initialized(_ packets_662.SetLocalPlayer
 		}) or {}
 	}
 	s.hub.add(s)
+	s.hub.sync_scoreboard_for(mut s)
 	if !isnil(wr) {
 		s.player.show_active_effects(mut wr)
 	}

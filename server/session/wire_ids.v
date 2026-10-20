@@ -43,6 +43,21 @@ fn (mut s NetworkSession) wire_id_for(actor u64) u64 {
 	return id
 }
 
+// known_wire_id is wire_id_for without the allocation: none for an actor this
+// session was never shown. Anything that only decorates an actor the viewer
+// already has (a score under a name, say) goes through here, so it can't hand
+// out an id for something the client can't see.
+fn (mut s NetworkSession) known_wire_id(actor u64) ?u64 {
+	if actor == s.runtime_id {
+		return self_entity_runtime_id
+	}
+	s.wire_id_mutex.lock()
+	defer {
+		s.wire_id_mutex.unlock()
+	}
+	return s.wire_ids[actor] or { return none }
+}
+
 // actor_for_wire_id is the reverse: which actor this session meant by an id it
 // handed out. A client naming anything else is naming something it was never
 // shown.

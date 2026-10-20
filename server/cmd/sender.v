@@ -61,6 +61,16 @@ mut:
 	whitelist_remove(name string)
 	whitelist_set_enabled(value bool)
 	set_difficulty(value int)
+	// Scoreboard state is the server's, not any one player's.
+	scoreboard_objectives() []ObjectiveInfo
+	scoreboard_add_objective(name string, display_name string) bool
+	scoreboard_remove_objective(name string) bool
+	// scoreboard_set_display shows an objective in a slot; an empty objective
+	// name clears the slot. It reports false for an unknown slot or objective.
+	scoreboard_set_display(slot string, objective string) bool
+	scoreboard_set_score(objective string, entry string, value int) bool
+	scoreboard_add_score(objective string, entry string, delta int) ?int
+	scoreboard_reset_score(entry string)
 	broadcast_message(text string)
 	// show_title sends a title/subtitle/actionbar to this sender only.
 	show_title(kind int, text string)
@@ -139,4 +149,12 @@ pub:
 	chunk_requests_total           i64
 	chunk_dedup_hits_total         i64
 	actor_running                  bool
+}
+
+// ObjectiveInfo is a read-only view of one scoreboard objective, so the cmd
+// layer never depends on the scoreboard types directly.
+pub struct ObjectiveInfo {
+pub:
+	name         string
+	display_name string
 }
