@@ -1,13 +1,16 @@
 module session
 
 import bedrock_v.protocol.types
+import server.entity
 import server.event
+import server.world.sound
 import server.world
 import server.block
 import server.item
 import bedrock_v.protocol.current as proto
 import server.player
 import server.worldrt
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 // ObstructionResult is obstructed_by_entity's answer: whether pos is
 // obstructed at all and whether the only body overlapping it is the acting
@@ -88,7 +91,8 @@ fn merged_slab(tx &worldrt.WorldTx, existing_id int, placing_id int, click_face 
 	if existing_id == world.air.network_id || isnil(tx.wr.services.block_palette()) {
 		return none
 	}
-	return tx.wr.services.block_palette().merged_slab(existing_id, placing_id, click_face, click_y, clicked)
+	return tx.wr.services.block_palette().merged_slab(existing_id, placing_id, click_face, click_y,
+		clicked)
 }
 
 fn door_placement(mut tx worldrt.WorldTx, runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
@@ -148,10 +152,7 @@ fn create_sign_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id 
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, '')
-	})
+	broadcast_block_entity(mut tx, pos, build_sign_nbt(pos.x, pos.y, pos.z, ''))
 }
 
 // create_note_tile initializes a newly placed note block's block entity
@@ -162,10 +163,7 @@ fn create_note_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id 
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '0')
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_note_block_nbt(pos.x, pos.y, pos.z, 0)
-	})
+	broadcast_block_entity(mut tx, pos, build_note_block_nbt(pos.x, pos.y, pos.z, 0))
 }
 
 // create_jukebox_tile initializes a newly placed jukebox's block entity
@@ -176,10 +174,7 @@ fn create_jukebox_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_
 		return
 	}
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
-	})
+	broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, ''))
 }
 
 fn maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
@@ -187,7 +182,7 @@ fn maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime
 	if b !is block.SignBlock {
 		return
 	}
-	s.deliver(&proto.OpenSignPacket{
+	s.deliver(&packets_944.OpenSignPacket{
 		pos:      proto.block_pos(pos)
 		is_front: true
 	})
@@ -201,8 +196,12 @@ fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 			maybe_open_sign_editor(mut s, pos, old_id)
 			return true
 		}
-		if b is block.ChestBlock {
-			open_chest_container(mut tx, mut s, pos)
+		if kind := block.container_kind(b.identifier()) {
+			open_container_block(mut tx, mut s, pos, kind)
+			return true
+		}
+		if variant := block.furnace_variant(b.identifier()) {
+			open_furnace(mut tx, mut s, pos, variant)
 			return true
 		}
 		if b is block.CraftingTableBlock {
@@ -217,6 +216,9 @@ fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 			interact_jukebox(mut tx, mut s, pos)
 			return true
 		}
+	}
+	if is_bed(old_id) {
+		return use_bed(mut tx, mut s, pos)
 	}
 	if isnil(tx.wr.services.block_palette()) {
 		return false
@@ -270,8 +272,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 	stack, name := s.held_stack_and_name()
 	result := item.use_on_block_result(name, v.name, stack.meta) or { return false }
 	current := v.states.get(result.state_key) or { return false }.int()
-	new_id := tx.wr.services.block_palette().with_state(clicked_id, result.state_key, (current +
-		result.state_delta).str()) or { return false }
+	new_id := tx.wr.services.block_palette().with_state(clicked_id, result.state_key, (current + result.state_delta).str()) or { return false }
 	if new_id == clicked_id {
 		return false
 	}
@@ -291,8 +292,10 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 	}
 	tx.set_block(pos.x, pos.y, pos.z, new_id)
 	if result.sound != '' {
-		tx.wr.broadcast_world(proto.level_sound_event(result.sound, s.current_position(), -1,
-			'minecraft:player', s.runtime_id))
+		play_actor_sound(mut tx, s.current_position(), sound.Custom{ name: result.sound }, entity.SoundSource{
+			actor:      s.runtime_id
+			identifier: player_actor_identifier
+		})
 	}
 	broadcast_swing(mut tx, s)
 	if s.player.game_mode() != .creative {

@@ -5,11 +5,13 @@ import bedrock_v.protocol.types
 import server.event
 import server.internal.gamedata
 import server.internal.logger
+import server.entity
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn movement_isolation_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut s := &NetworkSession{
@@ -59,8 +61,8 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 
 	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	assert wr_a.submit(MovementIsolationBarrierTask{
 		started: started
 		release: release
@@ -175,7 +177,8 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 	for a_transport.sent.len == 0 {
 		waited_from := time.now()
 		select {
-			_ := <-a_transport.sent_notify {}
+			_ := <-a_transport.sent_notify {
+			}
 			sent_remaining {
 				break
 			}
@@ -188,13 +191,95 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_move := false
 	for p in a_transport.sent {
-		if p is proto.MoveActorAbsolutePacket {
+		if p is packets_662.MoveActorAbsolutePacket {
 			a_saw_move = true
 		}
 	}
 	assert a_saw_move
 
 	for p in b_transport.sent {
-		assert p !is proto.MoveActorAbsolutePacket
+		assert p !is packets_662.MoveActorAbsolutePacket
 	}
+}
+
+fn viewer_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport FakeTransport) &NetworkSession {
+	mut s := &NetworkSession{
+		player:        player.new_player()
+		hub:           hub
+		runtime_id:    hub.allocate_runtime_id()
+		spawned:       true
+		conn:          &Conn{
+			transport: transport
+		}
+		world:         wr.world
+		world_runtime: wr
+		log:           logger.new(.info)
+	}
+	hub.add(s)
+	s.activate_outbound()
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
+		return true
+	}) or { panic('registration rejected - world unexpectedly stopped') }
+	return s
+}
+
+fn drain_until_sent(mut transport FakeTransport, budget time.Duration) {
+	mut remaining := budget
+	for transport.sent.len == 0 && remaining > 0 {
+		waited_from := time.now()
+		select {
+			_ := <-transport.sent_notify {
+			}
+			remaining {
+				break
+			}
+		}
+		remaining -= time.now() - waited_from
+	}
+}
+
+fn test_teleport_snaps_its_client_and_moves_body_for_others() {
+	mut hub := new_hub(gamedata.GameData{})
+	target := db.new_world('world', none, 'void', world.overworld)
+	hub.add_world(target)
+	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
+	defer {
+		hub.close_worlds()
+	}
+
+	mut mover_transport := &FakeTransport{}
+	mut observer_transport := &FakeTransport{}
+	mut mover := viewer_test_session(mut hub, mut wr, mut mover_transport)
+	viewer_test_session(mut hub, mut wr, mut observer_transport)
+
+	rid := mover.runtime_id
+	epoch := mover.world_binding().epoch
+	moved := worldrt.world_call[bool]('test', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
+		mut s := player_for_id(mut tx, entity.new_actor_id(rid, epoch)) or { return false }
+		s.player.teleport(mut tx, types.Vector3{12.0, 70.0, -4.0})
+		return true
+	}) or { panic('world unexpectedly stopped') }
+	assert moved
+
+	drain_until_sent(mut mover_transport, 2000 * time.millisecond)
+	drain_until_sent(mut observer_transport, 2000 * time.millisecond)
+
+	mut mover_snapped := false
+	for p in mover_transport.sent {
+		assert p !is packets_662.MoveActorAbsolutePacket
+		if p is packets_2168.MovePlayerPacket {
+			mover_snapped = true
+		}
+	}
+	assert mover_snapped, 'the teleported player was not told to snap'
+
+	mut observer_saw_move := false
+	for p in observer_transport.sent {
+		assert p !is packets_2168.MovePlayerPacket
+		if p is packets_662.MoveActorAbsolutePacket {
+			observer_saw_move = true
+		}
+	}
+	assert observer_saw_move, 'the other player was not shown the move'
 }

@@ -15,12 +15,19 @@ discussed before you write code.
 
 ## Building from source
 
-### V compiler pin
+### V compiler
 
-Build only with the pinned compiler - newer V master **may** break this project.
+Vedrock is built with **V 3**, the current V compiler. V 1, reached through `-old-compiler`, is
+legacy: it stays in V for a while yet and then goes and nothing here is written for it. Don't add
+`-old-compiler` to a command and don't shape code around a V 1 limitation.
 
-- V compiler: `0.5.2` (commit `d5c6067`)
-- vc bootstrap pin: `84d9186`
+CI pins a commit so a build is reproducible and the pin is bumped as V moves:
+
+- V compiler: `0.5.2` (commit `c096ba2`)
+- vc bootstrap pin: `21490f7`
+
+The pin is a version, not a ceiling: a newer V master is expected to work and a break against one
+is a bug to report upstream rather than a reason to go back to V 1.
 
 ### Dependencies
 
@@ -151,4 +158,4 @@ optional - only add one when the subject doesn't explain the "why".
 - Make sure `v -check .` and `v test server` pass before opening the PR.
 - Fill in the pull request template and link any related issue.
 
-By participating in this project, you are expected to follow the bedrock-v Code of Conduct.
+By participating in this project, you are expected to follow the bedrock-v [Code of Conduct](https://github.com/bedrock-v/.github/blob/master/profile/CODE_OF_CONDUCT.MD).

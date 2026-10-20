@@ -26,9 +26,12 @@ import sync
 import sync.stdatomic
 import bedrock_v.protocol.current as proto
 import bedrock_v.webrtc.logging
+import bedrock_v.webrtc.ice
+import bedrock_v.protocol.version.v662.packets as packets_662
 
-// nethernet_identity_domain names the issuer of the server's identity token.
-// Bedrock Dedicated Server self-signs its own the same way.
+// nethernet_identity_domain names the issuer of the server's identity token
+// when the config leaves it blank and there is no MOTD to fall back on. Bedrock
+// Dedicated Server self-signs its own the same way.
 const nethernet_identity_domain = 'self'
 
 pub const ticks_per_second = 20
@@ -131,7 +134,7 @@ fn load_resource_packs(cfg conf.Config, log &logger.Logger, lang &language.Lang)
 		path := os.join_path(cfg.resource_packs_dir, name)
 		if pack := resourcepack.new_local_pack(path) {
 			reg.add(pack)
-			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
+			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes, encrypted=${pack.has_content_key()})')
 		} else {
 			log.warn('Failed to load resource pack ${name}: ${err}')
 		}
@@ -166,9 +169,7 @@ pub fn new(opts Options) !&Server {
 	lang := language.load(cfg.language) or {
 		log.warn('Failed to load language "${cfg.language}", falling back to en: ${err}')
 		language.load('en') or {
-			if path := crash.write_dump(cfg.crashdumps_dir, time.now().unix(),
-				'fatal: language load failed', err.msg())
-			{
+			if path := crash.write_dump(cfg.crashdumps_dir, time.now().unix(), 'fatal: language load failed', err.msg()) {
 				log.error('Wrote crash report to ${path}')
 			}
 			return error('failed to load any language, including the "en" fallback: ${err}')
@@ -222,6 +223,7 @@ pub fn new(opts Options) !&Server {
 	}
 	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
 		hub.set_palette(palette)
+		world.set_block_palette(palette)
 		log.debug('Loaded ${palette.len()} block states')
 	} else {
 		log.warn('Failed to load block palette: ${err}')
@@ -234,8 +236,7 @@ pub fn new(opts Options) !&Server {
 	// parse peak rather than carrying it for the process's lifetime.
 	release_free_heap()
 	log.debug('After data load ${heap_summary()}')
-	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
-		cfg.generator, log, lang)
+	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds, cfg.generator, log, lang)
 	return &Server{
 		log:        log
 		lang:       lang
@@ -262,6 +263,84 @@ fn (s &TransportLogSink) write(level logging.Level, scope string, msg string) {
 	}
 }
 
+// identity_domain is who a joining player is told issued this server's key.
+//
+// The MOTD is the name they already know the server by, which beats "self" in a
+// trust prompt. It is display text either way, so it can change without costing
+// anybody a fresh prompt.
+fn (s &Server) identity_domain() string {
+	configured := s.cfg.identity_domain.trim_space()
+	if configured != '' {
+		return configured
+	}
+	motd := s.cfg.motd.trim_space()
+	return if motd != '' { motd } else { nethernet_identity_domain }
+}
+
+// ice_credentials are the STUN and TURN servers candidates are gathered
+// through. A LAN needs none; a server whose players sit behind NAT usually
+// needs at least STUN to learn its own public address.
+fn (s &Server) ice_credentials() nethernet.Credentials {
+	if s.cfg.ice_servers.len == 0 {
+		return nethernet.Credentials{}
+	}
+	return nethernet.Credentials{
+		ice_servers: [
+			nethernet.IceServer{
+				urls: s.cfg.ice_servers.clone()
+			},
+		]
+	}
+}
+
+// nethernet_options are the terms both listeners answer on. They share one
+// config so a client reaching the server by LAN and one reaching it by address
+// are held to the same rules.
+fn (s &Server) nethernet_options(identity nethernet.Identity, net_log logging.Logger,
+	token_verifier ?nethernet.TokenVerifier) nethernet.ListenConfig {
+	return nethernet.ListenConfig{
+		identity:             identity
+		token_verifier:       token_verifier
+		// The game leaves the identity assertion out of some of the ways it
+		// connects, so accepting an anonymous offer is a deliberate choice: it
+		// gives up the binding between the peer's key and this connection.
+		allow_anonymous:      !s.cfg.require_identity
+		advertised_addresses: s.cfg.advertise_addresses.clone()
+		ice_port_pool:        s.media_port_pool()
+		logger:               net_log
+	}
+}
+
+// media_port_pool is the UDP range media binds, so an operator has something to
+// open in a firewall. One pool is shared by both listeners: two pools over the
+// same range would hand the same port out twice.
+//
+// A range that makes no sense is ignored rather than refused. The server still
+// works on ephemeral ports; it is only harder to reach from outside, which is
+// not worth refusing to start over.
+fn (s &Server) media_port_pool() ?&ice.PortPool {
+	min := s.cfg.media_port_min
+	max := s.cfg.media_port_max
+	if min == 0 && max == 0 {
+		return none
+	}
+	if min < 1 || max < 1 || min > 65535 || max > 65535 {
+		s.log.warn('Ignoring the media port range ${min}-${max}: a port is 1 to 65535')
+		return none
+	}
+	pool := ice.PortPool.new(u16(min), u16(max)) or {
+		s.log.warn('Ignoring the media port range ${min}-${max}: ${err.msg()}')
+		return none
+	}
+	// A player costs one port per local interface media is gathered on, so the
+	// range has to be comfortably wider than the player count rather than equal
+	// to it.
+	if pool.ports() < s.cfg.max_players {
+		s.log.warn('The media port range ${min}-${max} holds ${pool.ports()} ports, fewer than the ${s.cfg.max_players} player limit, so joins will start failing before the server is full')
+	}
+	return pool
+}
+
 // transport_log_level keeps the transport quiet unless the server is in debug
 // mode: ICE and DTLS negotiation is verbose enough to bury the game log.
 fn (s &Server) transport_log_level() logging.Level {
@@ -274,14 +353,22 @@ fn (s &Server) transport_log_level() logging.Level {
 // error if the network identity or a listener fails to bind.
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
-		'Version': proto.selected_minecraft_version
+		'Version': proto.proto_version.minecraft_version()
 	}))
 	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
 		log: s.log
 	})
 	// Both listeners answer under the same stored key, so a client reaching the
 	// server either way sees one identity.
-	identity := network.load_identity(s.cfg.identity_file, nethernet_identity_domain)!
+	identity := network.load_identity(s.cfg.identity_file, s.identity_domain())!
+	// The transport and the login path judge a token against the same keys, so
+	// an offer nobody could have obtained honestly is turned away before a peer
+	// connection is built for it.
+	mut token_verifier := ?nethernet.TokenVerifier(none)
+	if s.cfg.verify_identity_token {
+		token_verifier = network.new_identity_token_verifier(s.hub.auth_verifier())
+	}
+	listen_options := s.nethernet_options(identity, net_log, token_verifier)
 	// The server answers requests rather than making them, so it binds the
 	// discovery port and never broadcasts. The port is fixed and shared by
 	// every server on the host, so losing it only costs LAN visibility: the
@@ -292,17 +379,9 @@ pub fn (mut s Server) start() ! {
 		network_id: u64(s.guid)
 		broadcast:  false
 		logger:     net_log
-	)
-	{
+	) {
 		sig.pong_data(s.pong_data(0).bytes())
-		listener = nethernet.listen(mut sig,
-			// The game leaves the identity assertion out of most of its offers,
-			// including every LAN one, so refusing them is opt in. Xbox Live
-			// authentication is checked on the Login chain instead.
-			allow_anonymous: !s.cfg.require_identity
-			identity:        identity
-			logger:          net_log
-		) or {
+		listener = nethernet.listen(mut sig, listen_options) or {
 			sig.close()
 			return err
 		}
@@ -314,9 +393,10 @@ pub fn (mut s Server) start() ! {
 		}))
 	}
 	mut join_endpoint := endpoint.listen(
-		address:    s.cfg.bind_address()
-		network_id: s.guid.str()
-		logger:     net_log
+		address:     s.cfg.bind_address()
+		network_id:  s.guid.str()
+		credentials: s.ice_credentials()
+		logger:      net_log
 	) or {
 		if !isnil(listener) {
 			listener.close()
@@ -325,11 +405,7 @@ pub fn (mut s Server) start() ! {
 		return err
 	}
 	join_endpoint.pong_data(s.pong_data(0).bytes())
-	mut endpoint_listener := nethernet.listen(mut join_endpoint,
-		allow_anonymous: !s.cfg.require_identity
-		identity:        identity
-		logger:          net_log
-	) or {
+	mut endpoint_listener := nethernet.listen(mut join_endpoint, listen_options) or {
 		join_endpoint.close()
 		if !isnil(listener) {
 			listener.close()
@@ -438,7 +514,7 @@ fn (mut s Server) tick_loop() {
 		tick++
 		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
-			s.hub.broadcast(&proto.SetTimePacket{
+			s.hub.broadcast(&packets_662.SetTimePacket{
 				time: world_time
 			})
 			pong := s.pong_data(s.hub.count()).bytes()
@@ -448,9 +524,7 @@ fn (mut s Server) tick_loop() {
 			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
-			for msg in s.hub.flush_worlds() {
-				s.log.warn('World flush failed: ${msg}')
-			}
+			s.hub.request_world_flushes()
 		}
 		if tick % heap_release_interval_ticks == 0 {
 			release_free_heap()
@@ -566,9 +640,9 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 // one for each address family.
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
-	return
-		['MCPE', s.cfg.motd, proto.selected_protocol.str(), proto.selected_minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
-		';'
+	return ['MCPE', s.cfg.motd, int(proto.proto_version.protocol_id()).str(),
+		proto.proto_version.minecraft_version(), online.str(), s.cfg.max_players.str(), s.guid.str(),
+		s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') + ';'
 }
 
 fn normalize_gamemode(name string) (string, int) {
@@ -672,6 +746,9 @@ pub:
 	name           string
 	dimension      world.Dimension = world.overworld
 	generator_name string
+	// seed is used only when the world is created: none gives it a random
+	// one and a world that already exists keeps the seed it was made with.
+	seed ?i64
 }
 
 // load_world returns the loaded world, loading it from storage or creating
@@ -683,7 +760,7 @@ pub fn (mut s Server) load_world(config WorldConfig) !session.World {
 	if handle := s.hub.world_handle(config.name) {
 		return handle
 	}
-	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name)!
+	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name, config.seed)!
 	return s.hub.world_handle(config.name) or {
 		error('world "${config.name}" failed to register after loading')
 	}
@@ -717,7 +794,7 @@ pub fn (mut s Server) unload_world(name string) ! {
 // register_generator makes a custom world generator available under name,
 // so load_world/WorldConfig can select it by that name for a new world.
 // Register before loading any world that uses it.
-pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+pub fn (mut s Server) register_generator(name string, factory world.GeneratorFactory) {
 	s.hub.register_generator(name, factory)
 }
 

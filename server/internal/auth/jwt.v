@@ -3,6 +3,7 @@ module auth
 import crypto.ecdsa
 import encoding.base64
 import x.json2
+import server.internal.encryption
 
 pub struct Jwt {
 pub:
@@ -31,7 +32,10 @@ pub fn verify_jwt(token string, public_key_b64 string) !bool {
 	signing_input := '${parts[0]}.${parts[1]}'
 	raw_signature := b64url_decode(parts[2])!
 	der_signature := ecdsa_signature_to_der(raw_signature)!
-	public_key := ecdsa.pubkey_from_string(pem_from_spki(public_key_b64))!
+	public_key := encryption.p384_public_key_from_spki(base64.decode(public_key_b64))!
+	defer {
+		public_key.free()
+	}
 	return public_key.verify(signing_input.bytes(), der_signature, ecdsa.SignerOpts{})!
 }
 
@@ -44,17 +48,6 @@ fn b64url_decode(data string) ![]u8 {
 		padded += '='
 	}
 	return base64.url_decode(padded)
-}
-
-fn pem_from_spki(public_key_b64 string) string {
-	mut body := ''
-	mut i := 0
-	for i < public_key_b64.len {
-		end := if i + 64 < public_key_b64.len { i + 64 } else { public_key_b64.len }
-		body += public_key_b64[i..end] + '\n'
-		i += 64
-	}
-	return '-----BEGIN PUBLIC KEY-----\n${body}-----END PUBLIC KEY-----\n'
 }
 
 fn ecdsa_signature_to_der(raw []u8) ![]u8 {

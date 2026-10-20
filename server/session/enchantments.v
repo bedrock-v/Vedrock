@@ -3,6 +3,7 @@ module session
 import rand
 import bedrock_v.protocol.types
 import server.enchant
+import server.entity
 import server.internal.gamedata
 import server.item
 import server.player
@@ -124,10 +125,9 @@ fn (s &NetworkSession) harvested_drop(data &gamedata.GameData, block_id int) (st
 // PlayerEnchantTask puts an enchantment on a player's held item, on that
 // player's own world runtime.
 struct PlayerEnchantTask {
-	runtime_id u64
-	epoch      i64
-	eid        int
-	level      int
+	id    entity.ActorId
+	eid   int
+	level int
 }
 
 fn (t PlayerEnchantTask) name() string {
@@ -135,7 +135,7 @@ fn (t PlayerEnchantTask) name() string {
 }
 
 fn (t PlayerEnchantTask) run(mut tx worldrt.WorldTx) {
-	mut target := player_for_epoch(mut tx, t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	target.apply_held_enchantment(t.eid, t.level)
 }
 
@@ -162,7 +162,7 @@ fn (mut s NetworkSession) apply_held_enchantment(eid int, level int) {
 	s.send_slot_update(slot, wrapped)
 }
 
-// enchant_held_item is the View entry point: it says what the named
+// enchant_held_item is the Sender entry point: it says what the named
 // enchantment would do to what the player is holding, and applies it on that
 // player's own world runtime when it can go there.
 pub fn (mut s NetworkSession) enchant_held_item(name string, level int) player.EnchantResult {
@@ -179,10 +179,9 @@ pub fn (mut s NetworkSession) enchant_held_item(name string, level int) player.E
 		return .no_item
 	}
 	wr.submit(PlayerEnchantTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-		eid:        e.id()
-		level:      level
+		id:    s.actor_id()
+		eid:   e.id()
+		level: level
 	})
 	return .applied
 }

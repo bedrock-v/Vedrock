@@ -3,7 +3,6 @@ module default
 import strconv
 import server.permission
 import server.cmd
-import server.player
 
 pub struct EnchantCommand {}
 

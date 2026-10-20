@@ -78,6 +78,10 @@ fn (mut c ConsoleSender) place_water(x int, y int, z int) {
 	c.hub.place_water(x, y, z)
 }
 
+fn (mut c ConsoleSender) place_lava(x int, y int, z int) {
+	c.hub.place_lava(x, y, z)
+}
+
 fn (mut c ConsoleSender) clear_inventory() {}
 
 fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
@@ -90,6 +94,14 @@ fn (c ConsoleSender) held_item_name() string {
 
 fn (mut c ConsoleSender) enchant_held_item(_ string, _ int) player.EnchantResult {
 	return .no_item
+}
+
+fn (mut c ConsoleSender) give_experience(_ int) {}
+
+fn (mut c ConsoleSender) give_experience_levels(_ int) {}
+
+fn (c ConsoleSender) experience_level() int {
+	return 0
 }
 
 fn (mut c ConsoleSender) send_form(_ form.Form) ! {

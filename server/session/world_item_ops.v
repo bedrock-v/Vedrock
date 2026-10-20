@@ -6,7 +6,6 @@ import bedrock_v.protocol.types
 import server.block
 import server.entity
 import server.item
-import bedrock_v.protocol.current as proto
 import server.internal.gamedata
 import server.worldrt
 import server.player
@@ -126,8 +125,7 @@ fn (mut h WorldEntityHost) collect_item(runtime_id u64, stack types.ItemStack) i
 // notify_item_taken broadcasts the pickup animation to this world's
 // viewers.
 fn (mut h WorldEntityHost) notify_item_taken(item_runtime_id u64, taker_runtime_id u64) {
-	h.wr.broadcast_world(&proto.TakeItemActorPacket{
-		item_runtime_id:  proto.actor_runtime_id(item_runtime_id)
-		actor_runtime_id: proto.actor_runtime_id(taker_runtime_id)
-	})
+	for mut v in h.wr.viewers() {
+		v.view_item_taken(item_runtime_id, taker_runtime_id)
+	}
 }

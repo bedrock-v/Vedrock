@@ -3,45 +3,6 @@ module db
 import os
 import server.world
 
-struct TileCollector {
-mut:
-	texts map[string]string
-}
-
-struct RuntimeIdCollector {
-mut:
-	ids map[string]int
-}
-
-fn test_world_store_tile_text_roundtrip() {
-	dir := os.join_path(os.temp_dir(), 'vedrock_tile_db_test')
-	os.rmdir_all(dir) or {}
-	os.rmdir_all(dir + '_overrides') or {}
-	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_block(1, 64, -3, 42) or { panic(err) }
-	store.set_tile_text(1, 64, -3, 'Hello') or { panic(err) }
-	store.set_tile_text(5, 5, 5, 'World') or { panic(err) }
-	mut c := &TileCollector{}
-	store.each_tile(fn [mut c] (x int, y int, z int, text string) {
-		c.texts['${x},${y},${z}'] = text
-	})
-	assert c.texts.len == 2
-	assert c.texts['1,64,-3'] == 'Hello'
-	assert c.texts['5,5,5'] == 'World'
-
-	// each_block must ignore tile prefixed keys and vice versa.
-	mut rc := &RuntimeIdCollector{}
-	store.each_block(fn [mut rc] (x int, y int, z int, runtime_id int) {
-		rc.ids['${x},${y},${z}'] = runtime_id
-	})
-	assert rc.ids.len == 1
-	assert rc.ids['1,64,-3'] == 42
-
-	store.close() or { panic(err) }
-	os.rmdir_all(dir) or {}
-	os.rmdir_all(dir + '_overrides') or {}
-}
-
 fn test_world_tile_text_and_entries_in_chunk() {
 	mut w := new_world('test', none, 'flat', world.overworld)
 	w.set_tile_text(1, 5, 2, 'Front line 1')
@@ -69,14 +30,16 @@ fn test_world_load_restores_tile_data() {
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}
 	mut store := open_world(dir, world.overworld) or { panic(err) }
-	store.set_tile_text(3, 4, 5, 'Persisted') or { panic(err) }
-	store.close() or { panic(err) }
+	mut w := new_world('test', store, 'flat', world.overworld)
+	w.load()
+	w.set_tile_text(3, 4, 5, 'Persisted')
+	w.close() or { panic(err) }
 
 	mut store2 := open_world(dir, world.overworld) or { panic(err) }
-	mut w := new_world('test', store2, 'flat', world.overworld)
-	w.load()
-	assert w.tile_text(3, 4, 5) or { '' } == 'Persisted'
-	w.close() or { panic(err) }
+	mut back := new_world('test', store2, 'flat', world.overworld)
+	back.load()
+	assert back.tile_text(3, 4, 5) or { '' } == 'Persisted'
+	back.close() or { panic(err) }
 
 	os.rmdir_all(dir) or {}
 	os.rmdir_all(dir + '_overrides') or {}

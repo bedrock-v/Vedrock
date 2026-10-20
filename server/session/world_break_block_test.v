@@ -10,8 +10,9 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
-import bedrock_v.protocol.current as proto
 import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -43,7 +44,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		conn: &Conn{ transport: transport }
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world
@@ -70,7 +71,7 @@ fn give_held_pick(mut s NetworkSession) {
 
 fn test_break_block_damages_held_item_exactly_once() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -109,7 +110,7 @@ fn (mut h BreakTestCancelHandler) on_block_break(mut ctx event.Context[player.Bl
 
 fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -142,7 +143,7 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 
 fn test_break_observer_in_another_world_receives_no_packet() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('world')
 	other_world := db.new_world('other', none, 'flat', world.overworld)
@@ -176,7 +177,7 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
-		assert p !is proto.UpdateBlockPacket
+		assert p !is packets_944.UpdateBlockPacket
 	}
 }
 
@@ -238,7 +239,7 @@ fn test_break_block_event_reaches_only_the_breaking_player() {
 
 fn break_sent_level_event(transport &FakeTransport) bool {
 	for p in transport.sent {
-		if p is proto.LevelEventPacket {
+		if p is packets_662.LevelEventPacket {
 			return true
 		}
 	}
@@ -252,7 +253,8 @@ fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
 	for !break_sent_level_event(transport) {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return break_sent_level_event(transport)
 			}
@@ -269,7 +271,7 @@ fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
 // mining in world A must not animate blocks for a player in world B.
 fn test_start_break_cracking_scoped_to_owning_world() {
 	mut hub := break_test_hub()
-	target := db.new_world('crack-a', none, 'flat', world.overworld)
+	mut target := db.new_world('crack-a', none, 'flat', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('crack-a')
 	other_world := db.new_world('crack-b', none, 'flat', world.overworld)
@@ -299,7 +301,7 @@ fn test_start_break_cracking_scoped_to_owning_world() {
 // curves, which made a hasted player mine far faster than vanilla.
 fn test_effects_scale_break_progress_like_vanilla() {
 	mut hub := break_test_hub()
-	target := db.new_world('effects', none, 'flat', world.overworld)
+	mut target := db.new_world('effects', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('effects') or { panic('expected effects runtime') }
 	mut transport := &FakeTransport{}
@@ -317,7 +319,7 @@ fn test_effects_scale_break_progress_like_vanilla() {
 	hasted := s.break_progress_per_tick(dirt_id)
 	assert_break_close(hasted / base, 1.4)
 
-	s.player.remove_effect(effect.haste)
+	s.player.take_effect(effect.haste)
 	s.player.add_effect_result(effect.new(effect.mining_fatigue, 1, 30 * time.second))
 	fatigued := s.break_progress_per_tick(dirt_id)
 	assert_break_close(fatigued / base, 0.3)
@@ -338,7 +340,7 @@ fn break_seconds_for(s &NetworkSession, runtime_id int) f32 {
 // block take five times its vanilla time whenever that flag was not set.
 fn test_standing_player_mines_at_vanilla_speed() {
 	mut hub := break_test_hub()
-	target := db.new_world('ground', none, 'flat', world.overworld)
+	mut target := db.new_world('ground', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('ground') or { panic('expected ground runtime') }
 	mut transport := &FakeTransport{}
@@ -366,7 +368,7 @@ fn test_standing_player_mines_at_vanilla_speed() {
 fn tick_world_once(mut wr worldrt.WorldRuntime) {
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		mut ticker := SessionPlayerTicker{}
-	ticker.tick_players(mut tx)
+		ticker.tick_players(mut tx)
 		return true
 	}) or { panic('tick rejected - world unexpectedly stopped') }
 }
@@ -376,7 +378,7 @@ fn tick_world_once(mut wr worldrt.WorldRuntime) {
 // removes it: no destroy packet is sent here on purpose.
 fn test_server_finishes_the_break_without_a_client_destroy() {
 	mut hub := break_test_hub()
-	target := db.new_world('server-break', none, 'flat', world.overworld)
+	mut target := db.new_world('server-break', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('server-break') or { panic('expected runtime') }
 	mut transport := &FakeTransport{}
@@ -438,8 +440,8 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 	give_held_pick(mut s_b)
 
 	// Stall world A's actor with a task barrier.
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	a_ok := wr_a.submit(BreakBarrierTask{
 		started: started
 		release: release

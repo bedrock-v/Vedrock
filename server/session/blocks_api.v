@@ -1,5 +1,6 @@
 module session
 
+import server.block
 import server.world
 import server.worldrt
 
@@ -93,31 +94,45 @@ fn (mut h Hub) set_block_id(id int, x int, y int, z int) {
 	h.write_block(id, x, y, z)
 }
 
-// PlaceWaterTask is place_water's actual per world work. The liquid manager
-// interaction only ever happens on the owning world's own actor thread,
-// through the worldrt.WorldTx it's handed.
-struct PlaceWaterTask {
-	x int
-	y int
-	z int
+// PlaceLiquidTask is place_water/place_lava's actual per world work. The
+// liquid manager interaction only ever happens on the owning world's own actor
+// thread, through the worldrt.WorldTx it's handed.
+struct PlaceLiquidTask {
+	kind block.LiquidKind
+	x    int
+	y    int
+	z    int
 }
 
-fn (t PlaceWaterTask) name() string {
-	return 'PlaceWaterTask'
+fn (t PlaceLiquidTask) name() string {
+	return 'PlaceLiquidTask'
 }
 
-fn (t PlaceWaterTask) run(mut tx worldrt.WorldTx) {
-	tx.place_water(t.x, t.y, t.z)
+fn (t PlaceLiquidTask) run(mut tx worldrt.WorldTx) {
+	match t.kind {
+		.water { tx.place_water(t.x, t.y, t.z) }
+		.lava { tx.place_lava(t.x, t.y, t.z) }
+	}
 }
 
 // place_water sets a water source in the default world and lets that world's
 // runtime own the liquid update.
 fn (mut h Hub) place_water(x int, y int, z int) {
+	h.place_liquid(.water, x, y, z)
+}
+
+// place_lava does the same for a lava source.
+fn (mut h Hub) place_lava(x int, y int, z int) {
+	h.place_liquid(.lava, x, y, z)
+}
+
+fn (mut h Hub) place_liquid(kind block.LiquidKind, x int, y int, z int) {
 	mut wr := h.default_world_runtime() or { return }
-	wr.submit(PlaceWaterTask{
-		x: x
-		y: y
-		z: z
+	wr.submit(PlaceLiquidTask{
+		kind: kind
+		x:    x
+		y:    y
+		z:    z
 	})
 }
 
