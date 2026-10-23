@@ -7,21 +7,51 @@ on:
       - dev
       - rewrite # for now
   pull_request:
+  # V master moves between pushes. A weekly run catches it breaking the build.
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # A failure in the C stage would otherwise send a report to bugs.vlang.io.
+  V_C_ERROR_BUG_REPORT_DISABLED: '1'
 
 jobs:
   test:
     name: Check, test and build
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: vedrock
 
     steps:
-      - name: Checkout
+      - name: Checkout V
         uses: actions/checkout@v7
+        with:
+          repository: vlang/v
 
-      - name: Setup V
-        uses: ./.github/actions/setup-v
+      - name: Checkout vedrock
+        uses: actions/checkout@v7
+        with:
+          path: vedrock
+
+      - name: Build V
+        working-directory: .
+        run: |
+          make
+          ./v symlink -githubci
+          v version
+
+      - name: Install module dependencies
+        run: v install
 
       - name: Check
         run: v -check .
