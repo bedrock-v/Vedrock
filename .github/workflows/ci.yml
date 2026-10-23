@@ -47,7 +47,7 @@ jobs:
         working-directory: .
         run: |
           make
-          ./v symlink -githubci
+          ./v symlink
           v version
 
       - name: Install module dependencies
