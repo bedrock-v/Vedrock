@@ -127,10 +127,15 @@ fn (mut s Server) admit(cid u64, mut conn network.Conn, mut handlers sync.WaitGr
 		// TODO There's no logger in the rewrite yet and a login that fails without
 		// leaving a trace is one nobody can explain.
 		eprintln('vedrock: login from ${remote} failed: ${err}')
-		network.disconnect(mut conn, 'Login failed.')
+		if err !is network.VersionMismatch {
+			network.disconnect(mut conn, 'Login failed.')
+		}
 		return
 	}
-	s.finished_login(cid)
+	if !s.finished_login(cid) {
+		// It ran out of time as it finished and its connection is being closed.
+		return
+	}
 	if !s.reserve_slot() {
 		network.disconnect(mut conn, 'The server is full!')
 		return
@@ -216,25 +221,41 @@ fn (mut s Server) remove_conn(cid u64) {
 	s.live_mutex.unlock()
 }
 
-// finished_login frees the place this client held among the ones logging in.
-fn (mut s Server) finished_login(cid u64) {
+// finished_login frees the place this client held among the ones logging in. It
+// reports false for a client drop_slow_logins already gave up on.
+fn (mut s Server) finished_login(cid u64) bool {
 	s.live_mutex.lock()
+	defer {
+		s.live_mutex.unlock()
+	}
+	if cid !in s.pending {
+		return false
+	}
 	s.pending.delete(cid)
-	s.live_mutex.unlock()
+	return true
 }
 
 // drop_slow_logins ends the connections that have been logging in for longer
 // than login_timeout. Closing one is what ends the read its thread is on and
 // that thread takes it from there.
+//
+// They leave pending under the lock before they are closed. A client finishing
+// its login at the same moment either got there first and is not closed, or
+// finds itself gone from pending and doesn't join.
 fn (mut s Server) drop_slow_logins() {
 	now := time.now()
 	s.live_mutex.lock()
-	mut late := []&network.Conn{}
+	mut expired := []u64{}
 	for cid, since in s.pending {
 		if now - since > s.cfg.login_timeout {
-			if conn := s.conns[cid] {
-				late << conn
-			}
+			expired << cid
+		}
+	}
+	mut late := []&network.Conn{cap: expired.len}
+	for cid in expired {
+		s.pending.delete(cid)
+		if conn := s.conns[cid] {
+			late << conn
 		}
 	}
 	s.live_mutex.unlock()

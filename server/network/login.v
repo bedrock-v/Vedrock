@@ -35,6 +35,19 @@ pub:
 	max_login_messages int = 64
 }
 
+// VersionMismatch is a client refused for speaking another protocol version. It
+// has been told so with a PlayStatus already and anything sent after that can
+// replace the client's "outdated" screen with a generic one.
+pub struct VersionMismatch {
+	Error
+pub:
+	client i32
+}
+
+pub fn (e VersionMismatch) msg() string {
+	return 'client speaks protocol ${e.client}, server speaks ${protocol.protocol_id}'
+}
+
 // handshake runs the server side of the login sequence and returns once the
 // client is through it.
 pub fn handshake(mut c Conn, cfg LoginConfig) !Identity {
@@ -84,7 +97,9 @@ fn (mut h Handshake) network_settings(cfg LoginConfig) ! {
 				h.conn.write(&packets.PlayStatusPacket{
 					status: status
 				})!
-				return error('client speaks protocol ${p.client_network_version}, server speaks ${protocol.protocol_id}')
+				return VersionMismatch{
+					client: p.client_network_version
+				}
 			}
 			h.conn.write(&packets.NetworkSettingsPacket{
 				compression_threshold: u16(cfg.compression_threshold)

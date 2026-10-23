@@ -165,6 +165,8 @@ fn test_a_client_on_another_protocol_version_is_refused() {
 	mut c := new_conn(mut w)
 	if _ := handshake(mut c, LoginConfig{}) {
 		assert false, 'a client on the wrong protocol version logged in'
+	} else {
+		assert err is VersionMismatch, 'the refusal does not say it was the version: ${err}'
 	}
 	status := sent(w, 0, false)[0]
 	assert status is packets.PlayStatusPacket

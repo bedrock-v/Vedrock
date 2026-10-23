@@ -266,3 +266,16 @@ fn test_a_client_that_never_finishes_logging_in_is_dropped() {
 	srv.close()
 	assert dropped, 'a client that never logged in was left connected'
 }
+
+fn test_timed_out_login_cannot_join() {
+	mut srv := new(Config{
+		listeners:     [binds(&CloseCount{})]
+		login_timeout: -1
+	}) or { panic(err) }
+	mut wire := &BlockingWire{}
+	mut conn := network.new_conn(mut wire)
+	cid := srv.add_conn(mut conn) or { panic(err) }
+	srv.drop_slow_logins()
+	assert wire.is_closed()
+	assert !srv.finished_login(cid)
+}
