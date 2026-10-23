@@ -42,12 +42,12 @@ mut:
 
 // listen binds the signalling endpoint and the connection listener over it.
 pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
-	identity := load_identity(cfg.identity_file, identity_domain(cfg, status))!
+	identity := load_identity(cfg.identity_file, identity_domain(cfg.identity_domain, status))!
 	mut signalling := endpoint.listen(
 		address:    '${cfg.address}:${cfg.port}'
 		network_id: status.network_id.str()
 	)!
-	signalling.pong_data(pong_data(cfg, status, 0).bytes())
+	signalling.pong_data(pong_data(status, cfg.port, 0).bytes())
 	mut inner := nn.listen(mut signalling,
 		identity:        identity
 		allow_anonymous: cfg.allow_anonymous
@@ -63,9 +63,9 @@ pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
 	}
 }
 
-fn identity_domain(cfg NetherNetConfig, status Status) string {
-	if cfg.identity_domain != '' {
-		return cfg.identity_domain
+fn identity_domain(configured string, status Status) string {
+	if configured != '' {
+		return configured
 	}
 	if status.motd != '' {
 		return status.motd
@@ -83,7 +83,7 @@ pub fn (mut l NetherNetListener) accept(timeout time.Duration) !Wire {
 
 // announce updates the player count a client sees before it joins.
 pub fn (mut l NetherNetListener) announce(online int) {
-	l.signalling.pong_data(pong_data(l.cfg, l.status, online).bytes())
+	l.signalling.pong_data(pong_data(l.status, l.cfg.port, online).bytes())
 }
 
 // addr is where the listener is bound.
@@ -97,10 +97,10 @@ pub fn (mut l NetherNetListener) close() {
 }
 
 // pong_data is the server description a client reads before it joins.
-fn pong_data(cfg NetherNetConfig, status Status, online int) string {
+fn pong_data(status Status, port int, online int) string {
 	fields := ['MCPE', status.motd, protocol.protocol_id.str(), protocol.minecraft_version,
 		online.str(), status.max_players.str(), status.network_id.str(), status.sub_motd, 'Survival',
-		'1', cfg.port.str(), cfg.port.str()]
+		'1', port.str(), port.str()]
 	// The 1 after 'Survival' is availability, not gamemodeId.
 	return fields.join(';') + ';'
 }

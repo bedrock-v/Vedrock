@@ -29,3 +29,13 @@ fn test_key_on_another_curve_is_refused() {
 		assert false, 'a P-256 key was taken'
 	}
 }
+
+fn test_lan_listener_binds_and_closes() {
+	mut l := listen_lan(LanConfig{
+		address:       '127.0.0.1'
+		port:          0
+		identity_file: key_path('lan.pem')
+	}, Status{ network_id: 7 }) or { panic(err) }
+	assert l.signalling.id() == 7
+	l.close()
+}

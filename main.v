@@ -8,7 +8,7 @@ import server.network
 
 fn main() {
 	mut srv := server.new(
-		listeners: [network.nethernet(network.NetherNetConfig{})]
+		listeners: [network.nethernet(network.NetherNetConfig{}), network.lan(network.LanConfig{})]
 	) or {
 		eprintln('vedrock: ${err}')
 		exit(1)
