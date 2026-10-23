@@ -15,6 +15,9 @@ pub:
 	// created on the first start. Keeping it means a client that remembers this
 	// server keeps recognising it.
 	identity_file string = 'keys/server_identity_key.pem'
+	// identity_domain is the domain the server's identity token names which a
+	// client shows when asked to trust this server. Unset and the MOTD stands in.
+	identity_domain string
 	// allow_anonymous accepts an offer carrying no identity assertion. The game
 	// leaves the assertion out of most of its offers and refusing those would
 	// refuse most clients.
@@ -39,13 +42,14 @@ mut:
 
 // listen binds the signalling endpoint and the connection listener over it.
 pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
+	identity := load_identity(cfg.identity_file, identity_domain(cfg, status))!
 	mut signalling := endpoint.listen(
 		address:    '${cfg.address}:${cfg.port}'
 		network_id: status.network_id.str()
 	)!
 	signalling.pong_data(pong_data(cfg, status, 0).bytes())
 	mut inner := nn.listen(mut signalling,
-		identity:        load_identity(cfg.identity_file)!
+		identity:        identity
 		allow_anonymous: cfg.allow_anonymous
 	) or {
 		signalling.close()
@@ -57,6 +61,16 @@ pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
 		signalling: signalling
 		inner:      inner
 	}
+}
+
+fn identity_domain(cfg NetherNetConfig, status Status) string {
+	if cfg.identity_domain != '' {
+		return cfg.identity_domain
+	}
+	if status.motd != '' {
+		return status.motd
+	}
+	return 'vedrock'
 }
 
 // accept takes the next client connection, waiting up to timeout for one.

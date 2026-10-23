@@ -8,8 +8,8 @@ import bedrock_v.nethernet as nn
 // coordinates.
 const identity_public_key_size = 97
 
-fn load_identity(path string) !nn.Identity {
-	return nn.generate_server_identity(load_identity_key(path)!, 'vedrock')!
+fn load_identity(path string, domain string) !nn.Identity {
+	return nn.generate_server_identity(load_identity_key(path)!, domain)!
 }
 
 // load_identity_key reads the server's key or generates one and keeps it at
