@@ -1,13 +1,12 @@
-module nethernet
+module network
 
 import time
 import bedrock_v.protocol
 import bedrock_v.nethernet as nn
 import bedrock_v.nethernet.endpoint
-import server.net
 
-// Config is what a NetherNet listener needs that no other transport does.
-pub struct Config {
+// NetherNetConfig is what the NetherNet listener needs to bind.
+pub struct NetherNetConfig {
 pub:
 	// address is the interface the signalling endpoint binds.
 	address string = '0.0.0.0'
@@ -17,32 +16,29 @@ pub:
 	// recognising it.
 	identity_file string = 'identity.key'
 	// allow_anonymous accepts an offer carrying no identity assertion. The game
-	// leaves the assertion out of most of its offers, and refusing those would
+	// leaves the assertion out of most of its offers and refusing those would
 	// refuse most clients.
 	allow_anonymous bool = true
 }
 
-// listener builds a NetherNet listener for a server's Config.listeners.
-pub fn listener(cfg Config) net.ListenerFn {
-	return fn [cfg] (status net.Status) !net.Listener {
+// nethernet builds a NetherNet listener for a server's Config.listeners.
+pub fn nethernet(cfg NetherNetConfig) ListenerFn {
+	return fn [cfg] (status Status) !Listener {
 		return listen(cfg, status)!
 	}
 }
 
-// Listener accepts NetherNet clients.
-//
-// NetherNet negotiates nothing without a signalling channel first. This binds
-// the HTTP one, which is what a client uses when it joins by address.
-pub struct Listener {
-	cfg    Config
-	status net.Status
+// NetherNetListener accepts NetherNet clients.
+pub struct NetherNetListener {
+	cfg    NetherNetConfig
+	status Status
 mut:
 	signalling &endpoint.EndpointHandler
 	inner      &nn.Listener
 }
 
 // listen binds the signalling endpoint and the connection listener over it.
-pub fn listen(cfg Config, status net.Status) !&Listener {
+pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
 	mut signalling := endpoint.listen(
 		address:    '${cfg.address}:${cfg.port}'
 		network_id: status.network_id.str()
@@ -55,7 +51,7 @@ pub fn listen(cfg Config, status net.Status) !&Listener {
 		signalling.close()
 		return err
 	}
-	return &Listener{
+	return &NetherNetListener{
 		cfg:        cfg
 		status:     status
 		signalling: signalling
@@ -64,32 +60,30 @@ pub fn listen(cfg Config, status net.Status) !&Listener {
 }
 
 // accept takes the next client connection, waiting up to timeout for one.
-pub fn (mut l Listener) accept(timeout time.Duration) !net.Wire {
+pub fn (mut l NetherNetListener) accept(timeout time.Duration) !Wire {
 	mut conn := l.inner.accept(timeout)!
-	return &Wire{
+	return &NetherNetWire{
 		conn: conn
 	}
 }
 
 // announce updates the player count a client sees before it joins.
-pub fn (mut l Listener) announce(online int) {
+pub fn (mut l NetherNetListener) announce(online int) {
 	l.signalling.pong_data(pong_data(l.cfg, l.status, online).bytes())
 }
 
 // addr is where the listener is bound.
-pub fn (l &Listener) addr() string {
+pub fn (l &NetherNetListener) addr() string {
 	return '${l.cfg.address}:${l.cfg.port}'
 }
 
-pub fn (mut l Listener) close() {
+pub fn (mut l NetherNetListener) close() {
 	l.inner.close()
 	l.signalling.close()
 }
 
-// pong_data is the server description a client reads before it joins. The
-// fields are semicolon separated, the way the game has written them since this
-// was a LAN broadcast.
-fn pong_data(cfg Config, status net.Status, online int) string {
+// pong_data is the server description a client reads before it joins.
+fn pong_data(cfg NetherNetConfig, status Status, online int) string {
 	fields := ['MCPE', status.motd, protocol.protocol_id.str(), protocol.minecraft_version,
 		online.str(), status.max_players.str(), status.network_id.str(), status.sub_motd, 'Survival',
 		'1', cfg.port.str(), cfg.port.str()]
@@ -97,29 +91,25 @@ fn pong_data(cfg Config, status net.Status, online int) string {
 	return fields.join(';') + ';'
 }
 
-// Wire is a NetherNet connection as whole messages in and out.
-pub struct Wire {
+// NetherNetWire is a NetherNet connection as whole messages in and out.
+struct NetherNetWire {
 mut:
 	conn &nn.Conn
 }
 
-pub fn (mut w Wire) read_message() ![]u8 {
+pub fn (mut w NetherNetWire) read_message() ![]u8 {
 	return w.conn.read_packet()!
 }
 
-pub fn (mut w Wire) write_message(b []u8) ! {
+pub fn (mut w NetherNetWire) write_message(b []u8) ! {
 	_ := w.conn.write(b)!
 }
 
-pub fn (mut w Wire) remote() string {
+pub fn (mut w NetherNetWire) remote() string {
 	return remote_endpoint(w.conn.remote_addr())
 }
 
-pub fn (mut w Wire) encrypted() bool {
-	return w.conn.disable_encryption()
-}
-
-pub fn (mut w Wire) close() {
+pub fn (mut w NetherNetWire) close() {
 	w.conn.close()
 }
 

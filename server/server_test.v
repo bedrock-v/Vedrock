@@ -2,7 +2,7 @@ module server
 
 import sync
 import time
-import server.net
+import server.network
 
 // CloseCount is shared with the listeners a test builds, so a test can see one
 // being closed.
@@ -18,7 +18,7 @@ mut:
 	closes &CloseCount
 }
 
-fn (mut l FakeListener) accept(timeout time.Duration) !net.Wire {
+fn (mut l FakeListener) accept(timeout time.Duration) !network.Wire {
 	return error('no client arrived')
 }
 
@@ -32,16 +32,16 @@ fn (mut l FakeListener) close() {
 	l.closes.n++
 }
 
-fn binds(closes &CloseCount) net.ListenerFn {
-	return fn [closes] (status net.Status) !net.Listener {
+fn binds(closes &CloseCount) network.ListenerFn {
+	return fn [closes] (status network.Status) !network.Listener {
 		return &FakeListener{
 			closes: unsafe { closes }
 		}
 	}
 }
 
-fn refuses_to_bind() net.ListenerFn {
-	return fn (status net.Status) !net.Listener {
+fn refuses_to_bind() network.ListenerFn {
+	return fn (status network.Status) !network.Listener {
 		return error('this transport could not bind')
 	}
 }
@@ -91,10 +91,6 @@ fn (mut w BlockingWire) remote() string {
 	return 'blocking'
 }
 
-fn (mut w BlockingWire) encrypted() bool {
-	return true
-}
-
 fn (mut w BlockingWire) close() {
 	w.guard.lock()
 	defer {
@@ -130,7 +126,7 @@ mut:
 	given bool
 }
 
-fn (mut l OneClientListener) accept(timeout time.Duration) !net.Wire {
+fn (mut l OneClientListener) accept(timeout time.Duration) !network.Wire {
 	if l.given {
 		return error('no client arrived')
 	}
@@ -146,8 +142,8 @@ fn (l &OneClientListener) addr() string {
 
 fn (mut l OneClientListener) close() {}
 
-fn gives(wire &BlockingWire) net.ListenerFn {
-	return fn [wire] (status net.Status) !net.Listener {
+fn gives(wire &BlockingWire) network.ListenerFn {
+	return fn [wire] (status network.Status) !network.Listener {
 		return &OneClientListener{
 			wire: unsafe { wire }
 		}
@@ -183,7 +179,7 @@ mut:
 	next  int
 }
 
-fn (mut l ManyClientListener) accept(timeout time.Duration) !net.Wire {
+fn (mut l ManyClientListener) accept(timeout time.Duration) !network.Wire {
 	if l.next >= l.wires.len {
 		return error('no client arrived')
 	}
@@ -199,8 +195,8 @@ fn (l &ManyClientListener) addr() string {
 
 fn (mut l ManyClientListener) close() {}
 
-fn gives_all(wires []&BlockingWire) net.ListenerFn {
-	return fn [wires] (status net.Status) !net.Listener {
+fn gives_all(wires []&BlockingWire) network.ListenerFn {
+	return fn [wires] (status network.Status) !network.Listener {
 		return &ManyClientListener{
 			wires: wires
 		}

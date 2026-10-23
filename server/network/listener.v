@@ -1,24 +1,24 @@
-module net
+module network
 
 import time
 
-// Status is what a client is told about a server before it joins. A transport
+// Status is what a client is told about a server before it joins. A listener
 // needs it to answer a query. Whatever else goes in that answer is the
-// transport's own business.
+// listener's own business.
 pub struct Status {
 pub:
 	motd        string = 'Vedrock'
 	sub_motd    string = 'Vedrock'
 	max_players int    = 20
-	// network_id names this server to a transport that needs an id of its own.
+	// network_id is the id NetherNet signalling knows this server by.
 	network_id u64
 }
 
-// Listener accepts clients over one transport.
+// Listener accepts clients. NetherNetListener is the one that reaches the
+// network. Tests stand in their own.
 pub interface Listener {
 	// accept takes the next client, waiting up to timeout for one. It fails when
-	// none arrived, which is how a caller gets to look at whether it is still
-	// running.
+	// none arrived.
 mut:
 	accept(timeout time.Duration) !Wire
 	// announce sets the player count a client sees before it joins.

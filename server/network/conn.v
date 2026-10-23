@@ -1,6 +1,5 @@
-module net
+module network
 
-import sync
 import bedrock_v.protocol
 import bedrock_v.protocol.serializer
 
@@ -12,9 +11,6 @@ mut:
 	write_message(b []u8) !
 	// remote names the peer for logs and messages.
 	remote() string
-	// encrypted reports whether the transport already encrypts every byte. The
-	// game's own encryption handshake is skipped when it does.
-	encrypted() bool
 	close()
 }
 
@@ -39,12 +35,6 @@ mut:
 	reads       int
 	compression bool
 	threshold   int = default_compression_threshold
-	// cipher is the game's own encryption, installed when the transport does
-	// not encrypt on its own. nil until the handshake sets it up.
-	cipher &Cipher = unsafe { nil }
-	// writes serializes outbound messages. The cipher's keystream is stateful,
-	// so messages have to be encrypted in the order they are written.
-	writes &sync.Mutex = sync.new_mutex()
 }
 
 // new_conn wraps a wire in the packet layer.
@@ -84,13 +74,8 @@ pub fn (mut c Conn) read() !protocol.Packet {
 // plenty the server doesn't implement and one of them is not a reason to
 // drop the connection.
 fn (mut c Conn) fill() ! {
-	mut message := c.wire.read_message()!
+	message := c.wire.read_message()!
 	c.reads++
-	if c.cipher != unsafe { nil } {
-		// Only the reading thread decrypts. The receive keystream needs no lock
-		// of its own.
-		message = c.cipher.decrypt(message)!
-	}
 	batch := decode_batch(message, c.compression)!
 	c.pending = []protocol.Packet{cap: batch.len}
 	c.next = 0
@@ -116,13 +101,7 @@ pub fn (mut c Conn) write_batch(ps []protocol.Packet) ! {
 	for p in ps {
 		encoded << protocol.encode_packet_to_bytes(p)
 	}
-	batch := encode_batch(encoded, c.compression, c.threshold)!
-	c.writes.lock()
-	defer {
-		c.writes.unlock()
-	}
-	message := if c.cipher != unsafe { nil } { c.cipher.encrypt(batch) } else { batch }
-	c.wire.write_message(message)!
+	c.wire.write_message(encode_batch(encoded, c.compression, c.threshold)!)!
 }
 
 // enable_compression compresses every message from here on. The client is told
@@ -133,29 +112,8 @@ pub fn (mut c Conn) enable_compression(threshold int) {
 	c.threshold = threshold
 }
 
-// enable_encryption encrypts every message from here on.
-//
-// The packet that tells the client to expect this has to have gone out first.
-// The client reads that one in the clear and installs its own cipher after it.
-fn (mut c Conn) enable_encryption(mut cipher Cipher) {
-	c.writes.lock()
-	c.cipher = cipher
-	c.writes.unlock()
-}
-
-// encrypting reports whether the game's own encryption is on. The transport may
-// be encrypting on its own. See Wire.encrypted.
-pub fn (mut c Conn) encrypting() bool {
-	return c.cipher != unsafe { nil }
-}
-
 pub fn (mut c Conn) remote() string {
 	return c.wire.remote()
-}
-
-// encrypted reports whether the transport encrypts every byte on its own.
-pub fn (mut c Conn) encrypted() bool {
-	return c.wire.encrypted()
 }
 
 // dropped is how many packets this server had no type for.

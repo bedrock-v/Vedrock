@@ -1,10 +1,10 @@
-module net
+module network
 
 import compress.deflate
 import bedrock_v.protocol.serializer
 
-// The first byte of a message says how the batch after it is compressed. A
-// NetherNet message is that byte and the batch, with no packet header in front.
+// The first byte of a message says how the batch after it is compressed.
+// A NetherNet message is that byte and the batch with no packet header in front.
 const compression_flate = u8(0x00)
 const compression_none = u8(0xff)
 
@@ -34,17 +34,16 @@ fn encode_batch(packets [][]u8, compression bool, threshold int) ![]u8 {
 		return out
 	}
 	out << compression_flate
-	// Raw deflate with no zlib header, which is what the game calls flate here.
+	// Raw deflate with no zlib header which is what the game calls flate here.
 	out << deflate.compress_raw(batch)!
 	return out
 }
 
 // inflate decompresses a batch and gives up once the output passes limit.
 //
-// Deflate expands by up to about a thousand to one, so a message that fits
+// Deflate expands by up to about a thousand to one and a message that fits
 // inside max_compressed_batch can still ask for gigabytes. The limit is checked
-// as the output arrives rather than afterwards, which is the difference between
-// refusing the message and allocating what it asked for first.
+// as the output arrives rather than afterwards.
 fn inflate(body []u8, limit int) ![]u8 {
 	mut out := &Inflated{
 		limit: limit

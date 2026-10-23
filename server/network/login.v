@@ -1,4 +1,4 @@
-module net
+module network
 
 import x.json2
 import encoding.base64
@@ -21,9 +21,6 @@ pub:
 	xuid               string
 	uuid               string
 	xbox_authenticated bool
-	// client_public_key is the key the client signed its chain with, in the form
-	// the chain carries it in. The encryption handshake encrypts to it.
-	client_public_key string
 }
 
 // LoginConfig is what the login sequence needs to know from the server.
@@ -106,28 +103,12 @@ fn (mut h Handshake) login() !Identity {
 		if p is packets.LoginPacket {
 			identity := read_identity(p.connection_request)!
 			check_identity(identity)!
-			// Everything after this goes out encrypted, including the status
-			// below. The switch happens before the client is told it is in.
-			if !h.conn.encrypted() {
-				h.start_encryption(identity.client_public_key)!
-			}
 			h.conn.write(&packets.PlayStatusPacket{
 				status: .login_success
 			})!
 			return identity
 		}
 	}
-}
-
-fn (mut h Handshake) start_encryption(client_public_key string) ! {
-	if client_public_key == '' {
-		return error('client sent no public key to encrypt to')
-	}
-	mut e := prepare_encryption(client_public_key)!
-	h.conn.write(&packets.ServerToClientHandshakePacket{
-		handshake_web_token: e.jwt
-	})!
-	h.conn.enable_encryption(mut e.cipher)
 }
 
 // resource_packs negotiates the packs the client has to have. This server
@@ -214,8 +195,8 @@ fn check_identity(identity Identity) ! {
 // read_identity reads the client's claimed identity out of the login request.
 //
 // The request holds a chain of JWTs. The last link carries the player's name
-// and account ids under extraData and each link carries the key the next one
-// is signed with. Signatures are not checked here. See Identity.
+// and account ids under extraData. Signatures are not checked here. See
+// Identity.
 fn read_identity(connection_request []u8) !Identity {
 	mut r := serializer.new_reader(connection_request)
 	length := int(r.le_u32()!)
@@ -225,21 +206,16 @@ fn read_identity(connection_request []u8) !Identity {
 		return error('login request carried no certificate chain')
 	}
 	mut extra := map[string]json2.Any{}
-	mut client_key := ''
 	for token in chain {
 		payload := jwt_payload(token)!
-		if 'identityPublicKey' in payload {
-			client_key = field(payload, 'identityPublicKey')
-		}
 		if 'extraData' in payload {
 			extra = (payload['extraData'] or { json2.Any('') }).as_map()
 		}
 	}
 	return Identity{
-		display_name:      field(extra, 'displayName')
-		xuid:              field(extra, 'XUID')
-		uuid:              field(extra, 'identity')
-		client_public_key: client_key
+		display_name: field(extra, 'displayName')
+		xuid:         field(extra, 'XUID')
+		uuid:         field(extra, 'identity')
 	}
 }
 
@@ -277,8 +253,6 @@ fn jwt_payload(token string) !map[string]json2.Any {
 	if parts.len != 3 {
 		return error('chain token is not a JWT')
 	}
-	// A JWT is base64url, which differs in the last two characters of the
-	// alphabet and leaves the padding out.
 	return json2.decode[json2.Any](base64.url_decode(parts[1]).bytestr())!.as_map()
 }
 

@@ -3,7 +3,7 @@ module server
 import sync
 import sync.stdatomic
 import time
-import server.net
+import server.network
 import server.session
 import server.world
 
@@ -19,7 +19,7 @@ const accept_poll = 500 * time.millisecond
 pub struct Server {
 	cfg Config
 mut:
-	listeners []net.Listener
+	listeners []network.Listener
 	overworld &world.Runtime
 	// loops is held by the accept loop of each listener. An accept loop waits for
 	// the clients it accepted before it lets go and this covers every thread the
@@ -33,7 +33,7 @@ mut:
 	next_conn &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
 	// conns holds every accepted connection, logged in or not. Shutting down
 	// ends them instead of leaving their threads on a socket nobody reads.
-	conns map[u64]&net.Conn
+	conns map[u64]&network.Conn
 	// pending holds when each connection that has not logged in yet arrived.
 	pending map[u64]time.Time
 	// players is how many of them were admitted. It is what max_players counts
@@ -52,7 +52,7 @@ pub fn new(cfg Config) !&Server {
 		return error('a server with no listeners would accept nobody')
 	}
 	status := cfg.status()
-	mut listeners := []net.Listener{cap: cfg.listeners.len}
+	mut listeners := []network.Listener{cap: cfg.listeners.len}
 	for build in cfg.listeners {
 		listeners << build(status) or {
 			// The ones already bound hold ports and a server that failed to
@@ -101,7 +101,7 @@ fn (mut s Server) accept_loop(index int) {
 		s.drop_slow_logins()
 		mut listener := s.listeners[index]
 		mut wire := listener.accept(accept_poll) or { continue }
-		mut conn := net.new_conn(mut wire)
+		mut conn := network.new_conn(mut wire)
 		cid := s.add_conn(mut conn) or {
 			conn.close()
 			continue
@@ -116,23 +116,23 @@ fn (mut s Server) accept_loop(index int) {
 }
 
 // admit takes a client through login and runs its session.
-fn (mut s Server) admit(cid u64, mut conn net.Conn, mut handlers sync.WaitGroup) {
+fn (mut s Server) admit(cid u64, mut conn network.Conn, mut handlers sync.WaitGroup) {
 	defer {
 		s.remove_conn(cid)
 		conn.close()
 		handlers.done()
 	}
 	remote := conn.remote()
-	identity := net.handshake(mut conn, s.cfg.login) or {
+	identity := network.handshake(mut conn, s.cfg.login) or {
 		// TODO There's no logger in the rewrite yet and a login that fails without
 		// leaving a trace is one nobody can explain.
 		eprintln('vedrock: login from ${remote} failed: ${err}')
-		net.disconnect(mut conn, 'Login failed.')
+		network.disconnect(mut conn, 'Login failed.')
 		return
 	}
 	s.finished_login(cid)
 	if !s.reserve_slot() {
-		net.disconnect(mut conn, 'The server is full!')
+		network.disconnect(mut conn, 'The server is full!')
 		return
 	}
 	id := s.next_id.add(1)
@@ -142,7 +142,7 @@ fn (mut s Server) admit(cid u64, mut conn net.Conn, mut handlers sync.WaitGroup)
 		return true
 	}) or {
 		s.free_slot()
-		net.disconnect(mut conn, 'The world could not take you.')
+		network.disconnect(mut conn, 'The world could not take you.')
 		return
 	}
 	mut sess := session.new_session(mut conn, h)
@@ -192,7 +192,7 @@ pub fn (mut s Server) player_count() int {
 }
 
 // add_conn takes a connection the server will answer or refuses it.
-fn (mut s Server) add_conn(mut conn net.Conn) ?u64 {
+fn (mut s Server) add_conn(mut conn network.Conn) ?u64 {
 	s.live_mutex.lock()
 	defer {
 		s.live_mutex.unlock()
@@ -229,7 +229,7 @@ fn (mut s Server) finished_login(cid u64) {
 fn (mut s Server) drop_slow_logins() {
 	now := time.now()
 	s.live_mutex.lock()
-	mut late := []&net.Conn{}
+	mut late := []&network.Conn{}
 	for cid, since in s.pending {
 		if now - since > s.cfg.login_timeout {
 			if conn := s.conns[cid] {

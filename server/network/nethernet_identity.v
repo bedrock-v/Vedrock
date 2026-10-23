@@ -1,4 +1,4 @@
-module nethernet
+module network
 
 import os
 import crypto.ecdsa
