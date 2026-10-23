@@ -274,7 +274,7 @@ fn test_timed_out_login_cannot_join() {
 	}) or { panic(err) }
 	mut wire := &BlockingWire{}
 	mut conn := network.new_conn(mut wire)
-	cid := srv.add_conn(mut conn) or { panic(err) }
+	cid := srv.add_conn(mut conn) or { panic('refused') }
 	srv.drop_slow_logins()
 	assert wire.is_closed()
 	assert !srv.finished_login(cid)
