@@ -47,7 +47,7 @@ fn (mut r PayloadWalker) varuint() !int {
 
 fn (mut r PayloadWalker) varint() !int {
 	value := u32(r.varuint()!)
-	return int((value >> 1) ^ (-(value & 1)))
+	return int(i32((value >> 1) ^ (-(value & 1))))
 }
 
 fn (mut r PayloadWalker) boolean() !bool {

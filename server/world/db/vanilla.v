@@ -135,7 +135,7 @@ fn (mut r SubchunkReader) i32_le() !int {
 	for i in 0 .. 4 {
 		v |= u32(r.u8()!) << (i * 8)
 	}
-	return int(v)
+	return int(i32(v))
 }
 
 fn (mut r SubchunkReader) str_le() !string {
