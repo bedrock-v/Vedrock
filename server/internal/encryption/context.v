@@ -75,8 +75,8 @@ pub fn new_context(key []u8) !&Context {
 	iv[15] = 0x02
 	return &Context{
 		key:            key.clone()
-		encrypt_stream: new_ctr_stream(aes.new_cipher(key), iv)
-		decrypt_stream: new_ctr_stream(aes.new_cipher(key), iv)
+		encrypt_stream: new_ctr_stream(aes.new_cipher(key)!, iv)
+		decrypt_stream: new_ctr_stream(aes.new_cipher(key)!, iv)
 	}
 }
 

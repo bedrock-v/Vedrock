@@ -121,6 +121,8 @@ pub fn (mut m Manager) restore_from_save(reg &Registry, saved []SaveData) {
 			actor: e
 		}
 		m.mutex.unlock()
-		m.host.broadcast_near(e.pos.x, e.pos.y, e.pos.z, view_radius, e.spawn_packet())
+		for mut v in m.host.viewers_near(e.pos.x, e.pos.y, e.pos.z, view_radius) {
+			v.view_entity_spawn(e)
+		}
 	}
 }

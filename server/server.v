@@ -19,13 +19,15 @@ import server.world
 import server.resourcepack
 import server.permission
 import server.crash
-import server.event
+import server.player
+import server.worldrt
 import server.player.playerdb
 import sync
 import sync.stdatomic
 import bedrock_v.protocol.current as proto
 import bedrock_v.webrtc.logging
 import bedrock_v.webrtc.ice
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 // nethernet_identity_domain names the issuer of the server's identity token
 // when the config leaves it blank and there is no MOTD to fall back on. Bedrock
@@ -132,7 +134,7 @@ fn load_resource_packs(cfg conf.Config, log &logger.Logger, lang &language.Lang)
 		path := os.join_path(cfg.resource_packs_dir, name)
 		if pack := resourcepack.new_local_pack(path) {
 			reg.add(pack)
-			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes)')
+			log.debug('Loaded resource pack ${pack.uuid} v${pack.version} (${pack.size} bytes, encrypted=${pack.has_content_key()})')
 		} else {
 			log.warn('Failed to load resource pack ${name}: ${err}')
 		}
@@ -167,9 +169,7 @@ pub fn new(opts Options) !&Server {
 	lang := language.load(cfg.language) or {
 		log.warn('Failed to load language "${cfg.language}", falling back to en: ${err}')
 		language.load('en') or {
-			if path := crash.write_dump(cfg.crashdumps_dir, time.now().unix(),
-				'fatal: language load failed', err.msg())
-			{
+			if path := crash.write_dump(cfg.crashdumps_dir, time.now().unix(), 'fatal: language load failed', err.msg()) {
 				log.error('Wrote crash report to ${path}')
 			}
 			return error('failed to load any language, including the "en" fallback: ${err}')
@@ -223,6 +223,7 @@ pub fn new(opts Options) !&Server {
 	}
 	if palette := world.load_palette(os.join_path('data', 'block_palette.nbt')) {
 		hub.set_palette(palette)
+		world.set_block_palette(palette)
 		log.debug('Loaded ${palette.len()} block states')
 	} else {
 		log.warn('Failed to load block palette: ${err}')
@@ -235,8 +236,7 @@ pub fn new(opts Options) !&Server {
 	// parse peak rather than carrying it for the process's lifetime.
 	release_free_heap()
 	log.debug('After data load ${heap_summary()}')
-	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds,
-		cfg.generator, log, lang)
+	hub.load_configured_worlds(cfg.worlds_dir, cfg.default_world, cfg.load_all_worlds, cfg.generator, log, lang)
 	return &Server{
 		log:        log
 		lang:       lang
@@ -353,7 +353,7 @@ fn (s &Server) transport_log_level() logging.Level {
 // error if the network identity or a listener fails to bind.
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
-		'Version': proto.selected_minecraft_version
+		'Version': proto.proto_version.minecraft_version()
 	}))
 	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
 		log: s.log
@@ -379,8 +379,7 @@ pub fn (mut s Server) start() ! {
 		network_id: u64(s.guid)
 		broadcast:  false
 		logger:     net_log
-	)
-	{
+	) {
 		sig.pong_data(s.pong_data(0).bytes())
 		listener = nethernet.listen(mut sig, listen_options) or {
 			sig.close()
@@ -515,7 +514,7 @@ fn (mut s Server) tick_loop() {
 		tick++
 		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
-			s.hub.broadcast(&proto.SetTimePacket{
+			s.hub.broadcast(&packets_662.SetTimePacket{
 				time: world_time
 			})
 			pong := s.pong_data(s.hub.count()).bytes()
@@ -525,9 +524,7 @@ fn (mut s Server) tick_loop() {
 			s.endpoint.pong_data(pong)
 		}
 		if tick % world_flush_interval_ticks == 0 {
-			for msg in s.hub.flush_worlds() {
-				s.log.warn('World flush failed: ${msg}')
-			}
+			s.hub.request_world_flushes()
 		}
 		if tick % heap_release_interval_ticks == 0 {
 			release_free_heap()
@@ -643,9 +640,9 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 // one for each address family.
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
-	return
-		['MCPE', s.cfg.motd, proto.selected_protocol.str(), proto.selected_minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(), s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') +
-		';'
+	return ['MCPE', s.cfg.motd, int(proto.proto_version.protocol_id()).str(),
+		proto.proto_version.minecraft_version(), online.str(), s.cfg.max_players.str(), s.guid.str(),
+		s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') + ';'
 }
 
 fn normalize_gamemode(name string) (string, int) {
@@ -689,14 +686,18 @@ pub fn (mut s Server) stop() {
 	}
 }
 
-// register_event adds handler to the server's global event bus.
-pub fn (mut s Server) register_event(handler event.Handler, priority event.Priority) {
-	s.hub.register_event(handler, priority)
+// handle_players sets the handler every player who connects from now on
+// starts with. It receives everything a player causes or experiences.
+//
+// A player can be given a different handler individually.
+pub fn (mut s Server) handle_players(handler player.Handler) {
+	s.hub.handle_players(handler)
 }
 
-// unregister_event removes handler from the global event bus.
-pub fn (mut s Server) unregister_event(handler event.Handler) {
-	s.hub.unregister_event(handler)
+// handle_worlds sets the handler every world created from now on starts with.
+// It receives what happens in a world without a player causing it.
+pub fn (mut s Server) handle_worlds(handler worldrt.Handler) {
+	s.hub.handle_worlds(handler)
 }
 
 // register_command adds command to the server's command registry.
@@ -745,6 +746,9 @@ pub:
 	name           string
 	dimension      world.Dimension = world.overworld
 	generator_name string
+	// seed is used only when the world is created: none gives it a random
+	// one and a world that already exists keeps the seed it was made with.
+	seed ?i64
 }
 
 // load_world returns the loaded world, loading it from storage or creating
@@ -756,7 +760,7 @@ pub fn (mut s Server) load_world(config WorldConfig) !session.World {
 	if handle := s.hub.world_handle(config.name) {
 		return handle
 	}
-	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name)!
+	s.hub.load_or_create_world(config.name, config.dimension, config.generator_name, config.seed)!
 	return s.hub.world_handle(config.name) or {
 		error('world "${config.name}" failed to register after loading')
 	}
@@ -790,7 +794,7 @@ pub fn (mut s Server) unload_world(name string) ! {
 // register_generator makes a custom world generator available under name,
 // so load_world/WorldConfig can select it by that name for a new world.
 // Register before loading any world that uses it.
-pub fn (mut s Server) register_generator(name string, factory fn (dim world.Dimension) world.Generator) {
+pub fn (mut s Server) register_generator(name string, factory world.GeneratorFactory) {
 	s.hub.register_generator(name, factory)
 }
 

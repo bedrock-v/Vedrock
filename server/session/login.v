@@ -7,6 +7,11 @@ import server.internal.encryption
 import server.resourcepack
 import bedrock_v.protocol.serializer
 import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v662.types as types_662
 
 fn login_chain_json(connection_request []u8) !string {
 	mut r := serializer.new_reader(connection_request)
@@ -14,31 +19,31 @@ fn login_chain_json(connection_request []u8) !string {
 	return r.read_raw(auth_len)!.bytestr()
 }
 
-fn (mut s NetworkSession) handle_request_network_settings(p proto.RequestNetworkSettingsPacket) ! {
+fn (mut s NetworkSession) handle_request_network_settings(p packets_662.RequestNetworkSettingsPacket) ! {
 	client_protocol := p.client_network_version
 	s.log.debug('Client requested network settings (protocol ${client_protocol})')
-	if client_protocol != proto.selected_protocol {
-		status := if client_protocol < proto.selected_protocol {
-			proto.PlayStatus.login_failed_client_old
+	if client_protocol != int(proto.proto_version.protocol_id()) {
+		status := if client_protocol < int(proto.proto_version.protocol_id()) {
+			enums_662.PlayStatus.login_failed_client_old
 		} else {
-			proto.PlayStatus.login_failed_server_old
+			enums_662.PlayStatus.login_failed_server_old
 		}
-		s.log.warn('Rejected client with protocol ${client_protocol} (server requires ${proto.selected_protocol})')
-		s.transport.send(&proto.PlayStatusPacket{
+		s.log.warn('Rejected client with protocol ${client_protocol} (server requires ${int(proto.proto_version.protocol_id())})')
+		s.conn.transport.send(&packets_662.PlayStatusPacket{
 			status: status
 		})!
-		s.reject_bootstrap('Incompatible client version. Server requires ${proto.selected_minecraft_version}.')
+		s.reject_bootstrap('Incompatible client version. Server requires ${proto.proto_version.minecraft_version()}.')
 		return
 	}
-	s.transport.send(&proto.NetworkSettingsPacket{
+	s.conn.transport.send(&packets_662.NetworkSettingsPacket{
 		compression_threshold:     u16(s.cfg.compression_threshold)
-		compression_algorithm:     proto.PacketCompressionAlgorithm.z_lib
+		compression_algorithm:     enums_662.PacketCompressionAlgorithm.z_lib
 		client_throttle_enabled:   false
 		client_throttle_threshold: 0
 		client_throttle_scalar:    0.0
 	})!
-	s.transport.enable_compression(s.cfg.compression_threshold)
-	s.state = .login
+	s.conn.transport.enable_compression(s.cfg.compression_threshold)
+	s.conn.state = .login
 }
 
 // Identity field bounds. display_name is the vanilla gamertag limit; xuid/uuid
@@ -47,7 +52,7 @@ const max_display_name = 32
 const max_xuid_len = 32
 const max_uuid_len = 64
 
-fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
+fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 	auth_info_json := login_chain_json(p.connection_request) or {
 		s.log.warn('Malformed login connection request: ${err}')
 		s.reject_bootstrap('Login failed: malformed connection request')
@@ -64,12 +69,12 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	// Validate the fields regardless so downstream code (whitelist, ops, grants,
 	// data files keyed by these strings) never sees empty or oversized input.
 	s.validate_identity(claimed) or {
-		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${err}')
+		s.log.warn('Rejected login from ${s.conn.transport.remote_addr()}: ${err}')
 		s.reject_bootstrap('Login failed: invalid identity')
 		return
 	}
 	if reason := s.transport_identity_refusal(claimed) {
-		s.log.warn('Rejected login from ${s.transport.remote_addr()}: ${reason}')
+		s.log.warn('Rejected login from ${s.conn.transport.remote_addr()}: ${reason}')
 		s.reject_bootstrap('Login failed: ${reason}')
 		return
 	}
@@ -93,14 +98,13 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 		return
 	}
 	s.player.identity = identity
-	s.transport.mark_logged_in()
+	s.conn.transport.mark_logged_in()
 	s.player.perm.set_op(s.hub.is_op(identity.display_name))
 	// xuid/uuid grants (player_permissions.yml's "xuid:"/"uuid:" lines) are only
 	// meaningful for a verified account. trusted_identity has already cleared
 	// both for an unverified chain, so an offline login can never match another
 	// player's xuid/uuid-keyed grants.
-	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, identity.xuid,
-		identity.uuid)
+	s.hub.player_grants.apply(mut s.player.perm, identity.display_name, identity.xuid, identity.uuid)
 	mode := if identity.xbox_authenticated { 'Xbox Live' } else { 'offline' }
 	logger.name_thread(identity.display_name)
 	s.log.debug('${identity.display_name} authenticated [${mode}] xuid=${identity.xuid} uuid=${identity.uuid}')
@@ -109,13 +113,13 @@ fn (mut s NetworkSession) handle_login(p proto.LoginPacket) ! {
 	// byte (NetherNet's DTLS), and gated behind the encryption config flag. If
 	// the client sent no public key, or the handshake fails, we fall back to
 	// cleartext rather than dropping the player.
-	if s.cfg.encryption && !s.transport.disable_encryption() {
+	if s.cfg.encryption && !s.conn.transport.disable_encryption() {
 		s.start_encryption(identity.client_public_key) or {
 			s.log.warn('Encryption handshake skipped for ${identity.display_name}: ${err}')
 		}
 	}
-	s.transport.send(&proto.PlayStatusPacket{
-		status: proto.PlayStatus.login_success
+	s.conn.transport.send(&packets_662.PlayStatusPacket{
+		status: enums_662.PlayStatus.login_success
 	})!
 	s.start_resource_packs()!
 }
@@ -132,16 +136,16 @@ fn (mut s NetworkSession) start_encryption(client_public_key string) ! {
 	result := encryption.prepare_handshake(client_public_key)!
 	mut ctx := encryption.new_context(result.key)!
 	// Must be flushed in cleartext before the cipher is installed.
-	s.transport.send(&proto.ServerToClientHandshakePacket{
+	s.conn.transport.send(&packets_662.ServerToClientHandshakePacket{
 		handshake_web_token: result.handshake_jwt
 	})!
-	s.transport.enable_encryption(mut ctx)
-	s.encryption_enabled = true
+	s.conn.transport.enable_encryption(mut ctx)
+	s.conn.encryption_enabled = true
 	s.log.debug('Encryption enabled for ${s.player.identity.display_name}')
 }
 
-fn (mut s NetworkSession) handle_client_to_server_handshake(_ proto.ClientToServerHandshakePacket) ! {
-	if !s.encryption_enabled {
+fn (mut s NetworkSession) handle_client_to_server_handshake(_ packets_662.ClientToServerHandshakePacket) ! {
+	if !s.conn.encryption_enabled {
 		s.log.debug('Unexpected ClientToServerHandshake without an active cipher')
 		return
 	}
@@ -165,11 +169,15 @@ fn (s &NetworkSession) transport_identity_refusal(identity auth.Identity) ?strin
 	if !s.cfg.xbox_auth {
 		return none
 	}
-	transport_key := s.transport.transport_identity()
+	transport_key := s.conn.transport.transport_identity()
 	if transport_key == '' {
-		// Either the transport has no such notion, or the peer connected without
-		// an assertion, which only happens where the server was configured to
-		// accept one. There is nothing to compare against in both cases.
+		// RakNet has no such notion and binds the chain through the encryption
+		// handshake instead. A transport that skips that handshake has nothing
+		// else left to bind it with, so an anonymous peer on it could be
+		// replaying anybody's chain.
+		if s.conn.transport.disable_encryption() {
+			return 'the connection was opened without an identity to bind the login chain to'
+		}
 		return none
 	}
 	if !network.identity_key_matches(transport_key, identity.client_public_key) {
@@ -228,22 +236,23 @@ fn trusted_identity(identity auth.Identity) auth.Identity {
 }
 
 fn (mut s NetworkSession) start_resource_packs() ! {
-	mut entries := []proto.ResourcePackEntry{}
+	mut entries := []packets_2168.ResourcePackEntry{}
 	if !isnil(s.hub.packs) {
 		for pack in s.hub.packs.packs {
-			entries << proto.ResourcePackEntry{
-				id:      proto.uuid_from_bytes(pack.uuid_bytes())
-				version: pack.version
-				size:    u64(pack.size)
-				cdn_url: pack.cdn_url
+			entries << packets_2168.ResourcePackEntry{
+				id:          proto.uuid_from_bytes(pack.uuid_bytes())
+				version:     pack.version
+				size:        u64(pack.size)
+				content_key: pack.content_key
+				cdn_url:     pack.cdn_url
 			}
 		}
 	}
-	s.transport.send(&proto.ResourcePacksInfoPacket{
+	s.conn.transport.send(&packets_2168.ResourcePacksInfoPacket{
 		resource_pack_required: s.packs_must_accept()
 		resource_packs:         entries
 	})!
-	s.state = .resource_packs
+	s.conn.state = .resource_packs
 }
 
 fn (s &NetworkSession) packs_must_accept() bool {
@@ -251,26 +260,26 @@ fn (s &NetworkSession) packs_must_accept() bool {
 }
 
 fn (mut s NetworkSession) send_pack_stack() ! {
-	mut stack := []proto.PackEntry{}
+	mut stack := []packets_898.PackEntry{}
 	if !isnil(s.hub.packs) {
 		for pack in s.hub.packs.packs {
-			stack << proto.PackEntry{
+			stack << packets_898.PackEntry{
 				id:      pack.uuid
 				version: pack.version
 			}
 		}
 	}
-	s.transport.send(&proto.ResourcePackStackPacket{
+	s.conn.transport.send(&packets_898.ResourcePackStackPacket{
 		texture_pack_required: s.packs_must_accept()
 		addon_list:            stack
-		base_game_version:     proto.BaseGameVersion{
-			value: proto.selected_minecraft_version
+		base_game_version:     types_662.BaseGameVersion{
+			value: proto.proto_version.minecraft_version()
 		}
-		experiments:           proto.Experiments{}
+		experiments:           types_662.Experiments{}
 	})!
 }
 
-fn (mut s NetworkSession) handle_resource_pack_response(p proto.ResourcePackClientResponsePacket) ! {
+fn (mut s NetworkSession) handle_resource_pack_response(p packets_2168.ResourcePackClientResponsePacket) ! {
 	response := proto.resource_pack_response(p.response)
 	match response {
 		proto.ResourcePackResponseCancel {
@@ -305,19 +314,19 @@ fn (mut s NetworkSession) send_requested_packs(pack_ids []string) ! {
 		if pack.is_cdn() {
 			continue
 		}
-		s.transport.send(&proto.ResourcePackDataInfoPacket{
+		s.conn.transport.send(&packets_662.ResourcePackDataInfoPacket{
 			resource_name: pack.id()
 			chunk_size:    u32(resourcepack.pack_chunk_size)
 			chunk_amount:  u32(pack.chunk_count())
 			file_size:     u64(pack.size)
 			file_hash:     pack.sha256.bytes()
 			is_premium:    false
-			pack_type:     proto.PackType.resources
+			pack_type:     enums_662.PackType.resources
 		})!
 	}
 }
 
-fn (mut s NetworkSession) handle_resource_pack_chunk_request(p proto.ResourcePackChunkRequestPacket) ! {
+fn (mut s NetworkSession) handle_resource_pack_chunk_request(p packets_662.ResourcePackChunkRequestPacket) ! {
 	if isnil(s.hub.packs) {
 		return
 	}
@@ -325,7 +334,7 @@ fn (mut s NetworkSession) handle_resource_pack_chunk_request(p proto.ResourcePac
 		s.log.warn('Chunk request for unknown resource pack ${p.resource_name}')
 		return
 	}
-	s.transport.send(&proto.ResourcePackChunkDataPacket{
+	s.conn.transport.send(&packets_662.ResourcePackChunkDataPacket{
 		resource_name: pack.id()
 		chunk_id:      p.chunk
 		byte_offset:   u64(p.chunk) * u64(resourcepack.pack_chunk_size)

@@ -9,14 +9,16 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -70,15 +72,15 @@ fn test_handle_attack_rejects_out_of_reach() {
 	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
-	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
 	assert victim.player.health() == 20
 }
 
-fn combat_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32, mode player.Gamemode) &NetworkSession {
+fn combat_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, health f32, mode player.Gamemode) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        make_combat_test_player(name, health, mode)
 		runtime_id:    hub.allocate_runtime_id()
@@ -86,11 +88,11 @@ fn combat_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr
-		transport:     &FakeTransport{}
+		conn:          &Conn{ transport: &FakeTransport{} }
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -104,17 +106,16 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelAttackHandler{}, .normal)
-
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
+	attacker.handle(&CancelAttackHandler{})
 	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
 	victim.player.reset_position(types.Vector3{1.0, 0.0, 0.0})
 
-	attacker.handle_attack(victim.runtime_id)!
-	// world_call as a synchronization barrier, guarantees the attack task
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
+	// worldrt.world_call as a synchronization barrier, guarantees the attack task
 	// above has actually landed before checking state.
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -122,10 +123,10 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 }
 
 struct CancelAttackHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelAttackHandler) on_player_attack(mut ctx event.Context[event.AttackData]) {
+fn (mut h CancelAttackHandler) on_player_attack(mut ctx event.Context[player.AttackData]) {
 	ctx.cancel()
 }
 
@@ -144,8 +145,8 @@ fn test_handle_attack_damages_a_mob() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{1.0, 0.0, 0.0})
 
-	attacker.handle_attack(mob.runtime_id)!
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -170,8 +171,8 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 		network_id: 'minecraft:cow'
 	}, types.Vector3{100.0, 0.0, 0.0})
 
-	attacker.handle_attack(mob.runtime_id)!
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -181,7 +182,10 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 	assert still_alive.health == 20.0
 }
 
-fn apply_hurt_test_world(mut hub Hub) &WorldRuntime {
+// The damage tests below drive apply_hurt, Player.die and apply_respawn
+// directly rather than through a task, each builds the transaction the
+// world actor would otherwise have handed it.
+fn apply_hurt_test_world(mut hub Hub) &worldrt.WorldRuntime {
 	w := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(w)
 	return hub.world_runtime('world') or { panic('expected world runtime') }
@@ -190,6 +194,9 @@ fn apply_hurt_test_world(mut hub Hub) &WorldRuntime {
 fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -198,11 +205,11 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 		player:     make_combat_test_player('Steve', 5, .survival)
 		runtime_id: 2
 		hub:        hub
-		transport:  transport
+		conn:       &Conn{ transport: transport }
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 0
 	assert victim.player.is_dead()
 }
@@ -210,6 +217,9 @@ fn test_apply_hurt_clamps_health_at_zero_and_kills() {
 fn test_apply_hurt_creative_is_immune() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -220,7 +230,7 @@ fn test_apply_hurt_creative_is_immune() {
 	}
 	hub.add(victim)
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
 	assert !victim.player.is_dead()
 }
@@ -228,45 +238,51 @@ fn test_apply_hurt_creative_is_immune() {
 fn test_apply_hurt_cancelled_event_prevents_damage() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelHurtHandler{}, .normal)
 	mut victim := &NetworkSession{
 		player:     make_combat_test_player('Steve', 20, .survival)
 		runtime_id: 2
 		hub:        hub
 	}
 	hub.add(victim)
+	victim.handle(&CancelHurtHandler{})
 
-	victim.apply_hurt(mut wr, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
+	victim.apply_hurt(mut tx, 10.0, AttackDamageSource{ attacker_name: 'Alex' })
 	assert victim.player.health() == 20
 	assert !victim.player.is_dead()
 }
 
 struct CancelHurtHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[event.HurtData]) {
+fn (mut h CancelHurtHandler) on_player_hurt(mut ctx event.Context[player.HurtData]) {
 	ctx.cancel()
 }
 
-fn test_apply_death_cancelled_prevents_death_entirely() {
+fn test_die_cancelled_prevents_death_entirely() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelDeathHandler{}, .normal)
 	mut victim := &NetworkSession{
 		player:     make_combat_test_player('Steve', 0, .survival)
 		runtime_id: 2
 		hub:        hub
 	}
 	hub.add(victim)
+	victim.handle(&CancelDeathHandler{})
 
-	victim.apply_death(mut wr, '%death.attack.player', ['Steve', 'Alex'])
+	victim.player.die(mut tx, '%death.attack.player', ['Steve', 'Alex'])
 	// Cancelling DeathData now prevents death outright, dead/has_last_death
 	// stay false, and the animation broadcast is skipped along with the
 	// message.
@@ -275,16 +291,19 @@ fn test_apply_death_cancelled_prevents_death_entirely() {
 }
 
 struct CancelDeathHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelDeathHandler) on_player_death(mut ctx event.Context[event.DeathData]) {
+fn (mut h CancelDeathHandler) on_player_death(mut ctx event.Context[player.DeathData]) {
 	ctx.cancel()
 }
 
-fn test_apply_death_recs_last_death_pos_when_not_cancelled() {
+fn test_die_records_last_death_pos_when_not_cancelled() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -296,7 +315,7 @@ fn test_apply_death_recs_last_death_pos_when_not_cancelled() {
 	victim.player.reset_position(types.Vector3{3.0, 4.0, 5.0})
 	hub.add(victim)
 
-	victim.apply_death(mut wr, '%death.attack.player', ['Steve', 'Alex'])
+	victim.player.die(mut tx, '%death.attack.player', ['Steve', 'Alex'])
 	assert victim.player.is_dead()
 	assert victim.player.has_last_death()
 	assert victim.player.last_death_pos() == types.Vector3{3.0, 4.0, 5.0}
@@ -305,6 +324,9 @@ fn test_apply_death_recs_last_death_pos_when_not_cancelled() {
 fn test_apply_respawn_resets_health_and_position() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -319,7 +341,7 @@ fn test_apply_respawn_resets_health_and_position() {
 		player:     pl
 		runtime_id: 2
 		hub:        hub
-		transport:  transport
+		conn:       &Conn{ transport: transport }
 		generator:  world.VoidGenerator{}
 	}
 	// Give it a nonzero vy the same way real movement would, to prove
@@ -328,17 +350,19 @@ fn test_apply_respawn_resets_health_and_position() {
 	victim.player.apply_movement(types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 	hub.add(victim)
 
-	victim.apply_respawn(mut wr)
+	victim.apply_respawn(mut tx)
 	assert !victim.player.is_dead()
 	assert victim.player.health() == 20.0
 	assert victim.player.movement().vy == 0.0
-	assert victim.player.movement().position.y == f32(world.VoidGenerator{}.spawn_y()) +
-		player_eye_height
+	assert victim.player.movement().position.y == f32(world.VoidGenerator{}.spawn_point().y) + player_eye_height
 }
 
 fn test_apply_respawn_is_noop_when_not_dead() {
 	mut hub := new_hub(gamedata.GameData{})
 	mut wr := apply_hurt_test_world(mut hub)
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -356,21 +380,21 @@ fn test_apply_respawn_is_noop_when_not_dead() {
 	}
 	hub.add(victim)
 
-	victim.apply_respawn(mut wr)
+	victim.apply_respawn(mut tx)
 	assert victim.player.health() == 20
 }
 
 fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:    player.new_player()
-		transport: transport
+		player: player.new_player()
+		conn:   &Conn{ transport: transport }
 	}
 	s.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.SetActorMotionPacket {
+	if sent is packets_662.SetActorMotionPacket {
 		assert sent.motion[0] == 0.0
 		assert sent.motion[2] == 0.0
 		assert sent.motion[1] == knockback_vertical
@@ -382,14 +406,14 @@ fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 fn test_apply_knockback_pushes_away_from_attacker() {
 	mut transport := &FakeTransport{}
 	mut s := &NetworkSession{
-		player:    player.new_player()
-		transport: transport
+		player: player.new_player()
+		conn:   &Conn{ transport: transport }
 	}
 	s.player.reset_position(types.Vector3{10.0, 0.0, 0.0})
 	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is proto.SetActorMotionPacket {
+	if sent is packets_662.SetActorMotionPacket {
 		assert sent.motion[0] == knockback_horizontal
 		assert sent.motion[2] == 0.0
 	} else {
@@ -456,7 +480,7 @@ fn test_handle_entity_interact_milks_cow_with_bucket() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(cow.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(cow.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 201
@@ -485,7 +509,7 @@ fn test_handle_entity_interact_non_cow_is_noop() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(pig.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(pig.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200
@@ -514,7 +538,7 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 	net_id := sess.player.track_stack(bucket)
 	sess.player.set_slot(0, net_id)
 
-	sess.handle_entity_interact(cow.runtime_id)
+	sess.handle_entity_interact(sess.wire_id_for(cow.runtime_id))
 
 	held, _ := sess.inventory_stack_at(sess.player.held_slot())
 	assert held.id == 200

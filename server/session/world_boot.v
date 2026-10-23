@@ -29,12 +29,23 @@ pub fn (mut h Hub) load_configured_worlds(worlds_dir string, default_world strin
 		log.info(lang.tf('server.world_loading', {
 			'Name': name
 		}))
+		if !factory.exists(name) {
+			// Made the way /world create makes a world, so it records its
+			// generator and seed like any other.
+			h.create_world(name, blockworld.overworld, generator, none) or {
+				log.warn('Failed to create world "${name}": ${err}')
+				continue
+			}
+			log.info(lang.tf('server.world_loaded', {
+				'Name': name
+			}))
+			continue
+		}
 		if w := factory.open(name, generator, blockworld.overworld) {
 			h.add_world(w)
 			log.info(lang.tf('server.world_loaded', {
 				'Name': name
 			}))
-			log.debug('World "${name}" has ${w.block_count()} stored block changes')
 		} else {
 			log.warn('Failed to load world "${name}": ${err}')
 		}

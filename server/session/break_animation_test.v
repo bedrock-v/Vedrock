@@ -10,12 +10,14 @@ import server.world.db
 import server.item
 import server.block
 import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 // A break that never starts shows the player no crack animation and no
 // particles, which is the whole symptom of the server reading a different
 // block than the client was sent.
 
-fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime, generator world.Generator) &NetworkSession {
+fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime, generator world.Generator) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -24,7 +26,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunti
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world
@@ -32,8 +34,8 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunti
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y) + 1.62, 0.5})
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -41,7 +43,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunti
 
 fn sent_start_cracking(transport &FakeTransport, x int, y int, z int) bool {
 	for p in transport.sent {
-		if p is proto.LevelEventPacket {
+		if p is packets_662.LevelEventPacket {
 			if p.event_id == proto.level_event_start_block_cracking && p.position[0] == f32(x)
 				&& p.position[1] == f32(y) && p.position[2] == f32(z) {
 				return true
@@ -56,7 +58,8 @@ fn wait_for_start_cracking(transport &FakeTransport, x int, y int, z int, timeou
 	for !sent_start_cracking(transport, x, y, z) {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return sent_start_cracking(transport, x, y, z)
 			}
@@ -88,7 +91,7 @@ fn populated_position(gen world.Generator, chunk world.Chunk) ?(int, int, int) {
 
 fn test_mining_a_generated_tree_starts_the_crack_animation() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('trees', none, 'normal', world.overworld)
+	mut target := db.new_world('trees', none, 'normal', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('trees') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -122,7 +125,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 		id:            'minecraft:test_block'
 		block_runtime: world.stone.network_id
 	})
-	target := db.new_world('trees', none, 'normal', world.overworld)
+	mut target := db.new_world('trees', none, 'normal', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('trees') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -154,7 +157,7 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 
 fn test_mining_a_placed_block_starts_the_crack_animation() {
 	mut hub := new_hub(gamedata.GameData{})
-	target := db.new_world('world', none, 'void', world.overworld)
+	mut target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}

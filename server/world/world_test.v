@@ -157,7 +157,7 @@ fn test_chunk_height_map_tracks_highest_non_air_block() {
 
 fn test_generator_selection() {
 	flat := new_generator('flat')
-	assert flat.spawn_y() == flat_spawn_y
+	assert flat.spawn_point().y == flat_spawn_y
 	assert flat.uses_blocks() == true
 	assert flat.generate(0, 0).section_count() == 1
 

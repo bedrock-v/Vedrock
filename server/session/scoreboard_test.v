@@ -1,6 +1,9 @@
 module session
 
 import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 fn test_build_sidebar_packets_sequence() {
 	packets := build_sidebar_packets('Title', ['a', 'b', 'c'])
@@ -8,24 +11,24 @@ fn test_build_sidebar_packets_sequence() {
 	assert packets.len == 3
 
 	remove := packets[0]
-	if remove is proto.RemoveObjectivePacket {
+	if remove is packets_662.RemoveObjectivePacket {
 		assert remove.objective_name == sidebar_objective
 	} else {
 		assert false, 'packet 0 is not RemoveObjectivePacket'
 	}
 
 	display := packets[1]
-	if display is proto.SetDisplayObjectivePacket {
+	if display is packets_662.SetDisplayObjectivePacket {
 		assert display.display_slot_name == sidebar_slot
 		assert display.objective_name == sidebar_objective
 		assert display.objective_display_name == 'Title'
-		assert display.sort_order == proto.ObjectiveSortOrder.ascending
+		assert display.sort_order == enums_662.ObjectiveSortOrder.ascending
 	} else {
 		assert false, 'packet 1 is not SetDisplayObjectivePacket'
 	}
 
 	score := packets[2]
-	if score is proto.SetScorePacket {
+	if score is packets_2168.SetScorePacket {
 		assert score.score_info.len == 3
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'
@@ -35,7 +38,7 @@ fn test_build_sidebar_packets_sequence() {
 fn test_build_sidebar_packets_line_order_top_to_bottom() {
 	packets := build_sidebar_packets('T', ['top', 'mid', 'bottom'])
 	score := packets[2]
-	if score is proto.SetScorePacket {
+	if score is packets_2168.SetScorePacket {
 		entries := score.score_info
 		// Ascending sort with score = index means lines[0] gets the lowest score
 		// and renders at the top, matching the slice order.
@@ -83,7 +86,7 @@ fn test_build_sidebar_packets_empty_lines() {
 	packets := build_sidebar_packets('Empty', [])
 	assert packets.len == 3
 	score := packets[2]
-	if score is proto.SetScorePacket {
+	if score is packets_2168.SetScorePacket {
 		assert score.score_info.len == 0
 	} else {
 		assert false, 'packet 2 is not SetScorePacket'

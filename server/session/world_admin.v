@@ -5,6 +5,8 @@ import server.cmd
 import server.event
 import server.world
 import server.world.db
+import server.player
+import server.worldrt
 
 // world_admin wires the /world command's needs onto the Hub. Create/delete
 // only touch the worlds map (never a player's active world), so they run
@@ -13,6 +15,10 @@ import server.world.db
 
 fn (mut s NetworkSession) world_names() []string {
 	return s.hub.list_worlds()
+}
+
+fn (mut s NetworkSession) current_world_name() string {
+	return s.world_name()
 }
 
 fn (mut s NetworkSession) world_info(name string) ?cmd.WorldSummary {
@@ -25,33 +31,33 @@ fn (mut s NetworkSession) world_metrics(name string) ?cmd.WorldMetricsSummary {
 	return to_world_metrics_summary(m)
 }
 
-fn (mut s NetworkSession) world_create(name string, dimension string, generator string) ! {
+fn (mut s NetworkSession) world_create(name string, dimension string, generator string, seed ?i64) ! {
 	dim := world.dimension_by_name(dimension) or {
 		return error('unknown dimension "${dimension}"')
 	}
-	s.hub.create_world(name, dim, generator)!
-	mut load_ctx := event.new_context(event.WorldLoadData{
+	s.hub.create_world(name, dim, generator, seed)!
+	mut load_ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: s
+		sender: s
 	})
-	s.hub.events.world_load(mut load_ctx)
+	s.player.handler.on_world_load(mut load_ctx)
 }
 
 fn (mut s NetworkSession) world_load(name string) ! {
 	s.hub.load_world(name)!
-	mut ctx := event.new_context(event.WorldLoadData{
+	mut ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: s
+		sender: s
 	})
-	s.hub.events.world_load(mut ctx)
+	s.player.handler.on_world_load(mut ctx)
 }
 
 fn (mut s NetworkSession) world_delete(name string) ! {
-	mut ctx := event.new_context(event.WorldUnloadData{
+	mut ctx := event.new_context(player.WorldUnloadData{
 		name:   name
-		player: s
+		sender: s
 	})
-	s.hub.events.world_unload(mut ctx)
+	s.player.handler.on_world_unload(mut ctx)
 	if ctx.is_cancelled() {
 		return error('world deletion cancelled')
 	}
@@ -69,6 +75,11 @@ fn (mut c ConsoleSender) world_names() []string {
 	return c.hub.list_worlds()
 }
 
+fn (mut c ConsoleSender) current_world_name() string {
+	default_world := c.hub.default_world() or { return '' }
+	return default_world.name
+}
+
 fn (mut c ConsoleSender) world_info(name string) ?cmd.WorldSummary {
 	info := c.hub.world_info(name)?
 	return to_world_summary(info)
@@ -79,33 +90,33 @@ fn (mut c ConsoleSender) world_metrics(name string) ?cmd.WorldMetricsSummary {
 	return to_world_metrics_summary(m)
 }
 
-fn (mut c ConsoleSender) world_create(name string, dimension string, generator string) ! {
+fn (mut c ConsoleSender) world_create(name string, dimension string, generator string, seed ?i64) ! {
 	dim := world.dimension_by_name(dimension) or {
 		return error('unknown dimension "${dimension}"')
 	}
-	c.hub.create_world(name, dim, generator)!
-	mut load_ctx := event.new_context(event.WorldLoadData{
+	c.hub.create_world(name, dim, generator, seed)!
+	mut load_ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: c
+		sender: c
 	})
-	c.hub.events.world_load(mut load_ctx)
+	c.hub.player_handler.on_world_load(mut load_ctx)
 }
 
 fn (mut c ConsoleSender) world_load(name string) ! {
 	c.hub.load_world(name)!
-	mut ctx := event.new_context(event.WorldLoadData{
+	mut ctx := event.new_context(player.WorldLoadData{
 		name:   name
-		player: c
+		sender: c
 	})
-	c.hub.events.world_load(mut ctx)
+	c.hub.player_handler.on_world_load(mut ctx)
 }
 
 fn (mut c ConsoleSender) world_delete(name string) ! {
-	mut ctx := event.new_context(event.WorldUnloadData{
+	mut ctx := event.new_context(player.WorldUnloadData{
 		name:   name
-		player: c
+		sender: c
 	})
-	c.hub.events.world_unload(mut ctx)
+	c.hub.player_handler.on_world_unload(mut ctx)
 	if ctx.is_cancelled() {
 		return error('world deletion cancelled')
 	}
@@ -121,13 +132,14 @@ fn to_world_summary(info WorldInfo) cmd.WorldSummary {
 		name:       info.name
 		generator:  info.generator
 		dimension:  info.dimension
+		seed:       info.seed
 		overrides:  info.overrides
 		is_default: info.is_default
 		players:    info.players
 	}
 }
 
-fn to_world_metrics_summary(m WorldMetrics) cmd.WorldMetricsSummary {
+fn to_world_metrics_summary(m worldrt.WorldMetrics) cmd.WorldMetricsSummary {
 	return cmd.WorldMetricsSummary{
 		name:                           m.world_name
 		current_tick:                   m.current_tick
@@ -171,7 +183,8 @@ fn to_world_metrics_summary(m WorldMetrics) cmd.WorldMetricsSummary {
 }
 
 fn world_spawn_position(target &db.World, gen world.Generator) types.Vector3 {
-	mut y := gen.spawn_y()
+	spawn_point := gen.spawn_point()
+	mut y := spawn_point.y
 	if y < target.dimension.min_y + 1 {
 		y = target.dimension.min_y + 1
 	}
@@ -179,5 +192,5 @@ fn world_spawn_position(target &db.World, gen world.Generator) types.Vector3 {
 	if y > max_y {
 		y = max_y
 	}
-	return types.Vector3{0.0, f32(y) + player_eye_height, 0.0}
+	return types.Vector3{f32(spawn_point.x), f32(y) + player_eye_height, f32(spawn_point.z)}
 }

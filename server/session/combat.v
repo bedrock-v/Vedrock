@@ -4,8 +4,16 @@ import math
 import bedrock_v.protocol.types
 import server.effect
 import server.event
+import server.world.sound
 import server.item
 import bedrock_v.protocol.current as proto
+import server.entity
+import server.player
+import server.worldrt
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v662.packets as packets_662
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -18,21 +26,23 @@ const sound_attack_strong = 'game.player.attack.strong'
 // registered mob. Resolved through the unified actor lookup since a player's
 // melee attack has no reason to be restricted to player-vs-player.
 struct PlayerAttackTask {
-	attacker_runtime_id u64
-	attacker_epoch      i64
-	victim_runtime_id   u64
-	damage              f32
-	knockback_force     f32 = knockback_horizontal
-	knockback_height    f32 = knockback_vertical
-	critical            bool
+	attacker          entity.ActorId
+	victim_runtime_id u64
+	damage            f32
+	knockback_force   f32 = knockback_horizontal
+	knockback_height  f32 = knockback_vertical
+	// fire_ticks is how long the attacker's Fire Aspect sets the victim
+	// burning for, 0 when the weapon does not carry it.
+	fire_ticks i64
+	critical   bool
 }
 
 fn (t PlayerAttackTask) name() string {
 	return 'PlayerAttackTask'
 }
 
-fn (t PlayerAttackTask) run(mut tx WorldTx) {
-	mut attacker := tx.player_for_epoch(t.attacker_runtime_id, t.attacker_epoch) or { return }
+fn (t PlayerAttackTask) run(mut tx worldrt.WorldTx) {
+	mut attacker := player_for_id(mut tx, t.attacker) or { return }
 	mut victim_actor := tx.wr.entities.actor_by_runtime_id(t.victim_runtime_id) or { return }
 	if victim_actor.is_dead() {
 		return
@@ -51,29 +61,38 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 			return
 		}
 	}
-	mut ctx := event.new_context(event.AttackData{
-		player:            attacker
+	mut ctx := event.new_context(player.AttackData{
+		player:            attacker.player
 		victim_runtime_id: t.victim_runtime_id
 		critical:          t.critical
 		damage:            t.damage
 		knockback_force:   t.knockback_force
 		knockback_height:  t.knockback_height
 	})
-	tx.wr.events.player_attack(mut ctx)
+	attacker.player.handler.on_player_attack(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
-	tx.damage_held_item(mut attacker, 1)
-	damage_actor(mut tx.wr, t.victim_runtime_id, ctx.val.damage, AttackDamageSource{
+	damage_held_item(mut attacker, 1)
+	if mut victim_session := as_network_session(mut victim_actor) {
+		ignite_victim(mut victim_session, t.fire_ticks)
+	}
+	damage_actor(mut tx, t.victim_runtime_id, ctx.val.damage, AttackDamageSource{
 		attacker_name: attacker.player.identity.display_name
-	}, t.attacker_runtime_id, own, ctx.val.knockback_force, ctx.val.knockback_height)
+	}, t.attacker.value, own, ctx.val.knockback_force, ctx.val.knockback_height)
 	if t.critical {
-		tx.wr.broadcast_world(&proto.AnimatePacket{
-			action:            proto.AnimatePacketAction.critical_hit
-			target_runtime_id: proto.actor_runtime_id(victim_actor.runtime_id())
+		for mut v in tx.wr.viewers() {
+			v.view_actor_critical_hit(victim_actor.runtime_id())
+		}
+		play_actor_sound(mut tx, victim_actor.current_position(), sound.Custom{
+			name: sound_attack_strong
+		}, entity.SoundSource{
+			actor:      victim_actor.runtime_id()
+			// The victim may be a mob and this reports it as a player. That
+			// predates the per viewer numbering and is left as it was: naming
+			// it properly needs an actor type on entity.Actor.
+			identifier: player_actor_identifier
 		})
-		tx.wr.broadcast_world(proto.level_sound_event(sound_attack_strong,
-			victim_actor.current_position(), -1, 'minecraft:player', victim_actor.runtime_id()))
 	}
 }
 
@@ -81,7 +100,12 @@ fn (t PlayerAttackTask) run(mut tx WorldTx) {
 // measured from the attacker to the target.
 const max_attack_reach_sq = f32(8.0 * 8.0)
 
-fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
+// handle_attack takes the id the *client* used which is this session's own
+// numbering and means nothing anywhere else. It is translated before it reaches
+// the world and an id this session was never handed resolves to nothing: a
+// client can't name an actor it was never shown.
+fn (mut s NetworkSession) handle_attack(wire_id u64) ! {
+	target_runtime_id := s.actor_for_wire_id(wire_id) or { return }
 	if s.player.is_dead() || target_runtime_id == s.runtime_id {
 		return
 	}
@@ -89,7 +113,7 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	// client-supplied held item - otherwise a client could claim a weapon it
 	// does not own to inflate damage.
 	_, weapon_name := s.held_stack_and_name()
-	mut damage := s.weapon_damage(weapon_name)
+	mut damage := s.enchanted_attack_damage(s.weapon_damage(weapon_name))
 	critical := s.is_critical()
 	if critical {
 		damage *= critical_multiplier
@@ -100,11 +124,12 @@ fn (mut s NetworkSession) handle_attack(target_runtime_id u64) ! {
 	}
 	// A hit must not be silently dropped under queue pressure.
 	wr.submit(PlayerAttackTask{
-		attacker_runtime_id: s.runtime_id
-		attacker_epoch:      s.world_binding().epoch
-		victim_runtime_id:   target_runtime_id
-		damage:              damage
-		critical:            critical
+		attacker:          s.actor_id()
+		victim_runtime_id: target_runtime_id
+		damage:            damage
+		knockback_force:   s.enchanted_knockback(knockback_horizontal)
+		fire_ticks:        s.fire_aspect_ticks()
+		critical:          critical
 	})
 }
 
@@ -122,7 +147,9 @@ struct EntityInteractSnapshot {
 // handle_entity_interact runs a UsableOnEntityItem's behaviour when a player
 // uses the held item on an entity (the "interact", as opposed to "attack",
 // use item onentity action) - e.g. milking a cow with an empty bucket.
-fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
+// The id is the client's own numbering; see handle_attack.
+fn (mut s NetworkSession) handle_entity_interact(wire_id u64) {
+	target_runtime_id := s.actor_for_wire_id(wire_id) or { return }
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -132,7 +159,7 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		return
 	}
 	mut wr := binding.world_runtime
-	snap := world_call[EntityInteractSnapshot](mut wr, fn [own, target_runtime_id] (mut tx WorldTx) EntityInteractSnapshot {
+	snap := worldrt.world_call[EntityInteractSnapshot]('EntityInteract', mut wr, fn [own, target_runtime_id] (mut tx worldrt.WorldTx) EntityInteractSnapshot {
 		target := tx.wr.entities.by_runtime_id(target_runtime_id) or {
 			return EntityInteractSnapshot{}
 		}
@@ -151,12 +178,12 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 	}
 	stack, name := s.held_stack_and_name()
 	result := item.use_on_entity_result(name, snap.identifier, stack.meta) or { return }
-	mut ctx := event.new_context(event.ItemUseData{
-		player:    s
+	mut ctx := event.new_context(player.ItemUseData{
+		player:    s.player
 		item_name: name
 		meta:      stack.meta
 	})
-	s.hub.events.item_use(mut ctx)
+	s.player.handler.on_item_use(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
@@ -164,8 +191,10 @@ fn (mut s NetworkSession) handle_entity_interact(target_runtime_id u64) {
 		s.replace_held_item(result.replaces_with)
 	}
 	if result.sound != '' {
-		s.hub.broadcast(proto.level_sound_event(result.sound, snap.pos, -1, snap.identifier,
-			target_runtime_id))
+		s.broadcast_actor_sound(snap.pos, sound.Custom{ name: result.sound }, entity.SoundSource{
+			actor:      target_runtime_id
+			identifier: snap.identifier
+		})
 	}
 }
 
@@ -192,13 +221,13 @@ fn (s &NetworkSession) is_critical() bool {
 	return s.player.movement().vy < -0.08
 }
 
-// apply_hurt runs only from an active world runtime. It dispatches player_hurt,
-// broadcasts damage in that world and routes lethal hits through apply_death.
+// apply_hurt dispatches player_hurt, broadcasts damage in the world and
+// routes lethal hits through Player.die.
 //
 // source decides fire resistance immunity and resistance effect reduction
 // (see DamageSource, damage_source.v) and supplies the
 // death message. Effect damage doesn't go through here.
-fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source DamageSource) {
+fn (mut s NetworkSession) apply_hurt(mut tx worldrt.WorldTx, amount f32, source DamageSource) {
 	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
@@ -208,6 +237,12 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 		}
 	}
 	mut reduced_amount := amount
+	// Armor comes off the raw hit first: resistance then applies to what is
+	// left, so the two stack the way they do in game rather than competing.
+	if source.reduced_by_armor() {
+		reduced_amount = armor_reduced(reduced_amount, s.armor_protection())
+		s.damage_armor(amount)
+	}
 	if source.reduced_by_resistance() {
 		if res := s.player.effect(effect.resistance) {
 			reduced_amount *= resistance_multiplier(res.level())
@@ -216,76 +251,46 @@ fn (mut s NetworkSession) apply_hurt(mut wr WorldRuntime, amount f32, source Dam
 	if reduced_amount <= 0 {
 		return
 	}
-	mut ctx := event.new_context(event.HurtData{
-		player:        s
+	mut ctx := event.new_context(player.HurtData{
+		player:        s.player
 		amount:        reduced_amount
 		attacker_name: source.attacker_label()
 	})
-	wr.events.player_hurt(mut ctx)
+	s.player.handler.on_player_hurt(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}
+	s.exhaust_and_sync(player.damage_exhaustion)
 	new_health := s.player.health() - ctx.val.amount
 	s.player.set_health(if new_health < 0 { f32(0) } else { new_health })
 	s.deliver(s.health_update())
-	wr.broadcast_world(&proto.ActorEventPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		event_id:          proto.ActorEvent.hurt
-		data:              0
-	})
+	for mut v in viewers_of(mut tx) {
+		v.view_hurt(s.player)
+	}
 	if s.player.health() <= 0 {
 		key, params := source.death_message_key(s.player.identity.display_name)
-		s.apply_death(mut wr, key, params)
+		s.player.die(mut tx, key, params)
 	}
-}
-
-// apply_death is the single death path for combat, /kill and fatal effect
-// damage.
-fn (mut s NetworkSession) apply_death(mut wr WorldRuntime, message_key string, parameters []string) {
-	mut ctx := event.new_context(event.DeathData{
-		player:      s
-		message_key: message_key
-		params:      parameters
-	})
-	wr.events.player_death(mut ctx)
-	if ctx.is_cancelled() {
-		return
-	}
-	s.player.set_dead(true)
-	wr.broadcast_world_except(s.runtime_id, &proto.ActorEventPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		event_id:          proto.ActorEvent.death
-		data:              0
-	})
-	s.player.set_last_death(s.current_position())
-	wr.broadcast_world(&proto.TextPacket{
-		localize:     true
-		message_type: proto.TextTranslate{
-			message:        ctx.val.message_key
-			parameter_list: parameters
-		}
-	})
 }
 
 // PlayerRespawnTask respawns a player on the owning world runtime. Respawn
 // does not transfer dimensions; the destination is the player's current world
 // and generator.
 struct PlayerRespawnTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 }
 
 fn (t PlayerRespawnTask) name() string {
 	return 'PlayerRespawnTask'
 }
 
-fn (t PlayerRespawnTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
-	target.apply_respawn(mut tx.wr)
+fn (t PlayerRespawnTask) run(mut tx worldrt.WorldTx) {
+	mut target := player_for_id(mut tx, t.id) or { return }
+	target.apply_respawn(mut tx)
 }
 
-fn (mut s NetworkSession) handle_respawn(p proto.RespawnPacket) ! {
-	if p.state == proto.PlayerRespawnState.client_ready_to_spawn {
+fn (mut s NetworkSession) handle_respawn(p packets_662.RespawnPacket) ! {
+	if p.state == enums_662.PlayerRespawnState.client_ready_to_spawn {
 		s.request_respawn()
 	}
 }
@@ -300,40 +305,41 @@ fn (mut s NetworkSession) request_respawn() {
 	// client_ready_to_spawn once, so losing it under queue pressure could
 	// leave the player stuck on the death screen.
 	wr.submit(PlayerRespawnTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
+		id: s.actor_id()
 	})
 }
 
-fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
+fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 	if !s.player.is_dead() {
 		return
 	}
 	s.player.set_dead(false)
 	s.player.set_health(20.0)
-	spawn_y := s.generator.spawn_y()
-	mut ctx := event.new_context(event.RespawnData{
-		player: s
-		x:      0.0
-		y:      f32(spawn_y) + player_eye_height
-		z:      0.0
+	s.player.reset_hunger()
+	s.send_hunger()
+	spawn_pos := respawn_position(mut tx, mut s)
+	mut ctx := event.new_context(player.RespawnData{
+		player: s.player
+		x:      spawn_pos.x
+		y:      spawn_pos.y
+		z:      spawn_pos.z
 	})
-	wr.events.player_respawn(mut ctx)
+	s.player.handler.on_player_respawn(mut ctx)
 	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())
-	mut respawn_packet := &proto.RespawnPacket{
-		state:             proto.PlayerRespawnState.ready_to_spawn
-		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+	mut respawn_packet := &packets_662.RespawnPacket{
+		state:             enums_662.PlayerRespawnState.ready_to_spawn
+		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 	}
 	respawn_packet.position[0] = current.position.x
 	respawn_packet.position[1] = current.position.y
 	respawn_packet.position[2] = current.position.z
 	s.deliver(respawn_packet)
-	mut move_packet := &proto.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+	mut move_packet := &packets_2168.MovePlayerPacket{
+		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     proto.PlayerPositionMode.respawn
+		position_mode:     enums_2168.PlayerPositionMode.respawn
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x
@@ -344,8 +350,9 @@ fn (mut s NetworkSession) apply_respawn(mut wr WorldRuntime) {
 	s.deliver(move_packet)
 	s.expect_teleport_ack(current.position)
 	// Remote clients played the death animation; respawn the actor for them.
-	wr.broadcast_world_except(s.runtime_id, s.remove_actor_packet())
-	wr.broadcast_world_except(s.runtime_id, s.add_player_packet())
+	for mut v in viewers_except(mut tx, s.runtime_id) {
+		v.view_player_respawned(s.player)
+	}
 }
 
 // current_position is a thin forwarding accessor kept for call site
@@ -370,8 +377,8 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 		y: height
 		z: dz / dist * force
 	}
-	mut motion_packet := &proto.SetActorMotionPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
+	mut motion_packet := &packets_662.SetActorMotionPacket{
+		target_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 		server_tick:       0
 	}
 	motion_packet.motion[0] = motion.x

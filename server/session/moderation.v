@@ -3,7 +3,13 @@ module session
 import bedrock_v.protocol.types
 import bedrock_v.protocol.current as proto
 import server.internal.logger
-import server.item
+import server.entity
+import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v712.packets as packets_712
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v662.types as types_662
 
 // op / deop
 
@@ -38,6 +44,8 @@ fn (mut h Hub) is_op(name string) bool {
 	return h.ops.is_op(name)
 }
 
+// set_operator grants or revokes operator status. Hub owns the op list,
+// this is a handoff rather than a bridge onto a world actor.
 fn (mut s NetworkSession) set_operator(value bool) {
 	s.hub.set_operator(mut s, value)
 }
@@ -45,23 +53,22 @@ fn (mut s NetworkSession) set_operator(value bool) {
 // PlayerOpRefreshTask resends commands and abilities on the target's owning
 // world.
 struct PlayerOpRefreshTask {
-	runtime_id u64
-	epoch      i64
-	result     chan bool = chan bool{cap: 1}
+	id     entity.ActorId
+	result chan bool = chan bool{ cap: 1 }
 }
 
 fn (t PlayerOpRefreshTask) name() string {
 	return 'PlayerOpRefreshTask'
 }
 
-fn (t PlayerOpRefreshTask) run(mut tx WorldTx) {
+fn (t PlayerOpRefreshTask) run(mut tx worldrt.WorldTx) {
 	mut applied := false
 	defer {
 		t.result <- applied
 	}
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
+	mut target := player_for_id(mut tx, t.id) or { return }
 	target.refresh_available_commands()
-	target.refresh_abilities()
+	target.player.refresh_abilities()
 	applied = true
 }
 
@@ -82,8 +89,7 @@ fn (mut s NetworkSession) try_refresh_op_state_once() bool {
 		return false
 	}
 	task := PlayerOpRefreshTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
+		id: s.actor_id()
 	}
 	if !wr.submit(task) {
 		return false
@@ -91,49 +97,43 @@ fn (mut s NetworkSession) try_refresh_op_state_once() bool {
 	return <-task.result
 }
 
-// kill
-
-// PlayerKillTask forces a player through the normal death path without an
-// attacker.
-struct PlayerKillTask {
-	runtime_id u64
-	epoch      i64
-}
-
-fn (t PlayerKillTask) name() string {
-	return 'PlayerKillTask'
-}
-
-fn (t PlayerKillTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
-	if target.player.is_dead() {
-		return
-	}
-	target.player.set_health(0)
-	target.deliver(target.health_update())
-	target.apply_death(mut tx.wr, '%death.attack.generic', [target.player.identity.display_name])
-}
-
+// kill takes the player through the normal death path with no attacker.
+//
+// It is one of the command entry bridges in this file. A command runs on the
+// session thread and holds no transaction, so it can't reach a Player verb
+// directly: each bridge enters the owning world's actor, reresolves the
+// player against the membership epoch it started from and calls the verb
+// there. They stay tx-less on purpose.
+//
+// Taking a transaction would push the requirement back onto a caller that has
+// no way to be holding one.
 fn (mut s NetworkSession) kill() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
 	}
-	wr.submit(PlayerKillTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-	})
+	id := s.actor_id()
+	worldrt.world_call[bool]('Player.kill', mut wr, fn [id] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
+		target.player.kill(mut tx)
+		return true
+	}) or {}
 }
 
-// teleport
-
+// position is where the player is right now. It reads session state rather
+// than entering the world actor and it is not one of the bridges.
 fn (mut s NetworkSession) position() types.Vector3 {
 	return s.current_position()
 }
 
-// place_water targets the default world through Hub's block API.
+// place_water and place_lava target the default world through Hub's block API.
+
 fn (mut s NetworkSession) place_water(x int, y int, z int) {
 	s.hub.place_water(x, y, z)
+}
+
+fn (mut s NetworkSession) place_lava(x int, y int, z int) {
+	s.hub.place_lava(x, y, z)
 }
 
 // request_teleport completes the binding and position update synchronously.
@@ -144,13 +144,44 @@ fn (mut s NetworkSession) request_teleport(x f32, y f32, z f32, world_name strin
 		if !s.change_world(world_name, x, y, z) {
 			return
 		}
-		s.apply_teleport(x, y, z)
+		s.submit_teleport(x, y, z)
 		// Chunk transmission (up to a few hundred packets) runs on its own
 		// thread so it never stalls whichever thread called teleport.
 		spawn s.reload_chunks(s.cfg.view_distance)
 		return
 	}
-	s.apply_teleport(x, y, z)
+	s.submit_teleport(x, y, z)
+}
+
+// submit_teleport arms the teleport acknowledgement and runs the move on the
+// world that owns the player, blocking until it has happened.
+//
+// It blocks because teleport reads as immediate to its caller: a command that
+// moves a player and then reports where they are must not race its own move.
+//
+// The acknowledgement is armed here rather than inside the transaction because
+// the client keeps reporting movement in the meantime. Anything it sends
+// between now and the move describes a position the server is about to
+// overwrite and must not be applied on top of the teleport.
+fn (mut s NetworkSession) submit_teleport(x f32, y f32, z f32) {
+	mut wr := s.current_world_runtime()
+	if isnil(wr) {
+		return
+	}
+	pos := types.Vector3{x, y, z}
+	id := s.actor_id()
+	s.expect_teleport_ack(pos)
+	moved := worldrt.world_call[bool]('Player.teleport', mut wr, fn [id, pos] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
+		target.player.teleport(mut tx, pos)
+		return true
+	}) or { false }
+	if !moved {
+		// The teleport didn't happen. Release the acknowledgement armed
+		// above or the client stays frozen waiting to confirm a position it
+		// was never sent.
+		s.expect_teleport_ack(s.player.position())
+	}
 }
 
 // reload_chunks resends the spawn chunks around the player. Runs on its
@@ -168,25 +199,25 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 		s.chunk_stream_mutex.unlock()
 	}
 	own := s.player.position()
-	s.send_packet(&proto.ChunkRadiusUpdatedPacket{
+	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	}) or {}
-	s.send_packet(&proto.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   proto.BlockPos{
+	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types_662.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []proto.ChunkPos{}
+		server_built_chunks: []types_662.ChunkPos{}
 	}) or {}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
 		return
 	}
 	s.remember_chunk_window(radius)
-	s.send_packet(&proto.PlayStatusPacket{
-		status: proto.PlayStatus.player_spawn
+	s.send_packet(&packets_662.PlayStatusPacket{
+		status: enums_662.PlayStatus.player_spawn
 	}) or {}
 }
 
@@ -223,20 +254,20 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	rid := s.runtime_id
 	mut previous_wr := binding.world_runtime
 	if !isnil(previous_wr) {
-		remove_pkt := s.remove_actor_packet()
-		list_remove_pkt := s.player_list_remove_packet()
 		held_container := s.open_container_position()
-		world_call[bool](mut previous_wr, fn [rid, remove_pkt, list_remove_pkt, held_container] (mut tx WorldTx) bool {
-			tx.deregister_player(rid)
+		leaving := s.player
+		worldrt.world_call[bool]('Session.leave_previous_world', mut previous_wr, fn [rid, leaving, held_container] (mut tx worldrt.WorldTx) bool {
+			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}
-			tx.wr.broadcast_world_except(rid, remove_pkt)
-			tx.wr.broadcast_world_except(rid, list_remove_pkt)
+			for mut v in viewers_except(mut tx, rid) {
+				v.view_player_removed(leaving)
+			}
 			return true
 		}) or {}
 	}
-	s.set_open_container_position(none)
+	s.set_open_container(none)
 
 	s.set_world_binding(target_wr, gen)
 	// Position must be updated before the join packets below are built, so
@@ -244,13 +275,12 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	// than a stale pre transfer position.
 	s.player.reset_position(types.Vector3{x, y, z})
 
-	list_add_pkt := s.player_list_add_packet()
-	add_player_pkt := s.add_player_packet()
 	self := s.self_ref()
-	registered := world_call[bool](mut target_wr, fn [rid, self, list_add_pkt, add_player_pkt] (mut tx WorldTx) bool {
-		tx.register_player(self)
-		tx.wr.broadcast_world_except(rid, list_add_pkt)
-		tx.wr.broadcast_world_except(rid, add_player_pkt)
+	registered := worldrt.world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, self)
+		for mut v in viewers_except(mut tx, rid) {
+			v.view_player_added(self.player)
+		}
 		return true
 	}) or { false }
 	if !registered {
@@ -261,10 +291,11 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		s.disconnect('World transfer failed')
 		return false
 	}
+	s.hub.sync_scoreboard_for(mut s)
 
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
-		mut change_packet := &proto.ChangeDimensionPacket{
+		mut change_packet := &packets_712.ChangeDimensionPacket{
 			dimension_id: target.dimension.id
 			respawn:      false
 		}
@@ -272,53 +303,25 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		change_packet.position[1] = y
 		change_packet.position[2] = z
 		s.deliver(change_packet)
-		s.deliver(&proto.StopSoundPacket{
+		s.deliver(&packets_712.StopSoundPacket{
 			sound_name:      ''
 			stop_all_sounds: true
 		})
-		s.deliver(&proto.PlayStatusPacket{
-			status: proto.PlayStatus.player_spawn
+		s.deliver(&packets_662.PlayStatusPacket{
+			status: enums_662.PlayStatus.player_spawn
 		})
-		s.deliver(&proto.PlayerActionPacket{
-			player_runtime_id: proto.actor_runtime_id(s.runtime_id)
-			action:            proto.PlayerActionType.change_dimension_ack
+		s.deliver(&packets_944.PlayerActionPacket{
+			player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
+			action:            enums_662.PlayerActionType.change_dimension_ack
 		})
 		s.expect_teleport_ack(types.Vector3{x, y, z})
 	}
 	return true
 }
 
-// apply_teleport resets the position, sends the correction packet and
-// broadcasts the move through the owning world actor. Unlike change_world,
-// a same world teleport has no existing world_call to reuse.
-fn (mut s NetworkSession) apply_teleport(x f32, y f32, z f32) {
-	s.player.reset_position(types.Vector3{x, y, z})
-	current := s.player.movement()
-	mut move_packet := &proto.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		y_head_rotation:   current.head_yaw
-		position_mode:     proto.PlayerPositionMode.teleport
-		teleport_data:     proto.MovePlayerTeleportData{}
-		on_ground:         false
-	}
-	move_packet.position[0] = current.position.x
-	move_packet.position[1] = current.position.y
-	move_packet.position[2] = current.position.z
-	move_packet.rotation[0] = current.pitch
-	move_packet.rotation[1] = current.yaw
-	s.deliver(move_packet)
-	s.expect_teleport_ack(current.position)
-	mut wr := s.current_world_runtime()
-	if !isnil(wr) {
-		rid := s.runtime_id
-		move_pkt := s.move_actor_packet()
-		world_call[bool](mut wr, fn [rid, move_pkt] (mut tx WorldTx) bool {
-			tx.wr.broadcast_world_except(rid, move_pkt)
-			return true
-		}) or {}
-	}
-}
-
+// teleport moves the player within the world they are already in. The actor
+// work and the blocking are request_teleport's; this is the name a command
+// reaches it by.
 fn (mut s NetworkSession) teleport(x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, '')
 }
@@ -330,115 +333,40 @@ fn (mut s NetworkSession) teleport_to_world(name string, x f32, y f32, z f32) {
 	s.request_teleport(x, y, z, name)
 }
 
-// clear inventory
-
-// PlayerClearInventoryTask is clear_inventory() run through the owning
-// world's actor.
-struct PlayerClearInventoryTask {
-	runtime_id u64
-	epoch      i64
-}
-
-fn (t PlayerClearInventoryTask) name() string {
-	return 'PlayerClearInventoryTask'
-}
-
-fn (t PlayerClearInventoryTask) run(mut tx WorldTx) {
-	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
-	s.apply_clear_inventory()
-}
-
-fn (mut s NetworkSession) apply_clear_inventory() {
-	s.player.clear_inventory()
-	mut items := []proto.NetworkItemStackDescriptorV2{}
-	for _ in 0 .. inventory_slot_count {
-		items << proto.item_descriptor_v2(types.ItemStack{})
-	}
-	s.deliver(&proto.InventoryContentPacket{
-		inventory_id:        u32(inventory_window_id)
-		slots:               items
-		container_name_data: proto.FullContainerName{
-			container: .inventory_container
-		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
-	})
-}
-
+// clear_inventory empties the player's inventory. It runs on the owning
+// world's actor because the inventory is state that actor owns. Bridge, in the
+// sense kill describes.
 fn (mut s NetworkSession) clear_inventory() {
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return
 	}
-	wr.submit(PlayerClearInventoryTask{
-		runtime_id: s.runtime_id
-		epoch:      s.world_binding().epoch
-	})
+	id := s.actor_id()
+	worldrt.world_call[bool]('Player.clear_inventory', mut wr, fn [id] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, id) or { return false }
+		target.player.clear_inventory(mut tx)
+		// The worn pieces went with the rest of the inventory, so everyone
+		// else has to be told or they keep rendering the old set.
+		target.broadcast_armor()
+		return true
+	}) or {}
 }
 
-// give
-
-// give_slot_count/give_hotbar_next implement a deliberately simplified slot
-// pick for /give: the server doesn't currently keep a full slot->stack map in
-// sync with client-driven inventory transactions (those are tracked by
-// client-assigned network ids, not slot index), so building a "first empty
-// slot" search would risk silently colliding with content the client already
-// has and thinks the server doesn't know about. Round robining across the
-// hotbar (0-8) via a dedicated counter avoids touching that unrelated
-// bookkeeping; it can still overwrite a hotbar slot's visible content.
-const give_hotbar_size = 9
-
-// PlayerGiveItemTask is give_item() run through the owning world's actor.
-struct PlayerGiveItemTask {
-	runtime_id       u64
-	epoch            i64
-	numeric_id       int
-	block_runtime_id int
-	count            int
-}
-
-fn (t PlayerGiveItemTask) name() string {
-	return 'PlayerGiveItemTask'
-}
-
-fn (t PlayerGiveItemTask) run(mut tx WorldTx) {
-	mut s := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
-	s.apply_give_item(t.numeric_id, t.block_runtime_id, t.count)
-}
-
-fn (mut s NetworkSession) apply_give_item(numeric_id int, block_runtime_id int, count int) {
-	slot := s.give_next_slot % give_hotbar_size
-	s.give_next_slot++
-	stack := types.ItemStack{
-		id:               numeric_id
-		meta:             0
-		count:            count
-		block_runtime_id: block_runtime_id
-		raw_extra_data:   []u8{}
-	}
-	net_id := s.player.track_stack(stack)
-	s.player.set_slot(slot, net_id)
-	s.send_slot_update(slot, wrap_stack_id(stack, net_id))
-}
-
+// give_item adds count of the item named id to the player's inventory,
+// reporting whether it landed. Bridge, in the sense kill describes.
+//
+// It blocks for the same reason submit_teleport does: the caller is told
+// whether the item arrived, so the answer has to describe work that already
+// happened rather than work that was only queued.
 fn (mut s NetworkSession) give_item(id string, count int) bool {
-	numeric_id := s.hub.data.item_id(id)
-	if numeric_id == 0 && id != 'minecraft:air' {
-		return false
-	}
-	mut block_runtime_id := 0
-	if it := item.get(id) {
-		block_runtime_id = it.block_runtime_id()
-	}
 	mut wr := s.current_world_runtime()
 	if isnil(wr) {
 		return false
 	}
-	wr.submit(PlayerGiveItemTask{
-		runtime_id:       s.runtime_id
-		epoch:            s.world_binding().epoch
-		numeric_id:       numeric_id
-		block_runtime_id: block_runtime_id
-		count:            count
-	})
-	return true
+	// Named actor rather than id: the item's name is already called id here.
+	actor := s.actor_id()
+	return worldrt.world_call[bool]('Player.give_item', mut wr, fn [actor, id, count] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, actor) or { return false }
+		return target.player.give_item(mut tx, id, count)
+	}) or { false }
 }

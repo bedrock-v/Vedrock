@@ -1,9 +1,10 @@
 module session
 
 import math
+import server.block
 import server.player
 import server.world
-import bedrock_v.protocol.current as proto
+import server.worldrt
 
 // Environmental damage uses per source tick intervals to approximate repeat
 // damage. These intervals replace general invincibility frames which we
@@ -22,27 +23,30 @@ const fire_tick_interval_ticks = i64(20) // once per second while burning
 
 // tick_environmental_damage applies void, drowning and fire/lava damage for
 // one player during the owning world's simulation step.
-fn (mut s NetworkSession) tick_environmental_damage(mut tx WorldTx) {
+fn (mut s NetworkSession) tick_environmental_damage(mut tx worldrt.WorldTx) {
 	if s.player.is_dead() || !s.player.game_mode().allows_taking_damage() {
 		return
 	}
-	tick := tx.wr.hub.current_tick()
+	tick := tx.wr.services.current_tick()
 	pos := s.current_position()
 
 	if pos.y < void_damage_y {
 		if tick % void_damage_interval_ticks == 0 {
-			s.apply_hurt(mut tx.wr, void_damage_amount, VoidDamageSource{})
+			s.apply_hurt(mut tx, void_damage_amount, VoidDamageSource{})
 		}
 	}
 
-	block_id := tx.block_at(int(math.floor(pos.x)), int(math.floor(pos.y)), int(math.floor(pos.z)))
-	s.tick_breath(mut tx, block_id == world.water.network_id, tick)
-	s.tick_burning(mut tx, block_id == world.lava.network_id, block_id == world.water.network_id)
+	block_id := block_at(tx, int(math.floor(pos.x)), int(math.floor(pos.y)), int(math.floor(pos.z)))
+	// Flowing lava burns and flowing water drowns exactly like their sources,
+	// so both are matched by fluid rather than by the source block id.
+	in_water := block.is_water_id(block_id)
+	s.tick_breath(mut tx, in_water, tick)
+	s.tick_burning(mut tx, block.is_lava_id(block_id), in_water)
 }
 
 // tick_breath drains or refills the underwater breath meter and applies
 // drowning damage once it runs out.
-fn (mut s NetworkSession) tick_breath(mut tx WorldTx, submerged bool, tick i64) {
+fn (mut s NetworkSession) tick_breath(mut tx worldrt.WorldTx, submerged bool, tick i64) {
 	old_air := s.player.air_supply()
 	mut air := old_air
 	if submerged {
@@ -50,7 +54,7 @@ fn (mut s NetworkSession) tick_breath(mut tx WorldTx, submerged bool, tick i64) 
 			air--
 			s.player.set_air_supply(air)
 		} else if tick % drowning_damage_interval_ticks == 0 {
-			s.apply_hurt(mut tx.wr, drowning_damage_amount, DrowningDamageSource{})
+			s.apply_hurt(mut tx, drowning_damage_amount, DrowningDamageSource{})
 		}
 	} else if air < player.max_air_supply_ticks {
 		air = player.max_air_supply_ticks
@@ -63,7 +67,7 @@ fn (mut s NetworkSession) tick_breath(mut tx WorldTx, submerged bool, tick i64) 
 
 // tick_burning handles lava contact and the ongoing once-per-second fire
 // damage while burning, extinguishing on contact with water.
-fn (mut s NetworkSession) tick_burning(mut tx WorldTx, in_lava bool, in_water bool) {
+fn (mut s NetworkSession) tick_burning(mut tx worldrt.WorldTx, in_lava bool, in_water bool) {
 	if in_water {
 		if s.player.fire_ticks() > 0 {
 			s.player.set_fire_ticks(0)
@@ -72,7 +76,7 @@ fn (mut s NetworkSession) tick_burning(mut tx WorldTx, in_lava bool, in_water bo
 	}
 	if in_lava {
 		if s.player.fire_ticks() <= 0 {
-			s.apply_hurt(mut tx.wr, lava_contact_damage, LavaDamageSource{})
+			s.apply_hurt(mut tx, lava_contact_damage, LavaDamageSource{})
 		}
 		s.player.set_fire_ticks(lava_fire_ticks)
 		return
@@ -84,31 +88,17 @@ fn (mut s NetworkSession) tick_burning(mut tx WorldTx, in_lava bool, in_water bo
 	next := remaining - 1
 	s.player.set_fire_ticks(next)
 	if next > 0 && next % fire_tick_interval_ticks == 0 {
-		s.apply_hurt(mut tx.wr, fire_tick_damage, FireDamageSource{})
+		s.apply_hurt(mut tx, fire_tick_damage, FireDamageSource{})
 	}
 }
 
-fn (mut s NetworkSession) send_air_supply(mut wr WorldRuntime, air i64) {
+fn (mut s NetworkSession) send_air_supply(mut wr worldrt.WorldRuntime, air i64) {
 	if !s.spawned {
 		return
 	}
-	wr.broadcast_world(&proto.SetActorDataPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		actor_data:        [
-			proto.DataItem{
-				data_item_id:   proto.meta_key_air_supply
-				data_item_type: proto.DataItemShort{
-					value: i16(air)
-				}
-			},
-			proto.DataItem{
-				data_item_id:   proto.meta_key_air_supply_max
-				data_item_type: proto.DataItemShort{
-					value: i16(player.max_air_supply_ticks)
-				}
-			},
-		]
-		synced_properties: proto.PropertySyncData{}
-		tick:              0
-	})
+	for mut v in wr.viewers() {
+		if mut v is player.Viewer {
+			v.view_air_supply(s.player, air)
+		}
+	}
 }

@@ -4,6 +4,7 @@ import time
 import server.internal.gamedata
 import server.world
 import server.world.db
+import server.worldrt
 
 struct SoakBlockSource {}
 
@@ -19,7 +20,7 @@ fn (t SoakSlowTask) name() string {
 	return 'SoakSlowTask'
 }
 
-fn (t SoakSlowTask) run(mut tx WorldTx) {
+fn (t SoakSlowTask) run(mut tx worldrt.WorldTx) {
 	time.sleep(t.delay_ms * time.millisecond)
 }
 

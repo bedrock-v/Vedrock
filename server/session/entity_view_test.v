@@ -4,8 +4,10 @@ import server.event
 import server.internal.gamedata
 import server.world
 import server.world.db
+import server.player
+import server.worldrt
 
-fn entity_test_hub_with_world() (&Hub, &WorldRuntime) {
+fn entity_test_hub_with_world() (&Hub, &worldrt.WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
 	target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
@@ -29,7 +31,7 @@ fn test_spawn_fails_for_unknown_type() {
 }
 
 struct CancelEntitySpawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 }
 
 fn (mut h CancelEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[event.EntitySpawnData]) {
@@ -37,15 +39,15 @@ fn (mut h CancelEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[event.
 }
 
 fn test_cancelled_event_prevents_spawn() {
-	mut hub, wr := entity_test_hub_with_world()
-	wr.events.register(&CancelEntitySpawnHandler{}, .normal)
+	mut hub, mut wr := entity_test_hub_with_world()
+	wr.handle(&CancelEntitySpawnHandler{})
 	ok := hub.spawn_entity('pig', 0, 10, 0)
 	assert !ok
 	assert wr.entities.count() == 0
 }
 
 struct RecordingDespawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 mut:
 	calls           int
 	last_identifier string
@@ -57,9 +59,9 @@ fn (mut h RecordingDespawnHandler) on_entity_despawn(mut ctx event.Context[event
 }
 
 fn test_despawn_dispatches_entity_despawn_event() {
-	mut hub, wr := entity_test_hub_with_world()
+	mut hub, mut wr := entity_test_hub_with_world()
 	mut handler := &RecordingDespawnHandler{}
-	wr.events.register(handler, .normal)
+	wr.handle(handler)
 	hub.spawn_entity('pig', 0, 10, 0)
 	assert wr.entities.count() == 1
 

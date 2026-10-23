@@ -4,6 +4,11 @@ import math
 import bedrock_v.protocol.types
 import server.event
 import bedrock_v.protocol.current as proto
+import server.entity
+import server.player
+import server.worldrt
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v2168.packets as packets_2168
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
@@ -26,8 +31,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	if !s.spawned {
 		return
 	}
-	sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw := s.sanitize_movement(position,
-		pitch, yaw, head_yaw)
+	sanitized_position, sanitized_pitch, sanitized_yaw, sanitized_head_yaw := s.sanitize_movement(position, pitch, yaw, head_yaw)
 
 	s.movement_mutex.lock()
 	if expected := s.pending_teleport_ack {
@@ -54,8 +58,8 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 	if !isnil(binding.world_runtime) {
 		mut wr := binding.world_runtime
 		submitted = wr.try_submit(PlayerMoveTask{
-			runtime_id: s.runtime_id
-			epoch:      binding.epoch
+			id:  s.actor_id()
+			hub: s.hub
 		})
 	}
 	if !submitted {
@@ -165,8 +169,11 @@ fn (mut s NetworkSession) clear_movement_scheduled_if_idle() bool {
 // PlayerMoveTask is update_movement's actual application, running entirely
 // on the owning world's own actor.
 struct PlayerMoveTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
+	// hub is carried rather than reached for through the transaction: the
+	// world runtime deliberately has no route to a session and this task
+	// still has to find one whose epoch has since moved on.
+	hub &Hub = unsafe { nil }
 }
 
 // run resolves the session through Hub because stale tasks must still clear
@@ -176,10 +183,11 @@ fn (t PlayerMoveTask) name() string {
 	return 'PlayerMoveTask'
 }
 
-fn (t PlayerMoveTask) run(mut tx WorldTx) {
-	mut s := tx.wr.hub.session_by_runtime(t.runtime_id) or { return }
+fn (t PlayerMoveTask) run(mut tx worldrt.WorldTx) {
+	mut hub := unsafe { t.hub }
+	mut s := hub.session_by_runtime(t.id.value) or { return }
 	for {
-		if s.world_binding().epoch != t.epoch || !tx.wr.entities.is_player_actor(t.runtime_id) {
+		if s.world_binding().epoch != t.id.epoch || !tx.wr.entities.is_player_actor(t.id.value) {
 			s.movement_mutex.lock()
 			s.movement_scheduled = false
 			s.movement_mutex.unlock()
@@ -193,25 +201,25 @@ fn (t PlayerMoveTask) run(mut tx WorldTx) {
 	}
 }
 
-fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapshot) {
+fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot MovementSnapshot) {
 	position := snapshot.position
-	if s.spawned && tx.wr.hub.current_tick() % 40 == 0 {
+	if s.spawned && tx.wr.services.current_tick() % 40 == 0 {
 		s.log.debug('move ${s.player.identity.display_name} pos=(${position.x:.2f}, ${position.y:.2f}, ${position.z:.2f})')
 	}
-	if s.spawned && tx.wr.events.len() > 0 {
-		mut ctx := event.new_context(event.MoveData{
-			player: s
+	if s.spawned {
+		mut ctx := event.new_context(player.MoveData{
+			player: s.player
 			x:      position.x
 			y:      position.y
 			z:      position.z
 		})
-		tx.wr.events.player_move(mut ctx)
+		s.player.handler.on_player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
-			mut move_packet := &proto.MovePlayerPacket{
-				player_runtime_id: proto.actor_runtime_id(s.runtime_id)
+			mut move_packet := &packets_2168.MovePlayerPacket{
+				player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
 				y_head_rotation:   current.head_yaw
-				position_mode:     proto.PlayerPositionMode.respawn
+				position_mode:     enums_2168.PlayerPositionMode.respawn
 				on_ground:         false
 			}
 			move_packet.position[0] = current.position.x
@@ -223,12 +231,13 @@ fn (mut s NetworkSession) apply_movement(mut tx WorldTx, snapshot MovementSnapsh
 			return
 		}
 	}
-	landed_distance := s.player.apply_movement(position, snapshot.pitch, snapshot.yaw,
-		snapshot.head_yaw, snapshot.on_ground)
+	landed_distance := s.player.apply_movement(position, snapshot.pitch, snapshot.yaw, snapshot.head_yaw, snapshot.on_ground)
 	if s.spawned {
-		tx.wr.broadcast_world_except(s.runtime_id, s.move_actor_packet())
+		for mut v in viewers_except(mut tx, s.runtime_id) {
+			v.view_movement(s.player)
+		}
 	}
-	s.apply_fall_damage(mut tx.wr, landed_distance)
+	s.apply_fall_damage(mut tx, landed_distance)
 	s.stream_chunks_if_moved()
 }
 
@@ -246,9 +255,9 @@ fn fall_damage_amount(fall_distance f32) f32 {
 	return whole
 }
 
-fn (mut s NetworkSession) apply_fall_damage(mut wr WorldRuntime, landed_distance f32) {
+fn (mut s NetworkSession) apply_fall_damage(mut tx worldrt.WorldTx, landed_distance f32) {
 	dmg := fall_damage_amount(landed_distance)
 	if dmg > 0 {
-		s.apply_hurt(mut wr, dmg, FallDamageSource{})
+		s.apply_hurt(mut tx, dmg, FallDamageSource{})
 	}
 }

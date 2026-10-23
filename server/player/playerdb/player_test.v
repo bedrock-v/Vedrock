@@ -74,6 +74,35 @@ fn test_save_file_predating_last_death_field_decodes_as_no_death() {
 	assert !loaded.has_last_death
 }
 
+fn test_a_player_never_saved_is_not_saved() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_playerdb_missing_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	if _ := load_player(dir, 'nobody') {
+		assert false, 'loaded a save that was never written'
+	} else {
+		assert err is NotSaved, 'a missing save should be NotSaved, got: ${err}'
+	}
+}
+
+fn test_a_save_that_will_not_decode_is_not_mistaken_for_no_save() {
+	dir := os.join_path(os.vtmp_dir(), 'vedrock_playerdb_damaged_${os.getpid()}')
+	defer {
+		os.rmdir_all(dir) or {}
+	}
+	os.mkdir_all(dir) or {}
+	os.write_file(os.join_path(dir, 'damaged.json'), '{"x":1.0,"items":[') or {
+		assert false, 'write failed: ${err}'
+		return
+	}
+	if _ := load_player(dir, 'damaged') {
+		assert false, 'a truncated save decoded'
+	} else {
+		assert err !is NotSaved, 'a damaged save was reported as no save at all'
+	}
+}
+
 fn test_save_leaves_no_temp_file() {
 	dir := os.join_path(os.vtmp_dir(), 'vedrock_playerdb_tmp_${os.getpid()}')
 	defer {

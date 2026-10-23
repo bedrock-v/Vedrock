@@ -10,7 +10,9 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.item
-import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -33,7 +35,7 @@ fn break_test_hub() &Hub {
 	return hub
 }
 
-fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime) &NetworkSession {
+fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -42,7 +44,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world
@@ -50,8 +52,8 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRunt
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -69,7 +71,7 @@ fn give_held_pick(mut s NetworkSession) {
 
 fn test_break_block_damages_held_item_exactly_once() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
@@ -99,23 +101,22 @@ fn test_break_block_damages_held_item_exactly_once() {
 }
 
 struct BreakTestCancelHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h BreakTestCancelHandler) on_block_break(mut ctx event.Context[event.BlockBreakData]) {
+fn (mut h BreakTestCancelHandler) on_block_break(mut ctx event.Context[player.BlockBreakData]) {
 	ctx.cancel()
 }
 
 fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
-	// block_break is dispatched on the owning world's own event bus, not
-	// Hub's global one.
-	wr.events.register(&BreakTestCancelHandler{}, .normal)
 	mut transport := &FakeTransport{}
 	mut s := break_test_session(mut hub, mut transport, mut wr)
+	// block_break is dispatched on the breaking player's own handler.
+	s.handle(&BreakTestCancelHandler{})
 	give_held_pick(mut s)
 	defer {
 		hub.close_worlds()
@@ -142,7 +143,7 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 
 fn test_break_observer_in_another_world_receives_no_packet() {
 	mut hub := break_test_hub()
-	target := db.new_world('world', none, 'flat', world.overworld)
+	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('world')
 	other_world := db.new_world('other', none, 'flat', world.overworld)
@@ -176,25 +177,25 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
-		assert p !is proto.UpdateBlockPacket
+		assert p !is packets_944.UpdateBlockPacket
 	}
 }
 
 // CountingBreakHandler records block_break events to prove world scoped event
 // isolation, not just packet isolation.
 struct CountingBreakHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
 
-fn (mut h CountingBreakHandler) on_block_break(mut ctx event.Context[event.BlockBreakData]) {
+fn (mut h CountingBreakHandler) on_block_break(mut ctx event.Context[player.BlockBreakData]) {
 	h.hits++
 }
 
 // A handler registered on world B's event bus must never observe a block break
 // that happened in world A, and vice versa.
-fn test_break_block_event_isolated_to_owning_world() {
+fn test_break_block_event_reaches_only_the_breaking_player() {
 	mut hub := break_test_hub()
 	world_a := db.new_world('world-a', none, 'flat', world.overworld)
 	hub.add_world(world_a)
@@ -209,11 +210,13 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingBreakHandler{}
 	mut handler_b := &CountingBreakHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
 
 	mut transport_a := &FakeTransport{}
 	mut s_a := break_test_session(mut hub, mut transport_a, mut wr_a)
+	s_a.handle(handler_a)
+	mut transport_b := &FakeTransport{}
+	mut s_b := break_test_session(mut hub, mut transport_b, mut wr_b)
+	s_b.handle(handler_b)
 	give_held_pick(mut s_a)
 
 	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
@@ -236,7 +239,7 @@ fn test_break_block_event_isolated_to_owning_world() {
 
 fn break_sent_level_event(transport &FakeTransport) bool {
 	for p in transport.sent {
-		if p is proto.LevelEventPacket {
+		if p is packets_662.LevelEventPacket {
 			return true
 		}
 	}
@@ -250,7 +253,8 @@ fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
 	for !break_sent_level_event(transport) {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return break_sent_level_event(transport)
 			}
@@ -267,7 +271,7 @@ fn break_wait_for_level_event(transport &FakeTransport, timeout_ms int) bool {
 // mining in world A must not animate blocks for a player in world B.
 fn test_start_break_cracking_scoped_to_owning_world() {
 	mut hub := break_test_hub()
-	target := db.new_world('crack-a', none, 'flat', world.overworld)
+	mut target := db.new_world('crack-a', none, 'flat', world.overworld)
 	hub.add_world(target)
 	hub.set_default_world('crack-a')
 	other_world := db.new_world('crack-b', none, 'flat', world.overworld)
@@ -297,7 +301,7 @@ fn test_start_break_cracking_scoped_to_owning_world() {
 // curves, which made a hasted player mine far faster than vanilla.
 fn test_effects_scale_break_progress_like_vanilla() {
 	mut hub := break_test_hub()
-	target := db.new_world('effects', none, 'flat', world.overworld)
+	mut target := db.new_world('effects', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('effects') or { panic('expected effects runtime') }
 	mut transport := &FakeTransport{}
@@ -315,7 +319,7 @@ fn test_effects_scale_break_progress_like_vanilla() {
 	hasted := s.break_progress_per_tick(dirt_id)
 	assert_break_close(hasted / base, 1.4)
 
-	s.player.remove_effect(effect.haste)
+	s.player.take_effect(effect.haste)
 	s.player.add_effect_result(effect.new(effect.mining_fatigue, 1, 30 * time.second))
 	fatigued := s.break_progress_per_tick(dirt_id)
 	assert_break_close(fatigued / base, 0.3)
@@ -336,7 +340,7 @@ fn break_seconds_for(s &NetworkSession, runtime_id int) f32 {
 // block take five times its vanilla time whenever that flag was not set.
 fn test_standing_player_mines_at_vanilla_speed() {
 	mut hub := break_test_hub()
-	target := db.new_world('ground', none, 'flat', world.overworld)
+	mut target := db.new_world('ground', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('ground') or { panic('expected ground runtime') }
 	mut transport := &FakeTransport{}
@@ -361,9 +365,10 @@ fn test_standing_player_mines_at_vanilla_speed() {
 
 // tick_world_once runs one simulation step on the owning world actor, the same
 // entry point the tick loop uses.
-fn tick_world_once(mut wr WorldRuntime) {
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
-		tx.tick_effects()
+fn tick_world_once(mut wr worldrt.WorldRuntime) {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
+		mut ticker := SessionPlayerTicker{}
+		ticker.tick_players(mut tx)
 		return true
 	}) or { panic('tick rejected - world unexpectedly stopped') }
 }
@@ -373,7 +378,7 @@ fn tick_world_once(mut wr WorldRuntime) {
 // removes it: no destroy packet is sent here on purpose.
 fn test_server_finishes_the_break_without_a_client_destroy() {
 	mut hub := break_test_hub()
-	target := db.new_world('server-break', none, 'flat', world.overworld)
+	mut target := db.new_world('server-break', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('server-break') or { panic('expected runtime') }
 	mut transport := &FakeTransport{}
@@ -412,7 +417,7 @@ fn (t BreakBarrierTask) name() string {
 	return 'BreakBarrierTask'
 }
 
-fn (t BreakBarrierTask) run(mut tx WorldTx) {
+fn (t BreakBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -435,8 +440,8 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 	give_held_pick(mut s_b)
 
 	// Stall world A's actor with a task barrier.
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	a_ok := wr_a.submit(BreakBarrierTask{
 		started: started
 		release: release

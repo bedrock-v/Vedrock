@@ -5,6 +5,15 @@ import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.item
 import bedrock_v.protocol.current as proto
+import server.worldrt
+import server.entity
+import server.player
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.version.v944.types as types_944
 
 const crafting_grid_small = [28, 29, 30, 31]
 const crafting_grid_large = [32, 33, 34, 35, 36, 37, 38, 39, 40]
@@ -52,10 +61,10 @@ fn (s &NetworkSession) crafting_grid_slots() []int {
 
 // attempt_craft resolves recipe_network_id against the grid; falls back to
 // whatever the grid actually matches if the client's claimed id doesn't.
-fn (mut tx WorldTx) attempt_craft(mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
+fn attempt_craft(mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
 	times := if number_of_crafts < 1 { 1 } else { int(number_of_crafts) }
 	if requested := item.recipe_by_network_id(recipe_network_id) {
-		if changes := tx.try_craft_recipe(mut s, requested, times) {
+		if changes := try_craft_recipe(mut s, requested, times) {
 			return changes
 		}
 	} else {
@@ -63,7 +72,7 @@ fn (mut tx WorldTx) attempt_craft(mut s NetworkSession, recipe_network_id u32, n
 	}
 	fallback := s.find_matching_recipe(times) or { return none }
 	s.log.debug('attempt_craft: requested recipe network_id=${recipe_network_id} did not match the grid - falling back to recipe=${fallback.id} (network_id=${fallback.network_id}), which does')
-	return tx.try_craft_recipe(mut s, fallback, times)
+	return try_craft_recipe(mut s, fallback, times)
 }
 
 struct PlannedConsumption {
@@ -127,7 +136,7 @@ fn (s &NetworkSession) describe_crafting_grid() string {
 	return seen.join(', ')
 }
 
-fn (mut tx WorldTx) try_craft_recipe(mut s NetworkSession, recipe item.Recipe, times int) ?[]SlotChange {
+fn try_craft_recipe(mut s NetworkSession, recipe item.Recipe, times int) ?[]SlotChange {
 	if recipe.block != 'crafting_table' {
 		s.log.debug('try_craft_recipe: recipe ${recipe.id} (network_id=${recipe.network_id}) requires block=${recipe.block}, not crafting_table')
 		return none
@@ -150,7 +159,7 @@ fn (mut tx WorldTx) try_craft_recipe(mut s NetworkSession, recipe item.Recipe, t
 			new_net = s.player.track_stack(leftover)
 		}
 		s.set_crafting_slot_net_id(p.slot, new_net)
-		changes << slot_change(proto.FullContainerName{
+		changes << slot_change(types_944.FullContainerName{
 			container: .crafting_input_container
 		}, i8(p.slot), remaining, new_net)
 	}
@@ -192,7 +201,7 @@ fn (s &NetworkSession) available_ingredient_count(name string) int {
 			}
 		}
 	}
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		net_id := s.player.inv_slot(slot) or { continue }
 		if stack := s.player.inv_stack(net_id) {
 			if s.hub.data.item_name(stack.id) == name {
@@ -230,11 +239,11 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 			new_net = s.player.track_stack(leftover)
 		}
 		s.set_crafting_slot_net_id(slot, new_net)
-		changes << slot_change(proto.FullContainerName{
+		changes << slot_change(types_944.FullContainerName{
 			container: .crafting_input_container
 		}, i8(slot), left, new_net)
 	}
-	for slot in 0 .. inventory_slot_count {
+	for slot in 0 .. player.inventory_slot_count {
 		if remaining <= 0 {
 			break
 		}
@@ -256,13 +265,13 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 		} else {
 			s.player.delete_slot(slot)
 		}
-		changes << slot_change(proto.FullContainerName{
+		changes << slot_change(types_944.FullContainerName{
 			container: .combined_hotbar_and_inventory_container
 		}, i8(slot), left, new_net)
 	}
 }
 
-fn (mut tx WorldTx) attempt_auto_craft(mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
+fn attempt_auto_craft(mut s NetworkSession, recipe_network_id u32, number_of_crafts i8) ?[]SlotChange {
 	recipe := item.recipe_by_network_id(recipe_network_id) or { return none }
 	if recipe.block != 'crafting_table' {
 		return none
@@ -295,13 +304,13 @@ fn (mut tx WorldTx) attempt_auto_craft(mut s NetworkSession, recipe_network_id u
 	return changes
 }
 
-fn (mut tx WorldTx) open_workbench(mut s NetworkSession, pos types.BlockPosition) {
+fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	s.log.debug('open_workbench: opening at ${pos}')
-	s.close_chest_container(mut tx)
+	s.close_open_container(mut tx)
 	s.set_workbench_open(true)
-	s.deliver(&proto.ContainerOpenPacket{
-		container_id:    proto.ContainerID.first
-		container_type:  proto.ContainerType.workbench
+	s.deliver(&packets_944.ContainerOpenPacket{
+		container_id:    enums_662.ContainerID.first
+		container_type:  enums_662.ContainerType.workbench
 		position:        proto.block_pos(pos)
 		target_actor_id: proto.actor_unique_id(-1)
 	})
@@ -309,7 +318,7 @@ fn (mut tx WorldTx) open_workbench(mut s NetworkSession, pos types.BlockPosition
 
 // return_or_drop_stack gives stack back to an inventory slot if one's
 // free, otherwise drops it at the player's feet. Never silently discards.
-fn (mut s NetworkSession) return_or_drop_stack(stack types.ItemStack) {
+fn (mut s NetworkSession) return_or_drop_stack(mut tx worldrt.WorldTx, stack types.ItemStack) {
 	if dest := s.first_empty_slot() {
 		returned_net := s.player.track_stack(stack)
 		s.player.set_slot(dest, returned_net)
@@ -319,16 +328,13 @@ fn (mut s NetworkSession) return_or_drop_stack(stack types.ItemStack) {
 		})
 		return
 	}
-	mut wr := s.current_world_runtime()
-	if !isnil(wr) {
-		center := s.player.position()
-		spawn_dropped_item_stack(mut wr, s.hub.data.item_name(stack.id), stack.count, center)
-	}
+	center := s.player.position()
+	spawn_dropped_item_stack(mut tx, s.hub.data.item_name(stack.id), stack.count, center)
 }
 
 // release_crafting_grid_slots returns whatever the given slots hold and
 // clears their tracking. Safe on an already empty grid.
-fn (mut s NetworkSession) release_crafting_grid_slots(slots []int) {
+fn (mut s NetworkSession) release_crafting_grid_slots(mut tx worldrt.WorldTx, slots []int) {
 	for slot in slots {
 		net_id := s.crafting_slot_net_id(slot)
 		if net_id == 0 {
@@ -340,11 +346,11 @@ fn (mut s NetworkSession) release_crafting_grid_slots(slots []int) {
 		}
 		s.player.delete_stack(net_id)
 		s.set_crafting_slot_net_id(slot, 0)
-		s.return_or_drop_stack(stack)
+		s.return_or_drop_stack(mut tx, stack)
 	}
 }
 
-fn (mut s NetworkSession) release_cursor() {
+fn (mut s NetworkSession) release_cursor(mut tx worldrt.WorldTx) {
 	net_id := s.cursor_slot_net_id()
 	if net_id == 0 {
 		return
@@ -355,38 +361,37 @@ fn (mut s NetworkSession) release_cursor() {
 	}
 	s.player.delete_stack(net_id)
 	s.set_cursor_slot_net_id(0)
-	s.return_or_drop_stack(stack)
+	s.return_or_drop_stack(mut tx, stack)
 }
 
 // release_crafting_state returns everything the grid and cursor hold, the
 // full cleanup a disconnect needs, since the client isn't guaranteed to
 // send a clean ContainerClose first.
-fn (mut s NetworkSession) release_crafting_state() {
-	s.release_crafting_grid_slots(crafting_grid_small)
-	s.release_crafting_grid_slots(crafting_grid_large)
-	s.release_cursor()
+fn (mut s NetworkSession) release_crafting_state(mut tx worldrt.WorldTx) {
+	s.release_crafting_grid_slots(mut tx, crafting_grid_small)
+	s.release_crafting_grid_slots(mut tx, crafting_grid_large)
+	s.release_cursor(mut tx)
 }
 
-fn (mut s NetworkSession) close_workbench() {
+fn (mut s NetworkSession) close_workbench(mut tx worldrt.WorldTx) {
 	if !s.workbench_open() {
 		return
 	}
-	s.release_crafting_grid_slots(crafting_grid_large)
+	s.release_crafting_grid_slots(mut tx, crafting_grid_large)
 	s.set_workbench_open(false)
 }
 
 struct CloseWorkbenchTask {
-	runtime_id u64
-	epoch      i64
+	id entity.ActorId
 }
 
 fn (t CloseWorkbenchTask) name() string {
 	return 'CloseWorkbenchTask'
 }
 
-fn (t CloseWorkbenchTask) run(mut tx WorldTx) {
-	mut target := tx.player_for_epoch(t.runtime_id, t.epoch) or { return }
-	target.close_workbench()
+fn (t CloseWorkbenchTask) run(mut tx worldrt.WorldTx) {
+	mut target := player_for_id(mut tx, t.id) or { return }
+	target.close_workbench(mut tx)
 }
 
 fn (mut s NetworkSession) release_workbench() {
@@ -394,57 +399,55 @@ fn (mut s NetworkSession) release_workbench() {
 	if isnil(wr) {
 		return
 	}
-	rid := s.runtime_id
-	epoch := s.world_binding().epoch
+	id := s.actor_id()
 	wr.submit(CloseWorkbenchTask{
-		runtime_id: rid
-		epoch:      epoch
+		id: id
 	})
 }
 
-fn recipe_uuid(id string) proto.Uuid {
+fn recipe_uuid(id string) types_662.Uuid {
 	sum := md5.sum(id.bytes())
 	mut bytes := [16]u8{}
 	for i in 0 .. 16 {
 		bytes[i] = sum[i]
 	}
-	return proto.Uuid{
+	return types_662.Uuid{
 		bytes: bytes
 	}
 }
 
-const always_unlocked = proto.RecipeUnlockingRequirement{
-	context: proto.UnlockingContext.always_unlocked
+const always_unlocked = types_2168.RecipeUnlockingRequirement{
+	context: types_2168.UnlockingContext.always_unlocked
 }
 
-fn crafting_data_packet(data gamedata.GameData) &proto.CraftingDataPacket {
-	mut shaped_recipes := []proto.ShapedRecipe{}
-	mut shapeless_recipes := []proto.ShapelessRecipe{}
+fn crafting_data_packet(data gamedata.GameData) &packets_2168.CraftingDataPacket {
+	mut shaped_recipes := []types_2168.ShapedRecipe{}
+	mut shapeless_recipes := []types_2168.ShapelessRecipe{}
 	for r in item.all_recipes() {
 		output_id := data.item_id(r.output_name)
 		production_list := [
-			proto.NetworkItemInstanceDescriptor{
+			types_2168.NetworkItemInstanceDescriptor{
 				id:         output_id
 				stack_size: u16(r.output_count)
 			},
 		]
 		if r.width > 0 && r.height > 0 {
-			mut cells := []proto.CraftingRecipeIngredient{cap: r.pattern.len}
+			mut cells := []types_2168.CraftingRecipeIngredient{cap: r.pattern.len}
 			for cell in r.pattern {
 				if cell == '' {
-					cells << proto.CraftingRecipeIngredient{
-						descriptor: proto.CraftingDescEmpty{}
+					cells << types_2168.CraftingRecipeIngredient{
+						descriptor: types_2168.CraftingDescEmpty{}
 					}
 					continue
 				}
-				cells << proto.CraftingRecipeIngredient{
-					descriptor: proto.CraftingDescName{
+				cells << types_2168.CraftingRecipeIngredient{
+					descriptor: types_2168.CraftingDescName{
 						item_id: cell
 					}
 					stack_size: 1
 				}
 			}
-			shaped_recipes << proto.ShapedRecipe{
+			shaped_recipes << types_2168.ShapedRecipe{
 				recipe_unique_id:      r.id
 				width:                 r.width
 				height:                r.height
@@ -459,16 +462,16 @@ fn crafting_data_packet(data gamedata.GameData) &proto.CraftingDataPacket {
 			}
 			continue
 		}
-		mut ingredients := []proto.CraftingRecipeIngredient{cap: r.ingredients.len}
+		mut ingredients := []types_2168.CraftingRecipeIngredient{cap: r.ingredients.len}
 		for ingredient in r.ingredients {
-			ingredients << proto.CraftingRecipeIngredient{
-				descriptor: proto.CraftingDescName{
+			ingredients << types_2168.CraftingRecipeIngredient{
+				descriptor: types_2168.CraftingDescName{
 					item_id: ingredient.name
 				}
 				stack_size: ingredient.count
 			}
 		}
-		shapeless_recipes << proto.ShapelessRecipe{
+		shapeless_recipes << types_2168.ShapelessRecipe{
 			recipe_unique_id:      r.id
 			ingredient_list:       ingredients
 			production_list:       production_list
@@ -479,7 +482,7 @@ fn crafting_data_packet(data gamedata.GameData) &proto.CraftingDataPacket {
 			network_id:            i32(r.network_id)
 		}
 	}
-	return &proto.CraftingDataPacket{
+	return &packets_2168.CraftingDataPacket{
 		shaped_recipes:    shaped_recipes
 		shapeless_recipes: shapeless_recipes
 		clear_recipes:     true

@@ -1,59 +1,84 @@
 module session
 
 import math
-import bedrock_v.protocol
 import bedrock_v.protocol.types
 import server.entity
 import server.event
 import server.world
+import server.worldrt
 
 // los_sample_step controls the distance between line of sight samples.
 // Smaller values improve accuracy but require more collision checks.
 const los_sample_step = f32(0.5)
 
-// WorldEntityHost adapts one WorldRuntime to entity.Host, scoping every
+// WorldEntityHost adapts one worldrt.WorldRuntime to entity.Host, scoping every
 // query and broadcast to sessions and blocks in this world only, the same
-// isolation WorldLiquidHost and broadcast_world already give block writes
-// and liquid spread. Its methods run on the owning world actor, since
+// isolation WorldLiquidHost already gives block writes and liquid spread.
+// Its methods run on the owning world actor, since
 // entity.Manager.tick() dispatches into Behaviour.tick() which calls back
 // into these, so returning a live &Entity here is safe. Code outside the
-// actor has to snapshot instead (see world_call usage in combat.v).
+// actor has to snapshot instead (see worldrt.world_call usage in combat.v).
 struct WorldEntityHost {
 mut:
-	wr &WorldRuntime
+	wr &worldrt.WorldRuntime
 }
 
-fn (mut h WorldEntityHost) broadcast(p protocol.Packet) {
-	h.wr.broadcast_world(p)
+// tx is how a host method reaches world mutation. entity.Host methods run
+// only while the entity manager is ticking, which happens on the world actor,
+// and entity can't name WorldTx without an import cycle. That's why the transaction
+// is rebuilt here instead of being passed in.
+fn (mut h WorldEntityHost) tx() worldrt.WorldTx {
+	return worldrt.WorldTx{
+		wr: h.wr
+	}
 }
 
-fn (mut h WorldEntityHost) broadcast_near(x f32, y f32, z f32, radius f32, p protocol.Packet) {
+// new_world_entity_host builds the entity manager's host for wr. The runtime
+// takes it as a function because the host needs the runtime, which does not
+// exist yet when its config is written.
+fn new_world_entity_host(wr &worldrt.WorldRuntime) entity.Host {
+	return WorldEntityHost{
+		wr: unsafe { wr }
+	}
+}
+
+fn (mut h WorldEntityHost) viewers() []entity.Viewer {
+	return h.wr.viewers()
+}
+
+// viewers_near is everyone close enough to a point to be shown something
+// happening there. It is the only distance filter in the viewer path; the
+// world wide one doesn't have it.
+fn (mut h WorldEntityHost) viewers_near(x f32, y f32, z f32, radius f32) []entity.Viewer {
 	r2 := radius * radius
+	mut out := []entity.Viewer{}
 	for mut a in h.wr.entities.player_actors() {
 		pos := a.current_position()
 		dx := pos.x - x
 		dy := pos.y - y
 		dz := pos.z - z
-		if dx * dx + dy * dy + dz * dz <= r2 {
-			if mut a is NetworkSession {
-				a.deliver(p)
-			}
+		if dx * dx + dy * dy + dz * dz > r2 {
+			continue
+		}
+		if mut a is NetworkSession {
+			out << a
 		}
 	}
+	return out
 }
 
 // allocate_runtime_id is shared across every world through Hub, so entity
 // and player runtime ids never collide. The one piece that stays global on
 // purpose, matching entity.Host's original contract.
 fn (mut h WorldEntityHost) allocate_runtime_id() u64 {
-	return h.wr.hub.allocate_runtime_id()
+	return h.wr.services.allocate_runtime_id()
 }
 
 fn (mut h WorldEntityHost) get_block(x int, y int, z int) int {
 	if id := h.wr.world.block_override(x, y, z) {
 		return id
 	}
-	gen := h.wr.world.make_generator(h.wr.hub.build_generator(h.wr.world))
+	gen := h.wr.world.make_generator(h.wr.generators.build_generator(h.wr.world))
 	return gen.block_at(x, y, z)
 }
 
@@ -62,19 +87,19 @@ fn (mut h WorldEntityHost) collision_boxes(x int, y int, z int) []world.AABB {
 	if id == world.air.network_id {
 		return []world.AABB{}
 	}
-	if isnil(h.wr.hub.palette) {
+	if isnil(h.wr.services.block_palette()) {
 		return world.absolute_boxes(world.solid_model(), x, y, z)
 	}
-	return world.absolute_boxes_with_neighbors(h.wr.hub.palette.model(id), h.neighbor_models(x, y,
+	return world.absolute_boxes_with_neighbors(h.wr.services.block_palette().model(id), h.neighbor_models(x, y,
 		z), x, y, z)
 }
 
 fn (mut h WorldEntityHost) neighbor_models(x int, y int, z int) map[int]world.BlockModel {
 	mut out := map[int]world.BlockModel{}
-	out[2] = h.wr.hub.palette.model(h.get_block(x, y, z - 1))
-	out[3] = h.wr.hub.palette.model(h.get_block(x, y, z + 1))
-	out[4] = h.wr.hub.palette.model(h.get_block(x - 1, y, z))
-	out[5] = h.wr.hub.palette.model(h.get_block(x + 1, y, z))
+	out[2] = h.wr.services.block_palette().model(h.get_block(x, y, z - 1))
+	out[3] = h.wr.services.block_palette().model(h.get_block(x, y, z + 1))
+	out[4] = h.wr.services.block_palette().model(h.get_block(x - 1, y, z))
+	out[5] = h.wr.services.block_palette().model(h.get_block(x + 1, y, z))
 	return out
 }
 
@@ -106,17 +131,17 @@ fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id
 	return none
 }
 
-fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
-	mut a := wr.entities.actor_by_runtime_id(runtime_id) or { return }
+fn damage_actor(mut tx worldrt.WorldTx, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
+	mut a := tx.wr.entities.actor_by_runtime_id(runtime_id) or { return }
 	if mut a is NetworkSession {
 		a.apply_knockback(knockback_from, knockback_force, knockback_height)
-		a.apply_hurt(mut wr, amount, source)
+		a.apply_hurt(mut tx, amount, source)
 		return
 	}
 	mut host := WorldEntityHost{
-		wr: wr
+		wr: tx.wr
 	}
-	wr.entities.damage(runtime_id, amount, true, mut host, source_runtime_id)
+	tx.wr.entities.damage(runtime_id, amount, true, mut host, source_runtime_id)
 }
 
 // damage_entity applies mob/projectile-originated damage to a player or
@@ -126,13 +151,15 @@ fn damage_actor(mut wr WorldRuntime, runtime_id u64, amount f32, source DamageSo
 //
 // Melee damage uses PlayerAttackTask and doesn't pass through this path.
 fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
-	damage_actor(mut h.wr, runtime_id, amount, ProjectileDamageSource{
+	mut tx := h.tx()
+	damage_actor(mut tx, runtime_id, amount, ProjectileDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }
 
 fn (mut h WorldEntityHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
-	damage_actor(mut h.wr, runtime_id, amount, MobAttackDamageSource{
+	mut tx := h.tx()
+	damage_actor(mut tx, runtime_id, amount, MobAttackDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }
@@ -181,7 +208,7 @@ fn (mut h WorldEntityHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 	return best_rid
 }
 
-// notify_entity_despawn dispatches entity_despawn on this world's event bus.
+// notify_entity_despawn dispatches entity_despawn on this world's handler.
 fn (mut h WorldEntityHost) notify_entity_despawn(identifier string, x f32, y f32, z f32) {
 	mut ctx := event.new_context(event.EntityDespawnData{
 		identifier: identifier
@@ -189,7 +216,7 @@ fn (mut h WorldEntityHost) notify_entity_despawn(identifier string, x f32, y f32
 		y:          y
 		z:          z
 	})
-	h.wr.events.entity_despawn(mut ctx)
+	h.wr.handler.on_entity_despawn(mut ctx)
 }
 
 // SpawnEntityTask resolves and, unless the owning world's entity_spawn
@@ -206,7 +233,7 @@ fn (t SpawnEntityTask) name() string {
 	return 'SpawnEntityTask'
 }
 
-fn (t SpawnEntityTask) run(mut tx WorldTx) {
+fn (t SpawnEntityTask) run(mut tx worldrt.WorldTx) {
 	mut spawned := false
 	defer {
 		t.result <- spawned
@@ -217,7 +244,7 @@ fn (t SpawnEntityTask) run(mut tx WorldTx) {
 		y:          t.y
 		z:          t.z
 	})
-	tx.wr.events.entity_spawn(mut ctx)
+	tx.wr.handler.on_entity_spawn(mut ctx)
 	if ctx.is_cancelled() {
 		return
 	}

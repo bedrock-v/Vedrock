@@ -1,7 +1,9 @@
 module session
 
 import bedrock_v.protocol.types
+import server.entity
 import server.player
+import server.worldrt
 
 // PlayerRef is a stale checked reference to a player. It remains valid only
 // for the world membership generation captured when it was created.
@@ -9,10 +11,10 @@ import server.player
 // Operations fail if the player disconnects or changes worlds, preventing
 // stale references from resolving to another session or membership.
 pub struct PlayerRef {
-	runtime_id u64
-	epoch      i64
-	name_      string
-	world_     World
+	id     entity.ActorId
+	name_  string
+	world_ World
+	hub_   &Hub = unsafe { nil }
 }
 
 // player_ref_for builds a PlayerRef for session's current world membership
@@ -20,10 +22,10 @@ pub struct PlayerRef {
 fn player_ref_for(s &NetworkSession) PlayerRef {
 	binding := s.world_binding()
 	return PlayerRef{
-		runtime_id: s.runtime_id
-		epoch:      binding.epoch
-		name_:      s.name()
-		world_:     World{
+		id:     s.actor_id()
+		name_:  s.name()
+		hub_:   s.hub
+		world_: World{
 			runtime: binding.world_runtime
 		}
 	}
@@ -47,9 +49,9 @@ pub fn (mut h Hub) player_refs() []PlayerRef {
 }
 
 fn (p PlayerRef) resolve() !&NetworkSession {
-	mut hub := p.world_.runtime.hub
-	s := hub.session_by_runtime(p.runtime_id) or { return error('player is no longer connected') }
-	if s.world_binding().epoch != p.epoch {
+	mut hub := unsafe { p.hub_ }
+	s := hub.session_by_runtime(p.id.value) or { return error('player is no longer connected') }
+	if s.world_binding().epoch != p.id.epoch {
 		return error('player has since left this world')
 	}
 	return s
@@ -67,6 +69,33 @@ pub fn (p PlayerRef) world() World {
 	return p.world_
 }
 
+// exec runs "f"unction against this player on the actor that owns it and blocks until
+// it has run. This is the way to act on a player: everything a player can do
+// is a method on player.Player and those take the transaction "f" is handed.
+//
+// label names the operation in WorldMetrics.longest_task_name.
+//
+// It fails if the player has disconnected or left the world membership this
+// PlayerRef was created for or if that world is shutting down.
+pub fn (p PlayerRef) exec(label string, f fn (mut tx worldrt.WorldTx, mut pl player.Player)) ! {
+	mut wr := p.world_.runtime
+	id := p.id
+	ran := worldrt.world_call[bool](label, mut wr, fn [f, id] (mut tx worldrt.WorldTx) bool {
+		mut s := player_for_id(mut tx, id) or { return false }
+		f(mut tx, mut s.player)
+		return true
+	}) or { return error('world "${p.world_.name()}" is shutting down') }
+	if !ran {
+		return stale_error()
+	}
+}
+
+// stale_error is what every operation reports when the reference no longer
+// names a player in the world it was created for.
+fn stale_error() IError {
+	return error('player is no longer in this world')
+}
+
 // position is the player's current position. Fails if the player has
 // disconnected or left the world membership this PlayerRef was created for.
 pub fn (p PlayerRef) position() !types.Vector3 {
@@ -75,17 +104,20 @@ pub fn (p PlayerRef) position() !types.Vector3 {
 }
 
 // send_message shows message in the player's chat. Same failure mode as
-// position.
+// position. It goes straight to the player rather than through the world
+// actor: the verb touches no world state.
 pub fn (p PlayerRef) send_message(message string) ! {
 	mut s := p.resolve()!
-	s.send_message(message)!
+	s.player.send_message(message)
 }
 
-// teleport moves the player within their current world. Same failure mode
-// as position.
+// teleport moves the player within their current world. Same failure mode as
+// position. It is exec plus Player.teleport, kept because moving a player is
+// common enough to be worth one call.
 pub fn (p PlayerRef) teleport(pos types.Vector3) ! {
-	mut s := p.resolve()!
-	s.teleport(pos.x, pos.y, pos.z)
+	p.exec('PlayerRef.teleport', fn [pos] (mut tx worldrt.WorldTx, mut pl player.Player) {
+		pl.teleport(mut tx, pos)
+	})!
 }
 
 // teleport_to moves the player into world w at pos, transferring world
@@ -96,7 +128,8 @@ pub fn (p PlayerRef) teleport_to(w World, pos types.Vector3) ! {
 }
 
 // give_item adds count of the item named id to the player's inventory.
-// Fails if the player is gone (see position) or their inventory has no room.
+// Fails if the player is gone (see position) or id names nothing the server
+// knows. The item lands on the world actor; this returns once it has.
 pub fn (p PlayerRef) give_item(id string, count int) ! {
 	mut s := p.resolve()!
 	if !s.give_item(id, count) {
@@ -113,13 +146,23 @@ pub fn (p PlayerRef) game_mode() !player.Gamemode {
 // set_gamemode changes the player's game mode. Same failure mode as
 // position.
 pub fn (p PlayerRef) set_gamemode(mode player.Gamemode) ! {
-	mut s := p.resolve()!
-	s.set_gamemode(mode)
+	p.exec('PlayerRef.set_gamemode', fn [mode] (mut tx worldrt.WorldTx, mut pl player.Player) {
+		pl.set_gamemode(mut tx, mode)
+	})!
 }
 
-// disconnect kicks the player with message shown as the reason. Same
-// failure mode as position.
+// kill takes the player through the normal death path with no attacker.
+// Same failure mode as position.
+pub fn (p PlayerRef) kill() ! {
+	p.exec('PlayerRef.kill', fn (mut tx worldrt.WorldTx, mut pl player.Player) {
+		pl.kill(mut tx)
+	})!
+}
+
+// disconnect kicks the player with message shown as the reason. Same failure
+// mode as position. Like send_message it skips the world actor: closing the
+// connection is the sink's business.
 pub fn (p PlayerRef) disconnect(message string) ! {
 	mut s := p.resolve()!
-	s.disconnect(message)
+	s.player.disconnect(message)
 }

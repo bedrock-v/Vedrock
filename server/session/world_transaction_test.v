@@ -6,8 +6,9 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
+import server.worldrt
 
-fn wtx_test_world() (&Hub, &WorldRuntime) {
+fn wtx_test_world() (&Hub, &worldrt.WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('world-transaction-test', none, 'void', world.overworld)
 	hub.add_world(w)
@@ -15,7 +16,7 @@ fn wtx_test_world() (&Hub, &WorldRuntime) {
 	return hub, wr
 }
 
-fn wtx_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &NetworkSession {
+fn wtx_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, display_name string) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: display_name
@@ -24,7 +25,7 @@ fn wtx_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &Netw
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		transport:     &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -32,8 +33,8 @@ fn wtx_test_session(mut hub Hub, mut wr WorldRuntime, display_name string) &Netw
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -46,7 +47,7 @@ fn test_exec_commits_block_change() {
 	}
 	mut handle := hub.world_handle('world-transaction-test') or { panic('expected handle') }
 
-	handle.exec(fn (mut tx WorldTransaction) ! {
+	handle.exec('test.set_block', fn (mut tx WorldTransaction) ! {
 		tx.set_block(1, 2, 3, world.stone)!
 	}) or { panic('expected exec to succeed: ${err}') }
 
@@ -61,7 +62,7 @@ fn test_exec_applies_multiple_mutations() {
 	}
 	mut handle := hub.world_handle('world-transaction-test') or { panic('expected handle') }
 
-	handle.exec(fn (mut tx WorldTransaction) ! {
+	handle.exec('test.multi_set_block', fn (mut tx WorldTransaction) ! {
 		tx.set_block(0, 0, 0, world.stone)!
 		tx.set_block(1, 0, 0, world.stone)!
 		assert tx.block_at(0, 0, 0).network_id == world.stone.network_id
@@ -82,7 +83,7 @@ fn test_exec_returns_callback_error_without_rollback() {
 
 	mut failed := false
 	mut msg := ''
-	handle.exec(fn (mut tx WorldTransaction) ! {
+	handle.exec('test.failing_callback', fn (mut tx WorldTransaction) ! {
 		tx.set_block(4, 4, 4, world.stone)!
 		return error('deliberate failure')
 	}) or {

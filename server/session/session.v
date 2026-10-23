@@ -14,6 +14,15 @@ import server.event
 import server.form
 import sync
 import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v1001.packets as packets_1001
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.version.v685.packets as packets_685
+import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.version.v944.packets as packets_944
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -53,34 +62,43 @@ mut:
 pub struct NetworkSession {
 mut:
 	// player holds the gamestate fields.
-	player    &player.Player    = unsafe { nil }
-	transport network.Transport = FakeTransport{}
-	breaking  ?BreakProgress
+	player &player.Player = unsafe { nil }
+	// conn owns the transport, the outbound queue and the writer thread. It
+	// holds no gameplay state, which is what lets the writer run while the
+	// world actor mutates this session's player.
+	conn     &Conn = &Conn{}
+	breaking ?BreakProgress
 	// breaking_mutex guards breaking, written by the session thread and
 	// advanced by the owning world thread once per tick.
 	breaking_mutex &sync.Mutex = sync.new_mutex()
 	hub            &Hub        = unsafe { nil }
-	state          State       = .handshake
 	cfg            conf.Config
 	world          &db.World       = unsafe { nil }
 	generator      world.Generator = world.VoidGenerator{}
 	// world_runtime is the mutation routing counterpart to world.
-	world_runtime &WorldRuntime = unsafe { nil }
+	world_runtime &worldrt.WorldRuntime = unsafe { nil }
 	// world_epoch increments whenever the session changes runtime. World tasks
 	// capture it at submission and drop stale work after a world switch.
 	world_epoch i64
 	// world_mutex guards world/generator/world_runtime/world_epoch.
-	world_mutex                 &sync.Mutex = sync.new_mutex()
-	encryption_enabled          bool
+	world_mutex &sync.Mutex = sync.new_mutex()
+	// wire_ids/wire_actors are this session's own numbering for the actors it
+	// has been shown in both directions. See wire_ids.v; they are touched
+	// from the world actor while it renders and from the session thread while
+	// it decodes. So they take a lock.
+	wire_ids                    map[u64]u64
+	wire_actors                 map[u64]u64
+	next_wire_id                u64         = self_entity_runtime_id
+	wire_id_mutex               &sync.Mutex = sync.new_mutex()
 	runtime_id                  u64
 	spawned                     bool
 	inv_opened                  bool
-	open_container_pos          ?types.BlockPosition
+	open_container              ?OpenContainer
 	open_container_slot_net_ids map[int]int
 	open_container_mutex        &sync.Mutex = sync.new_mutex()
-	crafting_slot_net_ids   map[int]int
-	crafting_workbench_open bool
-	crafting_mutex          &sync.Mutex = sync.new_mutex()
+	crafting_slot_net_ids       map[int]int
+	crafting_workbench_open     bool
+	crafting_mutex              &sync.Mutex = sync.new_mutex()
 	// cursor_net_id tracks whatever the client holds on its cursor
 	// (FullContainerName.cursor_container)
 	cursor_net_id      int
@@ -111,53 +129,14 @@ mut:
 	chunk_gen_mutex      &sync.Mutex = sync.new_mutex()
 	transfer_mutex       &sync.Mutex = sync.new_mutex()
 	cooldown_until       map[string]i64
-	// Per session outbound delivery state. Packet queuing and writer lifecycle
-	// are managed in outbound.v.
-	// The queue carries ticket ids, not packets. A V channel keeps whatever was
-	// written into a slot until that slot is written again, so sending payloads
-	// through it left a session pinning its last outbound_queue_capacity
-	// messages - megabytes of already-delivered chunk data - for as long as it
-	// stayed connected. Tickets are a fixed 8 bytes; outbound_pending holds the
-	// payload only until the writer takes it.
-	outbound               chan u64 = chan u64{cap: outbound_queue_capacity}
-	outbound_pending       map[u64]OutboundMessage
-	outbound_pending_mutex &sync.Mutex = sync.new_mutex()
-	outbound_next_ticket   u64
-	outbound_done          chan bool = chan bool{cap: 1}
-	// outbound_abort wakes an idle writer with nothing queued, so
-	// close_outbound_once can always make it exit, not just when it's
-	// mid send. See outbound.v.
-	outbound_abort chan bool = chan bool{cap: 1}
-	// writer_exited fires once the writer loop actually returns. Tests use
-	// this to know the writer thread is gone, since outbound_done only
-	// proves close_outbound_once ran, not that the writer itself exited.
-	writer_exited chan bool   = chan bool{cap: 1}
-	close_mutex   &sync.Mutex = sync.new_mutex()
-	close_started bool
-	// outbound_closing is set the moment a graceful disconnect is
-	// accepted. Different from close_started: closing means no new
-	// packets are accepted, but the disconnect message still has to
-	// drain; close_started means the transport is actually closed.
-	outbound_closing bool
-	// outbound_bootstrap is true while a real connection still owns transport
-	// writes during bootstrap. activate_outbound clears it once and only before
-	// closing begins; test sessions default to the active state.
-	outbound_bootstrap bool
-	writer_mutex       &sync.Mutex = sync.new_mutex()
-	writer_started     bool
-	// handler is a per session attachment point, set via
-	// set_handler(h). It receives the same event.Handler calls as the global
-	// Bus for event dispatch sites that explicitly check it.
-	handler ?event.Handler
 pub mut:
 	log &logger.Logger = unsafe { nil }
 }
 
-// set_handler attaches a per session event.Handler. Only wired into a subset
-// of dispatch sites so far (chat.v's ChatData) as the demonstrated pattern. Not every event type
-// checks it yet.
-fn (mut s NetworkSession) set_handler(h event.Handler) {
-	s.handler = h
+// handle replaces this player's event handler. Passing none of the events is
+// fine: embed player.NopHandler and define only what the caller cares about.
+pub fn (mut s NetworkSession) handle(h player.Handler) {
+	s.player.handle(h)
 }
 
 fn (s &NetworkSession) has_permission(name string) bool {
@@ -192,7 +171,7 @@ fn (s &NetworkSession) current_world() &db.World {
 // world switch states.
 struct WorldBinding {
 	world         &db.World
-	world_runtime &WorldRuntime
+	world_runtime &worldrt.WorldRuntime
 	generator     world.Generator
 	epoch         i64
 }
@@ -200,13 +179,14 @@ struct WorldBinding {
 // set_world_binding bumps world_epoch only during change_world, between
 // deregistration from the old world and registration with the new one.
 // Direct test calls intentionally simulate a completed transfer.
-fn (mut s NetworkSession) set_world_binding(wr &WorldRuntime, generator world.Generator) {
+fn (mut s NetworkSession) set_world_binding(wr &worldrt.WorldRuntime, generator world.Generator) {
 	s.world_mutex.lock()
 	s.world_runtime = wr
 	s.world = wr.world
 	s.generator = generator
 	s.world_epoch++
 	s.world_mutex.unlock()
+	s.forget_wire_ids()
 }
 
 fn (s &NetworkSession) world_binding() WorldBinding {
@@ -220,7 +200,7 @@ fn (s &NetworkSession) world_binding() WorldBinding {
 
 // current_world_runtime returns the runtime for the session's current world,
 // avoiding a second name based lookup through Hub.
-fn (mut s NetworkSession) current_world_runtime() &WorldRuntime {
+fn (mut s NetworkSession) current_world_runtime() &worldrt.WorldRuntime {
 	return s.world_binding().world_runtime
 }
 
@@ -234,6 +214,20 @@ fn (s &NetworkSession) is_player() bool {
 
 fn (s &NetworkSession) runtime_id() u64 {
 	return s.runtime_id
+}
+
+// actor_id names this session for as long as it stays in the world it is bound
+// to now. Work submitted with it stops resolving the moment the session changes
+// worlds which is the point: the runtime id alone would still find them in a
+// world the work was never meant for.
+fn (s &NetworkSession) actor_id() entity.ActorId {
+	return entity.new_actor_id(s.runtime_id, s.world_binding().epoch)
+}
+
+// is_spawned reports the session's own spawn flag to the player.Sink. The
+// field cannot serve as the method, the two are named apart.
+fn (s &NetworkSession) is_spawned() bool {
+	return s.spawned
 }
 
 fn (s &NetworkSession) is_dead() bool {
@@ -285,10 +279,15 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		generator = spawn_world.make_generator(hub.build_generator(spawn_world))
 	}
 	mut p := player.new_player()
-	p.reset_position(types.Vector3{0.0, f32(generator.spawn_y()) + player_eye_height, 0.0})
-	return &NetworkSession{
+	p.handle(hub.player_handler)
+	spawn_point := generator.spawn_point()
+	p.reset_position(types.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)})
+	mut s := &NetworkSession{
 		player:             p
-		transport:          transport
+		conn:               &Conn{
+			transport: transport
+			bootstrap: true
+		}
 		hub:                hub
 		cfg:                cfg
 		world:              spawn_world
@@ -299,26 +298,28 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 		chunk_stream_mutex: sync.new_mutex()
 		chunk_gen_mutex:    sync.new_mutex()
 		log:                log
-		outbound_bootstrap: true
 	}
+	s.player.sink = s
+	s.player.runtime_id = s.runtime_id
+	return s
 }
 
 // A read error or a is_connection_closed write error both mean the
 // connection is already gone, so handle_loop aborts outbound delivery
 // immediately instead of trying to drain it gracefully.
 pub fn (mut s NetworkSession) handle_loop() {
-	for s.state != .closed {
-		packets := s.transport.read() or {
-			s.log.info('Connection ${s.transport.remote_addr()} closed')
-			s.log.debug('Connection ${s.transport.remote_addr()} ended: ${err}')
+	for s.conn.state != .closed {
+		packets := s.conn.transport.read() or {
+			s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
+			s.log.debug('Connection ${s.conn.transport.remote_addr()} ended: ${err}')
 			s.abort_outbound()
 			break
 		}
 		for p in packets {
-			s.handle(p) or {
+			s.handle_packet(p) or {
 				if network.is_connection_closed(err) {
-					s.log.info('Connection ${s.transport.remote_addr()} closed')
-					s.log.debug('Connection ${s.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
+					s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
+					s.log.debug('Connection ${s.conn.transport.remote_addr()} ended while handling ${p.name()}: ${err}')
 					s.abort_outbound()
 				} else {
 					s.log.warn('Failed to handle ${p.name()}: ${err}')
@@ -329,11 +330,11 @@ pub fn (mut s NetworkSession) handle_loop() {
 		}
 	}
 	s.leave()
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 }
 
 // leave deregisters the session from its world before removing it from Hub,
-// ensuring no WorldRuntime player entry outlives the session it references.
+// ensuring no worldrt.WorldRuntime player entry outlives the session it references.
 fn (mut s NetworkSession) leave() {
 	if !s.spawned {
 		s.hub.release_player_name(s.player.identity.display_name)
@@ -345,19 +346,18 @@ fn (mut s NetworkSession) leave() {
 	mut wr := s.current_world_runtime()
 	if !isnil(wr) {
 		rid := s.runtime_id
-		list_remove_pkt := s.player_list_remove_packet()
-		remove_pkt := s.remove_actor_packet()
 		held_container := s.open_container_position()
-		world_call[bool](mut wr, fn [mut s, rid, list_remove_pkt, remove_pkt, held_container] (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('Session.leave', mut wr, fn [mut s, rid, held_container] (mut tx worldrt.WorldTx) bool {
 			// Must run before save_player_data below, so anything returned
 			// to the inventory here is captured in the saved snapshot.
-			s.release_crafting_state()
-			tx.deregister_player(rid)
+			s.release_crafting_state(mut tx)
+			deregister_player(mut tx, rid)
 			if pos := held_container {
 				tx.wr.world.release_container_hold(pos.x, pos.y, pos.z, rid)
 			}
-			tx.wr.broadcast_world(list_remove_pkt)
-			tx.wr.broadcast_world(remove_pkt)
+			for mut v in viewers_of(mut tx) {
+				v.view_player_removed(s.player)
+			}
 			return true
 		}) or {}
 	}
@@ -365,91 +365,90 @@ fn (mut s NetworkSession) leave() {
 	s.save_player_data()
 	s.hub.remove(s.runtime_id)
 	s.hub.release_player_name(s.player.identity.display_name)
-	mut ctx := event.new_context(event.QuitData{
-		player:  s
+	mut ctx := event.new_context(player.QuitData{
+		player:  s.player
 		message: '§e${s.player.identity.display_name} left the game'
 	})
-	s.hub.events.player_quit(mut ctx)
+	s.player.handler.on_player_quit(mut ctx)
 	if !ctx.is_cancelled() && ctx.val.message != '' {
 		s.hub.broadcast_message(ctx.val.message)
 	}
 	s.log.info('${s.player.identity.display_name} left the game')
 }
 
-fn (mut s NetworkSession) handle(p protocol.Packet) ! {
-	match s.state {
+fn (mut s NetworkSession) handle_packet(p protocol.Packet) ! {
+	match s.conn.state {
 		.handshake {
-			if p is proto.RequestNetworkSettingsPacket {
+			if p is packets_662.RequestNetworkSettingsPacket {
 				s.handle_request_network_settings(p)!
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state handshake')
 			}
 		}
 		.login {
-			if p is proto.LoginPacket {
+			if p is packets_662.LoginPacket {
 				s.handle_login(p)!
-			} else if p is proto.ClientToServerHandshakePacket {
+			} else if p is packets_662.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is proto.RequestChunkRadiusPacket {
+			} else if p is packets_662.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state login')
 			}
 		}
 		.resource_packs {
-			if p is proto.ResourcePackClientResponsePacket {
+			if p is packets_2168.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
-			} else if p is proto.ResourcePackChunkRequestPacket {
+			} else if p is packets_662.ResourcePackChunkRequestPacket {
 				s.handle_resource_pack_chunk_request(p)!
-			} else if p is proto.ClientToServerHandshakePacket {
+			} else if p is packets_662.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is proto.RequestChunkRadiusPacket {
+			} else if p is packets_662.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state resource_packs')
 			}
 		}
 		.play {
-			if p is proto.RequestChunkRadiusPacket {
-				if should_stream_chunk_radius_async(s.state, s.spawned) {
+			if p is packets_662.RequestChunkRadiusPacket {
+				if should_stream_chunk_radius_async(s.conn.state, s.spawned) {
 					s.handle_play_chunk_radius_async(p)
 				} else {
 					s.handle_request_chunk_radius(p)!
 				}
-			} else if p is proto.SubChunkRequestPacket {
+			} else if p is packets_1001.SubChunkRequestPacket {
 				s.handle_sub_chunk_request(p)!
-			} else if p is proto.SetLocalPlayerAsInitializedPacket {
+			} else if p is packets_662.SetLocalPlayerAsInitializedPacket {
 				s.handle_player_initialized(p)!
-			} else if p is proto.TextPacket {
+			} else if p is packets_924.TextPacket {
 				s.handle_text(p)!
-			} else if p is proto.MovePlayerPacket {
-				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1],
-					p.y_head_rotation, p.on_ground)
-			} else if p is proto.PlayerAuthInputPacket {
+			} else if p is packets_2168.MovePlayerPacket {
+				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1], p.y_head_rotation, p.on_ground)
+			} else if p is packets_2192.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
-			} else if p is proto.InteractPacket {
+			} else if p is packets_898.InteractPacket {
 				s.handle_interact(p)!
-			} else if p is proto.ContainerClosePacket {
+			} else if p is packets_685.ContainerClosePacket {
 				s.handle_container_close(p)!
-			} else if p is proto.ItemStackRequestPacket {
+			} else if p is packets_2168.ItemStackRequestPacket {
 				s.handle_item_stack_request(p)!
-			} else if p is proto.CommandRequestPacket {
+			} else if p is packets_898.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is proto.InventoryTransactionPacket {
+			} else if p is packets_2192.InventoryTransactionPacket {
 				s.handle_inventory_transaction(p)!
-			} else if p is proto.PlayerActionPacket {
+			} else if p is packets_944.PlayerActionPacket {
 				s.handle_player_action(p)!
-			} else if p is proto.BlockPickRequestPacket {
+			} else if p is packets_662.BlockPickRequestPacket {
 				s.handle_block_pick_request(p)!
-			} else if p is proto.MobEquipmentPacket {
+			} else if p is packets_2168.MobEquipmentPacket {
 				s.handle_mob_equipment(p)!
-			} else if p is proto.RespawnPacket {
+			} else if p is packets_662.RespawnPacket {
 				s.handle_respawn(p)!
-			} else if p is proto.ModalFormResponsePacket {
+			} else if p is packets_662.ModalFormResponsePacket {
 				s.handle_modal_form_response(p)!
-			} else if p is proto.BookEditPacket {
+			} else if p is packets_924.BookEditPacket {
 				s.handle_book_edit(p)!
-			} else if p is proto.BlockActorDataPacket {
+			} else if p is packets_944.BlockActorDataPacket {
 				s.handle_block_actor_data(p)!
 			}
 		}

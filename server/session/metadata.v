@@ -1,79 +1,84 @@
 module session
 
 import bedrock_v.protocol.current as proto
+import server.player
+import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v662.types as types_662
 
 fn entity_flag_bit(index int) i64 {
 	return i64(u64(1) << u64(index))
 }
 
-fn visible_name_metadata(name string) []proto.DataItem {
+fn visible_name_metadata(name string) []types_2168.DataItem {
 	flags := entity_flag_bit(proto.entity_flag_breathing) | entity_flag_bit(proto.entity_flag_can_climb) | entity_flag_bit(proto.entity_flag_has_collision) | entity_flag_bit(proto.entity_flag_affected_by_gravity) | entity_flag_bit(proto.entity_flag_show_name) | entity_flag_bit(proto.entity_flag_always_show_name)
 	return [
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_flags
-			data_item_type: proto.DataItemInt64{
+			data_item_type: enums_2168.DataItemInt64{
 				value: flags
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_color_index
-			data_item_type: proto.DataItemByte{
+			data_item_type: enums_2168.DataItemByte{
 				value: 0
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_name
-			data_item_type: proto.DataItemString{
+			data_item_type: enums_2168.DataItemString{
 				value: name
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_effect_color
-			data_item_type: proto.DataItemInt{
+			data_item_type: enums_2168.DataItemInt{
 				value: 0
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_effect_ambience
-			data_item_type: proto.DataItemByte{
+			data_item_type: enums_2168.DataItemByte{
 				value: 0
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			// See entity.metadata_entries()'s own comment - every actor
 			// needs an explicit scale or a real client has
 			// nothing to size the model by. Players had the same gap.
 			data_item_id:   proto.meta_key_scale
-			data_item_type: proto.DataItemFloat{
+			data_item_type: enums_2168.DataItemFloat{
 				value: f32(1.0)
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_width
-			data_item_type: proto.DataItemFloat{
+			data_item_type: enums_2168.DataItemFloat{
 				value: 0.6
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_height
-			data_item_type: proto.DataItemFloat{
+			data_item_type: enums_2168.DataItemFloat{
 				value: 1.8
 			}
 		},
-		proto.DataItem{
+		types_2168.DataItem{
 			data_item_id:   proto.meta_key_always_show_name_tag
-			data_item_type: proto.DataItemByte{
+			data_item_type: enums_2168.DataItemByte{
 				value: 1
 			}
 		},
 	]
 }
 
-fn (s &NetworkSession) set_actor_data() &proto.SetActorDataPacket {
-	return &proto.SetActorDataPacket{
-		target_runtime_id: proto.actor_runtime_id(s.runtime_id)
-		actor_data:        visible_name_metadata(s.player.identity.display_name)
-		synced_properties: proto.PropertySyncData{}
+fn (mut s NetworkSession) set_actor_data(p &player.Player) &packets_2168.SetActorDataPacket {
+	return &packets_2168.SetActorDataPacket{
+		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
+		actor_data:        visible_name_metadata(p.identity.display_name)
+		synced_properties: types_662.PropertySyncData{}
 		tick:              0
 	}
 }

@@ -7,6 +7,7 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import server.worldrt
 
 struct EffPosFillerTask {
 	gate chan bool
@@ -16,7 +17,7 @@ fn (t EffPosFillerTask) name() string {
 	return 'EffPosFillerTask'
 }
 
-fn (t EffPosFillerTask) run(mut tx WorldTx) {
+fn (t EffPosFillerTask) run(mut tx worldrt.WorldTx) {
 	_ := <-t.gate
 }
 

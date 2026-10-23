@@ -4,19 +4,26 @@ import time
 import bedrock_v.protocol.types
 import server.internal.gamedata
 import server.internal.logger
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v662.enums as enums_662
+import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.current.types as types_2192
+import bedrock_v.protocol.version.v944.types as types_944
 
-fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) proto.MobEquipmentPacket {
-	return proto.MobEquipmentPacket{
+fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) packets_2168.MobEquipmentPacket {
+	return packets_2168.MobEquipmentPacket{
 		target_runtime_id: proto.actor_runtime_id(runtime_id)
 		item:              proto.item_descriptor_v2(stack.item_stack)
 		slot:              i8(slot)
 		selected_slot:     i8(slot)
-		container_id:      proto.ContainerID.inventory
+		container_id:      enums_662.ContainerID.inventory
 	}
 }
 
@@ -25,7 +32,8 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -38,7 +46,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn mob_equipment_test_session(mut hub Hub, mut wr WorldRuntime, name string, transport &FakeTransport) &NetworkSession {
+fn mob_equipment_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, transport &FakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: name
@@ -47,15 +55,15 @@ fn mob_equipment_test_session(mut hub Hub, mut wr WorldRuntime, name string, tra
 		player:        pl
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -81,7 +89,7 @@ fn test_handle_mob_equipment_selects_hotbar_slot() {
 	s.handle_mob_equipment(mob_equipment_packet(s.runtime_id, stack, 4)) or {
 		panic('handle_mob_equipment failed: ${err}')
 	}
-	world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -117,23 +125,23 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 	actor.handle_mob_equipment(mob_equipment_packet(actor.runtime_id, stack, 4)) or {
 		panic('handle_mob_equipment failed: ${err}')
 	}
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
-	// The world_call barrier only proves the world actor finished
+	// The worldrt.world_call barrier only proves the world actor finished
 	// broadcasting; each observer's own outbound writer still has to drain
 	// that delivery asynchronously afterward.
 	assert wait_for_sent_len(transport_a, 1, 5000)
 
 	mut a_saw_it := false
 	for p in transport_a.sent {
-		if p is proto.MobEquipmentPacket {
+		if p is packets_2168.MobEquipmentPacket {
 			a_saw_it = true
 		}
 	}
 	mut b_saw_it := false
 	for p in transport_b.sent {
-		if p is proto.MobEquipmentPacket {
+		if p is packets_2168.MobEquipmentPacket {
 			b_saw_it = true
 		}
 	}
@@ -159,8 +167,7 @@ fn test_mob_equipment_stale_epoch_produces_no_effect() {
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
 
 	task := PlayerMobEquipmentTask{
-		runtime_id:  s.runtime_id
-		epoch:       stale_epoch
+		id:          entity.new_actor_id(s.runtime_id, stale_epoch)
 		hotbar_slot: 4
 		item:        types.ItemStackWrapper{
 			item_stack: types.ItemStack{
@@ -170,7 +177,7 @@ fn test_mob_equipment_stale_epoch_produces_no_effect() {
 		}
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -198,24 +205,24 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := [
-		proto.RequestsEntry{
+		packets_2168.RequestsEntry{
 			client_request_id: 1
 			actions:           [
-				proto.ItemStackActionCraftCreative{
+				types_2168.ItemStackActionCraftCreative{
 					creative_item_network_id:   1
 					number_of_requested_crafts: 1
 				},
-				proto.ItemStackActionPlace{
+				types_2168.ItemStackActionPlace{
 					amount:      1
-					source:      proto.ItemStackRequestSlotInfo{
-						container_name: proto.FullContainerName{
+					source:      types_2168.ItemStackRequestSlotInfo{
+						container_name: types_944.FullContainerName{
 							container: .inventory_container
 						}
 						slot:           0
 						raw_id:         0
 					}
-					destination: proto.ItemStackRequestSlotInfo{
-						container_name: proto.FullContainerName{
+					destination: types_2168.ItemStackRequestSlotInfo{
+						container_name: types_944.FullContainerName{
 							container: .hotbar_container
 						}
 						slot:           0
@@ -225,9 +232,9 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 			]
 		},
 	]
-	world_call[[]proto.ItemStackResponseInfo](mut wr, fn [rid, epoch, requests] (mut tx WorldTx) []proto.ItemStackResponseInfo {
-		return process_item_stack_requests(mut tx, rid, epoch, requests)
-	}) or { []proto.ItemStackResponseInfo{} }
+	worldrt.world_call[[]types_2192.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx worldrt.WorldTx) []types_2192.ItemStackResponseInfo {
+		return process_item_stack_requests(mut tx, entity.new_actor_id(rid, epoch), requests)
+	}) or { []types_2192.ItemStackResponseInfo{} }
 
 	_, net := s.inventory_stack_at(0)
 	assert net == 0
@@ -258,14 +265,14 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 	s.player.set_slot(0, source_net)
 	s.player.set_slot(1, dest_net)
 
-	changes := s.apply_move(proto.ItemStackRequestSlotInfo{
-		container_name: proto.FullContainerName{
+	changes := s.apply_move(types_2168.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0
 		raw_id:         source_net
-	}, proto.ItemStackRequestSlotInfo{
-		container_name: proto.FullContainerName{
+	}, types_2168.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           1
@@ -293,12 +300,12 @@ fn test_requested_amount_never_exceeds_what_the_slot_holds() {
 }
 
 fn test_flat_slot_rejects_a_slot_outside_the_inventory() {
-	container := proto.FullContainerName{
+	container := types_944.FullContainerName{
 		container: .inventory_container
 	}
 	assert flat_slot(container, 0)? == 0
-	assert flat_slot(container, i8(inventory_slot_count - 1))? == inventory_slot_count - 1
-	if _ := flat_slot(container, i8(inventory_slot_count)) {
+	assert flat_slot(container, i8(player.inventory_slot_count - 1))? == player.inventory_slot_count - 1
+	if _ := flat_slot(container, i8(player.inventory_slot_count)) {
 		assert false, 'expected a slot past the inventory to be rejected'
 	}
 	if _ := flat_slot(container, -1) {

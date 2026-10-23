@@ -3,7 +3,7 @@ module session
 import bedrock_v.nbt
 import bedrock_v.protocol.types
 import server.world.sound
-import bedrock_v.protocol.current as proto
+import server.worldrt
 
 const music_disc_prefix = 'minecraft:music_disc_'
 
@@ -13,39 +13,33 @@ const music_disc_prefix = 'minecraft:music_disc_'
 // per record state for 'minecraft:jukebox' (empty states compound), so the
 // inserted record's item id is tracked as block entity data.
 // Empty string means no record.
-fn (mut tx WorldTx) interact_jukebox(mut s NetworkSession, pos types.BlockPosition) {
+fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
 	center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '' }
 	if current != '' {
 		tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
-		tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-			block_position:  proto.block_pos(pos)
-			actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, '')
-		})
-		spawn_dropped_item_stack(mut tx.wr, current, 1, center)
+		broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, ''))
+		spawn_dropped_item_stack(mut tx, current, 1, center)
 		return
 	}
 	_, name := s.held_stack_and_name()
 	if !name.starts_with(music_disc_prefix) {
 		return
 	}
-	tx.consume_held_item(mut s)
+	consume_held_item(mut s)
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, name)
-	tx.wr.broadcast_world(&proto.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
-		actor_data_tags: build_jukebox_nbt(pos.x, pos.y, pos.z, name)
-	})
-	tx.play_sound(center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
+	broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, name))
+	play_sound(mut tx, center, sound.Record{ track: name.trim_string_left(music_disc_prefix) })
 }
 
-fn drop_jukebox_disc(mut wr WorldRuntime, x int, y int, z int) {
-	current := wr.world.tile_text(x, y, z) or { return }
+fn drop_jukebox_disc(mut tx worldrt.WorldTx, x int, y int, z int) {
+	current := tx.wr.world.tile_text(x, y, z) or { return }
 	if current == '' {
 		return
 	}
 	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
-	spawn_dropped_item_stack(mut wr, current, 1, center)
-	wr.world.set_tile_text(x, y, z, '')
+	spawn_dropped_item_stack(mut tx, current, 1, center)
+	tx.wr.world.set_tile_text(x, y, z, '')
 }
 
 fn build_jukebox_nbt(x int, y int, z int, record_item_name string) nbt.RootTag {

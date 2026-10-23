@@ -65,7 +65,7 @@ pub mut:
 pub fn new_session(mut conn nethernet.Conn, log &logger.Logger) &Session {
 	return &Session{
 		conn:         conn
-		pool:         proto.new_packet_pool()
+		pool:         proto.new_pool()
 		write_mutex:  sync.new_mutex()
 		window_start: time.now()
 		log:          log

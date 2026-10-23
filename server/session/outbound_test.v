@@ -8,18 +8,24 @@ import server.internal.auth
 import server.internal.logger
 import server.player
 import server.world
+import server.world.sound
+import bedrock_v.protocol.types
 import server.world.db
 import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v924.enums as enums_924
+import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.version.v924.packets as packets_924
 
-fn text_packet(message string) &proto.TextPacket {
-	return &proto.TextPacket{
-		message_type: proto.TextRaw{
+fn text_packet(message string) &packets_924.TextPacket {
+	return &packets_924.TextPacket{
+		message_type: enums_924.TextRaw{
 			message: message
 		}
 	}
 }
 
-fn text_packet_message(p proto.TextPacket) string {
+fn text_packet_message(p packets_924.TextPacket) string {
 	raw := proto.text_raw(p.message_type) or { return '' }
 	return raw.message
 }
@@ -28,11 +34,11 @@ fn text_packet_message(p proto.TextPacket) string {
 struct BlockingFakeTransport {
 mut:
 	sent        []protocol.Packet
-	sent_notify chan bool = chan bool{cap: 256}
+	sent_notify chan bool = chan bool{ cap: 256 }
 	block_next  bool
-	started     chan bool = chan bool{cap: 1}
-	release     chan bool = chan bool{cap: 1}
-	closed      chan bool = chan bool{cap: 1}
+	started     chan bool = chan bool{ cap: 1 }
+	release     chan bool = chan bool{ cap: 1 }
+	closed      chan bool = chan bool{ cap: 1 }
 }
 
 fn (mut t BlockingFakeTransport) block_next_send() {
@@ -45,8 +51,10 @@ fn (mut t BlockingFakeTransport) wait_started() {
 
 fn (mut t BlockingFakeTransport) release_send() {
 	select {
-		t.release <- true {}
-		else {}
+		t.release <- true {
+		}
+		else {
+		}
 	}
 }
 
@@ -55,7 +63,8 @@ fn (mut t BlockingFakeTransport) send(p protocol.Packet) ! {
 		t.block_next = false
 		t.started <- true
 		select {
-			_ := <-t.release {}
+			_ := <-t.release {
+			}
 			_ := <-t.closed {
 				return error('transport closed while send was blocked')
 			}
@@ -63,16 +72,20 @@ fn (mut t BlockingFakeTransport) send(p protocol.Packet) ! {
 	}
 	t.sent << p
 	select {
-		t.sent_notify <- true {}
-		else {}
+		t.sent_notify <- true {
+		}
+		else {
+		}
 	}
 }
 
 fn (mut t BlockingFakeTransport) send_batch(packets []protocol.Packet) ! {
 	t.sent << packets
 	select {
-		t.sent_notify <- true {}
-		else {}
+		t.sent_notify <- true {
+		}
+		else {
+		}
 	}
 }
 
@@ -86,8 +99,10 @@ fn (t &BlockingFakeTransport) remote_addr() string {
 
 fn (mut t BlockingFakeTransport) close() {
 	select {
-		t.closed <- true {}
-		else {}
+		t.closed <- true {
+		}
+		else {
+		}
 	}
 }
 
@@ -113,7 +128,7 @@ fn outbound_test_session(mut transport BlockingFakeTransport) &NetworkSession {
 	return &NetworkSession{
 		player:     pl
 		runtime_id: 1
-		transport:  transport
+		conn:       &Conn{ transport: transport }
 		hub:        new_hub(gamedata.GameData{})
 		log:        logger.new(.info)
 	}
@@ -124,7 +139,8 @@ fn blocking_sent_text(transport &BlockingFakeTransport, want int, timeout_ms int
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -148,24 +164,24 @@ fn test_outbound_preserves_order_before_disconnect() {
 	assert blocking_sent_text(transport, 3, 2000)
 	assert transport.sent.len == 3
 	if a := transport.sent[0] {
-		if a is proto.TextPacket {
+		if a is packets_924.TextPacket {
 			assert text_packet_message(a) == 'A'
 		} else {
 			assert false
 		}
 	}
 	if b := transport.sent[1] {
-		if b is proto.TextPacket {
+		if b is packets_924.TextPacket {
 			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[2] {
-		assert c is proto.DisconnectPacket
+		assert c is packets_2192.DisconnectPacket
 	}
-	_ := <-s.outbound_done
-	assert s.state == .closed
+	_ := <-s.conn.done
+	assert s.conn.state == .closed
 }
 
 fn test_outbound_overflow_aborts_session() {
@@ -179,13 +195,13 @@ fn test_outbound_overflow_aborts_session() {
 	for i in 0 .. outbound_queue_capacity {
 		s.deliver(text_packet('fill${i}'))
 	}
-	assert s.state != .closed
+	assert s.conn.state != .closed
 
 	s.deliver(text_packet('overflow'))
-	assert s.state == .closed
+	assert s.conn.state == .closed
 
 	transport.release_send()
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 }
 
 fn test_abort_outbound_releases_blocked_writer_once() {
@@ -199,12 +215,13 @@ fn test_abort_outbound_releases_blocked_writer_once() {
 	s.abort_outbound()
 
 	select {
-		_ := <-s.outbound_done {}
+		_ := <-s.conn.done {
+		}
 		1000 * time.millisecond {
 			assert false // abort_outbound's close() should have unblocked the writer's pending send
 		}
 	}
-	assert s.state == .closed
+	assert s.conn.state == .closed
 }
 
 fn test_world_broadcast_does_not_wait_for_slow_session() {
@@ -221,24 +238,25 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	s.world = wr.world
 	s.world_runtime = wr
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
 	transport.block_next_send()
 
-	done := chan bool{cap: 1}
+	done := chan bool{ cap: 1 }
 	spawn fn [mut wr, done] () {
-		world_call[bool](mut wr, fn (mut tx WorldTx) bool {
-			tx.wr.broadcast_world(text_packet('hello'))
+		worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
+			play_sound(mut tx, types.Vector3{}, sound.Click{})
 			return true
 		}) or {}
 		done <- true
 	}()
 
 	select {
-		_ := <-done {}
+		_ := <-done {
+		}
 		500 * time.millisecond {
 			assert false // the world actor's broadcast blocked on a slow session transport.
 		}
@@ -255,12 +273,14 @@ fn bootstrap_test_session(mut transport FakeTransport) &NetworkSession {
 		display_name: 'Alex'
 	}
 	return &NetworkSession{
-		player:             pl
-		runtime_id:         1
-		transport:          transport
-		hub:                new_hub(gamedata.GameData{})
-		log:                logger.new(.info)
-		outbound_bootstrap: true
+		player:     pl
+		runtime_id: 1
+		conn:       &Conn{
+			transport: transport
+			bootstrap: true
+		}
+		hub:        new_hub(gamedata.GameData{})
+		log:        logger.new(.info)
 	}
 }
 
@@ -270,12 +290,14 @@ fn bootstrap_test_session_blocking(mut transport BlockingFakeTransport) &Network
 		display_name: 'Alex'
 	}
 	return &NetworkSession{
-		player:             pl
-		runtime_id:         1
-		transport:          transport
-		hub:                new_hub(gamedata.GameData{})
-		log:                logger.new(.info)
-		outbound_bootstrap: true
+		player:     pl
+		runtime_id: 1
+		conn:       &Conn{
+			transport: transport
+			bootstrap: true
+		}
+		hub:        new_hub(gamedata.GameData{})
+		log:        logger.new(.info)
 	}
 }
 
@@ -290,7 +312,7 @@ fn test_outbound_enqueue_fails_before_activation_then_succeeds_after() {
 		assert false
 	}
 	assert transport.sent.len == 0
-	assert s.state != .closed
+	assert s.conn.state != .closed
 
 	s.activate_outbound()
 
@@ -305,7 +327,8 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -322,7 +345,7 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 	mut transport := &BlockingFakeTransport{}
 	mut s := outbound_test_session(mut transport)
 
-	done := chan bool{cap: 2}
+	done := chan bool{ cap: 2 }
 	spawn fn [mut s, done] () {
 		s.send_batch([
 			protocol.Packet(text_packet('A')),
@@ -343,7 +366,7 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 
 	mut abc_start := -1
 	for i, p in transport.sent {
-		if p is proto.TextPacket {
+		if p is packets_924.TextPacket {
 			if text_packet_message(p) == 'A' {
 				abc_start = i
 			}
@@ -352,14 +375,14 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 	assert abc_start >= 0
 	assert abc_start + 2 < transport.sent.len
 	if b := transport.sent[abc_start + 1] {
-		if b is proto.TextPacket {
+		if b is packets_924.TextPacket {
 			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[abc_start + 2] {
-		if c is proto.TextPacket {
+		if c is packets_924.TextPacket {
 			assert text_packet_message(c) == 'C'
 		} else {
 			assert false
@@ -372,14 +395,14 @@ fn test_activation_waits_for_bootstrap_direct_send() {
 	mut s := bootstrap_test_session_blocking(mut transport)
 
 	transport.block_next_send()
-	send_done := chan bool{cap: 1}
+	send_done := chan bool{ cap: 1 }
 	spawn fn [mut s, send_done] () {
 		s.send_maybe_queued(text_packet('bootstrap direct')) or {}
 		send_done <- true
 	}()
 	transport.wait_started()
 
-	activated := chan bool{cap: 1}
+	activated := chan bool{ cap: 1 }
 	spawn fn [mut s, activated] () {
 		result := s.activate_outbound()
 		activated <- result
@@ -389,7 +412,8 @@ fn test_activation_waits_for_bootstrap_direct_send() {
 		_ := <-activated {
 			assert false // activate_outbound() completed while the bootstrap direct send was still in flight
 		}
-		300 * time.millisecond {}
+		300 * time.millisecond {
+		}
 	}
 
 	transport.release_send()
@@ -417,9 +441,9 @@ fn test_disconnect_rejects_later_packet_enqueue() {
 	assert blocking_sent_text(transport, 1, 2000)
 	assert transport.sent.len == 1
 	if p := transport.sent[0] {
-		assert p is proto.DisconnectPacket
+		assert p is packets_2192.DisconnectPacket
 	}
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 }
 
 fn test_abort_stops_idle_outbound_writer() {
@@ -430,26 +454,30 @@ fn test_abort_stops_idle_outbound_writer() {
 	assert blocking_sent_text(transport, 1, 2000)
 
 	s.abort_outbound()
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 	select {
-		_ := <-s.writer_exited {}
+		_ := <-s.conn.writer_exited {
+		}
 		1000 * time.millisecond {
 			assert false // the writer never exited - the idle-writer leak is still present
 		}
 	}
 
-	leaked_ticket := s.hold_outbound(OutboundMessage(OutboundPacket{
+	leaked_ticket := s.conn.hold(OutboundMessage(OutboundPacket{
 		packet: text_packet('leaked')
 	}))
 	select {
-		s.outbound <- leaked_ticket {}
-		else {}
+		s.conn.outbound <- leaked_ticket {
+		}
+		else {
+		}
 	}
 	select {
 		_ := <-transport.sent_notify {
 			assert false // a leaked writer thread picked up the message injected after abort
 		}
-		300 * time.millisecond {}
+		300 * time.millisecond {
+		}
 	}
 	assert transport.sent.len == 1
 }
@@ -462,7 +490,7 @@ fn test_activation_fails_when_session_is_closing() {
 	assert !s.activate_outbound()
 }
 
-fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut transport BlockingFakeTransport) &NetworkSession {
+fn overflow_world_test_session_blocking(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport BlockingFakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -470,7 +498,7 @@ fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut tr
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -478,14 +506,14 @@ fn overflow_world_test_session_blocking(mut hub Hub, mut wr WorldRuntime, mut tr
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
 }
 
-fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeTransport) &NetworkSession {
+fn overflow_world_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport FakeTransport) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -493,7 +521,7 @@ fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport F
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -501,8 +529,8 @@ fn overflow_world_test_session(mut hub Hub, mut wr WorldRuntime, mut transport F
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -521,8 +549,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	}
 
 	mut overflowing_transport := &BlockingFakeTransport{}
-	mut overflowing_session := overflow_world_test_session_blocking(mut hub, mut wr_a, mut
-		overflowing_transport)
+	mut overflowing_session := overflow_world_test_session_blocking(mut hub, mut wr_a, mut overflowing_transport)
 	mut healthy_transport := &FakeTransport{}
 	overflow_world_test_session(mut hub, mut wr_a, mut healthy_transport)
 	mut other_world_transport := &FakeTransport{}
@@ -534,29 +561,30 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	for i in 0 .. outbound_queue_capacity {
 		overflowing_session.deliver(text_packet('fill${i}'))
 	}
-	assert overflowing_session.state != .closed
+	assert overflowing_session.conn.state != .closed
 
-	done := chan bool{cap: 1}
+	done := chan bool{ cap: 1 }
 	spawn fn [mut wr_a, done] () {
-		world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
-			tx.wr.broadcast_world(text_packet('broadcast'))
+		worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
+			play_sound(mut tx, types.Vector3{}, sound.Click{})
 			return true
 		}) or {}
 		done <- true
 	}()
 
 	select {
-		_ := <-done {}
+		_ := <-done {
+		}
 		1000 * time.millisecond {
 			assert false // the overflowing session's own abort blocked delivery to the rest of its world
 		}
 	}
 
-	assert overflowing_session.state == .closed
+	assert overflowing_session.conn.state == .closed
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
-	world_call[bool](mut wr_b, fn (mut tx WorldTx) bool {
-		tx.wr.broadcast_world(text_packet('other world'))
+	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {
+		play_sound(mut tx, types.Vector3{}, sound.Click{})
 		return true
 	}) or { panic('world b broadcast rejected - unaffected by world a overflow') }
 	assert wait_for_sent_len(other_world_transport, 1, 2000)
@@ -571,29 +599,30 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 	mut s := &NetworkSession{
 		player:     pl
 		runtime_id: 1
-		transport:  transport
+		conn:       &Conn{ transport: transport }
 		hub:        new_hub(gamedata.GameData{})
 		log:        logger.new(.info)
 	}
 
 	s.disconnect('bye')
 	assert wait_for_sent_len(transport, 1, 2000)
-	_ := <-s.outbound_done
+	_ := <-s.conn.done
 
 	s.disconnect('bye again')
 	s.deliver(text_packet('late'))
 	s.abort_outbound()
 
 	select {
-		_ := <-s.outbound_done {
+		_ := <-s.conn.done {
 			assert false // close_outbound_once fired more than once
 		}
-		300 * time.millisecond {}
+		300 * time.millisecond {
+		}
 	}
 
 	mut disconnect_count := 0
 	for p in transport.sent {
-		if p is proto.DisconnectPacket {
+		if p is packets_2192.DisconnectPacket {
 			disconnect_count++
 		}
 	}

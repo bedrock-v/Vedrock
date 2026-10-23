@@ -8,7 +8,8 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v2168.packets as packets_2168
 
 struct BlockingGenerator {
 	started chan bool
@@ -18,7 +19,7 @@ struct BlockingGenerator {
 }
 
 fn new_blocking_generator(started chan bool, release chan bool) BlockingGenerator {
-	claim := chan bool{cap: 1}
+	claim := chan bool{ cap: 1 }
 	claim <- true
 	return BlockingGenerator{
 		started: started
@@ -27,8 +28,8 @@ fn new_blocking_generator(started chan bool, release chan bool) BlockingGenerato
 	}
 }
 
-fn (g BlockingGenerator) spawn_y() int {
-	return g.inner.spawn_y()
+fn (g BlockingGenerator) spawn_point() world.SpawnPoint {
+	return g.inner.spawn_point()
 }
 
 fn (g BlockingGenerator) uses_blocks() bool {
@@ -49,12 +50,15 @@ fn (g BlockingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
 		_ := <-g.claim {
 			claimed = true
 		}
-		else {}
+		else {
+		}
 	}
 	if claimed {
 		select {
-			g.started <- true {}
-			else {}
+			g.started <- true {
+			}
+			else {
+			}
 		}
 		_ := <-g.release
 	}
@@ -62,18 +66,18 @@ fn (g BlockingGenerator) generate(chunk_x int, chunk_z int) world.Chunk {
 }
 
 fn register_blocking_generator(mut hub Hub, name string, gen BlockingGenerator) {
-	hub.register_generator(name, fn [gen] (dim world.Dimension) world.Generator {
+	hub.register_generator(name, fn [gen] (_ world.GeneratorOptions) world.Generator {
 		return gen
 	})
 }
 
-fn chunk_stream_test_session(mut hub Hub, mut wr WorldRuntime, gen world.Generator, mut transport FakeTransport) &NetworkSession {
+fn chunk_stream_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, gen world.Generator, mut transport FakeTransport) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        player.new_player()
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		world:         wr.world
 		world_runtime: wr
 		generator:     gen
@@ -83,17 +87,17 @@ fn chunk_stream_test_session(mut hub Hub, mut wr WorldRuntime, gen world.Generat
 		log:           logger.new(.info)
 	}
 	s.player.reset_position(types.Vector3{0, 0, 0})
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
 }
 
-fn actor_is_responsive(mut wr WorldRuntime, timeout_ms int) bool {
-	done := chan bool{cap: 1}
+fn actor_is_responsive(mut wr worldrt.WorldRuntime, timeout_ms int) bool {
+	done := chan bool{ cap: 1 }
 	spawn fn [mut wr, done] () {
-		world_call[bool](mut wr, fn (mut tx WorldTx) bool {
+		worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 			return true
 		}) or {}
 		done <- true
@@ -114,17 +118,19 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 	deadline := time.now().add(timeout_ms * time.millisecond)
 	for time.now() < deadline {
 		for p in transport.sent {
-			if p is proto.LevelChunkPacket {
+			if p is packets_2168.LevelChunkPacket {
 				return true
 			}
 		}
 		select {
-			_ := <-transport.sent_notify {}
-			50 * time.millisecond {}
+			_ := <-transport.sent_notify {
+			}
+			50 * time.millisecond {
+			}
 		}
 	}
 	for p in transport.sent {
-		if p is proto.LevelChunkPacket {
+		if p is packets_2168.LevelChunkPacket {
 			return true
 		}
 	}
@@ -133,8 +139,8 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 
 fn test_chunk_streaming_doesnt_block_the_world_actor() {
 	mut hub := new_hub(gamedata.GameData{})
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	gen := new_blocking_generator(started, release)
 	register_blocking_generator(mut hub, 'blocking-chunk-stream', gen)
 	w := db.new_world('chunk-stream', none, 'blocking-chunk-stream', world.overworld)
@@ -158,8 +164,8 @@ fn test_chunk_streaming_doesnt_block_the_world_actor() {
 
 fn test_chunk_delivery_dropped_after_a_world_switch() {
 	mut hub := new_hub(gamedata.GameData{})
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	gen := new_blocking_generator(started, release)
 	register_blocking_generator(mut hub, 'blocking-chunk-switch-a', gen)
 	world_a := db.new_world('chunk-switch-a', none, 'blocking-chunk-switch-a', world.overworld)
@@ -180,14 +186,14 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	// Mirror change_world's real sequence: deregister from the source world,
 	// rebind, then register with the destination.
-	world_call[bool](mut wr_a, fn [s] (mut tx WorldTx) bool {
-		tx.deregister_player(s.runtime_id)
+	worldrt.world_call[bool]('test', mut wr_a, fn [s] (mut tx worldrt.WorldTx) bool {
+		deregister_player(mut tx, s.runtime_id)
 		return true
 	}) or { panic('deregistration rejected - world unexpectedly stopped') }
 	gen_b := world_b.make_generator(hub.build_generator(world_b))
 	s.set_world_binding(wr_b, gen_b)
-	world_call[bool](mut wr_b, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr_b, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
@@ -195,7 +201,7 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	time.sleep(300 * time.millisecond) // bounded window for a wrongly delivered batch to show up
 	for p in transport.sent {
-		assert p !is proto.LevelChunkPacket
+		assert p !is packets_2168.LevelChunkPacket
 	}
 }
 
@@ -227,8 +233,8 @@ struct ConcurrentBlockingGenerator {
 	inner   world.Generator = world.VoidGenerator{}
 }
 
-fn (g ConcurrentBlockingGenerator) spawn_y() int {
-	return g.inner.spawn_y()
+fn (g ConcurrentBlockingGenerator) spawn_point() world.SpawnPoint {
+	return g.inner.spawn_point()
 }
 
 fn (g ConcurrentBlockingGenerator) uses_blocks() bool {
@@ -256,12 +262,12 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	mut tracker := &ConcurrencyTracker{
 		mutex: sync.new_mutex()
 	}
-	release := chan bool{cap: 512}
+	release := chan bool{ cap: 512 }
 	gen := ConcurrentBlockingGenerator{
 		tracker: tracker
 		release: release
 	}
-	hub.register_generator('concurrent-blocking-stream', fn [gen] (dim world.Dimension) world.Generator {
+	hub.register_generator('concurrent-blocking-stream', fn [gen] (_ world.GeneratorOptions) world.Generator {
 		return gen
 	})
 	w := db.new_world('chunk-concurrency', none, 'concurrent-blocking-stream', world.overworld)
@@ -288,7 +294,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	deadline := time.now().add(2000 * time.millisecond)
 	for time.now() < deadline {
 		tracker.mutex.lock()
-		reached := tracker.in_flight >= chunk_gen_worker_count
+		reached := tracker.in_flight >= worldrt.chunk_worker_count()
 		tracker.mutex.unlock()
 		if reached {
 			break
@@ -298,7 +304,7 @@ fn test_req_chunk_chans_keeps_worker_pool_busy_concurrently() {
 	tracker.mutex.lock()
 	peak := tracker.peak
 	tracker.mutex.unlock()
-	assert peak == chunk_gen_worker_count, 'expected all ${chunk_gen_worker_count} workers busy at once from one session-style request burst, got peak ${peak}'
+	assert peak == worldrt.chunk_worker_count(), 'expected all ${worldrt.chunk_worker_count()} workers busy at once from one session-style request burst, got peak ${peak}'
 
 	for _ in 0 .. 20 {
 		release <- true

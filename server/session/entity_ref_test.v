@@ -9,9 +9,10 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v662.packets as packets_662
 
-fn entity_ref_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeTransport, display_name string) &NetworkSession {
+fn entity_ref_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport FakeTransport, display_name string) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: display_name
@@ -20,7 +21,7 @@ fn entity_ref_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeT
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
 		spawned:       true
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -28,8 +29,8 @@ fn entity_ref_test_session(mut hub Hub, mut wr WorldRuntime, mut transport FakeT
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -40,7 +41,8 @@ fn entity_ref_wait_for_sent_len(transport &FakeTransport, want int, timeout_ms i
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -53,7 +55,7 @@ fn entity_ref_wait_for_sent_len(transport &FakeTransport, want int, timeout_ms i
 	return true
 }
 
-fn entity_ref_test_world() (&Hub, &WorldRuntime) {
+fn entity_ref_test_world() (&Hub, &worldrt.WorldRuntime) {
 	mut hub := new_hub(gamedata.GameData{})
 	w := db.new_world('entity-ref-test', none, 'void', world.overworld)
 	hub.add_world(w)
@@ -149,7 +151,7 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 	assert found_move
 	mut saw_move := false
 	for p in transport.sent {
-		if p is proto.MoveActorAbsolutePacket {
+		if p is packets_662.MoveActorAbsolutePacket {
 			saw_move = true
 		}
 	}
@@ -170,7 +172,7 @@ fn test_entity_ref_damage_kills_when_fatal() {
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
 	ref.damage(100, true, none)!
 
-	dead := world_call[bool](mut wr, fn [e] (mut tx WorldTx) bool {
+	dead := worldrt.world_call[bool]('test', mut wr, fn [e] (mut tx worldrt.WorldTx) bool {
 		target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }
 		return target.is_dead()
 	}) or { panic('read rejected - world unexpectedly stopped') }
@@ -197,7 +199,7 @@ fn test_entity_ref_damage_with_player_sets_attacker_as_target() {
 	ref := handle.entity_ref(zombie.runtime_id) or { panic('expected entity ref') }
 	ref.damage(5, false, player_ref)!
 
-	moved_toward_attacker := world_call[bool](mut wr, fn [zombie] (mut tx WorldTx) bool {
+	moved_toward_attacker := worldrt.world_call[bool]('test', mut wr, fn [zombie] (mut tx worldrt.WorldTx) bool {
 		tx.wr.entities.tick()
 		target := tx.wr.entities.by_runtime_id(zombie.runtime_id) or { return false }
 		return target.velocity.x > 0

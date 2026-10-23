@@ -8,6 +8,9 @@ import server.event
 import server.item
 import server.world
 import bedrock_v.protocol.current as proto
+import server.entity
+import server.player
+import server.worldrt
 
 // break_fx_interval_ticks is how often the punch particle and the arm swing
 // repeat while a player keeps mining the same block.
@@ -105,11 +108,10 @@ fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPositi
 	}
 	mut wr := binding.world_runtime
 	wr.submit(BlockCrackingTask{
-		session_runtime_id: s.runtime_id
-		epoch:              binding.epoch
-		event_id:           event_id
-		pos:                pos
-		data:               data
+		id:       s.actor_id()
+		event_id: event_id
+		pos:      pos
+		data:     data
 	})
 }
 
@@ -118,8 +120,7 @@ fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPositi
 // an event queued just before a world change is discarded instead of animating
 // a block in a world the player has already left.
 struct BlockCrackingTask {
-	session_runtime_id u64
-	epoch              i64
+	id entity.ActorId
 	event_id           int
 	pos                types.BlockPosition
 	data               int
@@ -129,16 +130,15 @@ fn (t BlockCrackingTask) name() string {
 	return 'BlockCrackingTask'
 }
 
-fn (t BlockCrackingTask) run(mut tx WorldTx) {
-	tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
-	tx.broadcast_cracking(t.event_id, t.pos, t.data)
+fn (t BlockCrackingTask) run(mut tx worldrt.WorldTx) {
+	player_for_id(mut tx, t.id) or { return }
+	broadcast_cracking(mut tx, t.event_id, t.pos, t.data)
 }
 
 // StartBreakAnimationTask emits both animations a mining start produces - the
 // initial crack and the arm swing - in one pass over the world's players.
 struct StartBreakAnimationTask {
-	session_runtime_id u64
-	epoch              i64
+	id entity.ActorId
 	pos                types.BlockPosition
 	crack_speed        int
 }
@@ -147,12 +147,12 @@ fn (t StartBreakAnimationTask) name() string {
 	return 'StartBreakAnimationTask'
 }
 
-fn (t StartBreakAnimationTask) run(mut tx WorldTx) {
-	s := tx.player_for_epoch(t.session_runtime_id, t.epoch) or { return }
+fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
+	s := player_for_id(mut tx, t.id) or { return }
 	if t.crack_speed > 0 {
-		tx.broadcast_cracking(proto.level_event_start_block_cracking, t.pos, t.crack_speed)
+		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
 	}
-	tx.broadcast_swing(s)
+	broadcast_swing(mut tx, s)
 }
 
 fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
@@ -167,14 +167,14 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 	if !s.within_place_reach(pos) {
 		return
 	}
-	mut ctx := event.new_context(event.StartBreakData{
-		player: s
+	mut ctx := event.new_context(player.StartBreakData{
+		player: s.player
 		x:      pos.x
 		y:      pos.y
 		z:      pos.z
 		face:   click_face
 	})
-	s.hub.events.start_break(mut ctx)
+	s.player.handler.on_start_break(mut ctx)
 	if ctx.is_cancelled() {
 		s.resend_block(pos)
 		return
@@ -203,10 +203,9 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 	}
 	mut wr := binding.world_runtime
 	wr.submit(StartBreakAnimationTask{
-		session_runtime_id: s.runtime_id
-		epoch:              binding.epoch
-		pos:                pos
-		crack_speed:        int(break_crack_scale * speed)
+		id:          s.actor_id()
+		pos:         pos
+		crack_speed: int(break_crack_scale * speed)
 	})
 }
 
@@ -229,14 +228,14 @@ fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
 // tick_breaking advances the block this player is mining by one tick and
 // keeps the client's crack animation in sync, since the client leaves the
 // break timing to the server. It runs on the owning world's thread.
-fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
+fn (mut s NetworkSession) tick_breaking(mut tx worldrt.WorldTx) {
 	original := s.breaking_snapshot() or { return }
 	pos := types.BlockPosition{original.x, original.y, original.z}
-	current_id := tx.block_at(original.x, original.y, original.z)
+	current_id := block_at(tx, original.x, original.y, original.z)
 	if s.player.is_dead() || !s.can_interact() || !s.within_place_reach(pos)
 		|| current_id != original.block_id {
 		if s.clear_breaking_if_current(original) {
-			tx.broadcast_stop_cracking(original.x, original.y, original.z)
+			broadcast_stop_cracking(mut tx, original.x, original.y, original.z)
 		}
 		return
 	}
@@ -253,7 +252,7 @@ fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 	// forever and the block is never removed.
 	if bp.progress >= 1.0 {
 		if s.clear_breaking_if_current(original) {
-			tx.complete_block_break(mut s, pos, bp.block_id)
+			complete_block_break(mut tx, mut s, pos, bp.block_id)
 		}
 		return
 	}
@@ -269,11 +268,11 @@ fn (mut s NetworkSession) tick_breaking(mut tx WorldTx) {
 		return
 	}
 	if speed_changed {
-		tx.broadcast_crack_speed(pos, int(break_crack_scale * speed))
+		broadcast_crack_speed(mut tx, pos, int(break_crack_scale * speed))
 	}
 	if send_fx {
-		tx.broadcast_punch_particle(pos, bp.block_id, bp.face)
-		tx.broadcast_swing(s)
+		broadcast_punch_particle(mut tx, pos, bp.block_id, bp.face)
+		broadcast_swing(mut tx, s)
 	}
 }
 
@@ -299,8 +298,8 @@ fn (s &NetworkSession) can_harvest(runtime_id int) bool {
 
 // break_progress_per_tick is the fraction of the block broken each tick. The
 // base time comes from the block's hardness and the held tool, then the
-// player's own state scales it, mirroring vanilla. Efficiency and aqua
-// affinity enchantments are not modelled yet.
+// player's own state scales it, mirroring vanilla. Aqua Affinity is not
+// modelled yet.
 fn (s &NetworkSession) break_progress_per_tick(runtime_id int) f32 {
 	info := block.break_info(runtime_id)
 	if !info.breakable() {
@@ -345,7 +344,7 @@ fn mining_fatigue_multiplier(level int) f32 {
 fn (s &NetworkSession) held_mining_stats() (int, int, f32) {
 	_, name := s.held_stack_and_name()
 	held := item.get(name) or { return block.tool_type_none, block.harvest_level_none, f32(1.0) }
-	efficiency := held.mining_speed()
+	efficiency := held.mining_speed() + efficiency_bonus(s.held_enchantment_level('efficiency'))
 	if held is item.MiningTool {
 		return held.block_tool_type(), held.harvest_level(), efficiency
 	}
@@ -364,13 +363,13 @@ fn (s &NetworkSession) supported_by_ground() bool {
 	pos := s.current_position()
 	below := s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y - ground_probe_depth)),
 		int(math.floor(pos.z)))
-	return below != world.air.network_id && below != world.water.network_id
+	return below != world.air.network_id && block.liquid_at_id(below) == none
 }
 
 // head_submerged reports whether the player's eyes are inside water, which
 // slows mining down the same way vanilla does.
 fn (s &NetworkSession) head_submerged() bool {
 	pos := s.current_position()
-	return s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y + player_eye_height)),
-		int(math.floor(pos.z))) == world.water.network_id
+	return block.is_water_id(s.block_at(int(math.floor(pos.x)), int(math.floor(pos.y +
+		player_eye_height)), int(math.floor(pos.z))))
 }

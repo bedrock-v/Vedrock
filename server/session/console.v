@@ -78,10 +78,30 @@ fn (mut c ConsoleSender) place_water(x int, y int, z int) {
 	c.hub.place_water(x, y, z)
 }
 
+fn (mut c ConsoleSender) place_lava(x int, y int, z int) {
+	c.hub.place_lava(x, y, z)
+}
+
 fn (mut c ConsoleSender) clear_inventory() {}
 
 fn (mut c ConsoleSender) give_item(_ string, _ int) bool {
 	return false
+}
+
+fn (c ConsoleSender) held_item_name() string {
+	return ''
+}
+
+fn (mut c ConsoleSender) enchant_held_item(_ string, _ int) player.EnchantResult {
+	return .no_item
+}
+
+fn (mut c ConsoleSender) give_experience(_ int) {}
+
+fn (mut c ConsoleSender) give_experience_levels(_ int) {}
+
+fn (c ConsoleSender) experience_level() int {
+	return 0
 }
 
 fn (mut c ConsoleSender) send_form(_ form.Form) ! {
@@ -109,4 +129,35 @@ fn strip_formatting(message string) string {
 		i++
 	}
 	return out.string()
+}
+
+// The console shares the server's scoreboard: these are the same registry the
+// player sessions reach, since none of it belongs to any one player.
+
+fn (mut c ConsoleSender) scoreboard_objectives() []cmd.ObjectiveInfo {
+	return c.hub.objective_infos()
+}
+
+fn (mut c ConsoleSender) scoreboard_add_objective(name string, display_name string) bool {
+	return c.hub.add_objective(name, display_name)
+}
+
+fn (mut c ConsoleSender) scoreboard_remove_objective(name string) bool {
+	return c.hub.remove_objective(name)
+}
+
+fn (mut c ConsoleSender) scoreboard_set_display(slot string, objective string) bool {
+	return c.hub.set_display(slot, objective)
+}
+
+fn (mut c ConsoleSender) scoreboard_set_score(objective string, entry string, value int) bool {
+	return c.hub.set_score(objective, entry, value)
+}
+
+fn (mut c ConsoleSender) scoreboard_add_score(objective string, entry string, delta int) ?int {
+	return c.hub.add_score(objective, entry, delta)
+}
+
+fn (mut c ConsoleSender) scoreboard_reset_score(entry string) {
+	c.hub.reset_score(entry)
 }

@@ -133,6 +133,66 @@ other = "§aGave {{.Count}}x {{.Item}} to {{.Name}}§r"
 [cmd.give.received]
 other = "§aYou received {{.Count}}x {{.Item}}§r"
 
+[cmd.scoreboard.usage]
+other = "Usage: /scoreboard <objectives|players> ..."
+
+[cmd.scoreboard.objective_exists]
+other = "An objective already exists by that name"
+
+[cmd.scoreboard.objective_not_found]
+other = "No objective was found by the name '{{.Objective}}'"
+
+[cmd.scoreboard.objectives.add]
+other = "Added new objective '{{.Objective}}' successfully"
+
+[cmd.scoreboard.objectives.remove]
+other = "Removed objective '{{.Objective}}' successfully"
+
+[cmd.scoreboard.objectives.list]
+other = "There are {{.Count}} objective(s) on the scoreboard:"
+
+[cmd.scoreboard.objectives.list_empty]
+other = "There are no objectives on the scoreboard"
+
+[cmd.scoreboard.setdisplay.success]
+other = "Set display slot {{.Slot}} to show objective {{.Objective}}"
+
+[cmd.scoreboard.setdisplay.cleared]
+other = "Cleared objective display slot {{.Slot}}"
+
+[cmd.scoreboard.players.set]
+other = "Set score of {{.Objective}} for player {{.Name}} to {{.Score}}"
+
+[cmd.scoreboard.players.add]
+other = "Added {{.Amount}} to {{.Objective}} for player {{.Name}} (now {{.Score}})"
+
+[cmd.scoreboard.players.reset]
+other = "Reset all scores of player {{.Name}}"
+
+[cmd.enchant.usage]
+other = "Usage: /enchant <player: target> <enchantmentName: EnchantmentName> [level: int]"
+
+[cmd.enchant.no_item]
+other = "The target doesn't hold an item"
+
+[cmd.enchant.not_found]
+other = "There is no such enchantment with ID {{.Enchantment}}"
+
+[cmd.enchant.cant_combine]
+other = "{{.Enchantment}} can't be combined with {{.Item}}"
+
+[cmd.enchant.success]
+other = "Enchanting succeeded"
+
+[cmd.xp.usage]
+other = "Usage: /xp <amount: int> [player: target] OR /xp <amount: int>L [player: target]"
+
+[cmd.xp.success]
+other = "Given {{.Amount}} experience to {{.Name}}"
+
+[cmd.xp.success_levels]
+other = "Given {{.Amount}} levels to {{.Name}}"
+
 [cmd.difficulty.usage]
 other = "§cUsage: /difficulty <peaceful|easy|normal|hard>§r"
 
@@ -145,8 +205,11 @@ other = "§cUsage: /say <message>§r"
 [cmd.title.usage]
 other = "§cUsage: /title <player|@a> <title|subtitle|actionbar> <text>§r"
 
+[cmd.seed.body]
+other = "§aSeed: [{{.Seed}}]§r"
+
 [cmd.world.usage]
-other = "§cUsage: /world <list|info|metrics|create|load|delete|tp> [name] [dimension] [generator]§r"
+other = "§cUsage: /world <list|info|metrics|create|load|delete|tp> [name] [dimension] [generator] [seed]§r"
 
 [cmd.world.none]
 other = "§eNo worlds are loaded§r"

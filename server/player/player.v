@@ -8,18 +8,34 @@ import server.player.playerdb
 import bedrock_v.protocol.types
 import sync
 
-// Player holds the gamestate fields that belong to a player as an entity,
-// independent of whichever network connection (if any) is currently driving
-// it. It holds no transport/packet send capability by design.
-//
-// Behavior methods that need to send a packet or broadcast (send_message,
-// teleport, kill, give_item, etc.) stay on NetworkSession, which reads and
-// writes through this struct's accessors for the state they operate on.
+// inventory_window_id is the container id the client uses for the player's
+// own inventory, and inventory_slot_count is how many slots it has.
+pub const inventory_window_id = 0
+pub const inventory_slot_count = 36
+
+// hotbar_size is how many of those slots the client shows on the hotbar.
+pub const hotbar_size = 9
+
+// Player is a player as an entity: the state that belongs to them and the
+// actions they can take. It reaches its own client through a Sink and the
+// rest of the world through a transaction, so nothing here depends on how
+// that client is connected or on there being one.
 @[heap]
 pub struct Player {
 pub mut:
 	identity auth.Identity
 	perm     permission.Permissible
+	// runtime_id is the id this player is known by inside the server. It is
+	// the player's identity.
+	runtime_id u64
+	// sink is whatever drives this player. It is a NopSink until a session
+	// claims the player, a verb never has to check whether anyone is
+	// listening.
+	sink Sink = NopSink{}
+	// handler receives every event this player causes or experiences. It is
+	// never none, so a dispatch site never has to test whether anyone is
+	// listening.
+	handler Handler = NopHandler{}
 mut:
 	// state_mutex guards the mutable player state below, excluding fields
 	// covered by their own mutexes. State accessors must hold this lock because
@@ -34,19 +50,51 @@ mut:
 	pending_creative ?types.ItemStack
 	loaded_items     []playerdb.InvItem
 	effects          effect.Manager
+	// ender_items is the player's ender chest, keyed by slot. It belongs to
+	// them rather than to any of the blocks that show it.
+	ender_items      map[int]types.ItemStack
 	has_last_death   bool
 	last_death_pos   types.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
-	pos_mutex        &sync.Mutex = sync.new_mutex()
-	position         types.Vector3
-	pitch            f32
-	yaw              f32
-	head_yaw         f32
-	vy               f32
-	prev_y           f32
-	fall_distance    f32
-	grounded         bool
+	// experience_level is the level reached and experience_points how many
+	// points into it the player is. Keeping the two apart means awarding a
+	// few points costs only the boundaries actually crossed, rather than
+	// rebuilding the level curve from zero every time.
+	experience_level  int
+	experience_points int
+	food_level        int = max_food_level
+	saturation        f32 = initial_saturation
+	exhaustion        f32
+	// sprinting/swimming are reported by the client and decide what moving a
+	// metre costs. They are state, not events: the tick that spends the
+	// exhaustion runs on the world actor, not on the packet.
+	sprinting bool
+	swimming  bool
+	// These count consecutive ticks spent under one condition - well fed
+	// enough to heal, starving, or waiting on peaceful's refill - and reset
+	// the moment it stops holding. A timer that ran off a shared clock would
+	// let a player inherit whatever phase it was already in.
+	regeneration_ticks int
+	starvation_ticks   int
+	passive_feed_ticks int
+	// hunger_position is where movement was last charged for. It only starts
+	// counting once there is a sample to measure against, so a join or a
+	// teleport is not billed as distance travelled.
+	has_hunger_position bool
+	hunger_position     types.Vector3
+	// give_next_slot round robins give_item across the hotbar. Only the
+	// world actor touches it, so it is not under state_mutex.
+	give_next_slot int
+	pos_mutex      &sync.Mutex = sync.new_mutex()
+	position       types.Vector3
+	pitch          f32
+	yaw            f32
+	head_yaw       f32
+	vy             f32
+	prev_y         f32
+	fall_distance  f32
+	grounded       bool
 }
 
 // max_air_supply_ticks is the underwater breath meter's full value.
@@ -207,10 +255,6 @@ pub fn (mut p Player) track_stack(stack types.ItemStack) int {
 	return p.inv.track_stack(stack)
 }
 
-pub fn (mut p Player) clear_inventory() {
-	p.inv.clear()
-}
-
 pub fn (p &Player) pending_creative() ?types.ItemStack {
 	mut m := p.state_mutex
 	m.lock()
@@ -258,7 +302,9 @@ pub fn (mut p Player) add_effect_result(e effect.Effect) effect.AddResult {
 	return p.effects.add_result(e)
 }
 
-pub fn (mut p Player) remove_effect(typ effect.Type) ?effect.Effect {
+// take_effect drops typ from the manager and hands back what was there. It is
+// the raw state change; remove_effect in effects.v is the verb around it.
+pub fn (mut p Player) take_effect(typ effect.Type) ?effect.Effect {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -266,7 +312,10 @@ pub fn (mut p Player) remove_effect(typ effect.Type) ?effect.Effect {
 	return p.effects.remove(typ)
 }
 
-pub fn (mut p Player) tick_effects() effect.TickResult {
+// advance_effects moves every active effect on one tick and reports what is
+// still running and what expired. It is the raw state change; tick_effects in
+// effects.v is the verb around it.
+pub fn (mut p Player) advance_effects() effect.TickResult {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()

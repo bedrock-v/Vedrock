@@ -6,8 +6,9 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import server.worldrt
 
-fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime) &NetworkSession {
+fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -16,7 +17,7 @@ fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRu
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world_runtime: wr
 		world:         wr.world
@@ -24,8 +25,8 @@ fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRu
 	}
 	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 5) + 0.62, 2.5})
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected') }
 	return s
@@ -104,7 +105,7 @@ fn test_survival_mined_drop_can_be_replaced_and_broken() {
 	mined_id := s.block_at(0, world.overworld.min_y + 2, 0)
 	assert mined_id == world.dirt.network_id
 
-	drop_name, drop_count := block_drop_for(mut wr, mined_id)
+	drop_name, drop_count := block_drop_for(wr.services.game_data(), mined_id)
 	assert drop_name != ''
 	assert drop_count > 0
 

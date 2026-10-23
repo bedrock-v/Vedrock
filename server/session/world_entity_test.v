@@ -9,14 +9,16 @@ import server.internal.auth
 import server.player
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v2168.packets as packets_2168
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
 	for transport.sent.len < want {
 		waited_from := time.now()
 		select {
-			_ := <-transport.sent_notify {}
+			_ := <-transport.sent_notify {
+			}
 			remaining {
 				return transport.sent.len >= want
 			}
@@ -29,7 +31,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut wr WorldRuntime, pos types.Vector3) &NetworkSession {
+fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -37,7 +39,7 @@ fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut w
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     transport
+		conn:          &Conn{ transport: transport }
 		hub:           hub
 		world:         wr.world
 		world_runtime: wr
@@ -45,8 +47,8 @@ fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut w
 	}
 	s.player.reset_position(pos)
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
@@ -81,14 +83,14 @@ fn test_entity_spawn_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_spawn := false
 	for p in a_transport.sent {
-		if p is proto.AddActorPacket {
+		if p is packets_2168.AddActorPacket {
 			a_saw_spawn = true
 		}
 	}
 	assert a_saw_spawn
 
 	for p in b_transport.sent {
-		assert p !is proto.AddActorPacket
+		assert p !is packets_2168.AddActorPacket
 	}
 }
 
@@ -103,7 +105,7 @@ fn (t EntityTickBarrierTask) name() string {
 	return 'EntityTickBarrierTask'
 }
 
-fn (t EntityTickBarrierTask) run(mut tx WorldTx) {
+fn (t EntityTickBarrierTask) run(mut tx worldrt.WorldTx) {
 	t.started <- true
 	_ := <-t.release
 }
@@ -137,8 +139,8 @@ fn test_entity_tick_isolated_to_owning_world() {
 	wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
 	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
 
-	started := chan bool{cap: 1}
-	release := chan bool{cap: 1}
+	started := chan bool{ cap: 1 }
+	release := chan bool{ cap: 1 }
 	a_ok := wr_a.submit(EntityTickBarrierTask{
 		started: started
 		release: release
@@ -155,7 +157,7 @@ fn test_entity_tick_isolated_to_owning_world() {
 		last_b_steps = wr_b.simulated_steps_count()
 	}
 
-	b_age := world_call[i64](mut wr_b, fn (mut tx WorldTx) i64 {
+	b_age := worldrt.world_call[i64]('test', mut wr_b, fn (mut tx worldrt.WorldTx) i64 {
 		return tx.wr.entities.snapshot()[0].age
 	}) or { panic('sync call on B rejected - world unexpectedly stopped') }
 	assert b_age > 0
@@ -163,16 +165,16 @@ fn test_entity_tick_isolated_to_owning_world() {
 	release <- true
 	hub.request_tick_all(i64(500))
 	assert entity_test_wait_until(2000, fn [wr_a] () bool {
-		return wr_a.tick_snapshot() == max_world_catchup_ticks
+		return wr_a.tick_snapshot() == worldrt.max_world_catchup_ticks
 	})
-	a_age := world_call[i64](mut wr_a, fn (mut tx WorldTx) i64 {
+	a_age := worldrt.world_call[i64]('test', mut wr_a, fn (mut tx worldrt.WorldTx) i64 {
 		return tx.wr.entities.snapshot()[0].age
 	}) or { panic('sync call on A rejected - world unexpectedly stopped') }
 	assert a_age > 0
 }
 
 struct CountingEntitySpawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 mut:
 	hits int
 }
@@ -182,7 +184,7 @@ fn (mut h CountingEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[even
 }
 
 struct CancelEntitySpawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 }
 
 fn (mut h CancelEntitySpawnHandler) on_entity_spawn(mut ctx event.Context[event.EntitySpawnData]) {
@@ -203,8 +205,8 @@ fn test_entity_spawn_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingEntitySpawnHandler{}
 	mut handler_b := &CountingEntitySpawnHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.handle(handler_a)
+	wr_b.handle(handler_b)
 
 	behaviour := entity.create('pig') or { panic('missing pig behaviour') }
 	task := SpawnEntityTask{
@@ -233,7 +235,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 		hub.close_worlds()
 	}
 
-	wr_a.events.register(&CancelEntitySpawnHandler{}, .normal)
+	wr_a.handle(&CancelEntitySpawnHandler{})
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	task_a := SpawnEntityTask{
@@ -259,7 +261,7 @@ fn test_entity_spawn_event_cancellation_only_blocks_owning_world() {
 }
 
 struct CountingEntityDespawnHandler {
-	event.NopHandler
+	worldrt.NopHandler
 mut:
 	hits int
 }
@@ -282,8 +284,8 @@ fn test_entity_despawn_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingEntityDespawnHandler{}
 	mut handler_b := &CountingEntityDespawnHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
+	wr_a.handle(handler_a)
+	wr_b.handle(handler_b)
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }

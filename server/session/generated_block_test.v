@@ -50,7 +50,7 @@ fn test_block_at_sees_the_terrain_the_client_was_sent() {
 	mut s := &NetworkSession{
 		player:        pl
 		runtime_id:    1
-		transport:     transport
+		conn: &Conn{ transport: transport }
 		hub:           hub
 		world:         wld
 		world_runtime: wr

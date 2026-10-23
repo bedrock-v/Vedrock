@@ -60,4 +60,4 @@ You can also consider reading the [documentation](https://bedrock-v.github.io/Ve
 For more information, see [CONTRIBUTING.md](https://github.com/bedrock-v/Vedrock/blob/stable/CONTRIBUTING.md).
 
 ## License
-[GNU Lesser v3.0](./LICENSE)
+[MIT License(./LICENSE)

@@ -32,7 +32,7 @@ pub fn (c VersionCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		'Software':  buildinfo.name
 		'Version':   buildinfo.version
 		'Hash':      buildinfo.git_hash
-		'MCVersion': proto.selected_minecraft_version
-		'Protocol':  proto.selected_protocol.str()
+		'MCVersion': proto.proto_version.minecraft_version()
+		'Protocol':  int(proto.proto_version.protocol_id()).str()
 	}))!
 }

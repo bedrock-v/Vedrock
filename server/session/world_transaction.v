@@ -4,6 +4,7 @@ import server.event
 import server.world
 import server.entity
 import bedrock_v.protocol.types
+import server.worldrt
 
 // WorldTransaction is the public transaction surface passed to World.exec.
 // Its operations run on the owning world thread, allowing several reads
@@ -25,17 +26,17 @@ pub:
 	pos       types.Vector3
 }
 
-// WorldTxHandle adapts the internal WorldTx to the public
+// WorldTxHandle adapts the internal worldrt.WorldTx to the public
 // WorldTransaction interface.
 struct WorldTxHandle {
 mut:
-	tx &WorldTx
+	tx &worldrt.WorldTx
 }
 
 // block_at reads the block at the given coordinates, resolved against this
 // transaction's own in progress writes.
 pub fn (h &WorldTxHandle) block_at(x int, y int, z int) world.Block {
-	return world.block_from_id(h.tx.block_at(x, y, z))
+	return world.block_from_id(block_at(h.tx, x, y, z))
 }
 
 // set_block writes a block, visible to later reads in the same transaction
@@ -67,7 +68,7 @@ pub fn (mut h WorldTxHandle) spawn_entity(config EntityConfig) !EntityRef {
 		y:          config.pos.y
 		z:          config.pos.z
 	})
-	h.tx.wr.events.entity_spawn(mut ctx)
+	h.tx.wr.handler.on_entity_spawn(mut ctx)
 	if ctx.is_cancelled() {
 		return error('entity spawn was cancelled')
 	}
@@ -80,7 +81,7 @@ pub fn (mut h WorldTxHandle) spawn_entity(config EntityConfig) !EntityRef {
 	}
 }
 
-// ExecOutcome transports a transaction callback error through world_call
+// ExecOutcome transports a transaction callback error through worldrt.world_call
 // which returns plain values. The caller converts it back into an error.
 struct ExecOutcome {
 	failed bool
@@ -91,14 +92,19 @@ struct ExecOutcome {
 // Operations inside the callback can't interleave with other world tasks
 // and callback errors are returned by exec.
 //
-// Keep callbacks short, synchronous and world local. Blocking work stalls
-// the entire world and calling PlayerRef or EntityRef methods from inside
-// the callback would deadlock by starting a nested world transaction.
+// label identifies the transaction in worldrt.WorldMetrics.longest_task_name, so a
+// slow callback is attributed to the caller rather than to exec itself. An
+// empty label falls back to the name of this function.
+//
+// Keep callbacks short, synchronous and world local: blocking work stalls the
+// entire world. PlayerRef and EntityRef methods start a nested world
+// transaction and panic when called from inside the callback.
 //
 // To return a value from the callback, use a channel. Mutable closure
 // captures are copied in V and don't update the enclosing variable.
-pub fn (mut w World) exec(f fn (mut tx WorldTransaction) !) ! {
-	outcome := world_call[ExecOutcome](mut w.runtime, fn [f] (mut tx WorldTx) ExecOutcome {
+pub fn (mut w World) exec(label string, f fn (mut tx WorldTransaction) !) ! {
+	task_label := if label == '' { 'World.exec' } else { label }
+	outcome := worldrt.world_call[ExecOutcome](task_label, mut w.runtime, fn [f] (mut tx worldrt.WorldTx) ExecOutcome {
 		mut handle := WorldTransaction(&WorldTxHandle{
 			tx: &tx
 		})

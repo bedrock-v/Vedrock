@@ -28,7 +28,7 @@ enabled = true
 dir = "resource_packs"
 force = false
 allow-client-packs = true
-# cdn-packs format: uuid,version,url,size ; separated by ";"
+# cdn-packs format: uuid,version,url,size,content-key ; separated by ";"
 cdn-packs = ""
 
 [paths]

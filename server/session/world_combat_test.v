@@ -3,12 +3,14 @@ module session
 import server.event
 import server.internal.gamedata
 import server.internal.logger
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
+import server.worldrt
 
-fn combat_world_test_session(mut hub Hub, mut wr WorldRuntime, name string, health f32) &NetworkSession {
+fn combat_world_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, health f32) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: name
@@ -18,43 +20,43 @@ fn combat_world_test_session(mut hub Hub, mut wr WorldRuntime, name string, heal
 		player:        pl
 		hub:           hub
 		runtime_id:    hub.allocate_runtime_id()
-		transport:     &FakeTransport{}
+		conn: &Conn{ transport: &FakeTransport{} }
 		spawned:       true
 		world:         wr.world
 		world_runtime: wr
 		log:           logger.new(.info)
 	}
 	hub.add(s)
-	world_call[bool](mut wr, fn [s] (mut tx WorldTx) bool {
-		tx.register_player(s)
+	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, s)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return s
 }
 
 struct CountingAttackHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
 
-fn (mut h CountingAttackHandler) on_player_attack(mut ctx event.Context[event.AttackData]) {
+fn (mut h CountingAttackHandler) on_player_attack(mut ctx event.Context[player.AttackData]) {
 	h.hits++
 }
 
 struct CountingDeathHandler {
-	event.NopHandler
+	player.NopHandler
 mut:
 	hits int
 }
 
-fn (mut h CountingDeathHandler) on_player_death(mut ctx event.Context[event.DeathData]) {
+fn (mut h CountingDeathHandler) on_player_death(mut ctx event.Context[player.DeathData]) {
 	h.hits++
 }
 
 // player_attack must dispatch on the world both combatants are actually in,
 // never a second (or the wrong) world's bus.
-fn test_player_attack_event_isolated_to_owning_world() {
+fn test_player_attack_event_reaches_only_the_attacker() {
 	mut hub := new_hub(gamedata.GameData{})
 	world_a := db.new_world('world-a', none, 'flat', world.overworld)
 	hub.add_world(world_a)
@@ -68,14 +70,15 @@ fn test_player_attack_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingAttackHandler{}
 	mut handler_b := &CountingAttackHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
 
 	mut attacker := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
+	attacker.handle(handler_a)
 	mut victim := combat_world_test_session(mut hub, mut wr_a, 'Steve', 20)
+	mut bystander := combat_world_test_session(mut hub, mut wr_b, 'Notch', 20)
+	bystander.handle(handler_b)
 
-	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -98,8 +101,8 @@ fn test_attack_cross_world_victim_produces_no_effect() {
 	mut attacker := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
 	mut victim := combat_world_test_session(mut hub, mut wr_b, 'Steve', 20)
 
-	attacker.handle_attack(victim.runtime_id)!
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -125,13 +128,12 @@ fn test_attack_stale_epoch_produces_no_effect() {
 	assert attacker.change_world('world-b', 0.0, 0.0, 0.0)
 
 	task := PlayerAttackTask{
-		attacker_runtime_id: attacker.runtime_id
-		attacker_epoch:      stale_epoch
-		victim_runtime_id:   victim.runtime_id
-		damage:              10.0
+		attacker:          entity.new_actor_id(attacker.runtime_id, stale_epoch)
+		victim_runtime_id: victim.runtime_id
+		damage:            10.0
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -155,15 +157,14 @@ fn test_kill_stale_epoch_produces_no_effect() {
 	stale_epoch := s.world_binding().epoch
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
 
-	task := PlayerKillTask{
-		runtime_id: s.runtime_id
-		epoch:      stale_epoch
-	}
-	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	rid := s.runtime_id
+	killed := worldrt.world_call[bool]('test.kill', mut wr_a, fn [rid, stale_epoch] (mut tx worldrt.WorldTx) bool {
+		mut target := player_for_id(mut tx, entity.new_actor_id(rid, stale_epoch)) or { return false }
+		target.player.kill(mut tx)
 		return true
-	}) or { panic('sync barrier rejected') }
+	}) or { panic('stale kill rejected') }
 
+	assert !killed
 	assert s.player.health() == 20
 	assert !s.player.is_dead()
 }
@@ -188,11 +189,10 @@ fn test_respawn_stale_epoch_produces_no_effect() {
 	assert s.change_world('world-b', 0.0, 0.0, 0.0)
 
 	task := PlayerRespawnTask{
-		runtime_id: s.runtime_id
-		epoch:      stale_epoch
+		id: entity.new_actor_id(s.runtime_id, stale_epoch)
 	}
 	assert wr_a.submit(task)
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 
@@ -200,7 +200,7 @@ fn test_respawn_stale_epoch_produces_no_effect() {
 	assert s.player.health() == 0
 }
 
-fn test_player_death_event_isolated_to_owning_world() {
+fn test_player_death_event_reaches_only_the_dying_player() {
 	mut hub := new_hub(gamedata.GameData{})
 	world_a := db.new_world('world-a', none, 'flat', world.overworld)
 	hub.add_world(world_a)
@@ -214,12 +214,14 @@ fn test_player_death_event_isolated_to_owning_world() {
 
 	mut handler_a := &CountingDeathHandler{}
 	mut handler_b := &CountingDeathHandler{}
-	wr_a.events.register(handler_a, .normal)
-	wr_b.events.register(handler_b, .normal)
 
 	mut s := combat_world_test_session(mut hub, mut wr_a, 'Alex', 20)
+	s.handle(handler_a)
+	mut bystander := combat_world_test_session(mut hub, mut wr_b, 'Steve', 20)
+	bystander.handle(handler_b)
+
 	s.kill()
-	world_call[bool](mut wr_a, fn (mut tx WorldTx) bool {
+	worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
 		return true
 	}) or { panic('sync barrier rejected') }
 

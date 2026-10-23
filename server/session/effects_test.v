@@ -5,11 +5,14 @@ import bedrock_v.protocol.types
 import server.effect
 import server.event
 import server.internal.gamedata
+import server.entity
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
+import server.worldrt
+import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol.version.v944.types as types_944
 
 fn make_effects_test_player(name string, health f32) &player.Player {
 	mut pl := player.new_player()
@@ -20,7 +23,7 @@ fn make_effects_test_player(name string, health f32) &player.Player {
 	return pl
 }
 
-fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, &WorldRuntime) {
+fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, &worldrt.WorldRuntime) {
 	target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -32,42 +35,41 @@ fn effects_test_session(mut hub Hub, name string, health f32) (&NetworkSession, 
 		world_runtime: wr
 	}
 	hub.add(sess)
-	world_call[bool](mut wr, fn [sess] (mut tx WorldTx) bool {
-		tx.register_player(sess)
+	worldrt.world_call[bool]('test', mut wr, fn [sess] (mut tx worldrt.WorldTx) bool {
+		register_player(mut tx, sess)
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 	return sess, wr
 }
 
-fn add_effect_directly(wr &WorldRuntime, rid u64, e effect.Effect) {
-	mut tx := &WorldTx{
+fn add_effect_directly(wr &worldrt.WorldRuntime, rid u64, e effect.Effect) {
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
 	PlayerAddEffectTask{
-		runtime_id: rid
-		epoch:      0
-		effect:     e
+		id:     entity.new_actor_id(rid, 0)
+		effect: e
 	}.run(mut tx)
 }
 
-fn remove_effect_directly(wr &WorldRuntime, rid u64, typ effect.Type) {
-	mut tx := &WorldTx{
+fn remove_effect_directly(wr &worldrt.WorldRuntime, rid u64, typ effect.Type) {
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
 
 	PlayerRemoveEffectTask{
-		runtime_id: rid
-		epoch:      0
-		typ:        typ
+		id:  entity.new_actor_id(rid, 0)
+		typ: typ
 	}.run(mut tx)
 }
 
-fn tick_effects_directly(wr &WorldRuntime) {
-	mut tx := &WorldTx{
+fn tick_effects_directly(wr &worldrt.WorldRuntime) {
+	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
-	tx.tick_effects()
+	mut ticker := SessionPlayerTicker{}
+	ticker.tick_players(mut tx)
 }
 
 fn test_add_effect_job_stores_lasting_effect() {
@@ -139,6 +141,9 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	target := db.new_world('world', none, 'void', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
+	mut tx := worldrt.WorldTx{
+		wr: wr
+	}
 	defer {
 		hub.close_worlds()
 	}
@@ -158,8 +163,8 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	net_id := sess.player.track_stack(potion)
 	sess.player.set_slot(0, net_id)
 
-	changes := sess.apply_consume(mut wr, proto.ItemStackRequestSlotInfo{
-		container_name: proto.FullContainerName{
+	changes := sess.apply_consume(mut tx, types_2168.ItemStackRequestSlotInfo{
+		container_name: types_944.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0
@@ -174,10 +179,10 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 }
 
 struct CancelEffectAddHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelEffectAddHandler) on_effect_add(mut ctx event.Context[event.EffectAddData]) {
+fn (mut h CancelEffectAddHandler) on_effect_add(mut ctx event.Context[player.EffectAddData]) {
 	ctx.cancel()
 }
 
@@ -187,7 +192,7 @@ fn test_cancelled_effect_add_rejects_effect() {
 	defer {
 		hub.close_worlds()
 	}
-	wr.events.register(&CancelEffectAddHandler{}, .normal)
+	sess.handle(&CancelEffectAddHandler{})
 
 	add_effect_directly(wr, sess.runtime_id, effect.new(effect.regeneration, 1, 5 * time.second))
 
@@ -197,10 +202,10 @@ fn test_cancelled_effect_add_rejects_effect() {
 }
 
 struct CancelEffectRemoveHandler {
-	event.NopHandler
+	player.NopHandler
 }
 
-fn (mut h CancelEffectRemoveHandler) on_effect_remove(mut ctx event.Context[event.EffectRemoveData]) {
+fn (mut h CancelEffectRemoveHandler) on_effect_remove(mut ctx event.Context[player.EffectRemoveData]) {
 	ctx.cancel()
 }
 
@@ -215,7 +220,7 @@ fn test_cancelled_effect_remove_keeps_effect() {
 	active := sess.player.effect(effect.regeneration) or { panic('missing effect') }
 	assert active.level() == 1
 
-	wr.events.register(&CancelEffectRemoveHandler{}, .normal)
+	sess.handle(&CancelEffectRemoveHandler{})
 
 	remove_effect_directly(wr, sess.runtime_id, effect.regeneration)
 
