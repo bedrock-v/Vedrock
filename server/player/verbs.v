@@ -1,6 +1,6 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
 import server.item
 import server.worldrt
@@ -20,7 +20,7 @@ import server.worldrt
 // teleport moves the player to pos and shows the arrival to everyone who can
 // see them, their own client included. What each of them is sent differs but
 // that is the viewer's decision, not this verb's.
-pub fn (mut p Player) teleport(mut tx worldrt.WorldTx, pos types.Vector3) {
+pub fn (mut p Player) teleport(mut tx worldrt.WorldTx, pos model.Vector3) {
 	p.reset_position(pos)
 	for mut v in p.viewers(mut tx) {
 		v.view_teleport(p, pos)
@@ -42,7 +42,7 @@ pub fn (mut p Player) send_translation(key string, parameters []string) {
 
 // send_slot_update keeps the client's view of one inventory slot in sync
 // after the server changed what is in it.
-pub fn (mut p Player) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
+pub fn (mut p Player) send_slot_update(slot int, wrapped model.ItemStackWrapper) {
 	mut sink := p.sink
 	sink.send_slot_update(slot, wrapped)
 }
@@ -58,7 +58,7 @@ pub fn (mut p Player) clear_inventory(mut tx worldrt.WorldTx) {
 	// The worn pieces live in the same stack map, so clearing it took them
 	// too - the client has to be told about its own armor window separately.
 	for index in 0 .. armor_slot_count {
-		p.send_armor_slot_update(index, types.ItemStackWrapper{})
+		p.send_armor_slot_update(index, model.ItemStackWrapper{})
 	}
 }
 
@@ -84,7 +84,7 @@ pub fn (mut p Player) give_item(mut tx worldrt.WorldTx, id string, count int) bo
 	}
 	slot := p.give_next_slot % hotbar_size
 	p.give_next_slot++
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:               numeric_id
 		meta:             0
 		count:            count
@@ -93,7 +93,7 @@ pub fn (mut p Player) give_item(mut tx worldrt.WorldTx, id string, count int) bo
 	}
 	net_id := p.inv.track_stack(stack)
 	p.inv.set_slot(slot, net_id)
-	p.send_slot_update(slot, types.ItemStackWrapper{
+	p.send_slot_update(slot, model.ItemStackWrapper{
 		stack_id:         net_id
 		stack_id_variant: 0
 		item_stack:       stack

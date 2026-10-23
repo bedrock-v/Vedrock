@@ -2,7 +2,7 @@ module entity
 
 import math
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 // Behaviour drives an Entity's per tick logic. identifier() returns the network
 // type id used when the entity is spawned for clients; tick() runs once per
@@ -195,7 +195,7 @@ mut:
 	scan_cooldown           i64
 	target_runtime_id       u64
 	has_target              bool
-	path                    []types.Vector3
+	path                    []model.Vector3
 	path_index              int
 	path_recompute_cooldown i64
 	attack_cooldown         i64
@@ -269,14 +269,14 @@ pub fn (mut b HostileBehaviour) tick(mut e Entity, mut host Host) {
 	set_wander_velocity(mut e, wander_speed)
 }
 
-fn (b &HostileBehaviour) eye_pos(e &Entity) types.Vector3 {
-	return types.Vector3{e.pos.x, e.pos.y + e.dimensions.eye_height, e.pos.z}
+fn (b &HostileBehaviour) eye_pos(e &Entity) model.Vector3 {
+	return model.Vector3{e.pos.x, e.pos.y + e.dimensions.eye_height, e.pos.z}
 }
 
 // line_of_sight_expired tracks how long the current target has been hidden
 // from view, resetting the counter whenever it's visible again and reports
 // true only once that's exceeded los_give_up_ticks.
-fn (mut b HostileBehaviour) line_of_sight_expired(mut e Entity, mut host Host, target_pos types.Vector3) bool {
+fn (mut b HostileBehaviour) line_of_sight_expired(mut e Entity, mut host Host, target_pos model.Vector3) bool {
 	if host.has_line_of_sight(b.eye_pos(e), target_pos) {
 		b.los_lost_ticks = 0
 		return false
@@ -287,7 +287,7 @@ fn (mut b HostileBehaviour) line_of_sight_expired(mut e Entity, mut host Host, t
 
 // try_attack faces the target and, once attack_cooldown has elapsed, lands
 // a melee hit through Host.mob_attack.
-fn (mut b HostileBehaviour) try_attack(mut e Entity, mut host Host, target_pos types.Vector3) {
+fn (mut b HostileBehaviour) try_attack(mut e Entity, mut host Host, target_pos model.Vector3) {
 	dx := target_pos.x - e.pos.x
 	dz := target_pos.z - e.pos.z
 	if dx * dx + dz * dz > 0.0001 {
@@ -314,7 +314,7 @@ fn (mut b HostileBehaviour) acquire_target(target_runtime_id u64) {
 	b.los_lost_ticks = 0
 }
 
-fn (mut b HostileBehaviour) move_toward_target(mut e Entity, mut host Host, target_pos types.Vector3) {
+fn (mut b HostileBehaviour) move_toward_target(mut e Entity, mut host Host, target_pos model.Vector3) {
 	b.path_recompute_cooldown--
 	if b.path.len == 0 || b.path_index >= b.path.len || b.path_recompute_cooldown <= 0 {
 		b.path_recompute_cooldown = path_recompute_interval_ticks
@@ -455,7 +455,7 @@ pub fn (mut b ProjectileBehaviour) tick(mut e Entity, mut host Host) {
 			// in Manager.tick.
 			b.stuck = true
 			e.no_gravity = true
-			e.velocity = types.Vector3{}
+			e.velocity = model.Vector3{}
 			return
 		}
 		// hit_block is a superset of on_ground (it also covers hitting a wall

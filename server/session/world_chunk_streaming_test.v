@@ -2,14 +2,14 @@ module session
 
 import sync
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.world
 import server.world.db
 import server.worldrt
-import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.packets
 
 struct BlockingGenerator {
 	started chan bool
@@ -86,7 +86,7 @@ fn chunk_stream_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, gen world
 		last_chunk_z:  100
 		log:           logger.new(.info)
 	}
-	s.player.reset_position(types.Vector3{0, 0, 0})
+	s.player.reset_position(model.Vector3{0, 0, 0})
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
 		return true
@@ -118,7 +118,7 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 	deadline := time.now().add(timeout_ms * time.millisecond)
 	for time.now() < deadline {
 		for p in transport.sent {
-			if p is packets_2168.LevelChunkPacket {
+			if p is packets.LevelChunkPacket {
 				return true
 			}
 		}
@@ -130,7 +130,7 @@ fn wait_for_chunk_packet(transport &FakeTransport, timeout_ms int) bool {
 		}
 	}
 	for p in transport.sent {
-		if p is packets_2168.LevelChunkPacket {
+		if p is packets.LevelChunkPacket {
 			return true
 		}
 	}
@@ -201,7 +201,7 @@ fn test_chunk_delivery_dropped_after_a_world_switch() {
 
 	time.sleep(300 * time.millisecond) // bounded window for a wrongly delivered batch to show up
 	for p in transport.sent {
-		assert p !is packets_2168.LevelChunkPacket
+		assert p !is packets.LevelChunkPacket
 	}
 }
 

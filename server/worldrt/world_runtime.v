@@ -4,7 +4,7 @@ import sync
 import sync.stdatomic
 import time
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.block
 import server.entity
 import server.world.db
@@ -266,7 +266,7 @@ pub fn (mut tx WorldTx) broadcast_block(x int, y int, z int, id int) {
 // position. Both WorldTx.broadcast_block and WorldLiquidHost.set_block_id
 // report the same thing, and neither decides what it looks like on the wire.
 fn (mut wr WorldRuntime) show_block(x int, y int, z int, id int) {
-	pos := types.BlockPosition{x, y, z}
+	pos := model.BlockPosition{x, y, z}
 	for mut v in wr.entities.player_viewers() {
 		v.view_block_update(pos, id)
 	}

@@ -3,6 +3,7 @@ module session
 import os
 import bedrock_v.protocol
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import bedrock_v.protocol.serializer
 import server.conf
 import server.internal.auth
@@ -10,17 +11,10 @@ import server.internal.gamedata
 import server.internal.logger
 import server.player
 import server.player.playerdb
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v2168.enums as enums_2168
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v729.packets as packets_729
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.version.v662.types as types_662
-import bedrock_v.protocol.version.v944.types as types_944
+import bedrock_v.protocol.packets
 
 fn decode_packet(p protocol.Packet) !protocol.Packet {
-	mut pool := proto.new_pool()
+	mut pool := protocol.new_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
@@ -36,61 +30,61 @@ fn decode_into[T](p protocol.Packet, mut out T) ! {
 }
 
 fn test_inventory_content_roundtrip() {
-	sent := &packets_2168.InventoryContentPacket{
+	sent := &packets.InventoryContentPacket{
 		inventory_id:        u32(player.inventory_window_id)
 		slots:               [
-			proto.item_descriptor_v2(types.ItemStack{ id: 1, count: 64 }),
+			protocol.item_descriptor_v2(model.ItemStack{ id: 1, count: 64 }),
 		]
-		container_name_data: types_944.FullContainerName{
+		container_name_data: types.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
+		storage_item:        protocol.item_descriptor_v2(model.ItemStack{})
 	}
 	assert decode_packet(sent)!.name() == 'InventoryContentPacket'
-	mut decoded := packets_2168.InventoryContentPacket{}
+	mut decoded := packets.InventoryContentPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.inventory_id == u32(player.inventory_window_id)
 	assert decoded.slots[0].id == 1
 }
 
 fn test_container_open_roundtrip() {
-	sent := &packets_944.ContainerOpenPacket{
+	sent := &packets.ContainerOpenPacket{
 		container_id:    .inventory
 		container_type:  .inventory
-		position:        types_944.NetworkBlockPosition{
+		position:        types.NetworkBlockPosition{
 			x: 0
 			y: 64
 			z: 0
 		}
-		target_actor_id: proto.actor_unique_id(-1)
+		target_actor_id: protocol.actor_unique_id(-1)
 	}
 	assert decode_packet(sent)!.name() == 'ContainerOpenPacket'
-	mut decoded := packets_944.ContainerOpenPacket{}
+	mut decoded := packets.ContainerOpenPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.container_id == .inventory
 	assert decoded.target_actor_id.value == -1
 }
 
 fn test_set_actor_data_flags_roundtrip() {
-	flags := entity_flag_bit(proto.entity_flag_affected_by_gravity) | entity_flag_bit(proto.entity_flag_has_collision)
-	sent := &packets_2168.SetActorDataPacket{
-		target_runtime_id: proto.actor_runtime_id(1)
+	flags := entity_flag_bit(protocol.entity_flag_affected_by_gravity) | entity_flag_bit(protocol.entity_flag_has_collision)
+	sent := &packets.SetActorDataPacket{
+		target_runtime_id: protocol.actor_runtime_id(1)
 		actor_data:        [
-			types_2168.DataItem{
-				data_item_id:   proto.meta_key_flags
-				data_item_type: enums_2168.DataItemInt64{
+			types.DataItem{
+				data_item_id:   protocol.meta_key_flags
+				data_item_type: types.DataItemInt64{
 					value: flags
 				}
 			},
 		]
-		synced_properties: types_662.PropertySyncData{}
+		synced_properties: types.PropertySyncData{}
 		tick:              0
 	}
 	assert decode_packet(sent)!.name() == 'SetActorDataPacket'
-	mut decoded := packets_2168.SetActorDataPacket{}
+	mut decoded := packets.SetActorDataPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.actor_data.len == 1
-	assert decoded.actor_data[0].data_item_id == proto.meta_key_flags
+	assert decoded.actor_data[0].data_item_id == protocol.meta_key_flags
 }
 
 fn test_creative_content_replaces_empty_group_icons() {
@@ -126,8 +120,8 @@ fn test_creative_content_replaces_empty_group_icons() {
 }
 
 fn test_update_attributes_roundtrip() {
-	sent := &packets_729.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(4)
+	sent := &packets.UpdateAttributesPacket{
+		target_runtime_id:       protocol.actor_runtime_id(4)
 		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, 20.0),
 			player_attribute('minecraft:movement', 0.0, 1.0, 0.1),
@@ -135,7 +129,7 @@ fn test_update_attributes_roundtrip() {
 		ticks_since_sim_started: 0
 	}
 	assert decode_packet(sent)!.name() == 'UpdateAttributesPacket'
-	mut decoded := packets_729.UpdateAttributesPacket{}
+	mut decoded := packets.UpdateAttributesPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.attribute_list.len == 2
 	assert decoded.attribute_list[0].attribute_name == 'minecraft:health'
@@ -164,7 +158,7 @@ fn test_save_data_preserves_inventory_slot_numbers() {
 		}
 		log:    logger.new(.info)
 	}
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:    5
 		count: 3
 	}
@@ -220,7 +214,7 @@ fn test_save_data_preserves_inventory_extra_data() {
 		}
 		log:    logger.new(.info)
 	}
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:             5
 		count:          1
 		raw_extra_data: extra.clone()
@@ -286,8 +280,8 @@ fn test_player_data_uses_the_owning_hubs_provider() {
 		hub:    hub_b
 		log:    logger.new(.info)
 	}
-	sess_a.player.reset_position(types.Vector3{1.0, 2.0, 3.0})
-	sess_b.player.reset_position(types.Vector3{9.0, 8.0, 7.0})
+	sess_a.player.reset_position(model.Vector3{1.0, 2.0, 3.0})
+	sess_b.player.reset_position(model.Vector3{9.0, 8.0, 7.0})
 
 	sess_a.save_player_data()
 	sess_b.save_player_data()

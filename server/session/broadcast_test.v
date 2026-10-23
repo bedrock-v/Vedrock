@@ -8,18 +8,12 @@ import server.internal.auth
 import server.effect
 import server.worldrt
 import time
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v924.enums as enums_924
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v776.packets as packets_776
-import bedrock_v.protocol.version.v898.packets as packets_898
-import bedrock_v.protocol.version.v924.packets as packets_924
-import bedrock_v.protocol.version.v800.types as types_800
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
+import bedrock_v.protocol.types
 
 fn roundtrip_packet(p protocol.Packet) !protocol.Packet {
-	mut pool := proto.new_pool()
+	mut pool := protocol.new_pool()
 	encoded := protocol.encode_packet_to_bytes(p)
 	mut r := serializer.new_reader(encoded)
 	return pool.decode(mut r)!
@@ -75,16 +69,16 @@ fn test_session_by_name_case_insensitive() {
 }
 
 fn test_chat_text_packet_roundtrip() {
-	sent := &packets_924.TextPacket{
-		message_type: enums_924.TextChat{
+	sent := &packets.TextPacket{
+		message_type: enums.TextChat{
 			player_name: 'Steve'
 			message:     'hello world'
 		}
 	}
 	assert roundtrip_packet(sent)!.name() == 'TextPacket'
-	mut decoded := packets_924.TextPacket{}
+	mut decoded := packets.TextPacket{}
 	decode_into(sent, mut decoded)!
-	if message := proto.text_chat(decoded.message_type) {
+	if message := protocol.text_chat(decoded.message_type) {
 		assert message.player_name == 'Steve'
 		assert message.message == 'hello world'
 	} else {
@@ -93,15 +87,15 @@ fn test_chat_text_packet_roundtrip() {
 }
 
 fn test_raw_text_packet_roundtrip() {
-	sent := &packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+	sent := &packets.TextPacket{
+		message_type: enums.TextRaw{
 			message: '§eSteve joined the game'
 		}
 	}
 	roundtrip_packet(sent)!
-	mut decoded := packets_924.TextPacket{}
+	mut decoded := packets.TextPacket{}
 	decode_into(sent, mut decoded)!
-	if message := proto.text_raw(decoded.message_type) {
+	if message := protocol.text_raw(decoded.message_type) {
 		assert message.message == '§eSteve joined the game'
 	} else {
 		assert false
@@ -111,17 +105,17 @@ fn test_raw_text_packet_roundtrip() {
 fn test_update_abilities_roundtrip() {
 	mut s := named_session('Alex', 7)
 	s.player.set_game_mode(.creative)
-	sent := &packets_776.UpdateAbilitiesPacket{
+	sent := &packets.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	}
 	assert roundtrip_packet(sent)!.name() == 'UpdateAbilitiesPacket'
-	mut decoded := packets_776.UpdateAbilitiesPacket{}
+	mut decoded := packets.UpdateAbilitiesPacket{}
 	decode_into(sent, mut decoded)!
 	// A session's own abilities name it by the self id, not by its server
 	// wide runtime id.
 	assert decoded.data.target_player_raw_id == i64(self_entity_runtime_id)
 	assert decoded.data.layers.len == 1
-	assert decoded.data.layers[0].ability_values & ability_bit(proto.ability_may_fly) != 0
+	assert decoded.data.layers[0].ability_values & ability_bit(protocol.ability_may_fly) != 0
 }
 
 fn test_block_update_flags_match_reference_servers() {
@@ -130,28 +124,28 @@ fn test_block_update_flags_match_reference_servers() {
 
 fn test_mob_effect_packet_roundtrip() {
 	mut s := named_session('Alex', 7)
-	sent := s.mob_effect_packet(s.player, effect.new(effect.regeneration, 2, 5 * time.second), packets_898.MobEffectEvent.add)
+	sent := s.mob_effect_packet(s.player, effect.new(effect.regeneration, 2, 5 * time.second), packets.MobEffectEvent.add)
 	assert roundtrip_packet(sent)!.name() == 'MobEffectPacket'
-	mut decoded := packets_898.MobEffectPacket{}
+	mut decoded := packets.MobEffectPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.target_runtime_id.value == self_entity_runtime_id
-	assert decoded.event_id == packets_898.MobEffectEvent.add
+	assert decoded.event_id == packets.MobEffectEvent.add
 	assert decoded.effect_id == effect.regeneration.id
 	assert decoded.effect_amplifier == 1
 	assert decoded.effect_duration_ticks == 100
 }
 
 fn test_player_list_add_roundtrip_with_skin() {
-	sent := &packets_2192.PlayerListPacket{
+	sent := &packets.PlayerListPacket{
 		entries: [
-			packets_2192.PlayerListAdd{
-				entry: packets_2192.AddPlayerListEntry{
-					uuid:            proto.uuid_from_bytes(seed_uuid(5))
-					target_actor_id: proto.actor_unique_id(5)
+			packets.PlayerListAdd{
+				entry: packets.AddPlayerListEntry{
+					uuid:            protocol.uuid_from_bytes(seed_uuid(5))
+					target_actor_id: protocol.actor_unique_id(5)
 					player_name:     'Steve'
 					build_platform:  .unknown
 					serialized_skin: default_skin('Steve')
-					color:           types_800.Color{
+					color:           types.Color{
 						r: -1
 						g: -1
 						b: -1
@@ -162,11 +156,11 @@ fn test_player_list_add_roundtrip_with_skin() {
 		]
 	}
 	assert roundtrip_packet(sent)!.name() == 'PlayerListPacket'
-	mut decoded := packets_2192.PlayerListPacket{}
+	mut decoded := packets.PlayerListPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.entries.len == 1
 	entry := decoded.entries[0]
-	if added := proto.player_list_add(entry) {
+	if added := protocol.player_list_add(entry) {
 		assert added.entry.player_name == 'Steve'
 		assert added.entry.serialized_skin.skin_image_width == skin_width
 	} else {
@@ -194,7 +188,7 @@ fn test_add_player_roundtrip() {
 
 	sent := viewer.add_player_packet(subject.player)
 	assert roundtrip_packet(sent)!.name() == 'AddPlayerPacket'
-	mut decoded := packets_2168.AddPlayerPacket{}
+	mut decoded := packets.AddPlayerPacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.player_name == 'Alex'
 	assert decoded.target_runtime_id.value == self_entity_runtime_id + 1
@@ -226,15 +220,15 @@ fn test_add_player_visible_nametag_metadata() {
 	mut viewer := named_session('Bob', 4)
 	p := viewer.add_player_packet(subject.player)
 	assert p.entity_data.len == 9
-	assert p.entity_data[0].data_item_id == proto.meta_key_flags
-	assert p.entity_data[2].data_item_id == proto.meta_key_name
-	assert p.entity_data[8].data_item_id == proto.meta_key_always_show_name_tag
-	if value := proto.data_item_string(p.entity_data[2].data_item_type) {
+	assert p.entity_data[0].data_item_id == protocol.meta_key_flags
+	assert p.entity_data[2].data_item_id == protocol.meta_key_name
+	assert p.entity_data[8].data_item_id == protocol.meta_key_always_show_name_tag
+	if value := protocol.data_item_string(p.entity_data[2].data_item_type) {
 		assert value.value == 'Alex'
 	} else {
 		assert false
 	}
-	if value := proto.data_item_byte(p.entity_data[8].data_item_type) {
+	if value := protocol.data_item_byte(p.entity_data[8].data_item_type) {
 		assert value.value == 1
 	} else {
 		assert false
@@ -242,8 +236,8 @@ fn test_add_player_visible_nametag_metadata() {
 }
 
 fn test_move_and_remove_roundtrip() {
-	mut move_packet := &packets_2168.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(3)
+	mut move_packet := &packets.MovePlayerPacket{
+		player_runtime_id: protocol.actor_runtime_id(3)
 		on_ground:         true
 	}
 	move_packet.position[0] = 1.0
@@ -251,18 +245,18 @@ fn test_move_and_remove_roundtrip() {
 	move_packet.position[2] = 2.0
 	move := roundtrip_packet(move_packet)!
 	assert move.name() == 'MovePlayerPacket'
-	remove := roundtrip_packet(&packets_662.RemoveActorPacket{
-		target_actor_id: proto.actor_unique_id(3)
+	remove := roundtrip_packet(&packets.RemoveActorPacket{
+		target_actor_id: protocol.actor_unique_id(3)
 	})!
 	assert remove.name() == 'RemoveActorPacket'
 }
 
 fn test_set_time_packet_roundtrip() {
-	sent := &packets_662.SetTimePacket{
+	sent := &packets.SetTimePacket{
 		time: 6000
 	}
 	assert roundtrip_packet(sent)!.name() == 'SetTimePacket'
-	mut decoded := packets_662.SetTimePacket{}
+	mut decoded := packets.SetTimePacket{}
 	decode_into(sent, mut decoded)!
 	assert decoded.time == 6000
 }

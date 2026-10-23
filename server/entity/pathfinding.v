@@ -1,7 +1,7 @@
 module entity
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 // Pathfinding is intentionally bounded to keep per tick work predictable.
 // path_max_search_radius limits how far a search may reach while
@@ -108,7 +108,7 @@ fn heuristic(a PathNode, b PathNode) f32 {
 	return math.sqrtf(dx * dx + dz * dz)
 }
 
-fn reconstruct_path(came_from map[string]PathNode, goal PathNode) []types.Vector3 {
+fn reconstruct_path(came_from map[string]PathNode, goal PathNode) []model.Vector3 {
 	mut nodes := []PathNode{}
 	nodes << goal
 	mut current := goal
@@ -118,12 +118,12 @@ fn reconstruct_path(came_from map[string]PathNode, goal PathNode) []types.Vector
 		current = prev
 	}
 	if nodes.len <= 1 {
-		return []types.Vector3{}
+		return []model.Vector3{}
 	}
-	mut waypoints := []types.Vector3{cap: nodes.len - 1}
+	mut waypoints := []model.Vector3{cap: nodes.len - 1}
 	for i := nodes.len - 2; i >= 0; i-- {
 		n := nodes[i]
-		waypoints << types.Vector3{f32(n.x) + 0.5, f32(n.y), f32(n.z) + 0.5}
+		waypoints << model.Vector3{f32(n.x) + 0.5, f32(n.y), f32(n.z) + 0.5}
 	}
 	return waypoints
 }
@@ -134,7 +134,7 @@ fn reconstruct_path(came_from map[string]PathNode, goal PathNode) []types.Vector
 //
 // Entity height determines required headroom. Width is intentionally ignored,
 // so wide entities may clip corners.
-pub fn find_path(mut host Host, start types.Vector3, target types.Vector3, dims Dimensions) ?[]types.Vector3 {
+pub fn find_path(mut host Host, start model.Vector3, target model.Vector3, dims Dimensions) ?[]model.Vector3 {
 	mut clearance := int(dims.height)
 	if f32(clearance) < dims.height {
 		clearance++

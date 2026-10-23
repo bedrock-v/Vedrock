@@ -1,7 +1,7 @@
 module session
 
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.block
 import server.entity
 import server.worldrt
@@ -23,11 +23,11 @@ fn (mut s NetworkSession) award_experience(points int) {
 
 // spawn_experience_orbs drops amount at pos, split across as many orbs as it
 // takes and scattered so they do not land in one stack.
-fn spawn_experience_orbs(mut tx worldrt.WorldTx, amount int, pos types.Vector3) {
+fn spawn_experience_orbs(mut tx worldrt.WorldTx, amount int, pos model.Vector3) {
 	for value in entity.split_experience(amount) {
 		behaviour := entity.new_experience_orb_behaviour(value, entity.orb_pickup_delay_ticks)
 		mut e := tx.wr.entities.spawn(behaviour, pos)
-		e.set_velocity(types.Vector3{
+		e.set_velocity(model.Vector3{
 			x: (rand.f32() * 0.2) - 0.1
 			y: 0.2
 			z: (rand.f32() * 0.2) - 0.1
@@ -44,7 +44,7 @@ fn (mut h WorldEntityHost) grant_experience(runtime_id u64, amount int) bool {
 	return false
 }
 
-fn (mut h WorldEntityHost) spawn_experience_orbs(amount int, pos types.Vector3) {
+fn (mut h WorldEntityHost) spawn_experience_orbs(amount int, pos model.Vector3) {
 	mut tx := h.tx()
 	spawn_experience_orbs(mut tx, amount, pos)
 }
@@ -107,7 +107,7 @@ fn (mut s NetworkSession) submit_experience(points int, levels int) {
 // what Silk Touch does to it - and a whole ore has not given up its experience
 // yet. Nothing carries Silk Touch on this branch, so today the check only ever
 // passes; it is here so the rule holds the moment something does.
-fn drop_block_experience(mut tx worldrt.WorldTx, mut s NetworkSession, block_id int, drop_name string, pos types.Vector3) {
+fn drop_block_experience(mut tx worldrt.WorldTx, mut s NetworkSession, block_id int, drop_name string, pos model.Vector3) {
 	if drop_name == '' || drop_name == s.block_item_name(block_id) {
 		return
 	}

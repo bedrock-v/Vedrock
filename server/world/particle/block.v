@@ -1,6 +1,6 @@
 module particle
 
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 
 // BlockBreak is the burst of block fragments shown when a block is broken. The
 // runtime id decides which texture the fragments use.
@@ -10,7 +10,7 @@ pub:
 }
 
 pub fn (p BlockBreak) event_id() int {
-	return proto.level_event_particles_destroy_block
+	return protocol.level_event_particles_destroy_block
 }
 
 pub fn (p BlockBreak) data() int {
@@ -26,7 +26,7 @@ pub:
 }
 
 pub fn (p PunchBlock) event_id() int {
-	return proto.level_event_particles_punch_block
+	return protocol.level_event_particles_punch_block
 }
 
 pub fn (p PunchBlock) data() int {

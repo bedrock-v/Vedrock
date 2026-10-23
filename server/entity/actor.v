@@ -1,6 +1,6 @@
 module entity
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 // Dimensions describes an actor's collision box and related vertical
 // offsets. Width and height are full dimensions.
@@ -23,11 +23,11 @@ pub:
 // When narrowing an Actor to a concrete type, use the bare type name.
 pub interface Actor {
 	runtime_id() u64
-	current_position() types.Vector3
+	current_position() model.Vector3
 	// feet_position returns the bottom of the actor's collision box.
 	// Use it for collision and hit testing because current_position may refer
 	// to eye level for players but already represents feet for entities.
-	feet_position() types.Vector3
+	feet_position() model.Vector3
 	dimensions() Dimensions
 	is_dead() bool
 }

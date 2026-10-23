@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.auth
 import server.internal.gamedata
 import server.player
@@ -9,9 +9,9 @@ import server.world
 import server.world.db
 import server.item
 import server.block
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.packets
 
 // A break that never starts shows the player no crack animation and no
 // particles, which is the whole symptom of the server reading a different
@@ -32,7 +32,7 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.Wo
 		world:         wr.world
 		generator:     generator
 	}
-	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y) + 1.62, 0.5})
+	s.player.reset_position(model.Vector3{0.5, f32(world.overworld.min_y) + 1.62, 0.5})
 	hub.add(s)
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
@@ -43,8 +43,8 @@ fn animation_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.Wo
 
 fn sent_start_cracking(transport &FakeTransport, x int, y int, z int) bool {
 	for p in transport.sent {
-		if p is packets_662.LevelEventPacket {
-			if p.event_id == proto.level_event_start_block_cracking && p.position[0] == f32(x)
+		if p is packets.LevelEventPacket {
+			if p.event_id == protocol.level_event_start_block_cracking && p.position[0] == f32(x)
 				&& p.position[1] == f32(y) && p.position[2] == f32(z) {
 				return true
 			}
@@ -106,9 +106,9 @@ fn test_mining_a_generated_tree_starts_the_crack_animation() {
 		assert false, 'no populated block in the first column'
 		return
 	}
-	s.player.reset_position(types.Vector3{f32(x) + 0.5, f32(y) + 1.62, f32(z) + 0.5})
+	s.player.reset_position(model.Vector3{f32(x) + 0.5, f32(y) + 1.62, f32(z) + 0.5})
 
-	s.handle_start_break(types.BlockPosition{x, y, z}, 1)
+	s.handle_start_break(model.BlockPosition{x, y, z}, 1)
 
 	assert wait_for_start_cracking(transport, x, y, z, 5000)
 }
@@ -140,17 +140,17 @@ fn test_placing_against_generated_terrain_reaches_the_world() {
 		assert false, 'no populated block in the first column'
 		return
 	}
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:    500
 		count: 1
 	}
 	net_id := s.player.track_stack(stack)
 	s.player.set_slot(s.player.held_slot(), net_id)
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
-	s.player.reset_position(types.Vector3{f32(x) + 2.5, f32(y) + 2.0, f32(z) + 0.5})
+	s.player.reset_position(model.Vector3{f32(x) + 2.5, f32(y) + 2.0, f32(z) + 0.5})
 
 	// Face 1 is the top, so the block lands on top of the one clicked.
-	s.handle_place_click(types.BlockPosition{x, y, z}, 1, 1.0)
+	s.handle_place_click(model.BlockPosition{x, y, z}, 1, 1.0)
 
 	assert target.block_override(x, y + 1, z) or { 0 } == world.stone.network_id
 }
@@ -169,7 +169,7 @@ fn test_mining_a_placed_block_starts_the_crack_animation() {
 	y := world.overworld.min_y
 	target.set_block(0, y, 1, world.stone.network_id)
 
-	s.handle_start_break(types.BlockPosition{0, y, 1}, 1)
+	s.handle_start_break(model.BlockPosition{0, y, 1}, 1)
 
 	assert wait_for_start_cracking(transport, 0, y, 1, 5000)
 }

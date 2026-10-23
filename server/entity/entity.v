@@ -1,6 +1,6 @@
 module entity
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world
 import server.effect
 
@@ -26,8 +26,8 @@ pub:
 	identifier string     // network type id, e.g. "minecraft:pig"
 	dimensions Dimensions // physical footprint, fixed at spawn from the Behaviour that created this entity
 pub mut:
-	pos       types.Vector3
-	velocity  types.Vector3
+	pos       model.Vector3
+	velocity  model.Vector3
 	pitch     f32
 	yaw       f32
 	head_yaw  f32
@@ -50,13 +50,13 @@ pub mut:
 }
 
 // current_position returns the entity's current position.
-pub fn (e &Entity) current_position() types.Vector3 {
+pub fn (e &Entity) current_position() model.Vector3 {
 	return e.pos
 }
 
 // feet_position satisfies entity.Actor. An Entity's pos is already its feet
 // , so this is the same value as current_position().
-pub fn (e &Entity) feet_position() types.Vector3 {
+pub fn (e &Entity) feet_position() model.Vector3 {
 	return e.pos
 }
 
@@ -82,7 +82,7 @@ pub fn (mut e Entity) kill() {
 }
 
 // set_velocity replaces the entity's velocity (blocks/tick).
-pub fn (mut e Entity) set_velocity(v types.Vector3) {
+pub fn (mut e Entity) set_velocity(v model.Vector3) {
 	e.velocity = v
 }
 
@@ -131,7 +131,7 @@ pub fn (mut e Entity) heal(mut host Host, amount f32) {
 }
 
 // teleport moves the entity to pos and resets its ground clamp there.
-pub fn (mut e Entity) teleport(pos types.Vector3) {
+pub fn (mut e Entity) teleport(pos model.Vector3) {
 	e.pos = pos
 	e.floor_y = pos.y
 }

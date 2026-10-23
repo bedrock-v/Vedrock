@@ -2,6 +2,7 @@ module session
 
 import time
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.internal.logger
 import server.entity
@@ -9,21 +10,18 @@ import server.player
 import server.internal.auth
 import server.world
 import server.world.db
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.current.types as types_2192
-import bedrock_v.protocol.version.v944.types as types_944
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
-fn mob_equipment_packet(runtime_id u64, stack types.ItemStackWrapper, slot int) packets_2168.MobEquipmentPacket {
-	return packets_2168.MobEquipmentPacket{
-		target_runtime_id: proto.actor_runtime_id(runtime_id)
-		item:              proto.item_descriptor_v2(stack.item_stack)
+fn mob_equipment_packet(runtime_id u64, stack model.ItemStackWrapper, slot int) packets.MobEquipmentPacket {
+	return packets.MobEquipmentPacket{
+		target_runtime_id: protocol.actor_runtime_id(runtime_id)
+		item:              protocol.item_descriptor_v2(stack.item_stack)
 		slot:              i8(slot)
 		selected_slot:     i8(slot)
-		container_id:      enums_662.ContainerID.inventory
+		container_id:      enums.ContainerID.inventory
 	}
 }
 
@@ -80,8 +78,8 @@ fn test_handle_mob_equipment_selects_hotbar_slot() {
 
 	mut s := mob_equipment_test_session(mut hub, mut wr, 'Alex', &FakeTransport{})
 
-	stack := types.ItemStackWrapper{
-		item_stack: types.ItemStack{
+	stack := model.ItemStackWrapper{
+		item_stack: model.ItemStack{
 			id:    123
 			count: 1
 		}
@@ -116,8 +114,8 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 	mut transport_b := &FakeTransport{}
 	mut observer_b := mob_equipment_test_session(mut hub, mut wr_b, 'Bob', transport_b)
 
-	stack := types.ItemStackWrapper{
-		item_stack: types.ItemStack{
+	stack := model.ItemStackWrapper{
+		item_stack: model.ItemStack{
 			id:    123
 			count: 1
 		}
@@ -135,13 +133,13 @@ fn test_mob_equipment_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_it := false
 	for p in transport_a.sent {
-		if p is packets_2168.MobEquipmentPacket {
+		if p is packets.MobEquipmentPacket {
 			a_saw_it = true
 		}
 	}
 	mut b_saw_it := false
 	for p in transport_b.sent {
-		if p is packets_2168.MobEquipmentPacket {
+		if p is packets.MobEquipmentPacket {
 			b_saw_it = true
 		}
 	}
@@ -169,8 +167,8 @@ fn test_mob_equipment_stale_epoch_produces_no_effect() {
 	task := PlayerMobEquipmentTask{
 		id:          entity.new_actor_id(s.runtime_id, stale_epoch)
 		hotbar_slot: 4
-		item:        types.ItemStackWrapper{
-			item_stack: types.ItemStack{
+		item:        model.ItemStackWrapper{
+			item_stack: model.ItemStack{
 				id:    123
 				count: 1
 			}
@@ -205,24 +203,24 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 	rid := s.runtime_id
 	epoch := s.world_binding().epoch
 	requests := [
-		packets_2168.RequestsEntry{
+		packets.RequestsEntry{
 			client_request_id: 1
 			actions:           [
-				types_2168.ItemStackActionCraftCreative{
+				types.ItemStackActionCraftCreative{
 					creative_item_network_id:   1
 					number_of_requested_crafts: 1
 				},
-				types_2168.ItemStackActionPlace{
+				types.ItemStackActionPlace{
 					amount:      1
-					source:      types_2168.ItemStackRequestSlotInfo{
-						container_name: types_944.FullContainerName{
+					source:      types.ItemStackRequestSlotInfo{
+						container_name: types.FullContainerName{
 							container: .inventory_container
 						}
 						slot:           0
 						raw_id:         0
 					}
-					destination: types_2168.ItemStackRequestSlotInfo{
-						container_name: types_944.FullContainerName{
+					destination: types.ItemStackRequestSlotInfo{
+						container_name: types.FullContainerName{
 							container: .hotbar_container
 						}
 						slot:           0
@@ -232,9 +230,9 @@ fn test_creative_stack_request_rejected_for_survival_player() {
 			]
 		},
 	]
-	worldrt.world_call[[]types_2192.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx worldrt.WorldTx) []types_2192.ItemStackResponseInfo {
+	worldrt.world_call[[]types.ItemStackResponseInfo]('test', mut wr, fn [rid, epoch, requests] (mut tx worldrt.WorldTx) []types.ItemStackResponseInfo {
 		return process_item_stack_requests(mut tx, entity.new_actor_id(rid, epoch), requests)
-	}) or { []types_2192.ItemStackResponseInfo{} }
+	}) or { []types.ItemStackResponseInfo{} }
 
 	_, net := s.inventory_stack_at(0)
 	assert net == 0
@@ -250,12 +248,12 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 		hub:    hub
 		log:    logger.new(.info)
 	}
-	source := types.ItemStack{
+	source := model.ItemStack{
 		id:    5
 		meta:  1
 		count: 4
 	}
-	dest := types.ItemStack{
+	dest := model.ItemStack{
 		id:    5
 		meta:  2
 		count: 8
@@ -265,14 +263,14 @@ fn test_move_doesnt_merge_stacks_with_diff_metadata() {
 	s.player.set_slot(0, source_net)
 	s.player.set_slot(1, dest_net)
 
-	changes := s.apply_move(types_2168.ItemStackRequestSlotInfo{
-		container_name: types_944.FullContainerName{
+	changes := s.apply_move(types.ItemStackRequestSlotInfo{
+		container_name: types.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0
 		raw_id:         source_net
-	}, types_2168.ItemStackRequestSlotInfo{
-		container_name: types_944.FullContainerName{
+	}, types.ItemStackRequestSlotInfo{
+		container_name: types.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           1
@@ -300,7 +298,7 @@ fn test_requested_amount_never_exceeds_what_the_slot_holds() {
 }
 
 fn test_flat_slot_rejects_a_slot_outside_the_inventory() {
-	container := types_944.FullContainerName{
+	container := types.FullContainerName{
 		container: .inventory_container
 	}
 	assert flat_slot(container, 0)? == 0

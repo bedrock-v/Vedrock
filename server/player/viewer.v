@@ -1,6 +1,6 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 import server.entity
 import server.worldrt
@@ -21,7 +21,7 @@ mut:
 	// view_teleport shows "p"layer arriving at pos under its own power or otherwise.
 	// Its own client is told to snap; everyone else is told where the body
 	// went.
-	view_teleport(p &Player, pos types.Vector3)
+	view_teleport(p &Player, pos model.Vector3)
 	// view_movement shows "p"layer at wherever it now is, for a move the client
 	// already reported and doesn't need told back.
 	view_movement(p &Player)
@@ -41,7 +41,7 @@ mut:
 	// without touching the list entry, which never left.
 	view_player_respawned(p &Player)
 	// view_equipment shows what "p"layer is now holding.
-	view_equipment(p &Player, hotbar_slot int, inventory_slot int, item types.ItemStackWrapper)
+	view_equipment(p &Player, hotbar_slot int, inventory_slot int, item model.ItemStackWrapper)
 	// view_air_supply is the bubble bar which other clients render too.
 	view_air_supply(p &Player, air i64)
 }

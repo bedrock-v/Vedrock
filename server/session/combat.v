@@ -1,19 +1,17 @@
 module session
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 import server.event
 import server.world.sound
 import server.item
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.entity
 import server.player
 import server.worldrt
-import bedrock_v.protocol.version.v2168.enums as enums_2168
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 const knockback_horizontal = f32(0.4)
 const knockback_vertical = f32(0.4)
@@ -141,7 +139,7 @@ struct EntityInteractSnapshot {
 	found      bool
 	in_reach   bool
 	identifier string
-	pos        types.Vector3
+	pos        model.Vector3
 }
 
 // handle_entity_interact runs a UsableOnEntityItem's behaviour when a player
@@ -202,7 +200,7 @@ fn (mut s NetworkSession) handle_entity_interact(wire_id u64) {
 // readonly data and mutation goes through Player's state lock.
 fn (mut s NetworkSession) replace_held_item(item_name string) {
 	new_id := s.hub.data.item_id_by_name[item_name] or { return }
-	new_stack := types.ItemStack{
+	new_stack := model.ItemStack{
 		id:    new_id
 		count: 1
 	}
@@ -289,8 +287,8 @@ fn (t PlayerRespawnTask) run(mut tx worldrt.WorldTx) {
 	target.apply_respawn(mut tx)
 }
 
-fn (mut s NetworkSession) handle_respawn(p packets_662.RespawnPacket) ! {
-	if p.state == enums_662.PlayerRespawnState.client_ready_to_spawn {
+fn (mut s NetworkSession) handle_respawn(p packets.RespawnPacket) ! {
+	if p.state == enums.PlayerRespawnState.client_ready_to_spawn {
 		s.request_respawn()
 	}
 }
@@ -325,21 +323,21 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 		z:      spawn_pos.z
 	})
 	s.player.handler.on_player_respawn(mut ctx)
-	s.player.reset_position(types.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
+	s.player.reset_position(model.Vector3{ctx.val.x, ctx.val.y, ctx.val.z})
 	current := s.player.movement()
 	s.deliver(s.health_update())
-	mut respawn_packet := &packets_662.RespawnPacket{
-		state:             enums_662.PlayerRespawnState.ready_to_spawn
-		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
+	mut respawn_packet := &packets.RespawnPacket{
+		state:             enums.PlayerRespawnState.ready_to_spawn
+		player_runtime_id: protocol.actor_runtime_id(self_entity_runtime_id)
 	}
 	respawn_packet.position[0] = current.position.x
 	respawn_packet.position[1] = current.position.y
 	respawn_packet.position[2] = current.position.z
 	s.deliver(respawn_packet)
-	mut move_packet := &packets_2168.MovePlayerPacket{
-		player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
+	mut move_packet := &packets.MovePlayerPacket{
+		player_runtime_id: protocol.actor_runtime_id(self_entity_runtime_id)
 		y_head_rotation:   current.head_yaw
-		position_mode:     enums_2168.PlayerPositionMode.respawn
+		position_mode:     enums.PlayerPositionMode.respawn
 		on_ground:         false
 	}
 	move_packet.position[0] = current.position.x
@@ -358,11 +356,11 @@ fn (mut s NetworkSession) apply_respawn(mut tx worldrt.WorldTx) {
 // current_position is a thin forwarding accessor kept for call site
 // continuity, the actual lock lives on Player (see player.Player's
 // movement()/position() comment).
-fn (s &NetworkSession) current_position() types.Vector3 {
+fn (s &NetworkSession) current_position() model.Vector3 {
 	return s.player.position()
 }
 
-fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height f32) {
+fn (mut s NetworkSession) apply_knockback(from model.Vector3, force f32, height f32) {
 	pos := s.current_position()
 	mut dx := pos.x - from.x
 	mut dz := pos.z - from.z
@@ -372,13 +370,13 @@ fn (mut s NetworkSession) apply_knockback(from types.Vector3, force f32, height 
 		dz = 0.0
 		dist = 1.0
 	}
-	motion := types.Vector3{
+	motion := model.Vector3{
 		x: dx / dist * force
 		y: height
 		z: dz / dist * force
 	}
-	mut motion_packet := &packets_662.SetActorMotionPacket{
-		target_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
+	mut motion_packet := &packets.SetActorMotionPacket{
+		target_runtime_id: protocol.actor_runtime_id(self_entity_runtime_id)
 		server_tick:       0
 	}
 	motion_packet.motion[0] = motion.x

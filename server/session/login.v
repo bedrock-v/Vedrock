@@ -6,12 +6,10 @@ import server.internal.logger
 import server.internal.encryption
 import server.resourcepack
 import bedrock_v.protocol.serializer
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v898.packets as packets_898
-import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
+import bedrock_v.protocol.types
 
 fn login_chain_json(connection_request []u8) !string {
 	mut r := serializer.new_reader(connection_request)
@@ -19,25 +17,25 @@ fn login_chain_json(connection_request []u8) !string {
 	return r.read_raw(auth_len)!.bytestr()
 }
 
-fn (mut s NetworkSession) handle_request_network_settings(p packets_662.RequestNetworkSettingsPacket) ! {
+fn (mut s NetworkSession) handle_request_network_settings(p packets.RequestNetworkSettingsPacket) ! {
 	client_protocol := p.client_network_version
 	s.log.debug('Client requested network settings (protocol ${client_protocol})')
-	if client_protocol != int(proto.proto_version.protocol_id()) {
-		status := if client_protocol < int(proto.proto_version.protocol_id()) {
-			enums_662.PlayStatus.login_failed_client_old
+	if client_protocol != int(protocol.protocol_id) {
+		status := if client_protocol < int(protocol.protocol_id) {
+			enums.PlayStatus.login_failed_client_old
 		} else {
-			enums_662.PlayStatus.login_failed_server_old
+			enums.PlayStatus.login_failed_server_old
 		}
-		s.log.warn('Rejected client with protocol ${client_protocol} (server requires ${int(proto.proto_version.protocol_id())})')
-		s.conn.transport.send(&packets_662.PlayStatusPacket{
+		s.log.warn('Rejected client with protocol ${client_protocol} (server requires ${int(protocol.protocol_id)})')
+		s.conn.transport.send(&packets.PlayStatusPacket{
 			status: status
 		})!
-		s.reject_bootstrap('Incompatible client version. Server requires ${proto.proto_version.minecraft_version()}.')
+		s.reject_bootstrap('Incompatible client version. Server requires ${protocol.minecraft_version}.')
 		return
 	}
-	s.conn.transport.send(&packets_662.NetworkSettingsPacket{
+	s.conn.transport.send(&packets.NetworkSettingsPacket{
 		compression_threshold:     u16(s.cfg.compression_threshold)
-		compression_algorithm:     enums_662.PacketCompressionAlgorithm.z_lib
+		compression_algorithm:     enums.PacketCompressionAlgorithm.z_lib
 		client_throttle_enabled:   false
 		client_throttle_threshold: 0
 		client_throttle_scalar:    0.0
@@ -52,7 +50,7 @@ const max_display_name = 32
 const max_xuid_len = 32
 const max_uuid_len = 64
 
-fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
+fn (mut s NetworkSession) handle_login(p packets.LoginPacket) ! {
 	auth_info_json := login_chain_json(p.connection_request) or {
 		s.log.warn('Malformed login connection request: ${err}')
 		s.reject_bootstrap('Login failed: malformed connection request')
@@ -118,8 +116,8 @@ fn (mut s NetworkSession) handle_login(p packets_662.LoginPacket) ! {
 			s.log.warn('Encryption handshake skipped for ${identity.display_name}: ${err}')
 		}
 	}
-	s.conn.transport.send(&packets_662.PlayStatusPacket{
-		status: enums_662.PlayStatus.login_success
+	s.conn.transport.send(&packets.PlayStatusPacket{
+		status: enums.PlayStatus.login_success
 	})!
 	s.start_resource_packs()!
 }
@@ -136,7 +134,7 @@ fn (mut s NetworkSession) start_encryption(client_public_key string) ! {
 	result := encryption.prepare_handshake(client_public_key)!
 	mut ctx := encryption.new_context(result.key)!
 	// Must be flushed in cleartext before the cipher is installed.
-	s.conn.transport.send(&packets_662.ServerToClientHandshakePacket{
+	s.conn.transport.send(&packets.ServerToClientHandshakePacket{
 		handshake_web_token: result.handshake_jwt
 	})!
 	s.conn.transport.enable_encryption(mut ctx)
@@ -144,7 +142,7 @@ fn (mut s NetworkSession) start_encryption(client_public_key string) ! {
 	s.log.debug('Encryption enabled for ${s.player.identity.display_name}')
 }
 
-fn (mut s NetworkSession) handle_client_to_server_handshake(_ packets_662.ClientToServerHandshakePacket) ! {
+fn (mut s NetworkSession) handle_client_to_server_handshake(_ packets.ClientToServerHandshakePacket) ! {
 	if !s.conn.encryption_enabled {
 		s.log.debug('Unexpected ClientToServerHandshake without an active cipher')
 		return
@@ -236,11 +234,11 @@ fn trusted_identity(identity auth.Identity) auth.Identity {
 }
 
 fn (mut s NetworkSession) start_resource_packs() ! {
-	mut entries := []packets_2168.ResourcePackEntry{}
+	mut entries := []packets.ResourcePackEntry{}
 	if !isnil(s.hub.packs) {
 		for pack in s.hub.packs.packs {
-			entries << packets_2168.ResourcePackEntry{
-				id:          proto.uuid_from_bytes(pack.uuid_bytes())
+			entries << packets.ResourcePackEntry{
+				id:          protocol.uuid_from_bytes(pack.uuid_bytes())
 				version:     pack.version
 				size:        u64(pack.size)
 				content_key: pack.content_key
@@ -248,7 +246,7 @@ fn (mut s NetworkSession) start_resource_packs() ! {
 			}
 		}
 	}
-	s.conn.transport.send(&packets_2168.ResourcePacksInfoPacket{
+	s.conn.transport.send(&packets.ResourcePacksInfoPacket{
 		resource_pack_required: s.packs_must_accept()
 		resource_packs:         entries
 	})!
@@ -260,42 +258,42 @@ fn (s &NetworkSession) packs_must_accept() bool {
 }
 
 fn (mut s NetworkSession) send_pack_stack() ! {
-	mut stack := []packets_898.PackEntry{}
+	mut stack := []packets.PackEntry{}
 	if !isnil(s.hub.packs) {
 		for pack in s.hub.packs.packs {
-			stack << packets_898.PackEntry{
+			stack << packets.PackEntry{
 				id:      pack.uuid
 				version: pack.version
 			}
 		}
 	}
-	s.conn.transport.send(&packets_898.ResourcePackStackPacket{
+	s.conn.transport.send(&packets.ResourcePackStackPacket{
 		texture_pack_required: s.packs_must_accept()
 		addon_list:            stack
-		base_game_version:     types_662.BaseGameVersion{
-			value: proto.proto_version.minecraft_version()
+		base_game_version:     types.BaseGameVersion{
+			value: protocol.minecraft_version
 		}
-		experiments:           types_662.Experiments{}
+		experiments:           types.Experiments{}
 	})!
 }
 
-fn (mut s NetworkSession) handle_resource_pack_response(p packets_2168.ResourcePackClientResponsePacket) ! {
-	response := proto.resource_pack_response(p.response)
+fn (mut s NetworkSession) handle_resource_pack_response(p packets.ResourcePackClientResponsePacket) ! {
+	response := p.response
 	match response {
-		proto.ResourcePackResponseCancel {
+		packets.ResourcePackResponseCancel {
 			if s.packs_must_accept() {
 				s.reject_bootstrap('You must accept the server resource packs to play')
 				return
 			}
 			s.send_pack_stack()!
 		}
-		proto.ResourcePackResponseDownloading {
+		packets.ResourcePackResponseDownloading {
 			s.send_requested_packs(response.downloading_packs)!
 		}
-		proto.ResourcePackResponseDownloadingFinished {
+		packets.ResourcePackResponseDownloadingFinished {
 			s.send_pack_stack()!
 		}
-		proto.ResourcePackResponseStackFinished {
+		packets.ResourcePackResponseStackFinished {
 			s.start_game()!
 		}
 	}
@@ -314,19 +312,19 @@ fn (mut s NetworkSession) send_requested_packs(pack_ids []string) ! {
 		if pack.is_cdn() {
 			continue
 		}
-		s.conn.transport.send(&packets_662.ResourcePackDataInfoPacket{
+		s.conn.transport.send(&packets.ResourcePackDataInfoPacket{
 			resource_name: pack.id()
 			chunk_size:    u32(resourcepack.pack_chunk_size)
 			chunk_amount:  u32(pack.chunk_count())
 			file_size:     u64(pack.size)
 			file_hash:     pack.sha256.bytes()
 			is_premium:    false
-			pack_type:     enums_662.PackType.resources
+			pack_type:     enums.PackType.resources
 		})!
 	}
 }
 
-fn (mut s NetworkSession) handle_resource_pack_chunk_request(p packets_662.ResourcePackChunkRequestPacket) ! {
+fn (mut s NetworkSession) handle_resource_pack_chunk_request(p packets.ResourcePackChunkRequestPacket) ! {
 	if isnil(s.hub.packs) {
 		return
 	}
@@ -334,7 +332,7 @@ fn (mut s NetworkSession) handle_resource_pack_chunk_request(p packets_662.Resou
 		s.log.warn('Chunk request for unknown resource pack ${p.resource_name}')
 		return
 	}
-	s.conn.transport.send(&packets_662.ResourcePackChunkDataPacket{
+	s.conn.transport.send(&packets.ResourcePackChunkDataPacket{
 		resource_name: pack.id()
 		chunk_id:      p.chunk
 		byte_offset:   u64(p.chunk) * u64(resourcepack.pack_chunk_size)

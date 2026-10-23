@@ -2,14 +2,14 @@ module session
 
 import encoding.utf8
 import bedrock_v.nbt
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.block
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.packets
 
-fn (mut s NetworkSession) handle_block_actor_data(p packets_944.BlockActorDataPacket) ! {
-	pos := proto.block_pos_from(p.block_position)
+fn (mut s NetworkSession) handle_block_actor_data(p packets.BlockActorDataPacket) ! {
+	pos := protocol.block_pos_from(p.block_position)
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -61,7 +61,7 @@ fn (t SetSignTextTask) run(mut tx worldrt.WorldTx) {
 		t.done <- true
 	}
 	tx.wr.world.set_tile_text(t.x, t.y, t.z, t.text)
-	broadcast_block_entity(mut tx, types.BlockPosition{t.x, t.y, t.z}, build_sign_nbt(t.x, t.y, t.z, t.text))
+	broadcast_block_entity(mut tx, model.BlockPosition{t.x, t.y, t.z}, build_sign_nbt(t.x, t.y, t.z, t.text))
 }
 
 // max_sign_text_bytes bounds the text a client may write onto a sign. The NBT

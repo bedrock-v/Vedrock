@@ -1,18 +1,11 @@
 module session
 
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.player
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v924.enums as enums_924
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v729.packets as packets_729
-import bedrock_v.protocol.version.v776.packets as packets_776
-import bedrock_v.protocol.version.v924.packets as packets_924
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.version.v776.types as types_776
-import bedrock_v.protocol.version.v944.types as types_944
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // NetworkSession is the player.Sink for the player it drives: each method turns
 // one thing the player needs told into the packets that tell them.
@@ -22,63 +15,63 @@ import bedrock_v.protocol.version.v944.types as types_944
 // &Player. The session already has one.
 
 fn (mut s NetworkSession) show_message(message string) {
-	s.deliver(&packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+	s.deliver(&packets.TextPacket{
+		message_type: enums.TextRaw{
 			message: message
 		}
 	})
 }
 
 fn (mut s NetworkSession) show_translation(key string, parameters []string) {
-	s.deliver(&packets_924.TextPacket{
+	s.deliver(&packets.TextPacket{
 		localize:     true
-		message_type: enums_924.TextTranslate{
+		message_type: enums.TextTranslate{
 			message:        key
 			parameter_list: parameters
 		}
 	})
 }
 
-fn (mut s NetworkSession) send_slot_update(slot int, wrapped types.ItemStackWrapper) {
-	s.deliver(&packets_2168.InventorySlotPacket{
+fn (mut s NetworkSession) send_slot_update(slot int, wrapped model.ItemStackWrapper) {
+	s.deliver(&packets.InventorySlotPacket{
 		container_id:        u32(player.inventory_window_id)
 		slot:                u32(slot)
-		container_name_data: types_944.FullContainerName{
+		container_name_data: types.FullContainerName{
 			container: .inventory_container
 		}
-		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
+		item:                protocol.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
 	})
 }
 
-fn (mut s NetworkSession) send_armor_slot_update(index int, wrapped types.ItemStackWrapper) {
-	s.deliver(&packets_2168.InventorySlotPacket{
+fn (mut s NetworkSession) send_armor_slot_update(index int, wrapped model.ItemStackWrapper) {
+	s.deliver(&packets.InventorySlotPacket{
 		container_id:        u32(player.armor_window_id)
 		slot:                u32(index)
-		container_name_data: types_944.FullContainerName{
+		container_name_data: types.FullContainerName{
 			container: .armor_container
 		}
-		item:                proto.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
+		item:                protocol.item_descriptor_v2_tracked(wrapped.item_stack, wrapped.stack_id)
 	})
 }
 
 fn (mut s NetworkSession) send_inventory_cleared() {
-	mut items := []types_2168.NetworkItemStackDescriptorV2{}
+	mut items := []types.NetworkItemStackDescriptorV2{}
 	for _ in 0 .. player.inventory_slot_count {
-		items << proto.item_descriptor_v2(types.ItemStack{})
+		items << protocol.item_descriptor_v2(model.ItemStack{})
 	}
-	s.deliver(&packets_2168.InventoryContentPacket{
+	s.deliver(&packets.InventoryContentPacket{
 		inventory_id:        u32(player.inventory_window_id)
 		slots:               items
-		container_name_data: types_944.FullContainerName{
+		container_name_data: types.FullContainerName{
 			container: .inventory_container
 		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
+		storage_item:        protocol.item_descriptor_v2(model.ItemStack{})
 	})
 }
 
 fn (mut s NetworkSession) send_game_mode(mode player.Gamemode) {
-	s.deliver(&packets_662.SetPlayerGameTypePacket{
-		player_game_type: proto.game_type(gamemode_to_wire(mode))
+	s.deliver(&packets.SetPlayerGameTypePacket{
+		player_game_type: protocol.game_type(gamemode_to_wire(mode))
 	})
 }
 
@@ -94,13 +87,13 @@ fn (mut s NetworkSession) send_experience() {
 }
 
 fn (mut s NetworkSession) send_abilities() {
-	s.deliver(&packets_776.UpdateAbilitiesPacket{
+	s.deliver(&packets.UpdateAbilitiesPacket{
 		data: s.build_abilities()
 	})
 }
 
-fn player_attribute(id string, min f32, max f32, current f32) packets_729.AttributeData {
-	return packets_729.AttributeData{
+fn player_attribute(id string, min f32, max f32, current f32) packets.AttributeData {
+	return packets.AttributeData{
 		min_value:           min
 		max_value:           max
 		current_value:       current
@@ -108,15 +101,15 @@ fn player_attribute(id string, min f32, max f32, current f32) packets_729.Attrib
 		default_max:         max
 		default_value:       current
 		attribute_name:      id
-		attribute_modifiers: []packets_729.AttributeModifier{}
+		attribute_modifiers: []packets.AttributeModifier{}
 	}
 }
 
 // health_update is health alone for the common case where nothing else
 // changed.
-fn (s &NetworkSession) health_update() &packets_729.UpdateAttributesPacket {
-	return &packets_729.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(self_entity_runtime_id)
+fn (s &NetworkSession) health_update() &packets.UpdateAttributesPacket {
+	return &packets.UpdateAttributesPacket{
+		target_runtime_id:       protocol.actor_runtime_id(self_entity_runtime_id)
 		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, s.player.health()),
 		]
@@ -124,10 +117,10 @@ fn (s &NetworkSession) health_update() &packets_729.UpdateAttributesPacket {
 	}
 }
 
-fn (s &NetworkSession) hunger_update() &packets_729.UpdateAttributesPacket {
+fn (s &NetworkSession) hunger_update() &packets.UpdateAttributesPacket {
 	state := s.player.hunger()
-	return &packets_729.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(self_entity_runtime_id)
+	return &packets.UpdateAttributesPacket{
+		target_runtime_id:       protocol.actor_runtime_id(self_entity_runtime_id)
 		attribute_list:          [
 			player_attribute('minecraft:player.hunger', 0.0, f32(player.max_food_level), f32(state.food_level)),
 			player_attribute('minecraft:player.saturation', 0.0, f32(player.max_food_level), state.saturation),
@@ -137,10 +130,10 @@ fn (s &NetworkSession) hunger_update() &packets_729.UpdateAttributesPacket {
 	}
 }
 
-fn (s &NetworkSession) experience_update() &packets_729.UpdateAttributesPacket {
+fn (s &NetworkSession) experience_update() &packets.UpdateAttributesPacket {
 	state := s.player.experience()
-	return &packets_729.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(self_entity_runtime_id)
+	return &packets.UpdateAttributesPacket{
+		target_runtime_id:       protocol.actor_runtime_id(self_entity_runtime_id)
 		attribute_list:          [
 			player_attribute('minecraft:player.level', 0.0, player.max_experience_level, f32(state.level)),
 			player_attribute('minecraft:player.experience', 0.0, 1.0, state.progress),
@@ -150,11 +143,11 @@ fn (s &NetworkSession) experience_update() &packets_729.UpdateAttributesPacket {
 }
 
 // update_attributes is the full attribute set, sent once on spawn.
-fn (s &NetworkSession) update_attributes() &packets_729.UpdateAttributesPacket {
+fn (s &NetworkSession) update_attributes() &packets.UpdateAttributesPacket {
 	hunger := s.player.hunger()
 	experience := s.player.experience()
-	return &packets_729.UpdateAttributesPacket{
-		target_runtime_id:       proto.actor_runtime_id(self_entity_runtime_id)
+	return &packets.UpdateAttributesPacket{
+		target_runtime_id:       protocol.actor_runtime_id(self_entity_runtime_id)
 		attribute_list:          [
 			player_attribute('minecraft:health', 0.0, 20.0, s.player.health()),
 			player_attribute('minecraft:movement', 0.0, 3.4028235e38, 0.1),
@@ -175,14 +168,14 @@ pub fn ability_bit(index int) u32 {
 	return u32(1) << u32(index)
 }
 
-fn build_ability_layer(flies bool) types_776.SerializedLayer {
-	mut values := ability_bit(proto.ability_build) | ability_bit(proto.ability_mine) | ability_bit(proto.ability_doors_and_switches) | ability_bit(proto.ability_open_containers) | ability_bit(proto.ability_attack_players) | ability_bit(proto.ability_attack_mobs) | ability_bit(proto.ability_walk_speed)
+fn build_ability_layer(flies bool) types.SerializedLayer {
+	mut values := ability_bit(protocol.ability_build) | ability_bit(protocol.ability_mine) | ability_bit(protocol.ability_doors_and_switches) | ability_bit(protocol.ability_open_containers) | ability_bit(protocol.ability_attack_players) | ability_bit(protocol.ability_attack_mobs) | ability_bit(protocol.ability_walk_speed)
 	if flies {
-		values |= ability_bit(proto.ability_may_fly) | ability_bit(proto.ability_instabuild)
+		values |= ability_bit(protocol.ability_may_fly) | ability_bit(protocol.ability_instabuild)
 	}
-	all := (u32(1) << u32(proto.ability_count)) - 1
-	return types_776.SerializedLayer{
-		serialized_layer:   types_776.SerializedAbilitiesLayer.base
+	all := (u32(1) << u32(protocol.ability_count)) - 1
+	return types.SerializedLayer{
+		serialized_layer:   types.SerializedAbilitiesLayer.base
 		abilities_set:      all
 		ability_values:     values
 		fly_speed:          0.05
@@ -191,28 +184,28 @@ fn build_ability_layer(flies bool) types_776.SerializedLayer {
 	}
 }
 
-fn (mut s NetworkSession) build_abilities() types_776.SerializedAbilitiesData {
+fn (mut s NetworkSession) build_abilities() types.SerializedAbilitiesData {
 	return s.build_abilities_for(s.player)
 }
 
 // build_abilities_for is the same for a player this session is only watching
 // where the id is this viewer's number for them rather than the self id.
-fn (mut s NetworkSession) build_abilities_for(p &player.Player) types_776.SerializedAbilitiesData {
+fn (mut s NetworkSession) build_abilities_for(p &player.Player) types.SerializedAbilitiesData {
 	flies := p.game_mode().allows_flying()
 	is_op := p.perm.op()
 	player_permission := if is_op {
-		u8(enums_662.PlayerPermissionLevel.operator)
+		u8(enums.PlayerPermissionLevel.operator)
 	} else {
-		u8(enums_662.PlayerPermissionLevel.member)
+		u8(enums.PlayerPermissionLevel.member)
 	}
 	command_permission := if is_op {
-		enums_662.CommandPermissionLevel.admin
+		enums.CommandPermissionLevel.admin
 	} else {
-		enums_662.CommandPermissionLevel.any
+		enums.CommandPermissionLevel.any
 	}
-	mut layers := []types_776.SerializedLayer{}
+	mut layers := []types.SerializedLayer{}
 	layers << build_ability_layer(flies)
-	return types_776.SerializedAbilitiesData{
+	return types.SerializedAbilitiesData{
 		target_player_raw_id: i64(s.wire_id_for(p.runtime_id()))
 		player_permissions:   player_permission
 		command_permissions:  command_permission
@@ -224,13 +217,13 @@ fn (mut s NetworkSession) build_abilities_for(p &player.Player) types_776.Serial
 // spectator variants all collapse: the server keeps one spectator mode.
 fn gamemode_from_wire(v int) player.Gamemode {
 	return match v {
-		proto.game_type_creative {
+		protocol.game_type_creative {
 			.creative
 		}
-		proto.game_type_adventure {
+		protocol.game_type_adventure {
 			.adventure
 		}
-		proto.game_type_spectator, proto.game_type_survival_spectator, proto.game_type_creative_spectator {
+		protocol.game_type_spectator, protocol.game_type_survival_spectator, protocol.game_type_creative_spectator {
 			.spectator
 		}
 		else {
@@ -242,9 +235,9 @@ fn gamemode_from_wire(v int) player.Gamemode {
 // gamemode_to_wire is the inverse of gamemode_from_wire.
 fn gamemode_to_wire(g player.Gamemode) int {
 	return match g {
-		.survival { proto.game_type_survival }
-		.creative { proto.game_type_creative }
-		.adventure { proto.game_type_adventure }
-		.spectator { proto.game_type_spectator }
+		.survival { protocol.game_type_survival }
+		.creative { protocol.game_type_creative }
+		.adventure { protocol.game_type_adventure }
+		.spectator { protocol.game_type_spectator }
 	}
 }

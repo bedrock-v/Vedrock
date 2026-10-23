@@ -2,15 +2,13 @@ module session
 
 import math
 import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v2168.packets as versioned
+import bedrock_v.protocol.model
+import bedrock_v.protocol
+import bedrock_v.protocol.packets
 import server.entity
 import server.world.sound
 import server.item
 import server.player
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.version.v944.types as types_944
 
 // armor_max_points caps how much protection the worn pieces can add up to.
 // Beyond it extra defense points do nothing, the same way they do not in game.
@@ -116,27 +114,27 @@ fn changes_touch_armor(changes []SlotChange) bool {
 }
 
 // armor_descriptor is the wire form of the piece worn at index.
-fn (s &NetworkSession) armor_descriptor(index int) types_2168.NetworkItemStackDescriptorV2 {
+fn (s &NetworkSession) armor_descriptor(index int) types.NetworkItemStackDescriptorV2 {
 	net := s.player.inv_slot(player.armor_slot(index)) or {
-		return proto.item_descriptor_v2(types.ItemStack{})
+		return protocol.item_descriptor_v2(model.ItemStack{})
 	}
-	stack := s.player.inv_stack(net) or { return proto.item_descriptor_v2(types.ItemStack{}) }
-	return proto.item_descriptor_v2_tracked(stack, net)
+	stack := s.player.inv_stack(net) or { return protocol.item_descriptor_v2(model.ItemStack{}) }
+	return protocol.item_descriptor_v2_tracked(stack, net)
 }
 
 // armor_content_packet is the full set of worn pieces, for the owning client.
-fn (s &NetworkSession) armor_content_packet() &packets_2168.InventoryContentPacket {
-	mut slots := []types_2168.NetworkItemStackDescriptorV2{}
+fn (s &NetworkSession) armor_content_packet() &packets.InventoryContentPacket {
+	mut slots := []types.NetworkItemStackDescriptorV2{}
 	for index in 0 .. player.armor_slot_count {
 		slots << s.armor_descriptor(index)
 	}
-	return &packets_2168.InventoryContentPacket{
+	return &packets.InventoryContentPacket{
 		inventory_id:        u32(player.armor_window_id)
 		slots:               slots
-		container_name_data: types_944.FullContainerName{
+		container_name_data: types.FullContainerName{
 			container: .armor_container
 		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
+		storage_item:        protocol.item_descriptor_v2(model.ItemStack{})
 	}
 }
 
@@ -156,13 +154,13 @@ fn (s &NetworkSession) broadcast_armor() {
 	wearer := s.runtime_id
 	mut hub := s.hub
 	for mut target in hub.snapshot() {
-		target.deliver(&versioned.MobArmorEquipmentPacket{
-			target_runtime_id: proto.actor_runtime_id(target.wire_id_for(wearer))
+		target.deliver(&packets.MobArmorEquipmentPacket{
+			target_runtime_id: protocol.actor_runtime_id(target.wire_id_for(wearer))
 			head:              head
 			torso:             torso
 			legs:              legs
 			feet:              feet
-			body:              proto.item_descriptor_v2(types.ItemStack{})
+			body:              protocol.item_descriptor_v2(model.ItemStack{})
 		})
 	}
 }

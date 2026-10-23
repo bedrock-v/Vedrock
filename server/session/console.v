@@ -1,6 +1,6 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.logger
 import server.cmd
 import server.form
@@ -68,8 +68,8 @@ fn (mut c ConsoleSender) kill() {}
 
 fn (mut c ConsoleSender) disconnect(_ string) {}
 
-fn (mut c ConsoleSender) position() types.Vector3 {
-	return types.Vector3{}
+fn (mut c ConsoleSender) position() model.Vector3 {
+	return model.Vector3{}
 }
 
 fn (mut c ConsoleSender) teleport(_ f32, _ f32, _ f32) {}

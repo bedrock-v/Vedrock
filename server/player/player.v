@@ -5,7 +5,7 @@ import server.permission
 import server.effect
 import server.inventory
 import server.player.playerdb
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import sync
 
 // inventory_window_id is the container id the client uses for the player's
@@ -44,17 +44,17 @@ mut:
 	game_mode        Gamemode
 	health           f32 = 20.0
 	dead             bool
-	held_item        types.ItemStackWrapper
+	held_item        model.ItemStackWrapper
 	held_slot        int
 	inv              inventory.Inventory
-	pending_creative ?types.ItemStack
+	pending_creative ?model.ItemStack
 	loaded_items     []playerdb.InvItem
 	effects          effect.Manager
 	// ender_items is the player's ender chest, keyed by slot. It belongs to
 	// them rather than to any of the blocks that show it.
-	ender_items      map[int]types.ItemStack
+	ender_items      map[int]model.ItemStack
 	has_last_death   bool
-	last_death_pos   types.Vector3
+	last_death_pos   model.Vector3
 	air_supply_ticks i64 = max_air_supply_ticks
 	fire_ticks       i64
 	// experience_level is the level reached and experience_points how many
@@ -82,12 +82,12 @@ mut:
 	// counting once there is a sample to measure against, so a join or a
 	// teleport is not billed as distance travelled.
 	has_hunger_position bool
-	hunger_position     types.Vector3
+	hunger_position     model.Vector3
 	// give_next_slot round robins give_item across the hotbar. Only the
 	// world actor touches it, so it is not under state_mutex.
 	give_next_slot int
 	pos_mutex      &sync.Mutex = sync.new_mutex()
-	position       types.Vector3
+	position       model.Vector3
 	pitch          f32
 	yaw            f32
 	head_yaw       f32
@@ -190,7 +190,7 @@ pub fn (mut p Player) set_fire_ticks(value i64) {
 	p.state_mutex.unlock()
 }
 
-pub fn (p &Player) held_item() types.ItemStackWrapper {
+pub fn (p &Player) held_item() model.ItemStackWrapper {
 	mut m := p.state_mutex
 	m.lock()
 	defer {
@@ -210,18 +210,18 @@ pub fn (p &Player) held_slot() int {
 
 // set_held updates the held slot and its wrapper together. Every current
 // caller sets both at once.
-pub fn (mut p Player) set_held(slot int, item types.ItemStackWrapper) {
+pub fn (mut p Player) set_held(slot int, item model.ItemStackWrapper) {
 	p.state_mutex.lock()
 	p.held_slot = slot
 	p.held_item = item
 	p.state_mutex.unlock()
 }
 
-pub fn (p &Player) inv_stack(net_id int) ?types.ItemStack {
+pub fn (p &Player) inv_stack(net_id int) ?model.ItemStack {
 	return p.inv.stack(net_id)
 }
 
-pub fn (mut p Player) put_stack(net_id int, stack types.ItemStack) {
+pub fn (mut p Player) put_stack(net_id int, stack model.ItemStack) {
 	p.inv.put_stack(net_id, stack)
 }
 
@@ -246,16 +246,16 @@ pub fn (mut p Player) delete_slot(slot int) {
 }
 
 // snapshot_slot_stacks returns a cloned map of inventory slot to item stack.
-pub fn (p &Player) snapshot_slot_stacks() map[int]types.ItemStack {
+pub fn (p &Player) snapshot_slot_stacks() map[int]model.ItemStack {
 	return p.inv.snapshot_slot_stacks()
 }
 
 // track_stack assigns stack a new network ID, stores it and returns that ID.
-pub fn (mut p Player) track_stack(stack types.ItemStack) int {
+pub fn (mut p Player) track_stack(stack model.ItemStack) int {
 	return p.inv.track_stack(stack)
 }
 
-pub fn (p &Player) pending_creative() ?types.ItemStack {
+pub fn (p &Player) pending_creative() ?model.ItemStack {
 	mut m := p.state_mutex
 	m.lock()
 	defer {
@@ -264,7 +264,7 @@ pub fn (p &Player) pending_creative() ?types.ItemStack {
 	return p.pending_creative
 }
 
-pub fn (mut p Player) set_pending_creative(stack ?types.ItemStack) {
+pub fn (mut p Player) set_pending_creative(stack ?model.ItemStack) {
 	p.state_mutex.lock()
 	p.pending_creative = stack
 	p.state_mutex.unlock()
@@ -350,7 +350,7 @@ pub fn (p &Player) has_last_death() bool {
 	return p.has_last_death
 }
 
-pub fn (p &Player) last_death_pos() types.Vector3 {
+pub fn (p &Player) last_death_pos() model.Vector3 {
 	mut m := p.state_mutex
 	m.lock()
 	defer {
@@ -359,7 +359,7 @@ pub fn (p &Player) last_death_pos() types.Vector3 {
 	return p.last_death_pos
 }
 
-pub fn (mut p Player) set_last_death(pos types.Vector3) {
+pub fn (mut p Player) set_last_death(pos model.Vector3) {
 	p.state_mutex.lock()
 	p.has_last_death = true
 	p.last_death_pos = pos
@@ -371,7 +371,7 @@ pub fn (mut p Player) set_last_death(pos types.Vector3) {
 // Hub thread.
 pub struct Movement {
 pub:
-	position types.Vector3
+	position model.Vector3
 	pitch    f32
 	yaw      f32
 	head_yaw f32
@@ -406,14 +406,14 @@ pub fn (p &Player) on_ground() bool {
 
 // position is a convenience accessor for the common case of needing just the
 // position, still going through the same lock as movement().
-pub fn (p &Player) position() types.Vector3 {
+pub fn (p &Player) position() model.Vector3 {
 	return p.movement().position
 }
 
 // apply_movement updates the player's position and orientation as one unit,
 // deriving vertical velocity from the change in Y. Registered session callers
 // must invoke it on the owning world's actor thread (see PlayerMoveTask).
-pub fn (mut p Player) apply_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) f32 {
+pub fn (mut p Player) apply_movement(position model.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) f32 {
 	p.pos_mutex.lock()
 	p.vy = position.y - p.prev_y
 	if p.vy < 0 {
@@ -434,7 +434,7 @@ pub fn (mut p Player) apply_movement(position types.Vector3, pitch f32, yaw f32,
 	return landed_distance
 }
 
-pub fn (mut p Player) reset_position(position types.Vector3) {
+pub fn (mut p Player) reset_position(position model.Vector3) {
 	p.pos_mutex.lock()
 	p.position = position
 	p.prev_y = position.y

@@ -4,8 +4,8 @@ import bedrock_v.protocol
 import server.internal.logger
 import server.internal.network
 import sync
-import bedrock_v.protocol.version.v1001.enums as enums_1001
-import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // Conn owns a session's connection: the transport, the outbound queue and the
 // writer thread that drains it. It holds no gameplay state and never reads
@@ -181,13 +181,13 @@ fn (mut c Conn) send_direct(p protocol.Packet) !bool {
 
 // send_batch_direct is send_direct for a batch. See its comment for why the
 // check and the write share one lock.
-fn (mut c Conn) send_batch_direct(packets []protocol.Packet) !bool {
+fn (mut c Conn) send_batch_direct(batch []protocol.Packet) !bool {
 	c.close_mutex.lock()
 	if !c.bootstrap {
 		c.close_mutex.unlock()
 		return false
 	}
-	c.transport.send_batch(packets) or {
+	c.transport.send_batch(batch) or {
 		c.close_mutex.unlock()
 		return err
 	}
@@ -256,9 +256,9 @@ fn (mut c Conn) run_writer(log &logger.Logger) {
 						}
 					}
 					OutboundDisconnect {
-						c.transport.send(&packets_2192.DisconnectPacket{
-							reason:  enums_1001.ConnectionFailReason.disconnect_packet
-							message: packets_2192.DisconnectMessage{
+						c.transport.send(&packets.DisconnectPacket{
+							reason:  enums.ConnectionFailReason.disconnect_packet
+							message: packets.DisconnectMessage{
 								kick_message:     msg.message
 								filtered_message: ''
 							}

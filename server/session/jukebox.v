@@ -1,7 +1,7 @@
 module session
 
 import bedrock_v.nbt
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world.sound
 import server.worldrt
 
@@ -13,8 +13,8 @@ const music_disc_prefix = 'minecraft:music_disc_'
 // per record state for 'minecraft:jukebox' (empty states compound), so the
 // inserted record's item id is tracked as block entity data.
 // Empty string means no record.
-fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
-	center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
+fn interact_jukebox(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition) {
+	center := model.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '' }
 	if current != '' {
 		tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, '')
@@ -37,7 +37,7 @@ fn drop_jukebox_disc(mut tx worldrt.WorldTx, x int, y int, z int) {
 	if current == '' {
 		return
 	}
-	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
+	center := model.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
 	spawn_dropped_item_stack(mut tx, current, 1, center)
 	tx.wr.world.set_tile_text(x, y, z, '')
 }

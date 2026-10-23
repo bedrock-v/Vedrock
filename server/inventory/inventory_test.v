@@ -1,11 +1,11 @@
 module inventory
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 fn test_track_stack_hands_out_unique_ids() {
 	mut inv := new()
-	first := inv.track_stack(types.ItemStack{ count: 1 })
-	second := inv.track_stack(types.ItemStack{ count: 2 })
+	first := inv.track_stack(model.ItemStack{ count: 1 })
+	second := inv.track_stack(model.ItemStack{ count: 2 })
 	assert first != second
 	assert inv.stack(first)?.count == 1
 	assert inv.stack(second)?.count == 2
@@ -20,7 +20,7 @@ fn test_stack_returns_none_for_an_unknown_id() {
 
 fn test_slots_resolve_through_the_network_id() {
 	mut inv := new()
-	net_id := inv.track_stack(types.ItemStack{ count: 5 })
+	net_id := inv.track_stack(model.ItemStack{ count: 5 })
 	inv.set_slot(3, net_id)
 	assert inv.has_slot(3)
 	assert inv.slot(3)? == net_id
@@ -29,7 +29,7 @@ fn test_slots_resolve_through_the_network_id() {
 
 fn test_a_slot_pointing_at_a_deleted_stack_is_left_out() {
 	mut inv := new()
-	net_id := inv.track_stack(types.ItemStack{ count: 5 })
+	net_id := inv.track_stack(model.ItemStack{ count: 5 })
 	inv.set_slot(3, net_id)
 	inv.delete_stack(net_id)
 	assert inv.snapshot_slot_stacks().len == 0
@@ -37,7 +37,7 @@ fn test_a_slot_pointing_at_a_deleted_stack_is_left_out() {
 
 fn test_delete_slot_keeps_the_stack_tracked() {
 	mut inv := new()
-	net_id := inv.track_stack(types.ItemStack{ count: 5 })
+	net_id := inv.track_stack(model.ItemStack{ count: 5 })
 	inv.set_slot(3, net_id)
 	inv.delete_slot(3)
 	assert !inv.has_slot(3)
@@ -46,7 +46,7 @@ fn test_delete_slot_keeps_the_stack_tracked() {
 
 fn test_clear_empties_both_stacks_and_slots() {
 	mut inv := new()
-	net_id := inv.track_stack(types.ItemStack{ count: 5 })
+	net_id := inv.track_stack(model.ItemStack{ count: 5 })
 	inv.set_slot(0, net_id)
 	inv.clear()
 	assert inv.snapshot_slot_stacks().len == 0
@@ -57,7 +57,7 @@ fn test_clear_empties_both_stacks_and_slots() {
 
 fn test_ids_are_not_reused_after_a_clear() {
 	mut inv := new()
-	first := inv.track_stack(types.ItemStack{})
+	first := inv.track_stack(model.ItemStack{})
 	inv.clear()
-	assert inv.track_stack(types.ItemStack{}) != first
+	assert inv.track_stack(model.ItemStack{}) != first
 }

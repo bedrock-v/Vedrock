@@ -2,6 +2,7 @@ module session
 
 import time
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
 import server.internal.gamedata
 import server.player
@@ -10,17 +11,13 @@ import server.world
 import server.world.db
 import server.block
 import server.item
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.current.types as types_2192
-import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
-fn block_pos_v662(pos types.BlockPosition) types_662.BlockPos {
-	return types_662.BlockPos{
+fn block_pos_v662(pos model.BlockPosition) types.BlockPos {
+	return types.BlockPos{
 		x: i32(pos.x)
 		y: i32(pos.y)
 		z: i32(pos.z)
@@ -31,14 +28,14 @@ fn wire_runtime_id(id int) u32 {
 	return u32(id)
 }
 
-fn place_auth_input_packet(block_position types.BlockPosition, block_face int, hotbar_slot int, held_item types.ItemStack, position types.Vector3, clicked_position types.Vector3, target_block_id u32) packets_2192.PlayerAuthInputPacket {
-	mut tx := types_2192.PackedItemUseLegacyInventoryTransaction{
-		action_type:      enums_662.ItemUseInventoryTransactionType.place
+fn place_auth_input_packet(block_position model.BlockPosition, block_face int, hotbar_slot int, held_item model.ItemStack, position model.Vector3, clicked_position model.Vector3, target_block_id u32) packets.PlayerAuthInputPacket {
+	mut tx := types.PackedItemUseLegacyInventoryTransaction{
+		action_type:      enums.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
-		position:         proto.block_pos(block_position)
+		position:         protocol.block_pos(block_position)
 		face:             u8(block_face)
 		slot:             hotbar_slot
-		item:             proto.item_descriptor(held_item)
+		item:             protocol.item_descriptor(held_item)
 		target_block_id:  target_block_id
 		predicted_result: .success
 	}
@@ -48,7 +45,7 @@ fn place_auth_input_packet(block_position types.BlockPosition, block_face int, h
 	tx.click_position[0] = clicked_position.x
 	tx.click_position[1] = clicked_position.y
 	tx.click_position[2] = clicked_position.z
-	return packets_2192.PlayerAuthInputPacket{
+	return packets.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }
@@ -87,10 +84,10 @@ fn test_within_place_reach_survival_vs_creative() {
 	mut s := &NetworkSession{
 		player: pl
 	}
-	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
-	near_pos := types.BlockPosition{0, 5, 0}
+	s.player.reset_position(model.Vector3{0.0, player_eye_height, 0.0})
+	near_pos := model.BlockPosition{0, 5, 0}
 	// Beyond survival's reach but within creative's reach.
-	far_pos := types.BlockPosition{10, 0, 0}
+	far_pos := model.BlockPosition{10, 0, 0}
 	assert s.within_place_reach(near_pos)
 	assert !s.within_place_reach(far_pos)
 
@@ -115,7 +112,7 @@ fn test_place_block_rejects_when_occupied() {
 		world:      target
 		generator:  world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
+	s.player.reset_position(model.Vector3{0.0, player_eye_height, 0.0})
 	hub.add(s)
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -124,13 +121,13 @@ fn test_place_block_rejects_when_occupied() {
 	}
 
 	// FlatGenerator's bottom layer (bedrock) sits at the dimension's min_y.
-	pos := types.BlockPosition{0, world.overworld.min_y, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y, 0}
 	placed := place_block_form(mut tx, mut s, pos, world.bedrock.network_id)
 	assert !placed
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
-		assert sent.block_position == proto.block_pos(pos)
+	if sent is packets.UpdateBlockPacket {
+		assert sent.block_position == protocol.block_pos(pos)
 	} else {
 		assert false
 	}
@@ -153,7 +150,7 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 		world:      target
 		generator:  world.VoidGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
+	s.player.reset_position(model.Vector3{0.0, player_eye_height, 0.0})
 	hub.add(s)
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -162,7 +159,7 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 	}
 	register_player(mut tx, s)
 
-	pos := types.BlockPosition{5, 5, 5}
+	pos := model.BlockPosition{5, 5, 5}
 	placed := place_block_form(mut tx, mut s, pos, world.bedrock.network_id)
 	assert placed
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.bedrock.network_id
@@ -170,8 +167,8 @@ fn test_place_block_writes_and_broadcasts_when_clear() {
 
 	mut saw_update := false
 	for p in transport.sent {
-		if p is packets_944.UpdateBlockPacket {
-			if p.block_position == proto.block_pos(pos)
+		if p is packets.UpdateBlockPacket {
+			if p.block_position == protocol.block_pos(pos)
 				&& p.block_runtime_id == wire_runtime_id(world.bedrock.network_id) {
 				saw_update = true
 			}
@@ -197,7 +194,7 @@ fn test_place_block_cancelled_resends_skips_write() {
 		world:      target
 		generator:  world.VoidGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
+	s.player.reset_position(model.Vector3{0.0, player_eye_height, 0.0})
 	hub.add(s)
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -206,7 +203,7 @@ fn test_place_block_cancelled_resends_skips_write() {
 		wr: wr
 	}
 
-	pos := types.BlockPosition{5, 5, 5}
+	pos := model.BlockPosition{5, 5, 5}
 	placed := place_block_form(mut tx, mut s, pos, world.bedrock.network_id)
 	assert !placed
 	if _ := target.block_override(pos.x, pos.y, pos.z) {
@@ -240,13 +237,13 @@ fn test_break_block_unbreakable_resends_without_event() {
 	}
 	hub.add(s)
 
-	pos := types.BlockPosition{0, world.overworld.min_y, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y, 0}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	assert old_id != world.air.network_id
 	s.break_block(pos)!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is packets.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(old_id)
 	} else {
 		assert false
@@ -269,10 +266,10 @@ fn test_break_block_air_resends_authoritative_state() {
 	}
 	hub.add(s)
 
-	s.break_block(types.BlockPosition{0, 0, 0})!
+	s.break_block(model.BlockPosition{0, 0, 0})!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is packets.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(world.air.network_id)
 	} else {
 		assert false
@@ -292,10 +289,10 @@ fn test_break_block_rejects_out_of_reach() {
 		world:      target
 		generator:  world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.0, player_eye_height, 0.0})
+	s.player.reset_position(model.Vector3{0.0, player_eye_height, 0.0})
 	hub.add(s)
 
-	far_pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	far_pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	s.break_block(far_pos)!
 	assert target.block_override(far_pos.x, far_pos.y, far_pos.z) or { -1 } == -1
 }
@@ -316,7 +313,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	hub.add(s)
 	s.handle(&CancelBlockBreakHandler{})
 
-	pos := types.BlockPosition{0, world.overworld.min_y, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y, 0}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	s.break_block(pos)!
 	if _ := target.block_override(pos.x, pos.y, pos.z) {
@@ -324,7 +321,7 @@ fn test_break_block_cancelled_resends_keeps_block() {
 	}
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is packets.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(old_id)
 	} else {
 		assert false
@@ -339,13 +336,13 @@ fn (mut h CancelBlockBreakHandler) on_block_break(mut ctx event.Context[player.B
 	ctx.cancel()
 }
 
-fn probe_obstructed_by_entity(mut wr worldrt.WorldRuntime, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
+fn probe_obstructed_by_entity(mut wr worldrt.WorldRuntime, pos model.BlockPosition, acting_runtime_id u64) ObstructionResult {
 	return worldrt.world_call[ObstructionResult]('test', mut wr, fn [pos, acting_runtime_id] (mut tx worldrt.WorldTx) ObstructionResult {
 		return obstructed_by_entity(mut tx, pos, acting_runtime_id)
 	}) or { panic('sync barrier rejected') }
 }
 
-fn obstruction_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, rid u64, pos types.Vector3) &NetworkSession {
+fn obstruction_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, name string, rid u64, pos model.Vector3) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        &player.Player{
 			identity: auth.Identity{
@@ -375,15 +372,15 @@ fn test_obstructed_by_entity_ignores_only_own_body() {
 		hub.close_worlds()
 	}
 	mut alex :=
-		obstruction_test_session(mut hub, mut wr, 'Alex', 1, types.Vector3{0.5, player_eye_height, 0.5})
+		obstruction_test_session(mut hub, mut wr, 'Alex', 1, model.Vector3{0.5, player_eye_height, 0.5})
 
 	// Alex's own body occupies (0,0,0), obstructed but self_only.
-	own_body := probe_obstructed_by_entity(mut wr, types.BlockPosition{0, 0, 0}, alex.runtime_id)
+	own_body := probe_obstructed_by_entity(mut wr, model.BlockPosition{0, 0, 0}, alex.runtime_id)
 	assert own_body.obstructed
 	assert own_body.self_only
 
 	// Nobody else occupies a faraway cell.
-	clear := probe_obstructed_by_entity(mut wr, types.BlockPosition{50, 0, 50}, alex.runtime_id)
+	clear := probe_obstructed_by_entity(mut wr, model.BlockPosition{50, 0, 50}, alex.runtime_id)
 	assert !clear.obstructed
 	assert clear.self_only
 }
@@ -397,22 +394,22 @@ fn test_obstructed_by_entity_blocks_other_player() {
 		hub.close_worlds()
 	}
 	mut alex :=
-		obstruction_test_session(mut hub, mut wr, 'Alex', 1, types.Vector3{10.5, player_eye_height, 10.5})
-	obstruction_test_session(mut hub, mut wr, 'Steve', 2, types.Vector3{0.5, player_eye_height, 0.5})
+		obstruction_test_session(mut hub, mut wr, 'Alex', 1, model.Vector3{10.5, player_eye_height, 10.5})
+	obstruction_test_session(mut hub, mut wr, 'Steve', 2, model.Vector3{0.5, player_eye_height, 0.5})
 
-	result := probe_obstructed_by_entity(mut wr, types.BlockPosition{0, 0, 0}, alex.runtime_id)
+	result := probe_obstructed_by_entity(mut wr, model.BlockPosition{0, 0, 0}, alex.runtime_id)
 	assert result.obstructed
 	assert !result.self_only
 }
 
 fn test_face_offset_covers_all_six_faces() {
-	pos := types.BlockPosition{5, 5, 5}
-	assert face_offset(pos, 0) == types.BlockPosition{5, 4, 5}
-	assert face_offset(pos, 1) == types.BlockPosition{5, 6, 5}
-	assert face_offset(pos, 2) == types.BlockPosition{5, 5, 4}
-	assert face_offset(pos, 3) == types.BlockPosition{5, 5, 6}
-	assert face_offset(pos, 4) == types.BlockPosition{4, 5, 5}
-	assert face_offset(pos, 5) == types.BlockPosition{6, 5, 5}
+	pos := model.BlockPosition{5, 5, 5}
+	assert face_offset(pos, 0) == model.BlockPosition{5, 4, 5}
+	assert face_offset(pos, 1) == model.BlockPosition{5, 6, 5}
+	assert face_offset(pos, 2) == model.BlockPosition{5, 5, 4}
+	assert face_offset(pos, 3) == model.BlockPosition{5, 5, 6}
+	assert face_offset(pos, 4) == model.BlockPosition{4, 5, 5}
+	assert face_offset(pos, 5) == model.BlockPosition{6, 5, 5}
 }
 
 fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSession {
@@ -423,7 +420,7 @@ fn dirt_break_test_session(mut hub Hub, mut transport FakeTransport) &NetworkSes
 		hub:        hub
 		generator:  world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
+	s.player.reset_position(model.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
 	hub.add(s)
 	return s
 }
@@ -446,7 +443,7 @@ fn test_break_block_succeeds_when_matches() {
 	s.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
 	register_test_session(mut s)
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
 	s.breaking = BreakProgress{
 		x:            pos.x
@@ -467,8 +464,8 @@ fn test_break_block_rejects_mismatched_position() {
 	mut transport := &FakeTransport{}
 	mut s := dirt_break_test_session(mut hub, mut transport)
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
-	other_pos := types.BlockPosition{5, world.overworld.min_y + 1, 5}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
+	other_pos := model.BlockPosition{5, world.overworld.min_y + 1, 5}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
 	s.breaking = BreakProgress{
 		x:            other_pos.x
@@ -482,7 +479,7 @@ fn test_break_block_rejects_mismatched_position() {
 	s.break_block(pos)!
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.UpdateBlockPacket {
+	if sent is packets.UpdateBlockPacket {
 		assert sent.block_runtime_id == wire_runtime_id(dirt_id)
 	} else {
 		assert false
@@ -503,11 +500,11 @@ fn test_break_block_creative_bypasses_gating() {
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
 		generator:     world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
+	s.player.reset_position(model.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
 	hub.add(s)
 	register_test_session(mut s)
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	hub.set_current_tick(0)
 
 	s.break_block(pos)!
@@ -540,8 +537,8 @@ fn test_place_resolves_block_from_item_registry() {
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
 		generator:     world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{2.1901546, -58.37999, 10.302694})
-	held_net_id := s.player.track_stack(types.ItemStack{
+	s.player.reset_position(model.Vector3{2.1901546, -58.37999, 10.302694})
+	held_net_id := s.player.track_stack(model.ItemStack{
 		id:               390
 		count:            16
 		block_runtime_id: 0
@@ -550,11 +547,11 @@ fn test_place_resolves_block_from_item_registry() {
 	hub.add(s)
 	register_test_session(mut s)
 
-	place_packet := place_auth_input_packet(types.BlockPosition{2, -61, 12}, 1, 0, types.ItemStack{
+	place_packet := place_auth_input_packet(model.BlockPosition{2, -61, 12}, 1, 0, model.ItemStack{
 		id:               390
 		count:            16
 		block_runtime_id: 0
-	}, types.Vector3{2.1901546, -58.37999, 10.302694}, types.Vector3{0.35214186, 1.0, 0.20941257}, u32(3727763636))
+	}, model.Vector3{2.1901546, -58.37999, 10.302694}, model.Vector3{0.35214186, 1.0, 0.20941257}, u32(3727763636))
 	s.handle_player_auth_input(place_packet)!
 
 	target_id := s.block_at(2, -60, 12)
@@ -588,15 +585,15 @@ fn test_survival_place_ignores_client_claimed_held_item() {
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
 		generator:     world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{2.1901546, -58.37999, 10.302694})
+	s.player.reset_position(model.Vector3{2.1901546, -58.37999, 10.302694})
 	hub.add(s)
 	register_test_session(mut s)
 
-	place_packet := place_auth_input_packet(types.BlockPosition{2, -61, 12}, 1, 0, types.ItemStack{
+	place_packet := place_auth_input_packet(model.BlockPosition{2, -61, 12}, 1, 0, model.ItemStack{
 		id:               390
 		count:            16
 		block_runtime_id: sign_id
-	}, types.Vector3{2.1901546, -58.37999, 10.302694}, types.Vector3{0.35214186, 1.0, 0.20941257}, 0)
+	}, model.Vector3{2.1901546, -58.37999, 10.302694}, model.Vector3{0.35214186, 1.0, 0.20941257}, 0)
 	s.handle_player_auth_input(place_packet)!
 
 	assert s.block_at(2, -60, 12) == world.air.network_id
@@ -626,8 +623,8 @@ fn test_spectator_cannot_place_or_break_blocks() {
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
 		generator:     world.VoidGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, 1.62, 0.5})
-	held_stack := types.ItemStack{
+	s.player.reset_position(model.Vector3{0.5, 1.62, 0.5})
+	held_stack := model.ItemStack{
 		id:               500
 		count:            1
 		block_runtime_id: world.bedrock.network_id
@@ -640,11 +637,11 @@ fn test_spectator_cannot_place_or_break_blocks() {
 		hub.close_worlds()
 	}
 
-	place_packet := place_auth_input_packet(types.BlockPosition{0, 0, 1}, 1, 0, types.ItemStack{
+	place_packet := place_auth_input_packet(model.BlockPosition{0, 0, 1}, 1, 0, model.ItemStack{
 		id:               500
 		count:            64
 		block_runtime_id: world.bedrock.network_id
-	}, types.Vector3{0.5, 1.62, 0.5}, types.Vector3{0.5, 1.0, 0.5}, 0)
+	}, model.Vector3{0.5, 1.62, 0.5}, model.Vector3{0.5, 1.0, 0.5}, 0)
 	s.handle_player_auth_input(place_packet)!
 	assert target.block_override(0, 1, 1) == none
 
@@ -655,7 +652,7 @@ fn test_spectator_cannot_place_or_break_blocks() {
 	breaker.world_runtime = hub.world_runtime('world') or { panic('expected world runtime') }
 	breaker.generator = world.FlatGenerator{}
 	register_test_session(mut breaker)
-	break_pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	break_pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := breaker.block_at(break_pos.x, break_pos.y, break_pos.z)
 	breaker.breaking = BreakProgress{
 		x:            break_pos.x
@@ -685,15 +682,15 @@ fn test_empty_hand_interact_places_nothing() {
 		world_runtime: hub.world_runtime('world') or { panic('expected world runtime') }
 		generator:     world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{2.1901546, -58.37999, 10.302694})
+	s.player.reset_position(model.Vector3{2.1901546, -58.37999, 10.302694})
 	hub.add(s)
 	register_test_session(mut s)
 
-	interact_packet := place_auth_input_packet(types.BlockPosition{2, -60, 12}, 2, 3, types.ItemStack{
+	interact_packet := place_auth_input_packet(model.BlockPosition{2, -60, 12}, 2, 3, model.ItemStack{
 		id:               0
 		count:            0
 		block_runtime_id: 0
-	}, types.Vector3{2.1901546, -58.37999, 10.302694}, types.Vector3{0.42559528, 0.7279053, 0.25}, u32(2761757297))
+	}, model.Vector3{2.1901546, -58.37999, 10.302694}, model.Vector3{0.42559528, 0.7279053, 0.25}, u32(2761757297))
 	s.handle_player_auth_input(interact_packet)!
 
 	assert s.block_at(2, -60, 12) == world.air.network_id
@@ -721,7 +718,7 @@ fn test_cancelled_consume_keeps_stack() {
 	}
 	hub.add(s)
 	s.handle(&CancelItemConsumeHandler{})
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:    300
 		count: 1
 	}
@@ -739,7 +736,7 @@ fn test_cancelled_consume_keeps_stack() {
 // world with a known block id planted at the pick position via tx.set_block
 // (rather than relying on a generator's own layer layout which is fragile
 // to depend on for a specific numeric id).
-fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos types.BlockPosition, block_id int) &NetworkSession {
+fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos model.BlockPosition, block_id int) &NetworkSession {
 	mut target := db.new_world('world', none, 'flat', world.overworld)
 	hub.add_world(target)
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
@@ -762,7 +759,7 @@ fn pick_request_test_session(mut hub Hub, mode player.Gamemode, pos types.BlockP
 }
 
 fn test_block_pick_request_creative_adds_new_item_when_not_held() {
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	mut hub := new_hub(gamedata.GameData{
 		item_id_by_block: {
 			42: 500
@@ -770,7 +767,7 @@ fn test_block_pick_request_creative_adds_new_item_when_not_held() {
 	})
 	mut s := pick_request_test_session(mut hub, .creative, pos, 42)
 
-	s.handle_block_pick_request(packets_662.BlockPickRequestPacket{
+	s.handle_block_pick_request(packets.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
 	})!
 
@@ -780,7 +777,7 @@ fn test_block_pick_request_creative_adds_new_item_when_not_held() {
 }
 
 fn test_block_pick_request_survival_without_existing_item_is_noop() {
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	mut hub := new_hub(gamedata.GameData{
 		item_id_by_block: {
 			42: 500
@@ -788,7 +785,7 @@ fn test_block_pick_request_survival_without_existing_item_is_noop() {
 	})
 	mut s := pick_request_test_session(mut hub, .survival, pos, 42)
 
-	s.handle_block_pick_request(packets_662.BlockPickRequestPacket{
+	s.handle_block_pick_request(packets.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
 	})!
 
@@ -796,14 +793,14 @@ fn test_block_pick_request_survival_without_existing_item_is_noop() {
 }
 
 fn test_block_pick_request_selects_existing_item_into_hand() {
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	mut hub := new_hub(gamedata.GameData{
 		item_id_by_block: {
 			42: 500
 		}
 	})
 	mut s := pick_request_test_session(mut hub, .survival, pos, 42)
-	existing := types.ItemStack{
+	existing := model.ItemStack{
 		id:               500
 		count:            1
 		block_runtime_id: 42
@@ -813,7 +810,7 @@ fn test_block_pick_request_selects_existing_item_into_hand() {
 	// rather than the plain select_hotbar_slot one.
 	s.player.set_slot(player.hotbar_size, net_id)
 
-	s.handle_block_pick_request(packets_662.BlockPickRequestPacket{
+	s.handle_block_pick_request(packets.BlockPickRequestPacket{
 		position: block_pos_v662(pos)
 	})!
 

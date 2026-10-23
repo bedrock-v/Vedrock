@@ -1,19 +1,19 @@
 module session
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.entity
 import server.player
 import server.worldrt
-import bedrock_v.protocol.version.v2168.enums as enums_2168
-import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // MovementSnapshot is the latest client reported movement waiting to be
 // applied by the owning world runtime.
 struct MovementSnapshot {
-	position  types.Vector3
+	position  model.Vector3
 	pitch     f32
 	yaw       f32
 	head_yaw  f32
@@ -27,7 +27,7 @@ struct MovementSnapshot {
 //
 // on_ground is the client reported ground state, trusted like every other
 // movement field here.
-fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) {
+fn (mut s NetworkSession) update_movement(position model.Vector3, pitch f32, yaw f32, head_yaw f32, on_ground bool) {
 	if !s.spawned {
 		return
 	}
@@ -74,7 +74,7 @@ fn (mut s NetworkSession) update_movement(position types.Vector3, pitch f32, yaw
 // sanitize_movement replaces non-finite position or rotation components
 // with the session's last valid values. This prevents NaN or infinity from
 // entering player state and bypassing checks such as attack reach.
-fn (mut s NetworkSession) sanitize_movement(position types.Vector3, pitch f32, yaw f32, head_yaw f32) (types.Vector3, f32, f32, f32) {
+fn (mut s NetworkSession) sanitize_movement(position model.Vector3, pitch f32, yaw f32, head_yaw f32) (model.Vector3, f32, f32, f32) {
 	current := s.player.movement()
 	mut pos := position
 	mut p := pitch
@@ -108,7 +108,7 @@ fn is_finite32(f f32) bool {
 
 const teleport_ack_tolerance = f32(1.0)
 
-fn vector3_distance(a types.Vector3, b types.Vector3) f32 {
+fn vector3_distance(a model.Vector3, b model.Vector3) f32 {
 	dx := a.x - b.x
 	dy := a.y - b.y
 	dz := a.z - b.z
@@ -121,7 +121,7 @@ fn vector3_distance(a types.Vector3, b types.Vector3) f32 {
 // it, update_movement discards reported movement instead of applying it,
 // otherwise a client could keep reporting pre-teleport movement and have it
 // silently accepted, moving from a position the server never confirmed.
-fn (mut s NetworkSession) expect_teleport_ack(pos types.Vector3) {
+fn (mut s NetworkSession) expect_teleport_ack(pos model.Vector3) {
 	s.movement_mutex.lock()
 	s.pending_teleport_ack = pos
 	s.movement_mutex.unlock()
@@ -131,7 +131,7 @@ fn (mut s NetworkSession) expect_teleport_ack(pos types.Vector3) {
 // including pending movement that the owning world runtime has not applied
 // yet. Use it only for validation that must reflect the acting client's latest
 // update.
-fn (s &NetworkSession) effective_position() types.Vector3 {
+fn (s &NetworkSession) effective_position() model.Vector3 {
 	mut mtx := s.movement_mutex
 	mtx.lock()
 	defer {
@@ -216,10 +216,10 @@ fn (mut s NetworkSession) apply_movement(mut tx worldrt.WorldTx, snapshot Moveme
 		s.player.handler.on_player_move(mut ctx)
 		if ctx.is_cancelled() {
 			current := s.player.movement()
-			mut move_packet := &packets_2168.MovePlayerPacket{
-				player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
+			mut move_packet := &packets.MovePlayerPacket{
+				player_runtime_id: protocol.actor_runtime_id(self_entity_runtime_id)
 				y_head_rotation:   current.head_yaw
-				position_mode:     enums_2168.PlayerPositionMode.respawn
+				position_mode:     enums.PlayerPositionMode.respawn
 				on_ground:         false
 			}
 			move_packet.position[0] = current.position.x

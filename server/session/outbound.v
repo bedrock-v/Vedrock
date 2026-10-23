@@ -1,8 +1,8 @@
 module session
 
 import bedrock_v.protocol
-import bedrock_v.protocol.version.v1001.enums as enums_1001
-import bedrock_v.protocol.current.packets as packets_2192
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // Maximum number of packets a session may have waiting to be sent.
 // A full queue aborts the session instead of blocking the caller or
@@ -97,9 +97,9 @@ fn (mut s NetworkSession) send_packet(p protocol.Packet) ! {
 // send_batch queues packets as one batch so concurrent sends can't split
 // them apart. The slice is cloned because callers such as chunk streaming
 // may reuse its backing storage before the writer sends it.
-fn (mut s NetworkSession) send_batch(packets []protocol.Packet) ! {
+fn (mut s NetworkSession) send_batch(batch []protocol.Packet) ! {
 	result := s.try_enqueue(OutboundBatch{
-		packets: packets.clone()
+		packets: batch.clone()
 	}, false)!
 	match result {
 		.enqueued {}
@@ -124,11 +124,11 @@ fn (mut s NetworkSession) send_maybe_queued(p protocol.Packet) ! {
 }
 
 // send_batch_maybe_queued is send_maybe_queued for a batch.
-fn (mut s NetworkSession) send_batch_maybe_queued(packets []protocol.Packet) ! {
-	if s.conn.send_batch_direct(packets)! {
+fn (mut s NetworkSession) send_batch_maybe_queued(batch []protocol.Packet) ! {
+	if s.conn.send_batch_direct(batch)! {
 		return
 	}
-	s.send_batch(packets)!
+	s.send_batch(batch)!
 }
 
 // mark_closed moves the session into its closed state. Repeated calls are
@@ -160,9 +160,9 @@ fn (mut s NetworkSession) reject_bootstrap(message string) {
 		s.disconnect(message)
 		return
 	}
-	s.conn.send_direct(&packets_2192.DisconnectPacket{
-		reason:  enums_1001.ConnectionFailReason.disconnect_packet
-		message: packets_2192.DisconnectMessage{
+	s.conn.send_direct(&packets.DisconnectPacket{
+		reason:  enums.ConnectionFailReason.disconnect_packet
+		message: packets.DisconnectMessage{
 			kick_message:     message
 			filtered_message: ''
 		}

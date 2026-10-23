@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.internal.auth
 import server.internal.gamedata
@@ -10,7 +10,7 @@ import server.player
 import server.world
 import server.world.db
 import server.worldrt
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.packets
 
 fn entity_ref_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, mut transport FakeTransport, display_name string) &NetworkSession {
 	mut pl := player.new_player()
@@ -100,7 +100,7 @@ fn test_entity_ref_reports_world_and_valid() {
 
 	e := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:cow'
-	}, types.Vector3{10, 64, 5})
+	}, model.Vector3{10, 64, 5})
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
 	assert ref.valid()
@@ -116,7 +116,7 @@ fn test_entity_ref_position_matches_spawn_position() {
 
 	e := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:pig'
-	}, types.Vector3{1, 65, 2})
+	}, model.Vector3{1, 65, 2})
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
 	pos := ref.position() or { panic('expected position') }
@@ -134,13 +134,13 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 
 	e := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:cow'
-	}, types.Vector3{})
+	}, model.Vector3{})
 
 	mut transport := &FakeTransport{}
 	entity_ref_test_session(mut hub, mut wr, mut transport, 'Watcher')
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
-	ref.teleport(types.Vector3{5, 70, 9})!
+	ref.teleport(model.Vector3{5, 70, 9})!
 
 	pos := ref.position() or { panic('expected position') }
 	assert pos.x == 5
@@ -151,7 +151,7 @@ fn test_entity_ref_teleport_moves_and_broadcasts() {
 	assert found_move
 	mut saw_move := false
 	for p in transport.sent {
-		if p is packets_662.MoveActorAbsolutePacket {
+		if p is packets.MoveActorAbsolutePacket {
 			saw_move = true
 		}
 	}
@@ -167,7 +167,7 @@ fn test_entity_ref_damage_kills_when_fatal() {
 
 	e := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:chicken'
-	}, types.Vector3{})
+	}, model.Vector3{})
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
 	ref.damage(100, true, none)!
@@ -187,11 +187,11 @@ fn test_entity_ref_damage_with_player_sets_attacker_as_target() {
 	mut handle := hub.world_handle('entity-ref-test') or { panic('expected handle') }
 	mut transport := &FakeTransport{}
 	mut attacker := entity_ref_test_session(mut hub, mut wr, mut transport, 'Attacker')
-	attacker.player.reset_position(types.Vector3{10, 5, 0})
+	attacker.player.reset_position(model.Vector3{10, 5, 0})
 
 	mut zombie := wr.entities.spawn(entity.HostileBehaviour{
 		network_id: 'minecraft:zombie'
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	zombie.floor_y = 5
 	zombie.no_gravity = true
 
@@ -216,7 +216,7 @@ fn test_entity_ref_close_removes_the_entity() {
 
 	e := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:sheep'
-	}, types.Vector3{})
+	}, model.Vector3{})
 
 	ref := handle.entity_ref(e.runtime_id) or { panic('expected entity ref') }
 	ref.close()!

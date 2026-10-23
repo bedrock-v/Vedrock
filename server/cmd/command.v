@@ -1,8 +1,8 @@
 module cmd
 
 import server.internal.language
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v898.packets as packets_898
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 pub struct Context {
 pub:
@@ -145,14 +145,14 @@ pub fn (r &Registry) names() []string {
 // here. The packet gets queued and encoded later by a writer thread, so a
 // value would leave the caller pointing at a stack variable that's gone
 // by the time the writer runs.
-pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCommandsPacket {
-	mut pkt := &packets_898.AvailableCommandsPacket{}
+pub fn (r &Registry) available_commands(sender Sender) &packets.AvailableCommandsPacket {
+	mut pkt := &packets.AvailableCommandsPacket{}
 	mut enum_value_index := map[string]u32{}
 	for name, cmd in r.commands {
 		if !visible(cmd, sender) {
 			continue
 		}
-		mut parameters := []packets_898.ParameterDataEntry{}
+		mut parameters := []packets.ParameterDataEntry{}
 		for a in cmd.arguments() {
 			values := a.enum_values()
 			type_info := if values.len > 0 {
@@ -167,7 +167,7 @@ pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCom
 					}
 					value_indices << idx
 				}
-				pkt.enum_data << packets_898.EnumDataEntry{
+				pkt.enum_data << packets.EnumDataEntry{
 					name:   '${name}_${a.name()}'
 					values: value_indices
 				}
@@ -175,22 +175,22 @@ pub fn (r &Registry) available_commands(sender Sender) &packets_898.AvailableCom
 			} else {
 				arg_flag_valid | a.network_type_info()
 			}
-			parameters << packets_898.ParameterDataEntry{
+			parameters << packets.ParameterDataEntry{
 				name:         a.name()
 				parse_symbol: type_info
 				is_optional:  a.optional()
 				options:      0
 			}
 		}
-		pkt.commands << packets_898.CommandsEntry{
+		pkt.commands << packets.CommandsEntry{
 			name:                        name
 			description:                 cmd.description()
 			flags:                       0
-			permission_level:            packets_898.CommandPermissionLevelString.any
+			permission_level:            packets.CommandPermissionLevelString.any
 			alias_enum:                  -1
 			chained_sub_command_indices: []i32{}
 			overloads:                   [
-				packets_898.OverloadsEntry{
+				packets.OverloadsEntry{
 					is_chaining:    false
 					parameter_data: parameters
 				},

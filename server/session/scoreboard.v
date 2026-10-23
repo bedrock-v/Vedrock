@@ -2,10 +2,9 @@ module session
 
 import bedrock_v.protocol
 import server.player.scoreboard
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
+import bedrock_v.protocol.types
 
 // sidebar_objective is the stable objective name used for the per-player
 // sidebar scoreboard. Reusing one name means re-showing cleanly replaces the
@@ -22,22 +21,22 @@ const sidebar_slot = 'sidebar'
 // lines[0] has the lowest score and sits at the top - matching the slice order.
 // Each entry needs a distinct scoreboard_id or the client collapses them.
 fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
-	mut packets := []protocol.Packet{cap: lines.len + 2}
+	mut batch := []protocol.Packet{cap: lines.len + 2}
 	// Drop any previous board first so re-showing replaces cleanly.
-	packets << &packets_662.RemoveObjectivePacket{
+	batch << &packets.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	}
-	packets << &packets_662.SetDisplayObjectivePacket{
+	batch << &packets.SetDisplayObjectivePacket{
 		display_slot_name:      sidebar_slot
 		objective_name:         sidebar_objective
 		objective_display_name: title
 		criteria_name:          'dummy'
-		sort_order:             enums_662.ObjectiveSortOrder.ascending
+		sort_order:             enums.ObjectiveSortOrder.ascending
 	}
-	mut entries := []packets_2168.ScorePacketEntry{}
+	mut entries := []packets.ScorePacketEntry{}
 	for i, line in lines {
-		entries << packets_2168.ScoreEntryChangeFakePlayer{
-			scoreboard_id:    types_662.ScoreboardId{
+		entries << packets.ScoreEntryChangeFakePlayer{
+			scoreboard_id:    types.ScoreboardId{
 				id: i64(i + 1)
 			}
 			objective_name:   sidebar_objective
@@ -45,10 +44,10 @@ fn build_sidebar_packets(title string, lines []string) []protocol.Packet {
 			fake_player_name: line
 		}
 	}
-	packets << &packets_2168.SetScorePacket{
+	batch << &packets.SetScorePacket{
 		score_info: entries
 	}
-	return packets
+	return batch
 }
 
 // show_scoreboard replaces the player's sidebar with the supplied title
@@ -67,7 +66,7 @@ fn (mut s NetworkSession) send_scoreboard(board &scoreboard.Scoreboard) {
 }
 
 fn (mut s NetworkSession) remove_scoreboard() {
-	s.deliver(&packets_662.RemoveObjectivePacket{
+	s.deliver(&packets.RemoveObjectivePacket{
 		objective_name: sidebar_objective
 	})
 }

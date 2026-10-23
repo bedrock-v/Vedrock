@@ -3,7 +3,7 @@ module default
 import server.internal.buildinfo
 import server.permission
 import server.cmd
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 
 pub struct VersionCommand {}
 
@@ -32,7 +32,7 @@ pub fn (c VersionCommand) execute(mut sender cmd.Sender, ctx cmd.Context) ! {
 		'Software':  buildinfo.name
 		'Version':   buildinfo.version
 		'Hash':      buildinfo.git_hash
-		'MCVersion': proto.proto_version.minecraft_version()
-		'Protocol':  int(proto.proto_version.protocol_id()).str()
+		'MCVersion': protocol.minecraft_version
+		'Protocol':  int(protocol.protocol_id).str()
 	}))!
 }

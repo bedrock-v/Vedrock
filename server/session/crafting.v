@@ -2,18 +2,15 @@ module session
 
 import crypto.md5
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.item
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
 import server.entity
 import server.player
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.version.v662.types as types_662
-import bedrock_v.protocol.version.v944.types as types_944
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 const crafting_grid_small = [28, 29, 30, 31]
 const crafting_grid_large = [32, 33, 34, 35, 36, 37, 38, 39, 40]
@@ -159,7 +156,7 @@ fn try_craft_recipe(mut s NetworkSession, recipe item.Recipe, times int) ?[]Slot
 			new_net = s.player.track_stack(leftover)
 		}
 		s.set_crafting_slot_net_id(p.slot, new_net)
-		changes << slot_change(types_944.FullContainerName{
+		changes << slot_change(types.FullContainerName{
 			container: .crafting_input_container
 		}, i8(p.slot), remaining, new_net)
 	}
@@ -169,7 +166,7 @@ fn try_craft_recipe(mut s NetworkSession, recipe item.Recipe, times int) ?[]Slot
 		return none
 	}
 	count := s.clamp_stack_count(output_id, recipe.output_count * times)
-	s.player.set_pending_creative(types.ItemStack{
+	s.player.set_pending_creative(model.ItemStack{
 		id:    output_id
 		count: count
 	})
@@ -239,7 +236,7 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 			new_net = s.player.track_stack(leftover)
 		}
 		s.set_crafting_slot_net_id(slot, new_net)
-		changes << slot_change(types_944.FullContainerName{
+		changes << slot_change(types.FullContainerName{
 			container: .crafting_input_container
 		}, i8(slot), left, new_net)
 	}
@@ -265,7 +262,7 @@ fn (mut s NetworkSession) consume_ingredient(name string, need int, mut changes 
 		} else {
 			s.player.delete_slot(slot)
 		}
-		changes << slot_change(types_944.FullContainerName{
+		changes << slot_change(types.FullContainerName{
 			container: .combined_hotbar_and_inventory_container
 		}, i8(slot), left, new_net)
 	}
@@ -297,32 +294,32 @@ fn attempt_auto_craft(mut s NetworkSession, recipe_network_id u32, number_of_cra
 		return none
 	}
 	count := s.clamp_stack_count(output_id, recipe.output_count * times)
-	s.player.set_pending_creative(types.ItemStack{
+	s.player.set_pending_creative(model.ItemStack{
 		id:    output_id
 		count: count
 	})
 	return changes
 }
 
-fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
+fn open_workbench(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition) {
 	s.log.debug('open_workbench: opening at ${pos}')
 	s.close_open_container(mut tx)
 	s.set_workbench_open(true)
-	s.deliver(&packets_944.ContainerOpenPacket{
-		container_id:    enums_662.ContainerID.first
-		container_type:  enums_662.ContainerType.workbench
-		position:        proto.block_pos(pos)
-		target_actor_id: proto.actor_unique_id(-1)
+	s.deliver(&packets.ContainerOpenPacket{
+		container_id:    enums.ContainerID.first
+		container_type:  enums.ContainerType.workbench
+		position:        protocol.block_pos(pos)
+		target_actor_id: protocol.actor_unique_id(-1)
 	})
 }
 
 // return_or_drop_stack gives stack back to an inventory slot if one's
 // free, otherwise drops it at the player's feet. Never silently discards.
-fn (mut s NetworkSession) return_or_drop_stack(mut tx worldrt.WorldTx, stack types.ItemStack) {
+fn (mut s NetworkSession) return_or_drop_stack(mut tx worldrt.WorldTx, stack model.ItemStack) {
 	if dest := s.first_empty_slot() {
 		returned_net := s.player.track_stack(stack)
 		s.player.set_slot(dest, returned_net)
-		s.send_slot_update(dest, types.ItemStackWrapper{
+		s.send_slot_update(dest, model.ItemStackWrapper{
 			item_stack: stack
 			stack_id:   returned_net
 		})
@@ -405,49 +402,49 @@ fn (mut s NetworkSession) release_workbench() {
 	})
 }
 
-fn recipe_uuid(id string) types_662.Uuid {
+fn recipe_uuid(id string) types.Uuid {
 	sum := md5.sum(id.bytes())
 	mut bytes := [16]u8{}
 	for i in 0 .. 16 {
 		bytes[i] = sum[i]
 	}
-	return types_662.Uuid{
+	return types.Uuid{
 		bytes: bytes
 	}
 }
 
-const always_unlocked = types_2168.RecipeUnlockingRequirement{
-	context: types_2168.UnlockingContext.always_unlocked
+const always_unlocked = types.RecipeUnlockingRequirement{
+	context: types.UnlockingContext.always_unlocked
 }
 
-fn crafting_data_packet(data gamedata.GameData) &packets_2168.CraftingDataPacket {
-	mut shaped_recipes := []types_2168.ShapedRecipe{}
-	mut shapeless_recipes := []types_2168.ShapelessRecipe{}
+fn crafting_data_packet(data gamedata.GameData) &packets.CraftingDataPacket {
+	mut shaped_recipes := []types.ShapedRecipe{}
+	mut shapeless_recipes := []types.ShapelessRecipe{}
 	for r in item.all_recipes() {
 		output_id := data.item_id(r.output_name)
 		production_list := [
-			types_2168.NetworkItemInstanceDescriptor{
+			types.NetworkItemInstanceDescriptor{
 				id:         output_id
 				stack_size: u16(r.output_count)
 			},
 		]
 		if r.width > 0 && r.height > 0 {
-			mut cells := []types_2168.CraftingRecipeIngredient{cap: r.pattern.len}
+			mut cells := []types.CraftingRecipeIngredient{cap: r.pattern.len}
 			for cell in r.pattern {
 				if cell == '' {
-					cells << types_2168.CraftingRecipeIngredient{
-						descriptor: types_2168.CraftingDescEmpty{}
+					cells << types.CraftingRecipeIngredient{
+						descriptor: types.CraftingDescEmpty{}
 					}
 					continue
 				}
-				cells << types_2168.CraftingRecipeIngredient{
-					descriptor: types_2168.CraftingDescName{
+				cells << types.CraftingRecipeIngredient{
+					descriptor: types.CraftingDescName{
 						item_id: cell
 					}
 					stack_size: 1
 				}
 			}
-			shaped_recipes << types_2168.ShapedRecipe{
+			shaped_recipes << types.ShapedRecipe{
 				recipe_unique_id:      r.id
 				width:                 r.width
 				height:                r.height
@@ -462,16 +459,16 @@ fn crafting_data_packet(data gamedata.GameData) &packets_2168.CraftingDataPacket
 			}
 			continue
 		}
-		mut ingredients := []types_2168.CraftingRecipeIngredient{cap: r.ingredients.len}
+		mut ingredients := []types.CraftingRecipeIngredient{cap: r.ingredients.len}
 		for ingredient in r.ingredients {
-			ingredients << types_2168.CraftingRecipeIngredient{
-				descriptor: types_2168.CraftingDescName{
+			ingredients << types.CraftingRecipeIngredient{
+				descriptor: types.CraftingDescName{
 					item_id: ingredient.name
 				}
 				stack_size: ingredient.count
 			}
 		}
-		shapeless_recipes << types_2168.ShapelessRecipe{
+		shapeless_recipes << types.ShapelessRecipe{
 			recipe_unique_id:      r.id
 			ingredient_list:       ingredients
 			production_list:       production_list
@@ -482,7 +479,7 @@ fn crafting_data_packet(data gamedata.GameData) &packets_2168.CraftingDataPacket
 			network_id:            i32(r.network_id)
 		}
 	}
-	return &packets_2168.CraftingDataPacket{
+	return &packets.CraftingDataPacket{
 		shaped_recipes:    shaped_recipes
 		shapeless_recipes: shapeless_recipes
 		clear_recipes:     true

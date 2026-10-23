@@ -1,16 +1,16 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.event
 import server.world.sound
 import server.world
 import server.block
 import server.item
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.player
 import server.worldrt
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.packets
 
 // ObstructionResult is obstructed_by_entity's answer: whether pos is
 // obstructed at all and whether the only body overlapping it is the acting
@@ -25,7 +25,7 @@ struct ObstructionResult {
 // the world, including the acting player's own current or pending body
 // position. It walks the live actor registry, so it takes the transaction:
 // that registry is the world actor's to read.
-fn obstructed_by_entity(mut tx worldrt.WorldTx, pos types.BlockPosition, acting_runtime_id u64) ObstructionResult {
+fn obstructed_by_entity(mut tx worldrt.WorldTx, pos model.BlockPosition, acting_runtime_id u64) ObstructionResult {
 	block_min_x := f32(pos.x)
 	block_max_x := f32(pos.x) + 1
 	block_min_y := f32(pos.y)
@@ -95,7 +95,7 @@ fn merged_slab(tx &worldrt.WorldTx, existing_id int, placing_id int, click_face 
 		clicked)
 }
 
-fn door_placement(mut tx worldrt.WorldTx, runtime_id int, pos types.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
+fn door_placement(mut tx worldrt.WorldTx, runtime_id int, pos model.BlockPosition, click_face int, yaw f32) ?world.DoorPlacement {
 	if click_face != 1 || isnil(tx.wr.services.block_palette()) {
 		return none
 	}
@@ -116,7 +116,7 @@ fn door_placement(mut tx worldrt.WorldTx, runtime_id int, pos types.BlockPositio
 	return tx.wr.services.block_palette().door_placement(runtime_id, yaw, neighbor_ids(tx, pos))
 }
 
-fn door_pair_pos(tx &worldrt.WorldTx, pos types.BlockPosition, id int) ?types.BlockPosition {
+fn door_pair_pos(tx &worldrt.WorldTx, pos model.BlockPosition, id int) ?model.BlockPosition {
 	if isnil(tx.wr.services.block_palette()) {
 		return none
 	}
@@ -146,7 +146,7 @@ fn carve_pumpkin(tx &worldrt.WorldTx, mut s NetworkSession, old_id int, click_fa
 // create_sign_tile initializes a newly placed sign's block entity text and
 // tells observers about it. Called before the block mutation itself
 // broadcasts, so an observer never sees the block exist without its tile.
-fn create_sign_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id int) {
+fn create_sign_tile(mut tx worldrt.WorldTx, pos model.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
@@ -157,7 +157,7 @@ fn create_sign_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id 
 
 // create_note_tile initializes a newly placed note block's block entity
 // text to pitch 0, matching create_sign_tile's pattern.
-fn create_note_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id int) {
+fn create_note_tile(mut tx worldrt.WorldTx, pos model.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.NoteBlock {
 		return
@@ -168,7 +168,7 @@ fn create_note_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id 
 
 // create_jukebox_tile initializes a newly placed jukebox's block entity
 // text to "no record", matching create_sign_tile's pattern.
-fn create_jukebox_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id int) {
+fn create_jukebox_tile(mut tx worldrt.WorldTx, pos model.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.JukeboxBlock {
 		return
@@ -177,20 +177,20 @@ fn create_jukebox_tile(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_
 	broadcast_block_entity(mut tx, pos, build_jukebox_nbt(pos.x, pos.y, pos.z, ''))
 }
 
-fn maybe_open_sign_editor(mut s NetworkSession, pos types.BlockPosition, runtime_id int) {
+fn maybe_open_sign_editor(mut s NetworkSession, pos model.BlockPosition, runtime_id int) {
 	b := block.get(runtime_id) or { return }
 	if b !is block.SignBlock {
 		return
 	}
-	s.deliver(&packets_944.OpenSignPacket{
-		pos:      proto.block_pos(pos)
+	s.deliver(&packets.OpenSignPacket{
+		pos:      protocol.block_pos(pos)
 		is_front: true
 	})
 }
 
 // interact_block runs old_id's right click behaviour, if any, at pos. false
 // means the caller should fall through to placement handling.
-fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int, click_face int) bool {
+fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, old_id int, click_face int) bool {
 	if b := block.get(old_id) {
 		if b is block.SignBlock {
 			maybe_open_sign_editor(mut s, pos, old_id)
@@ -264,7 +264,7 @@ fn interact_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockP
 // use_item_on_block applies the held item's UsableOnBlockItem effect (e.g.
 // bone meal advancing a crop's growth stage) if clicked_id qualifies.
 // Returns false for every item/block combination that doesn't.
-fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, clicked_id int) bool {
+fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, clicked_id int) bool {
 	if isnil(tx.wr.services.block_palette()) {
 		return false
 	}
@@ -308,7 +308,7 @@ fn use_item_on_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Blo
 // place_block_form places runtime_id at pos as an ordinary (non replacing)
 // placement: rejects on occupancy/entity obstruction, dispatches the
 // cancellable block_place event, then commits.
-fn place_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
+fn place_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, runtime_id int) bool {
 	occupied := block_at(tx, pos.x, pos.y, pos.z) != world.air.network_id
 	obstruction := obstructed_by_entity(mut tx, pos, s.runtime_id)
 	if occupied || obstruction.obstructed {
@@ -344,7 +344,7 @@ fn place_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bloc
 
 // replace_block_form overwrites an existing replaceable block (e.g. merging
 // into a double slab).
-fn replace_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, runtime_id int) bool {
+fn replace_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, runtime_id int) bool {
 	mut ctx := event.new_context(player.BlockPlaceData{
 		player:   s.player
 		x:        pos.x
@@ -371,7 +371,7 @@ fn replace_block_form(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.Bl
 // place_door_pair places both halves of a door as a single transaction.
 // Both positions are validated and one block_place event is dispatched
 // before either half is written.
-fn place_door_pair(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, parts world.DoorPlacement) bool {
+fn place_door_pair(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, parts world.DoorPlacement) bool {
 	above := face_offset(pos, 1)
 	lower := obstructed_by_entity(mut tx, pos, s.runtime_id)
 	upper := obstructed_by_entity(mut tx, above, s.runtime_id)

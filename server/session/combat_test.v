@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.event
 import server.internal.gamedata
@@ -10,7 +10,7 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.worldrt
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.packets
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -47,14 +47,14 @@ fn test_is_critical_requires_falling_and_survival() {
 	mut s := &NetworkSession{
 		player: pl
 	}
-	s.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
-	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(model.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(model.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
 	assert s.is_critical()
 
-	s.player.apply_movement(types.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(model.Vector3{0.0, 0.8, 0.0}, 0.0, 0.0, 0.0, false)
 	assert !s.is_critical()
 
-	s.player.apply_movement(types.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0, false)
+	s.player.apply_movement(model.Vector3{0.0, 0.6, 0.0}, 0.0, 0.0, 0.0, false)
 	s.player.set_game_mode(.creative)
 	assert !s.is_critical()
 }
@@ -69,9 +69,9 @@ fn test_handle_attack_rejects_out_of_reach() {
 	}
 
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
-	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	attacker.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
-	victim.player.reset_position(types.Vector3{100.0, 0.0, 0.0})
+	victim.player.reset_position(model.Vector3{100.0, 0.0, 0.0})
 	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
 		return true
@@ -108,9 +108,9 @@ fn test_handle_attack_cancelled_event_does_no_damage() {
 	}
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
 	attacker.handle(&CancelAttackHandler{})
-	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	attacker.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	mut victim := combat_test_session(mut hub, mut wr, 'Steve', 20, .survival)
-	victim.player.reset_position(types.Vector3{1.0, 0.0, 0.0})
+	victim.player.reset_position(model.Vector3{1.0, 0.0, 0.0})
 
 	attacker.handle_attack(attacker.wire_id_for(victim.runtime_id))!
 	// worldrt.world_call as a synchronization barrier, guarantees the attack task
@@ -140,10 +140,10 @@ fn test_handle_attack_damages_a_mob() {
 	}
 
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
-	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	attacker.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	mob := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:cow'
-	}, types.Vector3{1.0, 0.0, 0.0})
+	}, model.Vector3{1.0, 0.0, 0.0})
 
 	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
@@ -166,10 +166,10 @@ fn test_handle_attack_rejects_a_mob_out_of_reach() {
 	}
 
 	mut attacker := combat_test_session(mut hub, mut wr, 'Alex', 20, .survival)
-	attacker.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	attacker.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	mob := wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:cow'
-	}, types.Vector3{100.0, 0.0, 0.0})
+	}, model.Vector3{100.0, 0.0, 0.0})
 
 	attacker.handle_attack(attacker.wire_id_for(mob.runtime_id))!
 	worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
@@ -312,13 +312,13 @@ fn test_die_records_last_death_pos_when_not_cancelled() {
 		runtime_id: 2
 		hub:        hub
 	}
-	victim.player.reset_position(types.Vector3{3.0, 4.0, 5.0})
+	victim.player.reset_position(model.Vector3{3.0, 4.0, 5.0})
 	hub.add(victim)
 
 	victim.player.die(mut tx, '%death.attack.player', ['Steve', 'Alex'])
 	assert victim.player.is_dead()
 	assert victim.player.has_last_death()
-	assert victim.player.last_death_pos() == types.Vector3{3.0, 4.0, 5.0}
+	assert victim.player.last_death_pos() == model.Vector3{3.0, 4.0, 5.0}
 }
 
 fn test_apply_respawn_resets_health_and_position() {
@@ -346,8 +346,8 @@ fn test_apply_respawn_resets_health_and_position() {
 	}
 	// Give it a nonzero vy the same way real movement would, to prove
 	// apply_respawn actually resets it rather than it trivially starting at 0.
-	victim.player.apply_movement(types.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
-	victim.player.apply_movement(types.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
+	victim.player.apply_movement(model.Vector3{0.0, 1.0, 0.0}, 0.0, 0.0, 0.0, false)
+	victim.player.apply_movement(model.Vector3{0.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 	hub.add(victim)
 
 	victim.apply_respawn(mut tx)
@@ -390,11 +390,11 @@ fn test_apply_knockback_degenerate_case_has_no_horizontal_component() {
 		player: player.new_player()
 		conn:   &Conn{ transport: transport }
 	}
-	s.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
-	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
+	s.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
+	s.apply_knockback(model.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_662.SetActorMotionPacket {
+	if sent is packets.SetActorMotionPacket {
 		assert sent.motion[0] == 0.0
 		assert sent.motion[2] == 0.0
 		assert sent.motion[1] == knockback_vertical
@@ -409,11 +409,11 @@ fn test_apply_knockback_pushes_away_from_attacker() {
 		player: player.new_player()
 		conn:   &Conn{ transport: transport }
 	}
-	s.player.reset_position(types.Vector3{10.0, 0.0, 0.0})
-	s.apply_knockback(types.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
+	s.player.reset_position(model.Vector3{10.0, 0.0, 0.0})
+	s.apply_knockback(model.Vector3{0.0, 0.0, 0.0}, knockback_horizontal, knockback_vertical)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_662.SetActorMotionPacket {
+	if sent is packets.SetActorMotionPacket {
 		assert sent.motion[0] == knockback_horizontal
 		assert sent.motion[2] == 0.0
 	} else {
@@ -463,7 +463,7 @@ fn test_handle_entity_interact_milks_cow_with_bucket() {
 	hub.add_world(target)
 	wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	cow_behaviour := entity.create('cow') or { panic('missing cow behaviour') }
-	cow := wr.entities.spawn(cow_behaviour, types.Vector3{1.0, 0.0, 0.0})
+	cow := wr.entities.spawn(cow_behaviour, model.Vector3{1.0, 0.0, 0.0})
 	mut sess := &NetworkSession{
 		player:        make_combat_test_player('Alex', 20, .survival)
 		runtime_id:    1
@@ -471,9 +471,9 @@ fn test_handle_entity_interact_milks_cow_with_bucket() {
 		world:         target
 		world_runtime: wr
 	}
-	sess.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	sess.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	hub.add(sess)
-	bucket := types.ItemStack{
+	bucket := model.ItemStack{
 		id:    200
 		count: 1
 	}
@@ -492,7 +492,7 @@ fn test_handle_entity_interact_non_cow_is_noop() {
 	hub.add_world(target)
 	wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	pig_behaviour := entity.create('pig') or { panic('missing pig behaviour') }
-	pig := wr.entities.spawn(pig_behaviour, types.Vector3{1.0, 0.0, 0.0})
+	pig := wr.entities.spawn(pig_behaviour, model.Vector3{1.0, 0.0, 0.0})
 	mut sess := &NetworkSession{
 		player:        make_combat_test_player('Alex', 20, .survival)
 		runtime_id:    1
@@ -500,9 +500,9 @@ fn test_handle_entity_interact_non_cow_is_noop() {
 		world:         target
 		world_runtime: wr
 	}
-	sess.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	sess.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	hub.add(sess)
-	bucket := types.ItemStack{
+	bucket := model.ItemStack{
 		id:    200
 		count: 1
 	}
@@ -521,7 +521,7 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 	hub.add_world(target)
 	wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	cow_behaviour := entity.create('cow') or { panic('missing cow behaviour') }
-	cow := wr.entities.spawn(cow_behaviour, types.Vector3{100.0, 0.0, 0.0})
+	cow := wr.entities.spawn(cow_behaviour, model.Vector3{100.0, 0.0, 0.0})
 	mut sess := &NetworkSession{
 		player:        make_combat_test_player('Alex', 20, .survival)
 		runtime_id:    1
@@ -529,9 +529,9 @@ fn test_handle_entity_interact_out_of_reach_is_noop() {
 		world:         target
 		world_runtime: wr
 	}
-	sess.player.reset_position(types.Vector3{0.0, 0.0, 0.0})
+	sess.player.reset_position(model.Vector3{0.0, 0.0, 0.0})
 	hub.add(sess)
-	bucket := types.ItemStack{
+	bucket := model.ItemStack{
 		id:    200
 		count: 1
 	}

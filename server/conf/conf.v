@@ -2,7 +2,7 @@ module conf
 
 import os
 import toml
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 
 // default_join_port is the port a Bedrock client tries first when it is
 // given an address with no port of its own.
@@ -259,21 +259,21 @@ pub fn (c &Config) bind_address() string {
 // constant. Unknown values fall back to normal.
 pub fn difficulty_from_string(s string) int {
 	return match s.to_lower() {
-		'peaceful', 'p', '0' { proto.difficulty_peaceful }
-		'easy', 'e', '1' { proto.difficulty_easy }
-		'normal', 'n', '2' { proto.difficulty_normal }
-		'hard', 'h', '3' { proto.difficulty_hard }
-		else { proto.difficulty_normal }
+		'peaceful', 'p', '0' { protocol.difficulty_peaceful }
+		'easy', 'e', '1' { protocol.difficulty_easy }
+		'normal', 'n', '2' { protocol.difficulty_normal }
+		'hard', 'h', '3' { protocol.difficulty_hard }
+		else { protocol.difficulty_normal }
 	}
 }
 
 // difficulty_name returns the canonical name for a protocol difficulty constant.
 pub fn difficulty_name(value int) string {
 	return match value {
-		proto.difficulty_peaceful { 'peaceful' }
-		proto.difficulty_easy { 'easy' }
-		proto.difficulty_normal { 'normal' }
-		proto.difficulty_hard { 'hard' }
+		protocol.difficulty_peaceful { 'peaceful' }
+		protocol.difficulty_easy { 'easy' }
+		protocol.difficulty_normal { 'normal' }
+		protocol.difficulty_hard { 'hard' }
 		else { 'normal' }
 	}
 }

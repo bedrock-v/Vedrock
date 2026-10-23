@@ -21,12 +21,11 @@ import server.resourcepack
 import server.permission
 import server.internal.auth
 import server.player.playerdb
-import bedrock_v.protocol.current as proto
 import server.worldrt
 import server.player
 import server.player.scoreboard
-import bedrock_v.protocol.version.v924.enums as enums_924
-import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // Hub holds the server's internal, directly synchronized state (sessions,
 // world registry, config, shared registries) rather than its public API. It
@@ -97,7 +96,7 @@ mut:
 	ops           permission.OpList
 	player_grants permission.PlayerGrants
 	whitelist     permission.Whitelist
-	difficulty    int = proto.difficulty_easy
+	difficulty    int = protocol.difficulty_easy
 	// conf_file is the path to this instance's own settings file (set from
 	// conf.Config.config_file, not a shared default) so runtime difficulty
 	// changes persist back to the correct per instance file.
@@ -810,8 +809,8 @@ pub fn (mut h Hub) chunk_cache_totals() (int, i64) {
 
 // broadcast_message sends a raw chat line to every connected player.
 fn (mut h Hub) broadcast_message(text string) {
-	h.broadcast(&packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+	h.broadcast(&packets.TextPacket{
+		message_type: enums.TextRaw{
 			message: text
 		}
 	})

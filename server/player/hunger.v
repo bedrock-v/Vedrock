@@ -1,7 +1,7 @@
 module player
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.player.playerdb
 
 // max_food_level is a full hunger bar, and initial_saturation is what a fresh
@@ -142,7 +142,7 @@ pub fn (mut p Player) advance_passive_feed() bool {
 // was actually true while it was being travelled. Sprinting for ten metres and
 // then stopping costs the sprint rate for those ten metres, not the walking
 // one, and starting to sprint does not retroactively bill the walk before it.
-pub fn (mut p Player) charge_movement(pos types.Vector3) bool {
+pub fn (mut p Player) charge_movement(pos model.Vector3) bool {
 	p.state_mutex.lock()
 	defer {
 		p.state_mutex.unlock()
@@ -181,7 +181,7 @@ fn (p &Player) movement_exhaustion_rate() f32 {
 
 // hunger_position is where the player was when their movement was last
 // charged for, or none before the first sample.
-pub fn (p &Player) hunger_position() ?types.Vector3 {
+pub fn (p &Player) hunger_position() ?model.Vector3 {
 	mut m := p.state_mutex
 	m.lock()
 	defer {
@@ -193,7 +193,7 @@ pub fn (p &Player) hunger_position() ?types.Vector3 {
 	return p.hunger_position
 }
 
-pub fn (mut p Player) set_hunger_position(pos types.Vector3) {
+pub fn (mut p Player) set_hunger_position(pos model.Vector3) {
 	p.state_mutex.lock()
 	p.hunger_position = pos
 	p.has_hunger_position = true
@@ -211,7 +211,7 @@ pub fn (p &Player) sprinting() bool {
 
 // set_sprinting settles what has been travelled so far before the rate
 // changes, so the distance already covered is billed at the old rate.
-pub fn (mut p Player) set_sprinting(pos types.Vector3, value bool) bool {
+pub fn (mut p Player) set_sprinting(pos model.Vector3, value bool) bool {
 	if p.sprinting() == value {
 		return false
 	}
@@ -233,7 +233,7 @@ pub fn (p &Player) swimming() bool {
 
 // set_swimming settles the outstanding distance the same way set_sprinting
 // does.
-pub fn (mut p Player) set_swimming(pos types.Vector3, value bool) bool {
+pub fn (mut p Player) set_swimming(pos model.Vector3, value bool) bool {
 	if p.swimming() == value {
 		return false
 	}

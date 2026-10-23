@@ -3,7 +3,7 @@ module entity
 import os
 import time
 import bedrock_v.protocol
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world
 import server.effect
 
@@ -17,7 +17,7 @@ mut:
 	near_queries                  int
 	blocks                        map[string]int
 	boxes                         map[string][]world.AABB
-	positions                     map[u64]types.Vector3
+	positions                     map[u64]model.Vector3
 	hit_target                    ?u64
 	last_hit_test_excluded        []u64
 	damage_calls                  int
@@ -32,7 +32,7 @@ mut:
 	dropped_experience            int
 	// players is the settable pool nearest_player searches: keyed by runtime
 	// id, distinct from the generic entity positions map above.
-	players              map[u64]types.Vector3
+	players              map[u64]model.Vector3
 	despawn_notify_calls int
 	last_despawn_id      string
 	// dropped_items records every spawn_dropped_item call this host receives.
@@ -41,7 +41,7 @@ mut:
 	collect_response        int
 	collect_calls           int
 	last_collect_runtime_id u64
-	last_collect_stack      types.ItemStack
+	last_collect_stack      model.ItemStack
 	take_notify_calls       int
 	last_take_item_rid      u64
 	last_take_taker_rid     u64
@@ -50,7 +50,7 @@ mut:
 struct DroppedItemCall {
 	item_name string
 	count     int
-	pos       types.Vector3
+	pos       model.Vector3
 }
 
 fn block_key(x int, y int, z int) string {
@@ -102,11 +102,11 @@ fn (mut h FakeHost) collision_boxes(x int, y int, z int) []world.AABB {
 	return h.boxes[block_key(x, y, z)] or { []world.AABB{} }
 }
 
-fn (mut h FakeHost) entity_position(runtime_id u64) ?types.Vector3 {
+fn (mut h FakeHost) entity_position(runtime_id u64) ?model.Vector3 {
 	return h.positions[runtime_id] or { none }
 }
 
-fn (mut h FakeHost) entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64) ?u64 {
+fn (mut h FakeHost) entity_hit_test(pos model.Vector3, exclude_runtime_ids []u64) ?u64 {
 	h.last_hit_test_excluded = exclude_runtime_ids
 	if target := h.hit_target {
 		if target in exclude_runtime_ids {
@@ -116,20 +116,20 @@ fn (mut h FakeHost) entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64
 	return h.hit_target
 }
 
-fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+fn (mut h FakeHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from model.Vector3) {
 	h.damage_calls++
 	h.last_damage_runtime_id = runtime_id
 	h.last_damage_amount = amount
 	h.last_damage_source_runtime_id = source_runtime_id
 }
 
-fn (mut h FakeHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+fn (mut h FakeHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from model.Vector3) {
 	h.mob_attack_calls++
 	h.last_mob_attack_runtime_id = runtime_id
 	h.last_mob_attack_amount = amount
 }
 
-fn (mut h FakeHost) has_line_of_sight(from types.Vector3, to types.Vector3) bool {
+fn (mut h FakeHost) has_line_of_sight(from model.Vector3, to model.Vector3) bool {
 	return h.visible
 }
 
@@ -138,7 +138,7 @@ fn (mut h FakeHost) notify_entity_despawn(identifier string, x f32, y f32, z f32
 	h.last_despawn_id = identifier
 }
 
-fn (mut h FakeHost) spawn_dropped_item(item_name string, count int, pos types.Vector3) {
+fn (mut h FakeHost) spawn_dropped_item(item_name string, count int, pos model.Vector3) {
 	h.dropped_items << DroppedItemCall{
 		item_name: item_name
 		count:     count
@@ -146,7 +146,7 @@ fn (mut h FakeHost) spawn_dropped_item(item_name string, count int, pos types.Ve
 	}
 }
 
-fn (mut h FakeHost) collect_item(runtime_id u64, stack types.ItemStack) int {
+fn (mut h FakeHost) collect_item(runtime_id u64, stack model.ItemStack) int {
 	h.collect_calls++
 	h.last_collect_runtime_id = runtime_id
 	h.last_collect_stack = stack
@@ -164,11 +164,11 @@ fn (mut h FakeHost) grant_experience(runtime_id u64, amount int) bool {
 	return runtime_id in h.players
 }
 
-fn (mut h FakeHost) spawn_experience_orbs(amount int, pos types.Vector3) {
+fn (mut h FakeHost) spawn_experience_orbs(amount int, pos model.Vector3) {
 	h.dropped_experience += amount
 }
 
-fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
+fn (mut h FakeHost) nearest_player(pos model.Vector3, radius f32) ?u64 {
 	radius_sq := radius * radius
 	mut best_rid := u64(0)
 	mut best_dist_sq := radius_sq
@@ -192,18 +192,18 @@ fn (mut h FakeHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
 
 struct FakeActor {
 	rid u64
-	pos types.Vector3
+	pos model.Vector3
 }
 
 fn (a &FakeActor) runtime_id() u64 {
 	return a.rid
 }
 
-fn (a &FakeActor) current_position() types.Vector3 {
+fn (a &FakeActor) current_position() model.Vector3 {
 	return a.pos
 }
 
-fn (a &FakeActor) feet_position() types.Vector3 {
+fn (a &FakeActor) feet_position() model.Vector3 {
 	return a.pos
 }
 
@@ -218,7 +218,7 @@ fn (a &FakeActor) is_dead() bool {
 fn test_spawn_registers_and_broadcasts() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
+	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 10, 0})
 	assert m.count() == 1
 	assert e.identifier == 'minecraft:pig'
 	assert e.runtime_id == 1
@@ -229,7 +229,7 @@ fn test_spawn_registers_and_broadcasts() {
 fn test_despawn_removes_and_broadcasts() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:cow' }, types.Vector3{0, 0, 0})
+	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:cow' }, model.Vector3{0, 0, 0})
 	m.despawn(e.runtime_id)
 	assert m.count() == 0
 	assert host.near_queries == 1 // spawn asks for nearby viewers once
@@ -239,7 +239,7 @@ fn test_despawn_removes_and_broadcasts() {
 fn test_gravity_pulls_entity_down() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 10, 0})
 	e.floor_y = 0 // let it fall
 	m.tick()
 	assert e.pos.y < 10
@@ -249,7 +249,7 @@ fn test_gravity_pulls_entity_down() {
 fn test_entity_rests_on_floor() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
 	// floor_y defaults to spawn y, so it should not sink.
 	m.tick()
 	assert e.pos.y == 5
@@ -260,7 +260,7 @@ fn test_entity_lands_on_solid_block() {
 	mut host := &FakeHost{}
 	host.set_solid(0, 4, 0) // block top at y=5
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 10, 0.5})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0.5, 10, 0.5})
 	e.floor_y = -64 // let real block detection do the work, not the fallback
 	for _ in 0 .. 40 {
 		m.tick()
@@ -273,12 +273,12 @@ fn test_entity_does_not_pass_through_wall() {
 	mut host := &FakeHost{}
 	host.set_solid(1, 5, 0) // wall east of the entity
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 5, 0.5})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = 5
 	e.no_gravity = true
-	e.set_velocity(types.Vector3{0.5, 0, 0}) // push toward the wall
+	e.set_velocity(model.Vector3{0.5, 0, 0}) // push toward the wall
 	for _ in 0 .. 10 {
-		e.set_velocity(types.Vector3{0.5, 0, 0})
+		e.set_velocity(model.Vector3{0.5, 0, 0})
 		m.tick()
 	}
 	assert e.pos.x < 1.0 // blocked before entering the wall block at x=1
@@ -288,11 +288,11 @@ fn test_entity_steps_up_slab_height_ledge() {
 	mut host := &FakeHost{}
 	host.set_slab(2, 5, 0) // top surface at y=5.5 - a 0.5 block step up
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 5, 0.5})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = 5
 	e.no_gravity = true
 	for _ in 0 .. 20 {
-		e.set_velocity(types.Vector3{0.3, 0, 0})
+		e.set_velocity(model.Vector3{0.3, 0, 0})
 		m.tick()
 	}
 	assert e.pos.x > 2.0 // stepped up and continued past the slab, not stuck at its vertical face
@@ -308,11 +308,11 @@ fn test_entity_without_collision_passes_through_wall() {
 		dimensions: Dimensions{
 			has_collision: false
 		}
-	}, types.Vector3{0.5, 5, 0.5})
+	}, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = 5
 	e.no_gravity = true
 	for _ in 0 .. 10 {
-		e.set_velocity(types.Vector3{0.5, 0, 0})
+		e.set_velocity(model.Vector3{0.5, 0, 0})
 		m.tick()
 	}
 	assert e.pos.x > 1.0 // has_collision: false skips block collision entirely
@@ -322,12 +322,12 @@ fn test_entity_ignores_non_air_blocks_without_collision_boxes() {
 	mut host := &FakeHost{}
 	host.set_empty_non_air(1, 5, 0)
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 5, 0.5})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = 5
 	e.no_gravity = true
-	e.set_velocity(types.Vector3{0.5, 0, 0})
+	e.set_velocity(model.Vector3{0.5, 0, 0})
 	for _ in 0 .. 4 {
-		e.set_velocity(types.Vector3{0.5, 0, 0})
+		e.set_velocity(model.Vector3{0.5, 0, 0})
 		m.tick()
 	}
 	assert e.pos.x > 1.0
@@ -337,7 +337,7 @@ fn test_no_fall_damage_within_safe_distance() {
 	mut host := &FakeHost{}
 	host.set_solid(0, 8, 0) // block top at y=9, just below the spawn point
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0.5, 10, 0.5})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0.5, 10, 0.5})
 	e.floor_y = -1000
 	for _ in 0 .. 30 {
 		m.tick()
@@ -354,7 +354,7 @@ fn test_projectile_takes_no_fall_damage() {
 	host.set_solid(0, 0, 0) // block top at y=1
 	mut m := new_manager(host)
 	mut e :=
-		m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:arrow', max_age: 1000 }, types.Vector3{0.5, 10, 0.5})
+		m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:arrow', max_age: 1000 }, model.Vector3{0.5, 10, 0.5})
 	for _ in 0 .. 60 {
 		m.tick()
 		if e.on_ground || m.count() == 0 {
@@ -367,7 +367,7 @@ fn test_projectile_takes_no_fall_damage() {
 fn test_spawn_uses_near_broadcast() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
+	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 10, 0})
 	assert host.near_queries == 1 // spawn asks for nearby viewers once
 }
 
@@ -377,7 +377,7 @@ fn test_mob_never_despawns_when_nobody_is_registered_in_the_world() {
 	mut e := m.spawn(&PassiveBehaviour{
 		network_id:     'minecraft:pig'
 		despawn_policy: natural_mob_despawn_policy
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	for _ in 0 .. 20 {
 		m.tick()
@@ -387,13 +387,13 @@ fn test_mob_never_despawns_when_nobody_is_registered_in_the_world() {
 
 fn test_mob_never_despawns_near_registered_player() {
 	mut host := &FakeHost{}
-	host.players[999] = types.Vector3{1, 5, 0} // well within despawn_never_radius
+	host.players[999] = model.Vector3{1, 5, 0} // well within despawn_never_radius
 	mut m := new_manager(host)
-	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{1, 5, 0} }, new_actor_id(999, 0))
+	m.register_player_actor(&FakeActor{ rid: 999, pos: model.Vector3{1, 5, 0} }, new_actor_id(999, 0))
 	mut e := m.spawn(&PassiveBehaviour{
 		network_id:     'minecraft:pig'
 		despawn_policy: natural_mob_despawn_policy
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	for _ in 0 .. 20 {
 		m.tick()
@@ -403,13 +403,13 @@ fn test_mob_never_despawns_near_registered_player() {
 
 fn test_mob_despawns_when_far_from_only_registered_player() {
 	mut host := &FakeHost{}
-	host.players[999] = types.Vector3{5000, 5, 0}
+	host.players[999] = model.Vector3{5000, 5, 0}
 	mut m := new_manager(host)
-	m.register_player_actor(&FakeActor{ rid: 999, pos: types.Vector3{5000, 5, 0} }, new_actor_id(999, 0))
+	m.register_player_actor(&FakeActor{ rid: 999, pos: model.Vector3{5000, 5, 0} }, new_actor_id(999, 0))
 	mut e := m.spawn(&PassiveBehaviour{
 		network_id:     'minecraft:pig'
 		despawn_policy: natural_mob_despawn_policy
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	m.tick()
 	assert m.count() == 0
@@ -418,7 +418,7 @@ fn test_mob_despawns_when_far_from_only_registered_player() {
 fn test_by_runtime_id_finds_live_entity_and_none_after_despawn() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 10, 0})
+	e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 10, 0})
 	found := m.by_runtime_id(e.runtime_id) or { panic('expected the entity to be found') }
 	assert found.runtime_id == e.runtime_id
 	m.despawn(e.runtime_id)
@@ -427,9 +427,9 @@ fn test_by_runtime_id_finds_live_entity_and_none_after_despawn() {
 
 fn test_hostile_behaviour_chases_target_set_by_on_hurt() {
 	mut host := &FakeHost{}
-	host.positions[99] = types.Vector3{10, 5, 0}
+	host.positions[99] = model.Vector3{10, 5, 0}
 	mut m := new_manager(host)
-	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	e.no_gravity = true
 	// Before being hurt, a HostileBehaviour has no target and shouldn't
@@ -445,12 +445,12 @@ fn test_hostile_behaviour_chases_target_set_by_on_hurt() {
 
 fn test_hostile_behaviour_melee_attacks_once_in_range_and_stops_moving() {
 	mut host := &FakeHost{}
-	host.positions[99] = types.Vector3{1.5, 5, 0} // within mob_attack_range (2.0) of the mob
+	host.positions[99] = model.Vector3{1.5, 5, 0} // within mob_attack_range (2.0) of the mob
 	mut m := new_manager(host)
 	mut e := m.spawn(&HostileBehaviour{
 		network_id:    'minecraft:zombie'
 		attack_damage: 4.0
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	e.no_gravity = true
 	e.hurt(mut host, 1, false, 99)
@@ -468,10 +468,10 @@ fn test_hostile_behaviour_melee_attacks_once_in_range_and_stops_moving() {
 
 fn test_hostile_behaviour_does_not_acquire_target_without_line_of_sight() {
 	mut host := &FakeHost{}
-	host.players[99] = types.Vector3{5, 5, 0}
+	host.players[99] = model.Vector3{5, 5, 0}
 	host.visible = false
 	mut m := new_manager(host)
-	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	e.no_gravity = true
 
@@ -483,9 +483,9 @@ fn test_hostile_behaviour_does_not_acquire_target_without_line_of_sight() {
 
 fn test_hostile_behaviour_gives_up_chase_after_losing_line_of_sight() {
 	mut host := &FakeHost{}
-	host.positions[99] = types.Vector3{10, 5, 0}
+	host.positions[99] = model.Vector3{10, 5, 0}
 	mut m := new_manager(host)
-	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&HostileBehaviour{ network_id: 'minecraft:zombie' }, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	e.no_gravity = true
 	e.hurt(mut host, 1, false, 99)
@@ -497,7 +497,7 @@ fn test_hostile_behaviour_gives_up_chase_after_losing_line_of_sight() {
 	for _ in 0 .. los_give_up_ticks + 1 {
 		m.tick()
 	}
-	e.velocity = types.Vector3{}
+	e.velocity = model.Vector3{}
 	m.tick()
 	assert e.velocity.x == 0 // gave up
 }
@@ -505,7 +505,7 @@ fn test_hostile_behaviour_gives_up_chase_after_losing_line_of_sight() {
 fn test_hurt_behaviour_not_dispatched_to_passive_mobs() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
 	e.hurt(mut host, 5, true, 99)
 	assert e.health == 15 // damage still applies, just no HurtBehaviour reaction
 }
@@ -513,7 +513,7 @@ fn test_hurt_behaviour_not_dispatched_to_passive_mobs() {
 fn test_hurt_broadcasts_hurt_event_and_health_attribute_update() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
 	host.viewer_queries = 0 // spawn's own lookup was the near one
 	e.hurt(mut host, 5, true, 99)
 	assert host.viewer_queries == 2 // hurt asks once, the health that follows asks again
@@ -522,7 +522,7 @@ fn test_hurt_broadcasts_hurt_event_and_health_attribute_update() {
 fn test_heal_broadcasts_health_attribute_update() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
 	e.health = 10
 	host.viewer_queries = 0
 	e.heal(mut host, 5)
@@ -537,7 +537,7 @@ fn test_projectile_hits_entity_via_entity_hit_test() {
 	mut e := m.spawn(&ProjectileBehaviour{
 		network_id: 'minecraft:snowball'
 		damage:     3
-	}, types.Vector3{0, 10, 0})
+	}, model.Vector3{0, 10, 0})
 	e.no_gravity = true
 	e.age = 2 // past the spawn tick guard
 	m.tick()
@@ -555,7 +555,7 @@ fn test_projectile_doesnt_hit_owner_within_immunity_window() {
 		network_id:       'minecraft:snowball'
 		damage:           3
 		owner_runtime_id: 77
-	}, types.Vector3{0, 10, 0})
+	}, model.Vector3{0, 10, 0})
 	e.no_gravity = true
 	e.age = 2 // inside owner_immunity_ticks (5)
 	m.tick()
@@ -571,7 +571,7 @@ fn test_projectile_can_hit_owner_after_immunity_window() {
 		network_id:       'minecraft:arrow'
 		damage:           3
 		owner_runtime_id: 77
-	}, types.Vector3{0, 10, 0})
+	}, model.Vector3{0, 10, 0})
 	e.no_gravity = true
 	e.age = 5 // owner_immunity_ticks has fully elapsed
 	m.tick()
@@ -583,7 +583,7 @@ fn test_projectile_can_hit_owner_after_immunity_window() {
 fn test_entity_takes_poison_damage_on_tick() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
 	e.add_effect(mut host, effect.new(effect.poison, 1, 5 * time.second))
 	for _ in 0 .. 51 {
 		m.tick()
@@ -594,7 +594,7 @@ fn test_entity_takes_poison_damage_on_tick() {
 fn test_entity_heals_from_instant_health_effect() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
+	mut e := m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
 	e.health = 10
 	e.add_effect(mut host, effect.new_instant(effect.instant_health, 1))
 	assert e.health > 10
@@ -607,11 +607,11 @@ fn test_projectile_survives_block_collision_and_freezes() {
 	mut e := m.spawn(&ProjectileBehaviour{
 		network_id:              'minecraft:arrow'
 		survive_block_collision: true
-	}, types.Vector3{0.5, 5, 0.5})
+	}, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = 5
 	e.no_gravity = true
 	e.age = 2 // past the spawn tick guard
-	e.set_velocity(types.Vector3{0.5, 0, 0})
+	e.set_velocity(model.Vector3{0.5, 0, 0})
 	m.tick() // hits the wall this tick, cancels velocity, flags hit_block
 	m.tick() // behaviour sees hit_block and freezes
 	assert m.count() == 1 // stuck, not despawned
@@ -630,11 +630,11 @@ fn test_projectile_without_survive_despawns_on_wall_hit() {
 	mut e := m.spawn(&ProjectileBehaviour{
 		network_id:              'minecraft:snowball'
 		survive_block_collision: false
-	}, types.Vector3{0.5, 5, 0.5})
+	}, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = 5
 	e.no_gravity = true
 	e.age = 2
-	e.set_velocity(types.Vector3{0.5, 0, 0})
+	e.set_velocity(model.Vector3{0.5, 0, 0})
 	m.tick() // hits the wall this tick, cancels velocity, flags hit_block
 	m.tick() // behaviour sees hit_block and despawns
 	// previously only landing on top (on_ground) despawned a projectile.
@@ -647,7 +647,7 @@ fn test_projectile_gravity_is_configurable_per_instance() {
 	mut light := light_m.spawn(&ProjectileBehaviour{
 		network_id:    'minecraft:snowball'
 		gravity_accel: 0.03
-	}, types.Vector3{0, 100, 0})
+	}, model.Vector3{0, 100, 0})
 	light.floor_y = -1000
 	light.age = 2
 
@@ -656,7 +656,7 @@ fn test_projectile_gravity_is_configurable_per_instance() {
 	mut heavy := heavy_m.spawn(&ProjectileBehaviour{
 		network_id:    'minecraft:arrow'
 		gravity_accel: 0.05
-	}, types.Vector3{0, 100, 0})
+	}, model.Vector3{0, 100, 0})
 	heavy.floor_y = -1000
 	heavy.age = 2
 
@@ -673,13 +673,13 @@ fn test_hostile_behaviour_proactively_targets_nearby_player_without_being_hurt()
 	// existing entity_position lookup the chase step already uses.
 	// A real Hub resolves both from the same live session, FakeHost keeps
 	// them as two settable maps.
-	host.players[99] = types.Vector3{10, 5, 0}
-	host.positions[99] = types.Vector3{10, 5, 0}
+	host.players[99] = model.Vector3{10, 5, 0}
+	host.positions[99] = model.Vector3{10, 5, 0}
 	mut m := new_manager(host)
 	mut e := m.spawn(&HostileBehaviour{
 		network_id:       'minecraft:zombie'
 		detection_radius: 16.0
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	e.no_gravity = true
 	m.tick()
@@ -693,16 +693,16 @@ fn test_hostile_behaviour_gives_up_target_out_of_range() {
 	mut e := m.spawn(&HostileBehaviour{
 		network_id:       'minecraft:zombie'
 		detection_radius: 10.0
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.floor_y = 5
 	e.no_gravity = true
 	e.hurt(mut host, 1, true, 99)
-	host.positions[99] = types.Vector3{9, 5, 0} // within detection_radius * 1.5
+	host.positions[99] = model.Vector3{9, 5, 0} // within detection_radius * 1.5
 	m.tick()
 	assert e.velocity.x > 0 // still chasing
 
-	host.positions[99] = types.Vector3{100, 5, 0} // far past the giveup range
-	e.set_velocity(types.Vector3{})
+	host.positions[99] = model.Vector3{100, 5, 0} // far past the giveup range
+	e.set_velocity(model.Vector3{})
 	m.tick()
 	assert e.velocity.x == 0 // gave up, back to wandering
 }
@@ -720,7 +720,7 @@ fn test_find_path_routes_around_wall_gap() {
 	host.set_floor(-1, 6, -1, 2, 4)
 	host.set_solid(3, 5, -1)
 	host.set_solid(3, 5, 0)
-	path := find_path(mut host, types.Vector3{0.5, 5, 0.5}, types.Vector3{5.5, 5, 0.5}, Dimensions{}) or {
+	path := find_path(mut host, model.Vector3{0.5, 5, 0.5}, model.Vector3{5.5, 5, 0.5}, Dimensions{}) or {
 		panic('expected a path around the gap')
 	}
 	assert path.len > 0
@@ -741,7 +741,7 @@ fn test_find_path_does_not_cut_diagonal_corners() {
 	host.set_floor(-2, 3, -2, 3, 4)
 	host.set_solid(1, 5, 0)
 	host.set_solid(0, 5, 1)
-	path := find_path(mut host, types.Vector3{0.5, 5, 0.5}, types.Vector3{1.5, 5, 1.5}, Dimensions{}) or {
+	path := find_path(mut host, model.Vector3{0.5, 5, 0.5}, model.Vector3{1.5, 5, 1.5}, Dimensions{}) or {
 		panic('expected a path around the corner')
 	}
 	assert path.len > 0
@@ -756,7 +756,7 @@ fn test_find_path_returns_none_when_completely_enclosed() {
 	host.set_solid(-1, 5, 0)
 	host.set_solid(0, 5, 1)
 	host.set_solid(0, 5, -1)
-	if _ := find_path(mut host, types.Vector3{0.5, 5, 0.5}, types.Vector3{50.5, 5, 0.5}, Dimensions{}) {
+	if _ := find_path(mut host, model.Vector3{0.5, 5, 0.5}, model.Vector3{50.5, 5, 0.5}, Dimensions{}) {
 		assert false
 	}
 }
@@ -766,13 +766,13 @@ fn test_hostile_mob_navigates_around_wall_to_reach_target() {
 	host.set_floor(-1, 6, -1, 2, 4)
 	host.set_solid(3, 5, -1)
 	host.set_solid(3, 5, 0)
-	host.positions[42] = types.Vector3{5.5, 5, 0.5}
-	host.players[42] = types.Vector3{5.5, 5, 0.5}
+	host.positions[42] = model.Vector3{5.5, 5, 0.5}
+	host.players[42] = model.Vector3{5.5, 5, 0.5}
 	mut m := new_manager(host)
 	mut e := m.spawn(&HostileBehaviour{
 		network_id:       'minecraft:zombie'
 		detection_radius: 20.0
-	}, types.Vector3{0.5, 5, 0.5})
+	}, model.Vector3{0.5, 5, 0.5})
 	e.floor_y = -1000 // no fallback floor: must actually stand on the real blocks
 	mut max_z := e.pos.z
 	for _ in 0 .. 400 {
@@ -820,8 +820,8 @@ fn test_load_entities_missing_file_returns_empty() {
 fn test_save_snapshot_excludes_projectiles() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, types.Vector3{0, 5, 0})
-	m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:arrow' }, types.Vector3{1, 5, 0})
+	m.spawn(&PassiveBehaviour{ network_id: 'minecraft:pig' }, model.Vector3{0, 5, 0})
+	m.spawn(&ProjectileBehaviour{ network_id: 'minecraft:arrow' }, model.Vector3{1, 5, 0})
 	saved := m.save_snapshot()
 	assert saved.len == 1
 	assert saved[0].type_name == 'pig'
@@ -874,8 +874,8 @@ fn test_restore_from_save_skips_unrecognized_type() {
 	assert m.count() == 0
 }
 
-fn spawn_item(mut m Manager, id int, count int, max_stack_size int, pos types.Vector3) &Entity {
-	stack := types.ItemStack{
+fn spawn_item(mut m Manager, id int, count int, max_stack_size int, pos model.Vector3) &Entity {
+	stack := model.ItemStack{
 		id:    id
 		count: count
 	}
@@ -883,7 +883,7 @@ fn spawn_item(mut m Manager, id int, count int, max_stack_size int, pos types.Ve
 }
 
 fn test_item_identifier_and_dimensions() {
-	b := new_item_behaviour(types.ItemStack{ id: 1, count: 1 }, 64, item_pickup_delay_ticks)
+	b := new_item_behaviour(model.ItemStack{ id: 1, count: 1 }, 64, item_pickup_delay_ticks)
 	assert b.identifier() == 'minecraft:item'
 	assert b.dimensions().width == f32(0.25)
 	assert b.dimensions().height == f32(0.25)
@@ -895,7 +895,7 @@ fn test_item_identifier_and_dimensions() {
 fn test_item_despawns_after_existence_duration() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut e := spawn_item(mut m, 5, 1, 64, types.Vector3{0, 5, 0})
+	mut e := spawn_item(mut m, 5, 1, 64, model.Vector3{0, 5, 0})
 	e.age = item_existence_duration_ticks
 	m.tick()
 	assert m.count() == 0
@@ -903,10 +903,10 @@ fn test_item_despawns_after_existence_duration() {
 
 fn test_item_does_not_attempt_pickup_before_delay_elapses() {
 	mut host := &FakeHost{}
-	host.players[1] = types.Vector3{0, 5, 0}
+	host.players[1] = model.Vector3{0, 5, 0}
 	host.collect_response = 1
 	mut m := new_manager(host)
-	mut e := spawn_item(mut m, 5, 1, 64, types.Vector3{0, 5, 0})
+	mut e := spawn_item(mut m, 5, 1, 64, model.Vector3{0, 5, 0})
 	// tick() increments age before ItemBehaviour.tick() checks it
 	e.age = item_pickup_delay_ticks - 2
 	m.tick()
@@ -916,10 +916,10 @@ fn test_item_does_not_attempt_pickup_before_delay_elapses() {
 
 fn test_item_fully_collected_despawns_and_notifies_pickup() {
 	mut host := &FakeHost{}
-	host.players[7] = types.Vector3{0, 5, 0}
+	host.players[7] = model.Vector3{0, 5, 0}
 	host.collect_response = 4
 	mut m := new_manager(host)
-	mut e := spawn_item(mut m, 5, 4, 64, types.Vector3{0, 5, 0})
+	mut e := spawn_item(mut m, 5, 4, 64, model.Vector3{0, 5, 0})
 	e.age = item_pickup_delay_ticks
 	m.tick()
 	assert host.collect_calls == 1
@@ -932,10 +932,10 @@ fn test_item_fully_collected_despawns_and_notifies_pickup() {
 
 fn test_item_partially_collected_shrinks_stack_and_survives() {
 	mut host := &FakeHost{}
-	host.players[7] = types.Vector3{0, 5, 0}
+	host.players[7] = model.Vector3{0, 5, 0}
 	host.collect_response = 3 // less than the stack's 10
 	mut m := new_manager(host)
-	mut e := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	mut e := spawn_item(mut m, 5, 10, 64, model.Vector3{0, 5, 0})
 	e.age = item_pickup_delay_ticks
 	m.tick()
 	assert m.count() == 1
@@ -948,10 +948,10 @@ fn test_item_partially_collected_shrinks_stack_and_survives() {
 
 fn test_item_collect_response_zero_leaves_item_untouched() {
 	mut host := &FakeHost{}
-	host.players[7] = types.Vector3{0, 5, 0}
+	host.players[7] = model.Vector3{0, 5, 0}
 	host.collect_response = 0 // inventory full, nothing taken
 	mut m := new_manager(host)
-	mut e := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
+	mut e := spawn_item(mut m, 5, 10, 64, model.Vector3{0, 5, 0})
 	e.age = item_pickup_delay_ticks
 	m.tick()
 	assert m.count() == 1
@@ -961,8 +961,8 @@ fn test_item_collect_response_zero_leaves_item_untouched() {
 fn test_items_merge_when_compatible_and_within_radius() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
-	mut b := spawn_item(mut m, 5, 20, 64, types.Vector3{0.5, 5, 0})
+	mut a := spawn_item(mut m, 5, 10, 64, model.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 5, 20, 64, model.Vector3{0.5, 5, 0})
 	a.age = item_pickup_delay_ticks
 	b.age = item_pickup_delay_ticks
 	m.merge_items()
@@ -979,8 +979,8 @@ fn test_items_merge_when_compatible_and_within_radius() {
 fn test_items_do_not_merge_with_different_item_ids() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
-	mut b := spawn_item(mut m, 6, 10, 64, types.Vector3{0.5, 5, 0})
+	mut a := spawn_item(mut m, 5, 10, 64, model.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 6, 10, 64, model.Vector3{0.5, 5, 0})
 	a.age = item_pickup_delay_ticks
 	b.age = item_pickup_delay_ticks
 	m.merge_items()
@@ -991,8 +991,8 @@ fn test_items_do_not_merge_with_different_item_ids() {
 fn test_items_do_not_merge_outside_merge_radius() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
-	mut b := spawn_item(mut m, 5, 10, 64, types.Vector3{20, 5, 0})
+	mut a := spawn_item(mut m, 5, 10, 64, model.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 5, 10, 64, model.Vector3{20, 5, 0})
 	a.age = item_pickup_delay_ticks
 	b.age = item_pickup_delay_ticks
 	m.merge_items()
@@ -1003,8 +1003,8 @@ fn test_items_do_not_merge_outside_merge_radius() {
 fn test_items_do_not_merge_before_pickup_delay_elapses() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut a := spawn_item(mut m, 5, 10, 64, types.Vector3{0, 5, 0})
-	mut b := spawn_item(mut m, 5, 10, 64, types.Vector3{0.5, 5, 0})
+	mut a := spawn_item(mut m, 5, 10, 64, model.Vector3{0, 5, 0})
+	mut b := spawn_item(mut m, 5, 10, 64, model.Vector3{0.5, 5, 0})
 	// both left at age 0 - still within pickup_delay_ticks
 	m.merge_items()
 	assert m.count() == 2
@@ -1014,8 +1014,8 @@ fn test_items_do_not_merge_before_pickup_delay_elapses() {
 fn test_item_merge_only_fills_available_room() {
 	mut host := &FakeHost{}
 	mut m := new_manager(host)
-	mut a := spawn_item(mut m, 5, 60, 64, types.Vector3{0, 5, 0}) // room for 4 more
-	mut b := spawn_item(mut m, 5, 10, 64, types.Vector3{0.5, 5, 0})
+	mut a := spawn_item(mut m, 5, 60, 64, model.Vector3{0, 5, 0}) // room for 4 more
+	mut b := spawn_item(mut m, 5, 10, 64, model.Vector3{0.5, 5, 0})
 	a.age = item_pickup_delay_ticks
 	b.age = item_pickup_delay_ticks
 	m.merge_items()
@@ -1038,8 +1038,8 @@ fn test_save_snapshot_excludes_items() {
 	mut m := new_manager(host)
 	m.spawn(&PassiveBehaviour{
 		network_id: 'minecraft:pig'
-	}, types.Vector3{0, 5, 0})
-	spawn_item(mut m, 5, 1, 64, types.Vector3{1, 5, 0})
+	}, model.Vector3{0, 5, 0})
+	spawn_item(mut m, 5, 1, 64, model.Vector3{1, 5, 0})
 	saved := m.save_snapshot()
 	assert saved.len == 1
 	assert saved[0].type_name == 'pig'
@@ -1050,7 +1050,7 @@ fn test_passive_mob_on_death_drops_registered_loot() {
 	mut m := new_manager(host)
 	mut e := m.spawn(&PassiveBehaviour{
 		network_id: 'minecraft:pig'
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.hurt(mut host, 20, true, 0)
 	assert e.dead
 	assert host.dropped_items.len == 1
@@ -1063,7 +1063,7 @@ fn test_hostile_mob_on_death_drops_registered_loot() {
 	mut m := new_manager(host)
 	mut e := m.spawn(&HostileBehaviour{
 		network_id: 'minecraft:zombie'
-	}, types.Vector3{0, 5, 0})
+	}, model.Vector3{0, 5, 0})
 	e.hurt(mut host, 20, true, 0)
 	assert e.dead
 	for d in host.dropped_items {

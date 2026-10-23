@@ -2,7 +2,7 @@ module session
 
 import math
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.block
 import server.entity
 import server.item
@@ -10,7 +10,7 @@ import server.internal.gamedata
 import server.worldrt
 import server.player
 
-fn spawn_dropped_item_entity(mut tx worldrt.WorldTx, stack types.ItemStack, max_stack_size int, pos types.Vector3, velocity types.Vector3, pickup_delay_ticks i64) {
+fn spawn_dropped_item_entity(mut tx worldrt.WorldTx, stack model.ItemStack, max_stack_size int, pos model.Vector3, velocity model.Vector3, pickup_delay_ticks i64) {
 	if stack.count <= 0 || stack.id == 0 {
 		return
 	}
@@ -19,7 +19,7 @@ fn spawn_dropped_item_entity(mut tx worldrt.WorldTx, stack types.ItemStack, max_
 	e.set_velocity(velocity)
 }
 
-fn spawn_dropped_item_stack(mut tx worldrt.WorldTx, item_name string, count int, pos types.Vector3) {
+fn spawn_dropped_item_stack(mut tx worldrt.WorldTx, item_name string, count int, pos model.Vector3) {
 	if count <= 0 {
 		return
 	}
@@ -28,11 +28,11 @@ fn spawn_dropped_item_stack(mut tx worldrt.WorldTx, item_name string, count int,
 		return
 	}
 	max_stack := item.max_stack_size(item_name)
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:    id
 		count: count
 	}
-	velocity := types.Vector3{
+	velocity := model.Vector3{
 		x: (rand.f32() * 0.2) - 0.1
 		y: 0.2
 		z: (rand.f32() * 0.2) - 0.1
@@ -40,7 +40,7 @@ fn spawn_dropped_item_stack(mut tx worldrt.WorldTx, item_name string, count int,
 	spawn_dropped_item_entity(mut tx, stack, max_stack, pos, velocity, entity.item_pickup_delay_ticks)
 }
 
-fn drop_player_item(mut tx worldrt.WorldTx, s &NetworkSession, stack types.ItemStack) {
+fn drop_player_item(mut tx worldrt.WorldTx, s &NetworkSession, stack model.ItemStack) {
 	feet := s.feet_position()
 	movement := s.player.movement()
 	yaw_rad := f32(movement.yaw) * f32(math.pi) / 180.0
@@ -48,8 +48,8 @@ fn drop_player_item(mut tx worldrt.WorldTx, s &NetworkSession, stack types.ItemS
 	dir_x := -math.sinf(yaw_rad) * math.cosf(pitch_rad)
 	dir_y := -math.sinf(pitch_rad)
 	dir_z := math.cosf(yaw_rad) * math.cosf(pitch_rad)
-	drop_pos := types.Vector3{feet.x, feet.y + 1.3, feet.z}
-	velocity := types.Vector3{dir_x * 0.4, dir_y * 0.4 + 0.1, dir_z * 0.4}
+	drop_pos := model.Vector3{feet.x, feet.y + 1.3, feet.z}
+	velocity := model.Vector3{dir_x * 0.4, dir_y * 0.4 + 0.1, dir_z * 0.4}
 	max_stack := s.max_stack_size_for_numeric(stack.id)
 	spawn_dropped_item_entity(mut tx, stack, max_stack, drop_pos, velocity, entity.item_drop_pickup_delay_ticks)
 }
@@ -71,7 +71,7 @@ fn block_drop_for(data &gamedata.GameData, block_id int) (string, int) {
 	return data.item_name(item_id), 1
 }
 
-fn (mut s NetworkSession) try_collect_item(stack types.ItemStack) int {
+fn (mut s NetworkSession) try_collect_item(stack model.ItemStack) int {
 	if s.player.is_dead() {
 		return 0
 	}
@@ -109,12 +109,12 @@ fn (mut s NetworkSession) try_collect_item(stack types.ItemStack) int {
 	return stack.count - remaining
 }
 
-fn (mut h WorldEntityHost) spawn_dropped_item(item_name string, count int, pos types.Vector3) {
+fn (mut h WorldEntityHost) spawn_dropped_item(item_name string, count int, pos model.Vector3) {
 	mut tx := h.tx()
 	spawn_dropped_item_stack(mut tx, item_name, count, pos)
 }
 
-fn (mut h WorldEntityHost) collect_item(runtime_id u64, stack types.ItemStack) int {
+fn (mut h WorldEntityHost) collect_item(runtime_id u64, stack model.ItemStack) int {
 	mut a := h.wr.entities.actor_by_runtime_id(runtime_id) or { return 0 }
 	if mut a is NetworkSession {
 		return a.try_collect_item(stack)

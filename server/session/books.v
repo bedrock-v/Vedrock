@@ -1,17 +1,17 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.item
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // Book edits are session local inventory work: item lookup uses shared
 // readonly data, and mutation goes through Player's state lock.
-fn (mut s NetworkSession) handle_book_edit(p packets_924.BookEditPacket) ! {
+fn (mut s NetworkSession) handle_book_edit(p packets.BookEditPacket) ! {
 	s.apply_book_edit(p)
 }
 
-fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
+fn (mut s NetworkSession) apply_book_edit(p packets.BookEditPacket) {
 	stack, net := s.inventory_stack_at(p.book_slot)
 	if net == 0 {
 		return
@@ -21,13 +21,13 @@ fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
 	}
 
 	mut pages := item.book_pages_from_nbt(stack.raw_extra_data)
-	action := proto.book_edit_action(p.action)
+	action := p.action
 	match action {
-		proto.BookEditFinalize {
+		enums.BookEditFinalize {
 			s.sign_book(p.book_slot, stack, net, action.title, action.author)
 			return
 		}
-		proto.BookEditReplacePage {
+		enums.BookEditReplacePage {
 			if action.page_index < 0 || action.page_index >= item.max_book_pages {
 				return
 			}
@@ -36,20 +36,20 @@ fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
 			}
 			pages[action.page_index] = truncate_page(action.text)
 		}
-		proto.BookEditAddPage {
+		enums.BookEditAddPage {
 			if action.page_index < 0 || action.page_index > pages.len
 				|| action.page_index >= item.max_book_pages || pages.len >= item.max_book_pages {
 				return
 			}
 			pages.insert(action.page_index, truncate_page(action.text))
 		}
-		proto.BookEditDeletePage {
+		enums.BookEditDeletePage {
 			if action.page_index < 0 || action.page_index >= pages.len {
 				return
 			}
 			pages.delete(action.page_index)
 		}
-		proto.BookEditSwapPages {
+		enums.BookEditSwapPages {
 			if action.page_index_a < 0 || action.page_index_a >= pages.len
 				|| action.page_index_b < 0 || action.page_index_b >= pages.len {
 				return
@@ -61,13 +61,13 @@ fn (mut s NetworkSession) apply_book_edit(p packets_924.BookEditPacket) {
 	mut updated := stack
 	updated.raw_extra_data = item.writable_book_nbt(pages)
 	s.player.put_stack(net, updated)
-	s.send_slot_update(p.book_slot, types.ItemStackWrapper{
+	s.send_slot_update(p.book_slot, model.ItemStackWrapper{
 		stack_id:   net
 		item_stack: updated
 	})
 }
 
-fn (mut s NetworkSession) sign_book(slot int, stack types.ItemStack, net int, title string, author string) {
+fn (mut s NetworkSession) sign_book(slot int, stack model.ItemStack, net int, title string, author string) {
 	written_id := s.hub.data.item_id('minecraft:written_book')
 	if written_id == 0 {
 		return
@@ -77,7 +77,7 @@ fn (mut s NetworkSession) sign_book(slot int, stack types.ItemStack, net int, ti
 	updated.id = written_id
 	updated.raw_extra_data = item.written_book_nbt(truncate_utf8(title, max_book_title_bytes), truncate_utf8(author, max_book_title_bytes), 0, pages)
 	s.player.put_stack(net, updated)
-	s.send_slot_update(slot, types.ItemStackWrapper{
+	s.send_slot_update(slot, model.ItemStackWrapper{
 		stack_id:   net
 		item_stack: updated
 	})

@@ -1,6 +1,6 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.player
 import server.internal.auth
@@ -30,7 +30,7 @@ fn test_pos_keeps_tracking_after_world_switch_roundtrip() {
 		spawned:    true
 		log:        logger.new(.info)
 	}
-	s.player.reset_position(types.Vector3{0.0, 5.0, 0.0})
+	s.player.reset_position(model.Vector3{0.0, 5.0, 0.0})
 	hub.add(s)
 
 	// world_teleport completes the transfer synchronously before returning, so
@@ -48,7 +48,7 @@ fn test_pos_keeps_tracking_after_world_switch_roundtrip() {
 	// continuously after the world switch.
 	mut last := sync_pos
 	for i in 0 .. 200 {
-		last = types.Vector3{sync_pos.x + f32(i) * 0.1, sync_pos.y, sync_pos.z}
+		last = model.Vector3{sync_pos.x + f32(i) * 0.1, sync_pos.y, sync_pos.z}
 		s.update_movement(last, 0.0, 0.0, 0.0, false)
 	}
 
@@ -59,7 +59,7 @@ fn test_pos_keeps_tracking_after_world_switch_roundtrip() {
 	assert s.player.position() == last
 	assert s.movement_scheduled == false
 
-	further := types.Vector3{last.x + 1.0, last.y, last.z}
+	further := model.Vector3{last.x + 1.0, last.y, last.z}
 	s.update_movement(further, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(5 * time.second)
 	for time.now() < deadline2 && s.player.position() != further {

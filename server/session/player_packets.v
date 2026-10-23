@@ -1,19 +1,12 @@
 module session
 
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.effect
 import server.player
 import server.player.skin
-import bedrock_v.protocol.current.enums as enums_2192
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v898.packets as packets_898
-import bedrock_v.protocol.current.types as types_2192
-import bedrock_v.protocol.version.v662.types as types_662
-import bedrock_v.protocol.version.v712.types as types_712
-import bedrock_v.protocol.version.v800.types as types_800
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
+import bedrock_v.protocol.types
 
 const skin_width = u32(64)
 const skin_height = u32(64)
@@ -59,14 +52,14 @@ fn parse_uuid(value string, seed u64) []u8 {
 }
 
 // player_uuid is a player's identity as the client knows it.
-fn player_uuid(p &player.Player) types_662.Uuid {
-	return proto.uuid_from_bytes(parse_uuid(p.identity.uuid, p.runtime_id()))
+fn player_uuid(p &player.Player) types.Uuid {
+	return protocol.uuid_from_bytes(parse_uuid(p.identity.uuid, p.runtime_id()))
 }
 
 // default_skin builds the plain white skin the server hands out to players
 // whose own skin it doesn't track and converts it to the serialized form the
 // client expects.
-fn default_skin(id string) types_2192.SerializedSkin {
+fn default_skin(id string) types.SerializedSkin {
 	mut sk := skin.new(int(skin_width), int(skin_height))
 	sk.id = '${id}.Vedrock'
 	sk.full_id = '${id}.Vedrock'
@@ -82,21 +75,21 @@ fn default_skin(id string) types_2192.SerializedSkin {
 // serialize_skin converts "sk"in to the packet form of a skin. Fields the skin
 // type has no say over, such as the persona pieces, are left at the neutral
 // values a server built skin uses.
-fn serialize_skin(sk skin.Skin) types_2192.SerializedSkin {
+fn serialize_skin(sk skin.Skin) types.SerializedSkin {
 	mut cape_width := u32(0)
 	mut cape_height := u32(0)
 	if sk.cape.exists() {
 		cape_width = u32(sk.cape.width())
 		cape_height = u32(sk.cape.height())
 	}
-	return types_2192.SerializedSkin{
+	return types.SerializedSkin{
 		skin_id:                         sk.id
 		play_fab_id:                     sk.play_fab_id
 		skin_resource_patch:             sk.model_config.encode()
 		skin_image_width:                u32(sk.width())
 		skin_image_height:               u32(sk.height())
 		skin_image_bytes:                sk.pix
-		animations:                      []types_2192.SerializedSkinAnimationFrame{}
+		animations:                      []types.SerializedSkinAnimationFrame{}
 		cape_image_width:                cape_width
 		cape_image_height:               cape_height
 		cape_image_bytes:                sk.cape.pix
@@ -105,10 +98,10 @@ fn serialize_skin(sk skin.Skin) types_2192.SerializedSkin {
 		animation_data:                  ''
 		cape_id:                         sk.cape.id
 		full_id:                         sk.full_id
-		arm_size:                        enums_2192.ArmSizeType.wide
+		arm_size:                        enums.ArmSizeType.wide
 		skin_color:                      0
-		persona_pieces:                  []types_2192.PersonaPiecesEntry{}
-		piece_tint_colors:               []types_2192.PieceTintColorsEntry{}
+		persona_pieces:                  []types.PersonaPiecesEntry{}
+		piece_tint_colors:               []types.PieceTintColorsEntry{}
 		is_premium_skin:                 false
 		is_persona_skin:                 sk.persona
 		is_persona_cape_on_classic_skin: false
@@ -119,22 +112,22 @@ fn serialize_skin(sk skin.Skin) types_2192.SerializedSkin {
 	}
 }
 
-fn (mut s NetworkSession) player_list_add_packet(p &player.Player) &packets_2192.PlayerListPacket {
-	return &packets_2192.PlayerListPacket{
+fn (mut s NetworkSession) player_list_add_packet(p &player.Player) &packets.PlayerListPacket {
+	return &packets.PlayerListPacket{
 		entries: [
-			packets_2192.PlayerListAdd{
-				entry: packets_2192.AddPlayerListEntry{
+			packets.PlayerListAdd{
+				entry: packets.AddPlayerListEntry{
 					uuid:             player_uuid(p)
-					target_actor_id:  proto.actor_unique_id(i64(s.wire_id_for(p.runtime_id())))
+					target_actor_id:  protocol.actor_unique_id(i64(s.wire_id_for(p.runtime_id())))
 					player_name:      p.identity.display_name
 					xbl_xuid:         p.identity.xuid
 					platform_chat_id: ''
-					build_platform:   enums_662.BuildPlatform.unknown
+					build_platform:   enums.BuildPlatform.unknown
 					serialized_skin:  default_skin(p.identity.display_name)
 					is_teacher:       false
 					is_host:          false
 					is_sub_client:    false
-					color:            types_800.Color{
+					color:            types.Color{
 						r: -1
 						g: -1
 						b: -1
@@ -146,32 +139,32 @@ fn (mut s NetworkSession) player_list_add_packet(p &player.Player) &packets_2192
 	}
 }
 
-fn (mut s NetworkSession) player_list_remove_packet(p &player.Player) &packets_2192.PlayerListPacket {
-	return &packets_2192.PlayerListPacket{
+fn (mut s NetworkSession) player_list_remove_packet(p &player.Player) &packets.PlayerListPacket {
+	return &packets.PlayerListPacket{
 		entries: [
-			packets_2192.PlayerListRemove{
+			packets.PlayerListRemove{
 				uuid: player_uuid(p)
 			},
 		]
 	}
 }
 
-fn (mut s NetworkSession) add_player_packet(p &player.Player) &packets_2168.AddPlayerPacket {
+fn (mut s NetworkSession) add_player_packet(p &player.Player) &packets.AddPlayerPacket {
 	current := p.movement()
-	mut packet := &packets_2168.AddPlayerPacket{
+	mut packet := &packets.AddPlayerPacket{
 		uuid:              player_uuid(p)
 		player_name:       p.identity.display_name
-		target_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
+		target_runtime_id: protocol.actor_runtime_id(s.wire_id_for(p.runtime_id()))
 		platform_chat_id:  ''
 		y_head_rotation:   current.head_yaw
-		carried_item:      proto.item_descriptor(p.held_item().item_stack)
-		player_game_type:  proto.game_type(gamemode_to_wire(p.game_mode()))
+		carried_item:      protocol.item_descriptor(p.held_item().item_stack)
+		player_game_type:  protocol.game_type(gamemode_to_wire(p.game_mode()))
 		entity_data:       visible_name_metadata(p.identity.display_name)
-		synced_properties: types_662.PropertySyncData{}
+		synced_properties: types.PropertySyncData{}
 		abilities_data:    s.build_abilities_for(p)
-		actor_links:       []types_712.ActorLink{}
+		actor_links:       []types.ActorLink{}
 		device_id:         ''
-		build_platform:    enums_662.BuildPlatform.unknown
+		build_platform:    enums.BuildPlatform.unknown
 	}
 	packet.position[0] = current.position.x
 	packet.position[1] = current.position.y
@@ -184,35 +177,35 @@ fn (mut s NetworkSession) add_player_packet(p &player.Player) &packets_2168.AddP
 	return packet
 }
 
-fn (mut s NetworkSession) remove_actor_packet(p &player.Player) &packets_662.RemoveActorPacket {
-	return &packets_662.RemoveActorPacket{
-		target_actor_id: proto.actor_unique_id(i64(s.wire_id_for(p.runtime_id())))
+fn (mut s NetworkSession) remove_actor_packet(p &player.Player) &packets.RemoveActorPacket {
+	return &packets.RemoveActorPacket{
+		target_actor_id: protocol.actor_unique_id(i64(s.wire_id_for(p.runtime_id())))
 	}
 }
 
 // move_actor_packet is a player's position as other clients see it. It takes
 // the player because a viewer builds it for whoever it is being shown.
-fn (mut s NetworkSession) move_actor_packet(p &player.Player) &packets_662.MoveActorAbsolutePacket {
+fn (mut s NetworkSession) move_actor_packet(p &player.Player) &packets.MoveActorAbsolutePacket {
 	current := p.movement()
-	return &packets_662.MoveActorAbsolutePacket{
-		move_data: types_662.MoveActorAbsoluteData{
-			actor_runtime_id: proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
-			header:           i8(proto.move_actor_flag_on_ground)
+	return &packets.MoveActorAbsolutePacket{
+		move_data: types.MoveActorAbsoluteData{
+			actor_runtime_id: protocol.actor_runtime_id(s.wire_id_for(p.runtime_id()))
+			header:           i8(protocol.move_actor_flag_on_ground)
 			position_x:       current.position.x
 			position_y:       current.position.y
 			position_z:       current.position.z
-			rotation_x:       proto.rotation_byte(current.pitch)
-			rotation_y:       proto.rotation_byte(current.yaw)
-			rotation_y_head:  proto.rotation_byte(current.head_yaw)
+			rotation_x:       protocol.rotation_byte(current.pitch)
+			rotation_y:       protocol.rotation_byte(current.yaw)
+			rotation_y_head:  protocol.rotation_byte(current.head_yaw)
 		}
 	}
 }
 
 // mob_effect_packet is one effect on a player as the clients around them see
 // it. Same reason for the parameter as move_actor_packet.
-fn (mut s NetworkSession) mob_effect_packet(p &player.Player, e effect.Effect, event_id packets_898.MobEffectEvent) &packets_898.MobEffectPacket {
-	return &packets_898.MobEffectPacket{
-		target_runtime_id:     proto.actor_runtime_id(s.wire_id_for(p.runtime_id()))
+fn (mut s NetworkSession) mob_effect_packet(p &player.Player, e effect.Effect, event_id packets.MobEffectEvent) &packets.MobEffectPacket {
+	return &packets.MobEffectPacket{
+		target_runtime_id:     protocol.actor_runtime_id(s.wire_id_for(p.runtime_id()))
 		event_id:              event_id
 		effect_id:             e.effect_type().id
 		effect_amplifier:      e.level() - 1

@@ -1,7 +1,7 @@
 module session
 
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.enchant
 import server.entity
 import server.internal.gamedata
@@ -98,8 +98,8 @@ fn ignite_victim(mut victim NetworkSession, ticks i64) {
 }
 
 // block_center is where a block's drops appear.
-fn block_center(pos types.BlockPosition) types.Vector3 {
-	return types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
+fn block_center(pos model.BlockPosition) model.Vector3 {
+	return model.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 }
 
 // harvested_drop is what breaking a block leaves for this player: the block

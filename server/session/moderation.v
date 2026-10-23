@@ -1,15 +1,13 @@
 module session
 
 import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.model
+import bedrock_v.protocol
 import server.internal.logger
 import server.entity
 import server.worldrt
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v712.packets as packets_712
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // op / deop
 
@@ -122,7 +120,7 @@ fn (mut s NetworkSession) kill() {
 
 // position is where the player is right now. It reads session state rather
 // than entering the world actor and it is not one of the bridges.
-fn (mut s NetworkSession) position() types.Vector3 {
+fn (mut s NetworkSession) position() model.Vector3 {
 	return s.current_position()
 }
 
@@ -168,7 +166,7 @@ fn (mut s NetworkSession) submit_teleport(x f32, y f32, z f32) {
 	if isnil(wr) {
 		return
 	}
-	pos := types.Vector3{x, y, z}
+	pos := model.Vector3{x, y, z}
 	id := s.actor_id()
 	s.expect_teleport_ack(pos)
 	moved := worldrt.world_call[bool]('Player.teleport', mut wr, fn [id, pos] (mut tx worldrt.WorldTx) bool {
@@ -199,25 +197,25 @@ fn (mut s NetworkSession) reload_chunks(radius int) {
 		s.chunk_stream_mutex.unlock()
 	}
 	own := s.player.position()
-	s.send_packet(&packets_662.ChunkRadiusUpdatedPacket{
+	s.send_packet(&packets.ChunkRadiusUpdatedPacket{
 		chunk_radius: radius
 	}) or {}
-	s.send_packet(&packets_662.NetworkChunkPublisherUpdatePacket{
-		new_view_position:   types_662.BlockPos{
+	s.send_packet(&packets.NetworkChunkPublisherUpdatePacket{
+		new_view_position:   types.BlockPos{
 			x: i32(own.x)
 			y: i32(own.y)
 			z: i32(own.z)
 		}
 		new_view_radius:     u32(radius * 16)
-		server_built_chunks: []types_662.ChunkPos{}
+		server_built_chunks: []types.ChunkPos{}
 	}) or {}
 	s.send_spawn_chunks(radius) or {
 		s.log.warn('Failed to send chunks after world change: ${err}')
 		return
 	}
 	s.remember_chunk_window(radius)
-	s.send_packet(&packets_662.PlayStatusPacket{
-		status: enums_662.PlayStatus.player_spawn
+	s.send_packet(&packets.PlayStatusPacket{
+		status: enums.PlayStatus.player_spawn
 	}) or {}
 }
 
@@ -273,7 +271,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 	// Position must be updated before the join packets below are built, so
 	// add_player_packet reflects where the player actually landed rather
 	// than a stale pre transfer position.
-	s.player.reset_position(types.Vector3{x, y, z})
+	s.player.reset_position(model.Vector3{x, y, z})
 
 	self := s.self_ref()
 	registered := worldrt.world_call[bool]('Session.join_target_world', mut target_wr, fn [rid, self] (mut tx worldrt.WorldTx) bool {
@@ -295,7 +293,7 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 
 	s.reset_chunk_window()
 	if target.dimension.id != previous_dim {
-		mut change_packet := &packets_712.ChangeDimensionPacket{
+		mut change_packet := &packets.ChangeDimensionPacket{
 			dimension_id: target.dimension.id
 			respawn:      false
 		}
@@ -303,18 +301,18 @@ fn (mut s NetworkSession) change_world(name string, x f32, y f32, z f32) bool {
 		change_packet.position[1] = y
 		change_packet.position[2] = z
 		s.deliver(change_packet)
-		s.deliver(&packets_712.StopSoundPacket{
+		s.deliver(&packets.StopSoundPacket{
 			sound_name:      ''
 			stop_all_sounds: true
 		})
-		s.deliver(&packets_662.PlayStatusPacket{
-			status: enums_662.PlayStatus.player_spawn
+		s.deliver(&packets.PlayStatusPacket{
+			status: enums.PlayStatus.player_spawn
 		})
-		s.deliver(&packets_944.PlayerActionPacket{
-			player_runtime_id: proto.actor_runtime_id(self_entity_runtime_id)
-			action:            enums_662.PlayerActionType.change_dimension_ack
+		s.deliver(&packets.PlayerActionPacket{
+			player_runtime_id: protocol.actor_runtime_id(self_entity_runtime_id)
+			action:            enums.PlayerActionType.change_dimension_ack
 		})
-		s.expect_teleport_ack(types.Vector3{x, y, z})
+		s.expect_teleport_ack(model.Vector3{x, y, z})
 	}
 	return true
 }

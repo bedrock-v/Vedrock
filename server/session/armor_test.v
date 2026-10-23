@@ -4,12 +4,12 @@ import time
 import bedrock_v.protocol
 import bedrock_v.protocol.serializer
 import bedrock_v.protocol.types
-import bedrock_v.protocol.version.v2168.packets as versioned
+import bedrock_v.protocol.model
+import bedrock_v.protocol.packets
 import server.internal.gamedata
 import server.internal.logger
 import server.item
 import server.player
-import bedrock_v.protocol.version.v944.types as types_944
 
 fn full_set(tier item.ArmorTier) ArmorProtection {
 	mut points := 0
@@ -64,7 +64,7 @@ fn test_piercing_never_reduces_below_the_floor() {
 }
 
 fn test_armor_container_maps_onto_the_worn_slots() {
-	container := types_944.FullContainerName{
+	container := types.FullContainerName{
 		container: .armor_container
 	}
 	assert flat_slot(container, 0)? == player.armor_slot(0)
@@ -88,12 +88,12 @@ fn test_worn_slots_do_not_overlap_the_carried_ones() {
 
 fn test_changes_touch_armor() {
 	armor := SlotChange{
-		container: types_944.FullContainerName{
+		container: types.FullContainerName{
 			container: .armor_container
 		}
 	}
 	carried := SlotChange{
-		container: types_944.FullContainerName{
+		container: types.FullContainerName{
 			container: .inventory_container
 		}
 	}
@@ -104,7 +104,7 @@ fn test_changes_touch_armor() {
 
 fn test_worn_pieces_live_in_the_inventory_that_clearing_empties() {
 	mut pl := player.new_player()
-	net := pl.track_stack(types.ItemStack{ id: 300, count: 1 })
+	net := pl.track_stack(model.ItemStack{ id: 300, count: 1 })
 	pl.set_slot(player.armor_slot(0), net)
 	if _ := pl.armor_stack(0) {
 	} else {
@@ -139,14 +139,14 @@ fn test_armor_names_the_wearer_in_each_recipients_own_numbering() {
 	wearer.broadcast_armor()
 
 	assert wait_for_sent_len(viewer_transport, 1, 2000)
-	mut decoded := versioned.MobArmorEquipmentPacket{}
+	mut decoded := packets.MobArmorEquipmentPacket{}
 	decode_into(viewer_transport.sent[0], mut decoded)!
 	assert decoded.target_runtime_id.value == expected
 
 	// The wearer sees itself in the packet too, and to itself it is always
 	// the same constant.
 	assert wait_for_sent_len(wearer_transport, 1, 2000)
-	mut own := versioned.MobArmorEquipmentPacket{}
+	mut own := packets.MobArmorEquipmentPacket{}
 	decode_into(wearer_transport.sent[0], mut own)!
 	assert own.target_runtime_id.value == self_entity_runtime_id
 }

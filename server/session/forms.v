@@ -1,7 +1,7 @@
 module session
 
 import server.form
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.packets
 
 // send_form queues the form for the target player, since it may be opened
 // from a command running on another session's thread.
@@ -11,13 +11,13 @@ fn (mut s NetworkSession) send_form(f form.Form) ! {
 	id := s.next_form_id
 	s.pending_forms[id] = f
 	s.forms_mutex.unlock()
-	s.deliver(&packets_662.ModalFormRequestPacket{
+	s.deliver(&packets.ModalFormRequestPacket{
 		form_id:      u32(id)
 		form_ui_json: f.request_body()
 	})
 }
 
-fn (mut s NetworkSession) handle_modal_form_response(p packets_662.ModalFormResponsePacket) ! {
+fn (mut s NetworkSession) handle_modal_form_response(p packets.ModalFormResponsePacket) ! {
 	s.forms_mutex.lock()
 	form_id := int(p.form_id)
 	f := s.pending_forms[form_id] or {

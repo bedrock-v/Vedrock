@@ -1,6 +1,6 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.internal.logger
 import server.player
@@ -66,7 +66,7 @@ fn test_movement_coalesces_rapid_updates_into_one_job() {
 	}
 
 	for i in 0 .. 20 {
-		s.update_movement(types.Vector3{0.0, f32(i), 0.0}, 0.0, 0.0, 0.0, false)
+		s.update_movement(model.Vector3{0.0, f32(i), 0.0}, 0.0, 0.0, 0.0, false)
 	}
 	assert wr.metrics().queued_tasks == 1
 
@@ -104,7 +104,7 @@ fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
 		}
 	}
 
-	s.update_movement(types.Vector3{1.0, 2.0, 3.0}, 0.0, 0.0, 0.0, false)
+	s.update_movement(model.Vector3{1.0, 2.0, 3.0}, 0.0, 0.0, 0.0, false)
 	// try_submit failed (queue full): must not report a job as scheduled
 	// when none was actually queued.
 	assert s.movement_scheduled == false
@@ -112,7 +112,7 @@ fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
 		panic('expected a pending snapshot to survive the failed submit')
 	}
 
-	assert pending.position == types.Vector3{1.0, 2.0, 3.0}
+	assert pending.position == model.Vector3{1.0, 2.0, 3.0}
 
 	gate <- true
 	deadline := time.now().add(5 * time.second)
@@ -122,7 +122,7 @@ fn test_movement_try_submit_failure_does_not_strand_pending_snapshot() {
 
 	// A later packet (the retry mechanism, per design) picks the snapshot
 	// back up now that the queue has room.
-	want := types.Vector3{4.0, 5.0, 6.0}
+	want := model.Vector3{4.0, 5.0, 6.0}
 	s.update_movement(want, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(5 * time.second)
 	for time.now() < deadline2 && s.player.position() != want {
@@ -146,7 +146,7 @@ fn test_movement_before_spawn_is_dropped_not_stranded() {
 		log:           logger.new(.info)
 	}
 
-	s.update_movement(types.Vector3{9.0, 9.0, 9.0}, 0.0, 0.0, 0.0, false)
+	s.update_movement(model.Vector3{9.0, 9.0, 9.0}, 0.0, 0.0, 0.0, false)
 	assert s.movement_scheduled == false
 	assert s.pending_movement == none
 	assert wr.metrics().queued_tasks == 0
@@ -158,7 +158,7 @@ fn test_movement_before_spawn_is_dropped_not_stranded() {
 		return true
 	}) or { panic('registration rejected - world unexpectedly stopped') }
 
-	want := types.Vector3{10.0, 11.0, 12.0}
+	want := model.Vector3{10.0, 11.0, 12.0}
 	s.update_movement(want, 0.0, 0.0, 0.0, false)
 	deadline := time.now().add(5 * time.second)
 	for time.now() < deadline && s.player.position() != want {
@@ -174,9 +174,9 @@ fn test_movement_scheduling_survives_actor_draining_at_full_speed() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut s := movement_test_session(mut hub, mut wr)
 
-	mut last := types.Vector3{}
+	mut last := model.Vector3{}
 	for i in 0 .. 500 {
-		last = types.Vector3{f32(i), 0.0, 0.0}
+		last = model.Vector3{f32(i), 0.0, 0.0}
 		s.update_movement(last, 0.0, 0.0, 0.0, false)
 	}
 
@@ -187,7 +187,7 @@ fn test_movement_scheduling_survives_actor_draining_at_full_speed() {
 	assert s.player.position() == last
 	assert s.movement_scheduled == false
 
-	final := types.Vector3{999.0, 0.0, 0.0}
+	final := model.Vector3{999.0, 0.0, 0.0}
 	s.update_movement(final, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(5 * time.second)
 	for time.now() < deadline2 && s.player.position() != final {

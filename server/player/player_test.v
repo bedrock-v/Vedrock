@@ -1,6 +1,6 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.auth
 
 fn test_new_player_defaults() {
@@ -16,7 +16,7 @@ fn test_player_field_mutation_through_pointer() {
 	p.health = 12.5
 	p.game_mode = .creative
 	p.dead = true
-	net_id := p.track_stack(types.ItemStack{})
+	net_id := p.track_stack(model.ItemStack{})
 	p.set_slot(0, net_id)
 	assert p.health == 12.5
 	assert p.game_mode == .creative
@@ -46,7 +46,7 @@ fn test_probe_heap_field_on_plain_literal() {
 	}
 	h.player.health = 7.0
 	assert h.player.health == 7.0
-	net_id := h.player.track_stack(types.ItemStack{})
+	net_id := h.player.track_stack(model.ItemStack{})
 	h.player.set_slot(5, net_id)
 	assert h.player.snapshot_slot_stacks()[5].count == 0
 }
