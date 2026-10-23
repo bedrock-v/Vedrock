@@ -222,8 +222,7 @@ fn (mut s RecordingSender) give_experience_levels(levels int) {
 }
 
 fn (s RecordingSender) experience_level() int {
-	return s.given_experience_levels >>>
-	 > origin / dev
+	return s.given_experience_levels
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -696,8 +695,7 @@ fn test_xp_command_denied_without_op() {
 	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/xp 10', mut sender, base_ctx())!
-	assert sender.given_experience == 0 >>>
-	 > origin / dev
+	assert sender.given_experience == 0
 	assert sender.messages[0].contains('permission')
 }
 
