@@ -11,10 +11,10 @@ pub:
 	// address is the interface the signalling endpoint binds.
 	address string = '0.0.0.0'
 	port    int    = 19132
-	// identity_file holds the key the server answers under, created on the
-	// first start. Keeping it means a client that remembers this server keeps
-	// recognising it.
-	identity_file string = 'identity.key'
+	// identity_file holds the P-384 key the server answers under, as PEM. It is
+	// created on the first start. Keeping it means a client that remembers this
+	// server keeps recognising it.
+	identity_file string = 'keys/server_identity_key.pem'
 	// allow_anonymous accepts an offer carrying no identity assertion. The game
 	// leaves the assertion out of most of its offers and refusing those would
 	// refuse most clients.

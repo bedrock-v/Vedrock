@@ -26,3 +26,6 @@ modules/
 
 # Local environment
 .env
+
+# The server's identity key, written on the first start.
+keys/
