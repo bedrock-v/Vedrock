@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 import server.event
 import server.internal.gamedata
@@ -11,8 +11,7 @@ import server.world
 import server.world.db
 import server.item
 import server.worldrt
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.packets
 
 fn break_test_data() gamedata.GameData {
 	return gamedata.GameData{
@@ -50,7 +49,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 		world:         wr.world
 		generator:     world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
+	s.player.reset_position(model.Vector3{0.5, f32(world.overworld.min_y + 1) + 0.5, 0.5})
 	hub.add(s)
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
@@ -60,7 +59,7 @@ fn break_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 }
 
 fn give_held_pick(mut s NetworkSession) {
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:    700
 		count: 1
 	}
@@ -81,7 +80,7 @@ fn test_break_block_damages_held_item_exactly_once() {
 		hub.close_worlds()
 	}
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
 	s.breaking = BreakProgress{
 		x:            pos.x
@@ -122,7 +121,7 @@ fn test_break_block_cancelled_leaves_block_and_item_unchanged() {
 		hub.close_worlds()
 	}
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
 	s.breaking = BreakProgress{
 		x:            pos.x
@@ -161,7 +160,7 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 	mut observer_transport := &FakeTransport{}
 	mut observer := break_test_session(mut hub, mut observer_transport, mut other_wr)
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := breaker.block_at(pos.x, pos.y, pos.z)
 	breaker.breaking = BreakProgress{
 		x:            pos.x
@@ -177,7 +176,7 @@ fn test_break_observer_in_another_world_receives_no_packet() {
 
 	assert target.block_override(pos.x, pos.y, pos.z) or { -1 } == world.air.network_id
 	for p in observer_transport.sent {
-		assert p !is packets_944.UpdateBlockPacket
+		assert p !is packets.UpdateBlockPacket
 	}
 }
 
@@ -219,7 +218,7 @@ fn test_break_block_event_reaches_only_the_breaking_player() {
 	s_b.handle(handler_b)
 	give_held_pick(mut s_a)
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s_a.block_at(pos.x, pos.y, pos.z)
 	s_a.breaking = BreakProgress{
 		x:            pos.x
@@ -239,7 +238,7 @@ fn test_break_block_event_reaches_only_the_breaking_player() {
 
 fn break_sent_level_event(transport &FakeTransport) bool {
 	for p in transport.sent {
-		if p is packets_662.LevelEventPacket {
+		if p is packets.LevelEventPacket {
 			return true
 		}
 	}
@@ -289,7 +288,7 @@ fn test_start_break_cracking_scoped_to_owning_world() {
 	mut observer_transport := &FakeTransport{}
 	break_test_session(mut hub, mut observer_transport, mut other_wr)
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	breaker.handle_start_break(pos, 1)
 
 	assert break_wait_for_level_event(breaker_transport, 5000)
@@ -311,7 +310,7 @@ fn test_effects_scale_break_progress_like_vanilla() {
 		hub.close_worlds()
 	}
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s.block_at(pos.x, pos.y, pos.z)
 	base := s.break_progress_per_tick(dirt_id)
 
@@ -350,7 +349,7 @@ fn test_standing_player_mines_at_vanilla_speed() {
 	}
 
 	feet_y := world.overworld.min_y + 4
-	s.player.reset_position(types.Vector3{0.5, f32(feet_y), 0.5})
+	s.player.reset_position(model.Vector3{0.5, f32(feet_y), 0.5})
 	target.set_block(0, feet_y - 1, 0, world.cobblestone.network_id)
 	assert s.supported_by_ground()
 
@@ -388,7 +387,7 @@ fn test_server_finishes_the_break_without_a_client_destroy() {
 		hub.close_worlds()
 	}
 
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	old_id := s.block_at(pos.x, pos.y, pos.z)
 	assert old_id != world.air.network_id
 
@@ -450,7 +449,7 @@ fn test_break_in_one_world_does_not_stall_break_in_another() {
 	_ := <-started
 
 	// Breaking in world B must complete promptly even while A is stalled.
-	pos := types.BlockPosition{0, world.overworld.min_y + 1, 0}
+	pos := model.BlockPosition{0, world.overworld.min_y + 1, 0}
 	dirt_id := s_b.block_at(pos.x, pos.y, pos.z)
 	s_b.breaking = BreakProgress{
 		x:            pos.x

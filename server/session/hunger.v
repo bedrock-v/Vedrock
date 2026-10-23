@@ -1,11 +1,11 @@
 module session
 
 import math
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.item
 import server.player
 import server.worldrt
-import bedrock_v.protocol.version.v2168.enums as enums_2168
+import bedrock_v.protocol.enums
 
 // food_regeneration_threshold is the food level a player has to be at or above
 // before health comes back on its own.
@@ -21,8 +21,8 @@ const max_player_health = f32(20.0)
 // hard takes the player all the way down.
 fn starvation_floor(difficulty int) f32 {
 	return match difficulty {
-		proto.difficulty_easy { 10.0 }
-		proto.difficulty_normal { 1.0 }
+		protocol.difficulty_easy { 10.0 }
+		protocol.difficulty_normal { 1.0 }
 		else { 0.0 }
 	}
 }
@@ -35,7 +35,7 @@ fn (mut s NetworkSession) tick_hunger(mut tx worldrt.WorldTx) {
 		return
 	}
 	difficulty := s.hub.difficulty_value()
-	if difficulty == proto.difficulty_peaceful {
+	if difficulty == protocol.difficulty_peaceful {
 		s.tick_peaceful_hunger()
 		return
 	}
@@ -137,18 +137,18 @@ fn jump_exhaustion_for(sprinting bool) f32 {
 // hunger tick knows what the metres it sees were covered by. Each change
 // settles the distance travelled so far first, so a segment is billed at the
 // rate that was true while it was being covered.
-fn (mut s NetworkSession) apply_input_state(input_data []enums_2168.PlayerAuthInputData) {
+fn (mut s NetworkSession) apply_input_state(input_data []enums.PlayerAuthInputData) {
 	if !s.hunger_applies() {
 		return
 	}
 	pos := s.current_position()
-	sprinting := enums_2168.PlayerAuthInputData.sprinting in input_data
+	sprinting := enums.PlayerAuthInputData.sprinting in input_data
 	mut changed := s.player.set_sprinting(pos, sprinting)
-	if enums_2168.PlayerAuthInputData.start_swimming in input_data {
+	if enums.PlayerAuthInputData.start_swimming in input_data {
 		if s.player.set_swimming(pos, true) {
 			changed = true
 		}
-	} else if enums_2168.PlayerAuthInputData.stop_swimming in input_data {
+	} else if enums.PlayerAuthInputData.stop_swimming in input_data {
 		if s.player.set_swimming(pos, false) {
 			changed = true
 		}
@@ -156,7 +156,7 @@ fn (mut s NetworkSession) apply_input_state(input_data []enums_2168.PlayerAuthIn
 	if changed {
 		s.send_hunger()
 	}
-	if enums_2168.PlayerAuthInputData.start_jumping in input_data {
+	if enums.PlayerAuthInputData.start_jumping in input_data {
 		s.exhaust_and_sync(jump_exhaustion_for(sprinting))
 	}
 }

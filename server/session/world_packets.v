@@ -1,40 +1,39 @@
 module session
 
 import bedrock_v.nbt
-import bedrock_v.protocol.types
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol.model
+import bedrock_v.protocol
 import server.entity
 import server.world.particle
 import server.world.sound
 import server.worldrt
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.packets
 
 // This file renders the world level half of entity.Viewer: the events that
 // belong to a place rather than to an actor. They are built per viewer for the
 // same reason the entity ones are, an actor id means something different to
 // every client.
 
-fn (mut s NetworkSession) view_sound(pos types.Vector3, snd sound.Sound, source entity.SoundSource) {
+fn (mut s NetworkSession) view_sound(pos model.Vector3, snd sound.Sound, source entity.SoundSource) {
 	mut actor := u64(0)
 	if source.identifier != '' {
 		actor = s.wire_id_for(source.actor)
 	}
-	s.deliver(proto.level_sound_event(snd.event_name(), pos, snd.data(), source.identifier, actor))
+	s.deliver(protocol.level_sound_event(snd.event_name(), pos, snd.data(), source.identifier, actor))
 }
 
 // broadcast_actor_sound plays snd for every session in the hub, naming its
 // source in each recipient's own numbering. One packet per recipient for the
 // reason broadcast_armor gives.
-fn (mut s NetworkSession) broadcast_actor_sound(pos types.Vector3, snd sound.Sound, source entity.SoundSource) {
+fn (mut s NetworkSession) broadcast_actor_sound(pos model.Vector3, snd sound.Sound, source entity.SoundSource) {
 	mut hub := s.hub
 	for mut target in hub.snapshot() {
 		target.view_sound(pos, snd, source)
 	}
 }
 
-fn (mut s NetworkSession) view_particle(pos types.Vector3, p particle.Particle) {
-	mut packet := &packets_662.LevelEventPacket{
+fn (mut s NetworkSession) view_particle(pos model.Vector3, p particle.Particle) {
+	mut packet := &packets.LevelEventPacket{
 		event_id: p.event_id()
 		data:     p.data()
 	}
@@ -44,18 +43,18 @@ fn (mut s NetworkSession) view_particle(pos types.Vector3, p particle.Particle) 
 	s.deliver(packet)
 }
 
-fn (mut s NetworkSession) view_block_update(pos types.BlockPosition, runtime_id int) {
-	s.deliver(&packets_944.UpdateBlockPacket{
-		block_position:   proto.block_pos(pos)
+fn (mut s NetworkSession) view_block_update(pos model.BlockPosition, runtime_id int) {
+	s.deliver(&packets.UpdateBlockPacket{
+		block_position:   protocol.block_pos(pos)
 		block_runtime_id: u32(runtime_id)
 		flags:            worldrt.block_update_flags
 		layer:            0
 	})
 }
 
-fn (mut s NetworkSession) view_block_entity(pos types.BlockPosition, tags nbt.RootTag) {
-	s.deliver(&packets_944.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
+fn (mut s NetworkSession) view_block_entity(pos model.BlockPosition, tags nbt.RootTag) {
+	s.deliver(&packets.BlockActorDataPacket{
+		block_position:  protocol.block_pos(pos)
 		actor_data_tags: tags
 	})
 }

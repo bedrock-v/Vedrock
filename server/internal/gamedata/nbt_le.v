@@ -33,7 +33,7 @@ fn (mut r LeReader) i32() !int {
 	for i in 0 .. 4 {
 		value |= u32(r.u8()!) << (8 * i)
 	}
-	return int(value)
+	return int(i32(value))
 }
 
 fn (mut r LeReader) read_name() !string {

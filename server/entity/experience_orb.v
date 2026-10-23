@@ -1,7 +1,7 @@
 module entity
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 const orb_gravity = f32(0.03)
 const orb_drag = f32(0.02)
@@ -101,14 +101,14 @@ pub fn split_experience(amount int) []int {
 	return out
 }
 
-fn within_pickup_range(pos types.Vector3, target types.Vector3) bool {
+fn within_pickup_range(pos model.Vector3, target model.Vector3) bool {
 	dx := target.x - pos.x
 	dy := target.y - pos.y
 	dz := target.z - pos.z
 	return dx * dx + dy * dy + dz * dz <= orb_pickup_radius * orb_pickup_radius
 }
 
-fn drift_towards(mut e Entity, target types.Vector3) {
+fn drift_towards(mut e Entity, target model.Vector3) {
 	dx := target.x - e.pos.x
 	dy := target.y - e.pos.y
 	dz := target.z - e.pos.z

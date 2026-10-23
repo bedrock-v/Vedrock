@@ -1,6 +1,6 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.cmd
 import server.event
 import server.world
@@ -182,7 +182,7 @@ fn to_world_metrics_summary(m worldrt.WorldMetrics) cmd.WorldMetricsSummary {
 	}
 }
 
-fn world_spawn_position(target &db.World, gen world.Generator) types.Vector3 {
+fn world_spawn_position(target &db.World, gen world.Generator) model.Vector3 {
 	spawn_point := gen.spawn_point()
 	mut y := spawn_point.y
 	if y < target.dimension.min_y + 1 {
@@ -192,5 +192,5 @@ fn world_spawn_position(target &db.World, gen world.Generator) types.Vector3 {
 	if y > max_y {
 		y = max_y
 	}
-	return types.Vector3{f32(spawn_point.x), f32(y) + player_eye_height, f32(spawn_point.z)}
+	return model.Vector3{f32(spawn_point.x), f32(y) + player_eye_height, f32(spawn_point.z)}
 }

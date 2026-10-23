@@ -1,9 +1,9 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
-fn diamond_stack(count int) types.ItemStack {
-	return types.ItemStack{
+fn diamond_stack(count int) model.ItemStack {
+	return model.ItemStack{
 		id:    264
 		count: count
 	}
@@ -23,7 +23,7 @@ fn test_storing_and_clearing_a_slot() {
 	p.set_ender_slot(3, diamond_stack(5))
 	assert p.ender_slots()[3].count == 5
 
-	p.set_ender_slot(3, types.ItemStack{})
+	p.set_ender_slot(3, model.ItemStack{})
 	assert p.ender_slots()[3].count == 0
 }
 

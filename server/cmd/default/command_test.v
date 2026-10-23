@@ -3,6 +3,7 @@ module default
 import bedrock_v.protocol
 import bedrock_v.protocol.serializer
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.language
 import server.permission
 import server.form
@@ -11,10 +12,8 @@ import server.player
 import server.player.bossbar
 import server.player.scoreboard
 import server.player.title
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v898.enums as enums_898
-import bedrock_v.protocol.version.v898.packets as packets_898
-import bedrock_v.protocol.version.v898.types as types_898
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 fn full_registry() cmd.Registry {
 	mut r := cmd.new_registry()
@@ -120,8 +119,8 @@ fn (mut s RecordingSender) kill() {
 	s.killed = true
 }
 
-fn (mut s RecordingSender) position() types.Vector3 {
-	return types.Vector3{s.pos_x, s.pos_y, s.pos_z}
+fn (mut s RecordingSender) position() model.Vector3 {
+	return model.Vector3{s.pos_x, s.pos_y, s.pos_z}
 }
 
 fn (mut s RecordingSender) place_water(x int, y int, z int) {}
@@ -222,8 +221,7 @@ fn (mut s RecordingSender) give_experience_levels(levels int) {
 }
 
 fn (s RecordingSender) experience_level() int {
-	return s.given_experience_levels >>>
-	 > origin / dev
+	return s.given_experience_levels
 }
 
 fn (mut s RecordingSender) give_item(id string, count int) bool {
@@ -354,8 +352,8 @@ fn test_version_command() {
 	r.dispatch('/version', mut sender, base_ctx())!
 	assert sender.messages.len == 1
 	assert sender.messages[0].contains('Vedrock')
-	assert sender.messages[0].contains(proto.proto_version.minecraft_version())
-	assert sender.messages[0].contains(int(proto.proto_version.protocol_id()).str())
+	assert sender.messages[0].contains(protocol.minecraft_version)
+	assert sender.messages[0].contains(int(protocol.protocol_id).str())
 }
 
 fn test_version_alias() {
@@ -472,23 +470,23 @@ fn test_resolve_missing() {
 }
 
 fn test_command_request_roundtrip() {
-	pkt := packets_898.CommandRequestPacket{
+	pkt := packets.CommandRequestPacket{
 		command:        '/version'
-		command_origin: types_898.CommandOriginData{
-			command_type: enums_898.CommandOriginType.player
+		command_origin: types.CommandOriginData{
+			command_type: enums.CommandOriginType.player
 			request_id:   'req-1'
 		}
 		version:        '1'
 	}
 	encoded := protocol.encode_packet_to_bytes(&pkt)
-	mut pool := proto.new_pool()
+	mut pool := protocol.new_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'CommandRequestPacket'
-	mut request := packets_898.CommandRequestPacket{}
+	mut request := packets.CommandRequestPacket{}
 	decode_into(&pkt, mut request)!
 	assert request.command == '/version'
-	assert request.command_origin.command_type == enums_898.CommandOriginType.player
+	assert request.command_origin.command_type == enums.CommandOriginType.player
 	assert request.command_origin.request_id == 'req-1'
 }
 
@@ -499,11 +497,11 @@ fn test_available_commands_roundtrip() {
 	pkt := r.available_commands(sender)
 	assert pkt.commands.len == 18
 	encoded := protocol.encode_packet_to_bytes(pkt)
-	mut pool := proto.new_pool()
+	mut pool := protocol.new_pool()
 	mut reader := serializer.new_reader(encoded)
 	decoded := pool.decode(mut reader)!
 	assert decoded.name() == 'AvailableCommandsPacket'
-	mut available := packets_898.AvailableCommandsPacket{}
+	mut available := packets.AvailableCommandsPacket{}
 	decode_into(pkt, mut available)!
 	assert available.commands.len == 18
 	assert available.commands[0].alias_enum == -1
@@ -614,8 +612,8 @@ fn test_available_commands_deduplicates_shared_enum_values() {
 		assert !seen[v], 'enum_values contains a duplicate: ${v}'
 		seen[v] = true
 	}
-	mut gamemode_enum := packets_898.EnumDataEntry{}
-	mut difficulty_enum := packets_898.EnumDataEntry{}
+	mut gamemode_enum := packets.EnumDataEntry{}
+	mut difficulty_enum := packets.EnumDataEntry{}
 	for e in pkt.enum_data {
 		if e.name == 'gamemode_mode' {
 			gamemode_enum = e
@@ -696,8 +694,7 @@ fn test_xp_command_denied_without_op() {
 	r := full_registry()
 	mut sender := RecordingSender{}
 	r.dispatch('/xp 10', mut sender, base_ctx())!
-	assert sender.given_experience == 0 >>>
-	 > origin / dev
+	assert sender.given_experience == 0
 	assert sender.messages[0].contains('permission')
 }
 

@@ -1,7 +1,7 @@
 module entity
 
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 const item_gravity = f32(0.04)
 const item_drag = f32(0.02)
@@ -36,12 +36,12 @@ fn item_dimensions() Dimensions {
 @[heap]
 pub struct ItemBehaviour {
 pub mut:
-	stack              types.ItemStack
+	stack              model.ItemStack
 	max_stack_size     int = 64
 	pickup_delay_ticks i64 = item_pickup_delay_ticks
 }
 
-pub fn new_item_behaviour(stack types.ItemStack, max_stack_size int, pickup_delay_ticks i64) &ItemBehaviour {
+pub fn new_item_behaviour(stack model.ItemStack, max_stack_size int, pickup_delay_ticks i64) &ItemBehaviour {
 	return &ItemBehaviour{
 		stack:              stack
 		max_stack_size:     max_stack_size
@@ -97,7 +97,7 @@ pub fn (mut b ItemBehaviour) tick(mut e Entity, mut host Host) {
 // prevents merging until the entity's pickup delay has elapsed.
 pub interface Mergeable {
 	merge_radius() f32
-	merge_stack() types.ItemStack
+	merge_stack() model.ItemStack
 	stack_room() int
 	mergeable_now(age i64) bool
 mut:
@@ -108,7 +108,7 @@ pub fn (b &ItemBehaviour) merge_radius() f32 {
 	return item_merge_radius
 }
 
-pub fn (b &ItemBehaviour) merge_stack() types.ItemStack {
+pub fn (b &ItemBehaviour) merge_stack() model.ItemStack {
 	return b.stack
 }
 

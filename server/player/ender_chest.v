@@ -1,6 +1,6 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.player.playerdb
 
 // ender_slot_count is how many slots an ender chest shows. Every ender chest
@@ -10,13 +10,13 @@ pub const ender_slot_count = 27
 
 // ender_slots returns the whole ender chest in slot order, with an empty stack
 // for every slot holding nothing.
-pub fn (p &Player) ender_slots() []types.ItemStack {
+pub fn (p &Player) ender_slots() []model.ItemStack {
 	mut m := p.state_mutex
 	m.lock()
 	defer {
 		m.unlock()
 	}
-	mut out := []types.ItemStack{len: ender_slot_count}
+	mut out := []model.ItemStack{len: ender_slot_count}
 	for slot, stack in p.ender_items {
 		if slot >= 0 && slot < ender_slot_count {
 			out[slot] = stack
@@ -26,7 +26,7 @@ pub fn (p &Player) ender_slots() []types.ItemStack {
 }
 
 // set_ender_slot stores one slot, or empties it when the stack is nothing.
-pub fn (mut p Player) set_ender_slot(slot int, stack types.ItemStack) {
+pub fn (mut p Player) set_ender_slot(slot int, stack model.ItemStack) {
 	if slot < 0 || slot >= ender_slot_count {
 		return
 	}
@@ -42,12 +42,12 @@ pub fn (mut p Player) set_ender_slot(slot int, stack types.ItemStack) {
 // set_ender_items restores a saved ender chest.
 pub fn (mut p Player) set_ender_items(items []playerdb.InvItem) {
 	p.state_mutex.lock()
-	p.ender_items = map[int]types.ItemStack{}
+	p.ender_items = map[int]model.ItemStack{}
 	for item in items {
 		if item.slot < 0 || item.slot >= ender_slot_count || item.count <= 0 {
 			continue
 		}
-		p.ender_items[item.slot] = types.ItemStack{
+		p.ender_items[item.slot] = model.ItemStack{
 			id:               item.id
 			meta:             item.meta
 			count:            item.count

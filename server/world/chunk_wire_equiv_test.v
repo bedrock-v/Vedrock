@@ -53,7 +53,7 @@ fn (mut c WireCursor) varint_signed() int {
 		}
 		shift += 7
 	}
-	return int((acc >> 1) ^ (-(acc & 1)))
+	return int(i32((acc >> 1) ^ (-(acc & 1))))
 }
 
 fn (mut c WireCursor) storage() SectionView {

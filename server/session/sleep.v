@@ -1,12 +1,12 @@
 module session
 
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.types
+import bedrock_v.protocol
+import bedrock_v.protocol.model
 import server.block
 import server.world
 import server.worldrt
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // bed_block is the one block id every bed colour shares; the colour lives in
 // the block entity rather than in the block itself.
@@ -18,15 +18,15 @@ const bed_reach = f32(2.0)
 // bed_standing_offsets are the blocks a respawning player is placed in,
 // searched in this order.
 const bed_standing_offsets = [
-	types.BlockPosition{-1, 0, 0},
-	types.BlockPosition{1, 0, 0},
-	types.BlockPosition{0, 0, -1},
-	types.BlockPosition{0, 0, 1},
-	types.BlockPosition{-1, 0, -1},
-	types.BlockPosition{-1, 0, 1},
-	types.BlockPosition{1, 0, -1},
-	types.BlockPosition{1, 0, 1},
-	types.BlockPosition{0, 1, 0},
+	model.BlockPosition{-1, 0, 0},
+	model.BlockPosition{1, 0, 0},
+	model.BlockPosition{0, 0, -1},
+	model.BlockPosition{0, 0, 1},
+	model.BlockPosition{-1, 0, -1},
+	model.BlockPosition{-1, 0, 1},
+	model.BlockPosition{1, 0, -1},
+	model.BlockPosition{1, 0, 1},
+	model.BlockPosition{0, 1, 0},
 ]
 
 // is_bed reports whether a block runtime id is a bed.
@@ -43,7 +43,7 @@ fn is_bed(block_id int) bool {
 // Beds outside the overworld explode in vanilla. Explosions don't exist yet
 // either, so the use is refused instead; the client already knows a bed there
 // is not somewhere to sleep.
-fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) bool {
+fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition) bool {
 	if tx.wr.world.dimension.id != world.overworld.id {
 		s.player.send_translation('%tile.bed.noSleep', [])
 		return true
@@ -59,7 +59,7 @@ fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition
 		return false
 	}
 	key := s.player_key()
-	if tx.wr.world.player_spawn(key) or { types.BlockPosition{} } != pos {
+	if tx.wr.world.player_spawn(key) or { model.BlockPosition{} } != pos {
 		tx.wr.world.set_player_spawn(key, pos)
 		s.send_spawn_position(pos, tx.wr.world.dimension.id)
 		s.player.send_translation('%tile.bed.respawnSet', [])
@@ -71,17 +71,17 @@ fn use_bed(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition
 // send_spawn_position tells the client which block its spawn point is now.
 // The server decides where a respawn lands either way; this is what the client
 // draws its own respawn marker and compass from.
-fn (mut s NetworkSession) send_spawn_position(pos types.BlockPosition, dimension_id int) {
-	block_pos := proto.block_pos(pos)
-	s.deliver(&packets_944.SetSpawnPositionPacket{
-		spawn_position_type: enums_662.SpawnPositionType.player_respawn
+fn (mut s NetworkSession) send_spawn_position(pos model.BlockPosition, dimension_id int) {
+	block_pos := protocol.block_pos(pos)
+	s.deliver(&packets.SetSpawnPositionPacket{
+		spawn_position_type: enums.SpawnPositionType.player_respawn
 		block_position:      block_pos
 		dimension_type:      i32(dimension_id)
 		spawn_block_pos:     block_pos
 	})
 }
 
-fn within_bed_reach(feet types.Vector3, pos types.BlockPosition) bool {
+fn within_bed_reach(feet model.Vector3, pos model.BlockPosition) bool {
 	dx := feet.x - (f32(pos.x) + 0.5)
 	dy := feet.y - (f32(pos.y) + 0.5)
 	dz := feet.z - (f32(pos.z) + 0.5)
@@ -91,7 +91,7 @@ fn within_bed_reach(feet types.Vector3, pos types.BlockPosition) bool {
 // bed_standing_spot is where a player using or returning to the bed at pos is
 // put: the first neighbouring block with a floor under it and room to stand.
 // none means the bed is walled in which is what makes it unusable.
-fn bed_standing_spot(mut tx worldrt.WorldTx, pos types.BlockPosition) ?types.Vector3 {
+fn bed_standing_spot(mut tx worldrt.WorldTx, pos model.BlockPosition) ?model.Vector3 {
 	for offset in bed_standing_offsets {
 		x := pos.x + offset.x
 		y := pos.y + offset.y
@@ -102,7 +102,7 @@ fn bed_standing_spot(mut tx worldrt.WorldTx, pos types.BlockPosition) ?types.Vec
 		if !saved_body_clear(block_at(tx, x, y, z)) || !saved_body_clear(block_at(tx, x, y + 1, z)) {
 			continue
 		}
-		return types.Vector3{f32(x) + 0.5, f32(y) + player_eye_height, f32(z) + 0.5}
+		return model.Vector3{f32(x) + 0.5, f32(y) + player_eye_height, f32(z) + 0.5}
 	}
 	return none
 }
@@ -112,7 +112,7 @@ fn bed_standing_spot(mut tx worldrt.WorldTx, pos types.BlockPosition) ?types.Vec
 // bed is looked up rather than remembered, so mining it out is enough to lose
 // it, and the world is asked rather than the player, so a bed somewhere else
 // is never this world's answer.
-fn respawn_position(mut tx worldrt.WorldTx, mut s NetworkSession) types.Vector3 {
+fn respawn_position(mut tx worldrt.WorldTx, mut s NetworkSession) model.Vector3 {
 	world_spawn := world_spawn_position(tx.wr.world, s.world_binding().generator)
 	bed := tx.wr.world.player_spawn(s.player_key()) or { return world_spawn }
 	if is_bed(block_at(tx, bed.x, bed.y, bed.z)) {

@@ -2,23 +2,18 @@ module session
 
 import time
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
 import server.world
 import server.block
 import server.item
 import server.world.sound
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.entity
 import server.player
 import server.worldrt
-import bedrock_v.protocol.version.v2168.enums as enums_2168
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.current.types as types_2192
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 // place_cooldown_ms throttles placement to at most one accepted block per
 // window.
@@ -61,14 +56,14 @@ fn (s &NetworkSession) can_interact() bool {
 	return s.player.game_mode() != .spectator
 }
 
-fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
+fn face_offset(pos model.BlockPosition, face int) model.BlockPosition {
 	return match face {
-		0 { types.BlockPosition{pos.x, pos.y - 1, pos.z} }
-		1 { types.BlockPosition{pos.x, pos.y + 1, pos.z} }
-		2 { types.BlockPosition{pos.x, pos.y, pos.z - 1} }
-		3 { types.BlockPosition{pos.x, pos.y, pos.z + 1} }
-		4 { types.BlockPosition{pos.x - 1, pos.y, pos.z} }
-		5 { types.BlockPosition{pos.x + 1, pos.y, pos.z} }
+		0 { model.BlockPosition{pos.x, pos.y - 1, pos.z} }
+		1 { model.BlockPosition{pos.x, pos.y + 1, pos.z} }
+		2 { model.BlockPosition{pos.x, pos.y, pos.z - 1} }
+		3 { model.BlockPosition{pos.x, pos.y, pos.z + 1} }
+		4 { model.BlockPosition{pos.x - 1, pos.y, pos.z} }
+		5 { model.BlockPosition{pos.x + 1, pos.y, pos.z} }
 		else { pos }
 	}
 }
@@ -77,15 +72,15 @@ fn face_offset(pos types.BlockPosition, face int) types.BlockPosition {
 // InventoryTransactionPacket. A click on a block arrives here rather than in
 // PlayerAuthInput, which carries the same body but only for some of the ways
 // the client reports one.
-fn (mut s NetworkSession) handle_inventory_transaction(p packets_2192.InventoryTransactionPacket) ! {
+fn (mut s NetworkSession) handle_inventory_transaction(p packets.InventoryTransactionPacket) ! {
 	use_item := p.use_item or { return }
-	s.handle_item_use(use_item.action_type, proto.block_pos_from(use_item.position), int(use_item.face), use_item.click_position[1])!
+	s.handle_item_use(use_item.action_type, protocol.block_pos_from(use_item.position), int(use_item.face), use_item.click_position[1])!
 }
 
-fn (mut s NetworkSession) handle_player_auth_input(p packets_2192.PlayerAuthInputPacket) ! {
-	on_ground := enums_2168.PlayerAuthInputData.vertical_collision in p.input_data
+fn (mut s NetworkSession) handle_player_auth_input(p packets.PlayerAuthInputPacket) ! {
+	on_ground := enums.PlayerAuthInputData.vertical_collision in p.input_data
 	s.apply_input_state(p.input_data)
-	s.update_movement(proto.vec3_from_array(p.player_position), p.player_rotation[0], p.player_rotation[1], p.player_head_rotation, on_ground)
+	s.update_movement(protocol.vec3_from_array(p.player_position), p.player_rotation[0], p.player_rotation[1], p.player_head_rotation, on_ground)
 	if tx := p.item_use_transaction {
 		s.handle_item_use_transaction(tx)!
 	}
@@ -99,13 +94,13 @@ fn (mut s NetworkSession) handle_player_auth_input(p packets_2192.PlayerAuthInpu
 	}
 }
 
-fn (mut s NetworkSession) handle_item_use_transaction(tx types_2192.PackedItemUseLegacyInventoryTransaction) ! {
-	s.handle_item_use(tx.action_type, proto.block_pos_from(tx.position), int(tx.face), tx.click_position[1])!
+fn (mut s NetworkSession) handle_item_use_transaction(tx types.PackedItemUseLegacyInventoryTransaction) ! {
+	s.handle_item_use(tx.action_type, protocol.block_pos_from(tx.position), int(tx.face), tx.click_position[1])!
 }
 
 // handle_item_use runs one click on a block. Both transports of the same body
 // end here, so a click means the same thing whichever the client used.
-fn (mut s NetworkSession) handle_item_use(action enums_662.ItemUseInventoryTransactionType, pos types.BlockPosition, face int, clicked_y f32) ! {
+fn (mut s NetworkSession) handle_item_use(action enums.ItemUseInventoryTransactionType, pos model.BlockPosition, face int, clicked_y f32) ! {
 	// A value outside the three the game defines matches no branch: it is not
 	// a click at all.
 	match action {
@@ -121,7 +116,7 @@ fn (mut s NetworkSession) handle_item_use(action enums_662.ItemUseInventoryTrans
 	}
 }
 
-fn (mut s NetworkSession) handle_place_click(block_position types.BlockPosition, block_face int, clicked_y f32) {
+fn (mut s NetworkSession) handle_place_click(block_position model.BlockPosition, block_face int, clicked_y f32) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -191,7 +186,7 @@ fn (s &NetworkSession) placement_runtime_id() int {
 
 // held_stack_and_name returns the currently held stack together with its
 // namespaced item name, resolved once instead of at each held item call site.
-fn (s &NetworkSession) held_stack_and_name() (types.ItemStack, string) {
+fn (s &NetworkSession) held_stack_and_name() (model.ItemStack, string) {
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
 	return stack, s.hub.data.item_name(stack.id)
 }
@@ -262,19 +257,19 @@ fn (mut s NetworkSession) use_held_item_in_air() {
 	})
 }
 
-fn (mut s NetworkSession) handle_player_action(p packets_944.PlayerActionPacket) ! {
+fn (mut s NetworkSession) handle_player_action(p packets.PlayerActionPacket) ! {
 	match p.action {
 		.creative_destroy_block, .predict_destroy_block {
-			s.break_block(proto.block_pos_from(p.block_position))!
+			s.break_block(protocol.block_pos_from(p.block_position))!
 		}
 		.start_destroy_block {
-			s.handle_start_break(proto.block_pos_from(p.block_position), int(p.face))
+			s.handle_start_break(protocol.block_pos_from(p.block_position), int(p.face))
 		}
 		.continue_destroy_block {
-			s.handle_continue_break(proto.block_pos_from(p.block_position), int(p.face))
+			s.handle_continue_break(protocol.block_pos_from(p.block_position), int(p.face))
 		}
 		.abort_destroy_block {
-			s.handle_abort_break(proto.block_pos_from(p.block_position))
+			s.handle_abort_break(protocol.block_pos_from(p.block_position))
 		}
 		.respawn {
 			s.request_respawn()
@@ -283,8 +278,8 @@ fn (mut s NetworkSession) handle_player_action(p packets_944.PlayerActionPacket)
 	}
 }
 
-fn (mut s NetworkSession) handle_player_block_action(action types_2168.PlayerBlockActionData) ! {
-	pos := proto.block_pos_from_legacy(action.position)
+fn (mut s NetworkSession) handle_player_block_action(action types.PlayerBlockActionData) ! {
+	pos := protocol.block_pos_from_legacy(action.position)
 	match action.action_type {
 		.creative_destroy_block, .predict_destroy_block {
 			s.break_block(pos)!
@@ -320,7 +315,7 @@ fn (s &NetworkSession) place_reach_sq() f32 {
 // that immediately follows a movement update in the same packet batch is
 // checked against where the client just said it is, not the position from
 // before that movement was applied: see effective_position's own comment.
-fn (s &NetworkSession) within_place_reach(pos types.BlockPosition) bool {
+fn (s &NetworkSession) within_place_reach(pos model.BlockPosition) bool {
 	own := s.effective_position()
 	dx := f32(pos.x) + 0.5 - own.x
 	dy := f32(pos.y) + 0.5 - own.y
@@ -331,9 +326,9 @@ fn (s &NetworkSession) within_place_reach(pos types.BlockPosition) bool {
 // resend_block sends the authoritative block state back to the client.
 // It uses deliver because placement and break tasks may call it from the
 // world thread.
-fn (mut s NetworkSession) resend_block(pos types.BlockPosition) {
-	s.deliver(&packets_944.UpdateBlockPacket{
-		block_position:   proto.block_pos(pos)
+fn (mut s NetworkSession) resend_block(pos model.BlockPosition) {
+	s.deliver(&packets.UpdateBlockPacket{
+		block_position:   protocol.block_pos(pos)
 		block_runtime_id: u32(s.block_at(pos.x, pos.y, pos.z))
 		flags:            worldrt.block_update_flags
 		layer:            0
@@ -373,7 +368,7 @@ fn (mut s NetworkSession) apply_consume_held_item() {
 	s.send_slot_update(held_slot, wrapped)
 }
 
-fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
+fn (mut s NetworkSession) break_block(pos model.BlockPosition) ! {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -388,18 +383,18 @@ fn (mut s NetworkSession) break_block(pos types.BlockPosition) ! {
 		return
 	}
 	if s.player.game_mode() != .creative && !block.breakable(old_id) {
-		s.send_maybe_queued(&packets_944.UpdateBlockPacket{
-			block_position:   proto.block_pos(pos)
+		s.send_maybe_queued(&packets.UpdateBlockPacket{
+			block_position:   protocol.block_pos(pos)
 			block_runtime_id: u32(old_id)
 			flags:            worldrt.block_update_flags
 			layer:            0
 		})!
-		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
+		s.broadcast_cracking(protocol.level_event_stop_block_cracking, pos, 0)
 		return
 	}
 	if s.player.game_mode() != .creative && !s.break_complete(pos, old_id) {
 		s.resend_block(pos)
-		s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
+		s.broadcast_cracking(protocol.level_event_stop_block_cracking, pos, 0)
 		return
 	}
 	s.set_breaking(none)
@@ -440,7 +435,7 @@ fn (t PlayerBreakBlockTask) run(mut tx worldrt.WorldTx) {
 		t.done <- true
 	}
 	mut s := player_for_id(mut tx, t.id) or { return }
-	complete_block_break(mut tx, mut s, types.BlockPosition{t.x, t.y, t.z}, t.old_id)
+	complete_block_break(mut tx, mut s, model.BlockPosition{t.x, t.y, t.z}, t.old_id)
 }
 
 // complete_block_break destroys the block and runs everything that follows
@@ -451,7 +446,7 @@ fn (t PlayerBreakBlockTask) run(mut tx worldrt.WorldTx) {
 // arrives as a PlayerBreakBlockTask, and a break the server itself finished
 // calls in from tick_breaking, which is the only path that runs when the
 // client has handed block breaking to the server.
-fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, old_id int) bool {
+fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, old_id int) bool {
 	air_id := world.air.network_id
 	current_id := block_at(tx, pos.x, pos.y, pos.z)
 	if current_id != old_id {
@@ -522,7 +517,7 @@ fn complete_block_break(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 // Placement timing is captured by the session thread before submission.
 struct PlayerPlaceBlockTask {
 	id            entity.ActorId
-	click_pos     types.BlockPosition
+	click_pos     model.BlockPosition
 	click_face    int
 	clicked_y     f32
 	runtime_id    int
@@ -600,12 +595,12 @@ fn (t PlayerPlaceBlockTask) run(mut tx worldrt.WorldTx) {
 
 // Block picking is session local: it reads the current world and updates the
 // inventory through Player's state lock.
-fn (mut s NetworkSession) handle_block_pick_request(p packets_662.BlockPickRequestPacket) ! {
+fn (mut s NetworkSession) handle_block_pick_request(p packets.BlockPickRequestPacket) ! {
 	s.apply_block_pick_request(p)
 }
 
-fn (mut s NetworkSession) apply_block_pick_request(p packets_662.BlockPickRequestPacket) {
-	pos := proto.block_pos_from_legacy(p.position)
+fn (mut s NetworkSession) apply_block_pick_request(p packets.BlockPickRequestPacket) {
+	pos := protocol.block_pos_from_legacy(p.position)
 	runtime_id := s.block_at(pos.x, pos.y, pos.z)
 	if runtime_id == world.air.network_id {
 		return
@@ -628,7 +623,7 @@ fn (mut s NetworkSession) apply_block_pick_request(p packets_662.BlockPickReques
 		return
 	}
 
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:               item_id
 		count:            1
 		block_runtime_id: runtime_id
@@ -690,9 +685,9 @@ fn (mut s NetworkSession) swap_slot_into_hand(slot int) {
 	s.select_hotbar_slot(held_slot, wrap_stack_id(picked, picked_net))
 }
 
-fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWrapper) {
+fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped model.ItemStackWrapper) {
 	s.player.set_held(slot, wrapped)
-	s.send_maybe_queued(&packets_662.PlayerHotbarPacket{
+	s.send_maybe_queued(&packets.PlayerHotbarPacket{
 		selected_slot:      u32(slot)
 		container_id:       .inventory
 		should_select_slot: true
@@ -703,9 +698,9 @@ fn (mut s NetworkSession) select_hotbar_slot(slot int, wrapped types.ItemStackWr
 		if target.runtime_id == holder {
 			continue
 		}
-		target.deliver(&packets_2168.MobEquipmentPacket{
-			target_runtime_id: proto.actor_runtime_id(target.wire_id_for(holder))
-			item:              proto.item_descriptor_v2(wrapped.item_stack)
+		target.deliver(&packets.MobEquipmentPacket{
+			target_runtime_id: protocol.actor_runtime_id(target.wire_id_for(holder))
+			item:              protocol.item_descriptor_v2(wrapped.item_stack)
 			slot:              i8(slot)
 			selected_slot:     i8(slot)
 			container_id:      .inventory

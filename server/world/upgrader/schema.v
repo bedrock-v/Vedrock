@@ -83,7 +83,7 @@ fn (s Schema) apply_added(state BlockState) BlockState {
 	if state.name !in s.added_properties {
 		return state
 	}
-	mut out := state
+	mut out := state.clone()
 	for key, value in s.added_properties[state.name] {
 		if key !in out.properties {
 			out.properties[key] = value
@@ -94,7 +94,7 @@ fn (s Schema) apply_added(state BlockState) BlockState {
 
 fn (s Schema) apply_removed(state BlockState) BlockState {
 	removed := s.removed_properties[state.name] or { return state }
-	mut out := state
+	mut out := state.clone()
 	for key in removed {
 		out.properties.delete(key)
 	}
@@ -105,7 +105,7 @@ fn (s Schema) apply_renamed_properties(state BlockState) BlockState {
 	if state.name !in s.renamed_properties {
 		return state
 	}
-	mut out := state
+	mut out := state.clone()
 	for old_key, new_key in s.renamed_properties[state.name] {
 		if v := out.properties[old_key] {
 			out.properties.delete(old_key)
@@ -119,7 +119,7 @@ fn (s Schema) apply_value_remaps(state BlockState) BlockState {
 	if state.name !in s.remapped_values {
 		return state
 	}
-	mut out := state
+	mut out := state.clone()
 	for key, remaps in s.remapped_values[state.name] {
 		current := out.properties[key] or { continue }
 		for remap in remaps {

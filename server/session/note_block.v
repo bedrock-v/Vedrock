@@ -1,7 +1,7 @@
 module session
 
 import bedrock_v.nbt
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world.sound
 import server.worldrt
 
@@ -15,12 +15,12 @@ const note_block_pitches = 25
 //
 // minecraft:noteblock has no per pitch wire palette state, so the pitch
 // must be tracked separately from the block itself.
-fn play_note(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition) {
+fn play_note(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition) {
 	current := tx.wr.world.tile_text(pos.x, pos.y, pos.z) or { '0' }
 	pitch := (current.int() + 1) % note_block_pitches
 	tx.wr.world.set_tile_text(pos.x, pos.y, pos.z, pitch.str())
 	broadcast_block_entity(mut tx, pos, build_note_block_nbt(pos.x, pos.y, pos.z, pitch))
-	center := types.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
+	center := model.Vector3{f32(pos.x) + 0.5, f32(pos.y) + 0.5, f32(pos.z) + 0.5}
 	play_sound(mut tx, center, sound.Note{ pitch: pitch })
 	broadcast_swing(mut tx, s)
 }

@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.event
 import server.internal.gamedata
@@ -10,7 +10,7 @@ import server.player
 import server.world
 import server.world.db
 import server.worldrt
-import bedrock_v.protocol.version.v2168.packets as packets_2168
+import bedrock_v.protocol.packets
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -31,7 +31,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	return true
 }
 
-fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
+fn entity_isolation_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.WorldRuntime, pos model.Vector3) &NetworkSession {
 	mut pl := player.new_player()
 	pl.identity = auth.Identity{
 		display_name: 'Alex'
@@ -69,7 +69,7 @@ fn test_entity_spawn_broadcast_isolated_to_owning_world() {
 		hub.close_worlds()
 	}
 
-	pos := types.Vector3{0.0, 10.0, 0.0}
+	pos := model.Vector3{0.0, 10.0, 0.0}
 	mut a_transport := &FakeTransport{}
 	mut b_transport := &FakeTransport{}
 	entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
@@ -83,14 +83,14 @@ fn test_entity_spawn_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_spawn := false
 	for p in a_transport.sent {
-		if p is packets_2168.AddActorPacket {
+		if p is packets.AddActorPacket {
 			a_saw_spawn = true
 		}
 	}
 	assert a_saw_spawn
 
 	for p in b_transport.sent {
-		assert p !is packets_2168.AddActorPacket
+		assert p !is packets.AddActorPacket
 	}
 }
 
@@ -136,8 +136,8 @@ fn test_entity_tick_isolated_to_owning_world() {
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
-	wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
-	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
+	wr_a.entities.spawn(behaviour_a, model.Vector3{0, 10, 0})
+	wr_b.entities.spawn(behaviour_b, model.Vector3{0, 10, 0})
 
 	started := chan bool{ cap: 1 }
 	release := chan bool{ cap: 1 }
@@ -289,8 +289,8 @@ fn test_entity_despawn_event_isolated_to_owning_world() {
 
 	behaviour_a := entity.create('pig') or { panic('missing pig behaviour') }
 	behaviour_b := entity.create('pig') or { panic('missing pig behaviour') }
-	entity_a := wr_a.entities.spawn(behaviour_a, types.Vector3{0, 10, 0})
-	wr_b.entities.spawn(behaviour_b, types.Vector3{0, 10, 0})
+	entity_a := wr_a.entities.spawn(behaviour_a, model.Vector3{0, 10, 0})
+	wr_b.entities.spawn(behaviour_b, model.Vector3{0, 10, 0})
 
 	wr_a.entities.despawn(entity_a.runtime_id)
 
@@ -310,7 +310,7 @@ fn test_nearest_player_never_targets_another_worlds_player() {
 		hub.close_worlds()
 	}
 
-	pos := types.Vector3{0.0, 10.0, 0.0}
+	pos := model.Vector3{0.0, 10.0, 0.0}
 	mut a_transport := &FakeTransport{}
 	mut b_transport := &FakeTransport{}
 	session_a := entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
@@ -335,7 +335,7 @@ fn test_entity_hit_test_never_matches_another_worlds_player() {
 		hub.close_worlds()
 	}
 
-	pos := types.Vector3{0.0, 10.0, 0.0}
+	pos := model.Vector3{0.0, 10.0, 0.0}
 	mut a_transport := &FakeTransport{}
 	mut b_transport := &FakeTransport{}
 	session_a := entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
@@ -365,7 +365,7 @@ fn test_damage_entity_never_reaches_another_worlds_player() {
 		hub.close_worlds()
 	}
 
-	pos := types.Vector3{0.0, 10.0, 0.0}
+	pos := model.Vector3{0.0, 10.0, 0.0}
 	mut a_transport := &FakeTransport{}
 	mut b_transport := &FakeTransport{}
 	entity_isolation_test_session(mut hub, mut a_transport, mut wr_a, pos)
@@ -390,8 +390,8 @@ fn test_entity_hit_test_matches_players_and_mobs() {
 		hub.close_worlds()
 	}
 
-	player_pos := types.Vector3{0.0, 10.0, 0.0}
-	mob_pos := types.Vector3{20.0, 10.0, 0.0}
+	player_pos := model.Vector3{0.0, 10.0, 0.0}
+	mob_pos := model.Vector3{20.0, 10.0, 0.0}
 	mut transport := &FakeTransport{}
 	session := entity_isolation_test_session(mut hub, mut transport, mut wr, player_pos)
 	mob := wr.entities.spawn(entity.PassiveBehaviour{
@@ -418,8 +418,8 @@ fn test_entity_position_resolves_both_player_and_mob() {
 		hub.close_worlds()
 	}
 
-	player_pos := types.Vector3{1.0, 5.0, 2.0}
-	mob_pos := types.Vector3{9.0, 6.0, 3.0}
+	player_pos := model.Vector3{1.0, 5.0, 2.0}
+	mob_pos := model.Vector3{9.0, 6.0, 3.0}
 	mut transport := &FakeTransport{}
 	session := entity_isolation_test_session(mut hub, mut transport, mut wr, player_pos)
 	mob := wr.entities.spawn(entity.PassiveBehaviour{
@@ -449,13 +449,13 @@ fn test_nearest_player_ignores_mobs_in_same_world() {
 		hub.close_worlds()
 	}
 
-	origin := types.Vector3{0.0, 10.0, 0.0}
-	player_pos := types.Vector3{50.0, 10.0, 0.0}
+	origin := model.Vector3{0.0, 10.0, 0.0}
+	player_pos := model.Vector3{50.0, 10.0, 0.0}
 	mut transport := &FakeTransport{}
 	session := entity_isolation_test_session(mut hub, mut transport, mut wr, player_pos)
 	wr.entities.spawn(entity.PassiveBehaviour{
 		network_id: 'minecraft:chicken'
-	}, types.Vector3{1.0, 10.0, 0.0})
+	}, model.Vector3{1.0, 10.0, 0.0})
 
 	mut host := WorldEntityHost{
 		wr: wr

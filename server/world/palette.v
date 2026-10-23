@@ -375,7 +375,7 @@ fn (mut r NbtReader) u16be() int {
 
 fn (mut r NbtReader) i32be() int {
 	v := (u32(r.next()) << 24) | (u32(r.next()) << 16) | (u32(r.next()) << 8) | u32(r.next())
-	return int(v)
+	return int(i32(v))
 }
 
 fn (mut r NbtReader) str() string {

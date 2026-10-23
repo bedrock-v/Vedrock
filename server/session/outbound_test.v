@@ -9,24 +9,22 @@ import server.internal.logger
 import server.player
 import server.world
 import server.world.sound
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world.db
-import bedrock_v.protocol.current as proto
 import server.worldrt
-import bedrock_v.protocol.version.v924.enums as enums_924
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
-fn text_packet(message string) &packets_924.TextPacket {
-	return &packets_924.TextPacket{
-		message_type: enums_924.TextRaw{
+fn text_packet(message string) &packets.TextPacket {
+	return &packets.TextPacket{
+		message_type: enums.TextRaw{
 			message: message
 		}
 	}
 }
 
-fn text_packet_message(p packets_924.TextPacket) string {
-	raw := proto.text_raw(p.message_type) or { return '' }
+fn text_packet_message(p packets.TextPacket) string {
+	raw := protocol.text_raw(p.message_type) or { return '' }
 	return raw.message
 }
 
@@ -79,8 +77,8 @@ fn (mut t BlockingFakeTransport) send(p protocol.Packet) ! {
 	}
 }
 
-fn (mut t BlockingFakeTransport) send_batch(packets []protocol.Packet) ! {
-	t.sent << packets
+fn (mut t BlockingFakeTransport) send_batch(batch []protocol.Packet) ! {
+	t.sent << batch
 	select {
 		t.sent_notify <- true {
 		}
@@ -164,21 +162,21 @@ fn test_outbound_preserves_order_before_disconnect() {
 	assert blocking_sent_text(transport, 3, 2000)
 	assert transport.sent.len == 3
 	if a := transport.sent[0] {
-		if a is packets_924.TextPacket {
+		if a is packets.TextPacket {
 			assert text_packet_message(a) == 'A'
 		} else {
 			assert false
 		}
 	}
 	if b := transport.sent[1] {
-		if b is packets_924.TextPacket {
+		if b is packets.TextPacket {
 			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[2] {
-		assert c is packets_2192.DisconnectPacket
+		assert c is packets.DisconnectPacket
 	}
 	_ := <-s.conn.done
 	assert s.conn.state == .closed
@@ -248,7 +246,7 @@ fn test_world_broadcast_does_not_wait_for_slow_session() {
 	done := chan bool{ cap: 1 }
 	spawn fn [mut wr, done] () {
 		worldrt.world_call[bool]('test', mut wr, fn (mut tx worldrt.WorldTx) bool {
-			play_sound(mut tx, types.Vector3{}, sound.Click{})
+			play_sound(mut tx, model.Vector3{}, sound.Click{})
 			return true
 		}) or {}
 		done <- true
@@ -366,7 +364,7 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 
 	mut abc_start := -1
 	for i, p in transport.sent {
-		if p is packets_924.TextPacket {
+		if p is packets.TextPacket {
 			if text_packet_message(p) == 'A' {
 				abc_start = i
 			}
@@ -375,14 +373,14 @@ fn test_send_batch_stays_adjacent_against_concurrent_deliver() {
 	assert abc_start >= 0
 	assert abc_start + 2 < transport.sent.len
 	if b := transport.sent[abc_start + 1] {
-		if b is packets_924.TextPacket {
+		if b is packets.TextPacket {
 			assert text_packet_message(b) == 'B'
 		} else {
 			assert false
 		}
 	}
 	if c := transport.sent[abc_start + 2] {
-		if c is packets_924.TextPacket {
+		if c is packets.TextPacket {
 			assert text_packet_message(c) == 'C'
 		} else {
 			assert false
@@ -441,7 +439,7 @@ fn test_disconnect_rejects_later_packet_enqueue() {
 	assert blocking_sent_text(transport, 1, 2000)
 	assert transport.sent.len == 1
 	if p := transport.sent[0] {
-		assert p is packets_2192.DisconnectPacket
+		assert p is packets.DisconnectPacket
 	}
 	_ := <-s.conn.done
 }
@@ -566,7 +564,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	done := chan bool{ cap: 1 }
 	spawn fn [mut wr_a, done] () {
 		worldrt.world_call[bool]('test', mut wr_a, fn (mut tx worldrt.WorldTx) bool {
-			play_sound(mut tx, types.Vector3{}, sound.Click{})
+			play_sound(mut tx, model.Vector3{}, sound.Click{})
 			return true
 		}) or {}
 		done <- true
@@ -584,7 +582,7 @@ fn test_overflowing_session_doesnt_block_broadcast_to_others() {
 	assert wait_for_sent_len(healthy_transport, 1, 2000)
 
 	worldrt.world_call[bool]('test', mut wr_b, fn (mut tx worldrt.WorldTx) bool {
-		play_sound(mut tx, types.Vector3{}, sound.Click{})
+		play_sound(mut tx, model.Vector3{}, sound.Click{})
 		return true
 	}) or { panic('world b broadcast rejected - unaffected by world a overflow') }
 	assert wait_for_sent_len(other_world_transport, 1, 2000)
@@ -622,7 +620,7 @@ fn test_repeated_calls_after_disc_do_not_duplicate_effects() {
 
 	mut disconnect_count := 0
 	for p in transport.sent {
-		if p is packets_2192.DisconnectPacket {
+		if p is packets.DisconnectPacket {
 			disconnect_count++
 		}
 	}

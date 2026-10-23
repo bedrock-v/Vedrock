@@ -2,16 +2,16 @@ module session
 
 import time
 import bedrock_v.nbt
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.world
 import server.world.db
 import server.block
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.packets
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -89,16 +89,16 @@ fn test_sign_editor_opens_only_for_signs() {
 		wr: wr
 	}
 
-	maybe_open_sign_editor(mut s, types.BlockPosition{0, 0, 0}, sign_id)
+	maybe_open_sign_editor(mut s, model.BlockPosition{0, 0, 0}, sign_id)
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.OpenSignPacket {
+	if sent is packets.OpenSignPacket {
 		assert sent.is_front
 	} else {
 		assert false
 	}
 
-	maybe_open_sign_editor(mut s, types.BlockPosition{1, 0, 0}, dirt_id)
+	maybe_open_sign_editor(mut s, model.BlockPosition{1, 0, 0}, dirt_id)
 	assert transport.sent.len == 1 // unchanged - dirt isn't a sign
 }
 
@@ -119,7 +119,7 @@ fn test_handle_block_actor_data_updates_sign_text() {
 		world:      target
 		generator:  world.VoidGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, player_eye_height, 0.5})
+	s.player.reset_position(model.Vector3{0.5, player_eye_height, 0.5})
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	s.world_runtime = wr
 	hub.add(s)
@@ -130,18 +130,18 @@ fn test_handle_block_actor_data_updates_sign_text() {
 
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	pos := types.BlockPosition{0, 0, 0}
+	pos := model.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, sign_id)
 
-	s.handle_block_actor_data(packets_944.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
+	s.handle_block_actor_data(packets.BlockActorDataPacket{
+		block_position:  protocol.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Welcome!')
 	})!
 
 	assert target.tile_text(pos.x, pos.y, pos.z) or { '' } == 'Welcome!'
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.BlockActorDataPacket {
+	if sent is packets.BlockActorDataPacket {
 		compound := sent.actor_data_tags.tag as nbt.Compound
 		text := extract_sign_text(compound) or { panic('expected text') }
 		assert text == 'Welcome!'
@@ -167,15 +167,15 @@ fn test_block_actor_data_ignores_non_sign_blocks() {
 		world:      target
 		generator:  world.VoidGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, player_eye_height, 0.5})
+	s.player.reset_position(model.Vector3{0.5, player_eye_height, 0.5})
 	hub.add(s)
 
 	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
-	pos := types.BlockPosition{0, 0, 0}
+	pos := model.BlockPosition{0, 0, 0}
 	target.set_block(pos.x, pos.y, pos.z, dirt_id)
 
-	s.handle_block_actor_data(packets_944.BlockActorDataPacket{
-		block_position:  proto.block_pos(pos)
+	s.handle_block_actor_data(packets.BlockActorDataPacket{
+		block_position:  protocol.block_pos(pos)
 		actor_data_tags: build_sign_nbt(pos.x, pos.y, pos.z, 'Should not be saved')
 	})!
 
@@ -205,7 +205,7 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 
 	sign_id :=
 		block.get_by_name('minecraft:standing_sign') or { panic('missing sign') }.runtime_id()
-	pos := types.BlockPosition{5, 5, 5}
+	pos := model.BlockPosition{5, 5, 5}
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut tx := &worldrt.WorldTx{
@@ -217,8 +217,8 @@ fn test_sign_tile_starts_empty_and_broadcasts() {
 	assert target.tile_text(pos.x, pos.y, pos.z) or { 'missing' } == ''
 	assert wait_for_sent_len(transport, 1, 5000)
 	sent := transport.sent[0]
-	if sent is packets_944.BlockActorDataPacket {
-		assert sent.block_position == proto.block_pos(pos)
+	if sent is packets.BlockActorDataPacket {
+		assert sent.block_position == protocol.block_pos(pos)
 	} else {
 		assert false
 	}
@@ -243,7 +243,7 @@ fn test_create_sign_tile_ignores_non_sign_block() {
 	hub.add(s)
 
 	dirt_id := block.get_by_name('minecraft:dirt') or { panic('missing dirt') }.runtime_id()
-	pos := types.BlockPosition{5, 5, 5}
+	pos := model.BlockPosition{5, 5, 5}
 
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut tx := &worldrt.WorldTx{

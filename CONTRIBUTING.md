@@ -23,31 +23,23 @@ legacy: it stays in V for a while yet and then goes and nothing here is written 
 
 CI pins a commit so a build is reproducible and the pin is bumped as V moves:
 
-- V compiler: `0.5.2` (commit `c096ba2`)
-- vc bootstrap pin: `21490f7`
+- V compiler: `0.5.2` (commit `d1df2de`)
+- vc bootstrap pin: `7ba7d3e4`
 
 The pin is a version, not a ceiling: a newer V master is expected to work and a break against one
 is a bug to report upstream rather than a reason to go back to V 1.
 
 ### Dependencies
 
-Some modules aren't on VPM yet. Clone them into your V modules directory (`~/.vmodules` on
-Linux/macOS, `%USERPROFILE%\.vmodules` on Windows):
+Everything Vedrock needs is listed in `v.mod`. Run this from the repository root and V installs it
+into your modules directory (`~/.vmodules` on Linux/macOS, `%USERPROFILE%\.vmodules` on Windows):
 
 ```bash
-git clone https://github.com/bedrock-v/nbt      ~/.vmodules/nbt
-git clone https://github.com/bedrock-v/nethernet ~/.vmodules/nethernet
-git clone https://github.com/bedrock-v/webrtc-v  ~/.vmodules/webrtc
-git clone https://github.com/bedrock-v/protocol ~/.vmodules/protocol
-
-v install nepinhum.i18n
+v install
 ```
 
-`server/world/db` also needs a local leveldb module:
-
-```bash
-git clone --depth 1 https://github.com/vlang/leveldb ~/.vmodules/leveldb
-```
+The bedrock-v modules land under `bedrock_v/` and are imported that way (`bedrock_v.protocol`,
+`bedrock_v.nethernet`). Protocol is pinned to a release tag in `v.mod`, so bump it there.
 
 ### Build and run
 

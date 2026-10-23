@@ -22,11 +22,13 @@ jobs:
       - name: Setup V
         uses: ./.github/actions/setup-v
 
+      # yeah, V's module cache serves leveldb back with "ambiguous selective
+      # import" errors once it's warm, so every step after the first would fail.
       - name: Check
-        run: v -check .
+        run: v -nocache -check .
 
       - name: Test
-        run: v test .
+        run: v -nocache test .
 
       - name: Build
-        run: v -o vedrock .
+        run: v -nocache -o vedrock .

@@ -1,7 +1,7 @@
 module entity
 
 import bedrock_v.nbt
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 import server.world.particle
 import server.world.sound
@@ -39,13 +39,13 @@ mut:
 	//
 	// view_sound plays snd at pos. source names the actor the sound belongs
 	// to; a sound that belongs to nobody passes a zero SoundSource.
-	view_sound(pos types.Vector3, snd sound.Sound, source SoundSource)
-	view_particle(pos types.Vector3, p particle.Particle)
+	view_sound(pos model.Vector3, snd sound.Sound, source SoundSource)
+	view_particle(pos model.Vector3, p particle.Particle)
 	// view_block_update shows the block now standing at pos, and
 	// view_block_entity the data attached to it for the blocks that carry
 	// more state than a runtime id can hold.
-	view_block_update(pos types.BlockPosition, runtime_id int)
-	view_block_entity(pos types.BlockPosition, tags nbt.RootTag)
+	view_block_update(pos model.BlockPosition, runtime_id int)
+	view_block_entity(pos model.BlockPosition, tags nbt.RootTag)
 }
 
 // player_viewers returns every registered player actor that can be shown

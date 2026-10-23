@@ -1,13 +1,13 @@
 module session
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.block
 import server.effect
 import server.event
 import server.item
 import server.world
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.entity
 import server.player
 import server.worldrt
@@ -101,7 +101,7 @@ fn (mut s NetworkSession) swap_breaking_if_current(expected BreakProgress, updat
 // broadcast_cracking routes one block cracking level event through the world
 // runtime this session is bound to, so it reaches that world's players only.
 // The event is dropped when the session has no bound world.
-fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPosition, data int) {
+fn (mut s NetworkSession) broadcast_cracking(event_id int, pos model.BlockPosition, data int) {
 	binding := s.world_binding()
 	if isnil(binding.world_runtime) {
 		return
@@ -122,7 +122,7 @@ fn (mut s NetworkSession) broadcast_cracking(event_id int, pos types.BlockPositi
 struct BlockCrackingTask {
 	id entity.ActorId
 	event_id           int
-	pos                types.BlockPosition
+	pos                model.BlockPosition
 	data               int
 }
 
@@ -139,7 +139,7 @@ fn (t BlockCrackingTask) run(mut tx worldrt.WorldTx) {
 // initial crack and the arm swing - in one pass over the world's players.
 struct StartBreakAnimationTask {
 	id entity.ActorId
-	pos                types.BlockPosition
+	pos                model.BlockPosition
 	crack_speed        int
 }
 
@@ -150,12 +150,12 @@ fn (t StartBreakAnimationTask) name() string {
 fn (t StartBreakAnimationTask) run(mut tx worldrt.WorldTx) {
 	s := player_for_id(mut tx, t.id) or { return }
 	if t.crack_speed > 0 {
-		broadcast_cracking(mut tx, proto.level_event_start_block_cracking, t.pos, t.crack_speed)
+		broadcast_cracking(mut tx, protocol.level_event_start_block_cracking, t.pos, t.crack_speed)
 	}
 	broadcast_swing(mut tx, s)
 }
 
-fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face int) {
+fn (mut s NetworkSession) handle_start_break(pos model.BlockPosition, click_face int) {
 	if s.player.is_dead() || !s.can_interact() {
 		return
 	}
@@ -209,20 +209,20 @@ fn (mut s NetworkSession) handle_start_break(pos types.BlockPosition, click_face
 	})
 }
 
-fn (mut s NetworkSession) handle_continue_break(pos types.BlockPosition, click_face int) {
+fn (mut s NetworkSession) handle_continue_break(pos model.BlockPosition, click_face int) {
 	if bp := s.breaking_snapshot() {
 		if bp.x == pos.x && bp.y == pos.y && bp.z == pos.z {
 			return
 		}
-		s.broadcast_cracking(proto.level_event_stop_block_cracking, types.BlockPosition{bp.x, bp.y, bp.z},
+		s.broadcast_cracking(protocol.level_event_stop_block_cracking, model.BlockPosition{bp.x, bp.y, bp.z},
 			0)
 	}
 	s.handle_start_break(pos, click_face)
 }
 
-fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
+fn (mut s NetworkSession) handle_abort_break(pos model.BlockPosition) {
 	s.set_breaking(none)
-	s.broadcast_cracking(proto.level_event_stop_block_cracking, pos, 0)
+	s.broadcast_cracking(protocol.level_event_stop_block_cracking, pos, 0)
 }
 
 // tick_breaking advances the block this player is mining by one tick and
@@ -230,7 +230,7 @@ fn (mut s NetworkSession) handle_abort_break(pos types.BlockPosition) {
 // break timing to the server. It runs on the owning world's thread.
 fn (mut s NetworkSession) tick_breaking(mut tx worldrt.WorldTx) {
 	original := s.breaking_snapshot() or { return }
-	pos := types.BlockPosition{original.x, original.y, original.z}
+	pos := model.BlockPosition{original.x, original.y, original.z}
 	current_id := block_at(tx, original.x, original.y, original.z)
 	if s.player.is_dead() || !s.can_interact() || !s.within_place_reach(pos)
 		|| current_id != original.block_id {
@@ -280,7 +280,7 @@ fn (mut s NetworkSession) tick_breaking(mut tx worldrt.WorldTx) {
 // a client predicted destroy to be accepted for pos. Blocks that break within
 // the tolerance window are accepted without tracked progress at all, since the
 // client destroys those before it ever reports a start action.
-fn (s &NetworkSession) break_complete(pos types.BlockPosition, block_id int) bool {
+fn (s &NetworkSession) break_complete(pos model.BlockPosition, block_id int) bool {
 	speed := s.break_progress_per_tick(block_id)
 	bp := s.breaking_snapshot() or { return speed * break_progress_tolerance_ticks >= 1.0 }
 	if bp.x != pos.x || bp.y != pos.y || bp.z != pos.z || bp.block_id != block_id {

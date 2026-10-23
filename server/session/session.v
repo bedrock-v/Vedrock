@@ -2,7 +2,7 @@ module session
 
 import server.internal.network
 import bedrock_v.protocol
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.logger
 import server.conf
 import server.world
@@ -13,16 +13,8 @@ import server.entity
 import server.event
 import server.form
 import sync
-import bedrock_v.protocol.current as proto
 import server.worldrt
-import bedrock_v.protocol.version.v1001.packets as packets_1001
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v685.packets as packets_685
-import bedrock_v.protocol.version.v898.packets as packets_898
-import bedrock_v.protocol.version.v924.packets as packets_924
-import bedrock_v.protocol.version.v944.packets as packets_944
+import bedrock_v.protocol.packets
 
 pub const players_dir = 'players'
 pub const player_eye_height = f32(1.62)
@@ -110,7 +102,7 @@ mut:
 	// to snap to (see expect_teleport_ack in movement.v). Client reported
 	// movement is discarded until a report lands within
 	// teleport_ack_tolerance of it.
-	pending_teleport_ack ?types.Vector3
+	pending_teleport_ack ?model.Vector3
 	pending_radius       int
 	give_next_slot       int
 	next_form_id         int
@@ -257,9 +249,9 @@ fn (s &NetworkSession) dimensions() entity.Dimensions {
 // feet_position returns the player's feet position. Player positions are
 // stored at eye level, so this subtracts eye_height; entity positions
 // already represent their feet.
-fn (s &NetworkSession) feet_position() types.Vector3 {
+fn (s &NetworkSession) feet_position() model.Vector3 {
 	p := s.current_position()
-	return types.Vector3{p.x, p.y - player_eye_height, p.z}
+	return model.Vector3{p.x, p.y - player_eye_height, p.z}
 }
 
 fn (mut s NetworkSession) find_player(name string) ?cmd.Sender {
@@ -281,7 +273,7 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 	mut p := player.new_player()
 	p.handle(hub.player_handler)
 	spawn_point := generator.spawn_point()
-	p.reset_position(types.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)})
+	p.reset_position(model.Vector3{f32(spawn_point.x), f32(spawn_point.y) + player_eye_height, f32(spawn_point.z)})
 	mut s := &NetworkSession{
 		player:             p
 		conn:               &Conn{
@@ -309,13 +301,13 @@ pub fn new(mut transport network.Transport, mut hub Hub, cfg conf.Config, log &l
 // immediately instead of trying to drain it gracefully.
 pub fn (mut s NetworkSession) handle_loop() {
 	for s.conn.state != .closed {
-		packets := s.conn.transport.read() or {
+		batch := s.conn.transport.read() or {
 			s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
 			s.log.debug('Connection ${s.conn.transport.remote_addr()} ended: ${err}')
 			s.abort_outbound()
 			break
 		}
-		for p in packets {
+		for p in batch {
 			s.handle_packet(p) or {
 				if network.is_connection_closed(err) {
 					s.log.info('Connection ${s.conn.transport.remote_addr()} closed')
@@ -379,76 +371,76 @@ fn (mut s NetworkSession) leave() {
 fn (mut s NetworkSession) handle_packet(p protocol.Packet) ! {
 	match s.conn.state {
 		.handshake {
-			if p is packets_662.RequestNetworkSettingsPacket {
+			if p is packets.RequestNetworkSettingsPacket {
 				s.handle_request_network_settings(p)!
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state handshake')
 			}
 		}
 		.login {
-			if p is packets_662.LoginPacket {
+			if p is packets.LoginPacket {
 				s.handle_login(p)!
-			} else if p is packets_662.ClientToServerHandshakePacket {
+			} else if p is packets.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is packets_662.RequestChunkRadiusPacket {
+			} else if p is packets.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state login')
 			}
 		}
 		.resource_packs {
-			if p is packets_2168.ResourcePackClientResponsePacket {
+			if p is packets.ResourcePackClientResponsePacket {
 				s.handle_resource_pack_response(p)!
-			} else if p is packets_662.ResourcePackChunkRequestPacket {
+			} else if p is packets.ResourcePackChunkRequestPacket {
 				s.handle_resource_pack_chunk_request(p)!
-			} else if p is packets_662.ClientToServerHandshakePacket {
+			} else if p is packets.ClientToServerHandshakePacket {
 				s.handle_client_to_server_handshake(p)!
-			} else if p is packets_662.RequestChunkRadiusPacket {
+			} else if p is packets.RequestChunkRadiusPacket {
 				s.pending_radius = p.chunk_radius
 			} else {
 				s.log.debug('Dropped ${p.name()} (0x${p.pid().hex()}) in state resource_packs')
 			}
 		}
 		.play {
-			if p is packets_662.RequestChunkRadiusPacket {
+			if p is packets.RequestChunkRadiusPacket {
 				if should_stream_chunk_radius_async(s.conn.state, s.spawned) {
 					s.handle_play_chunk_radius_async(p)
 				} else {
 					s.handle_request_chunk_radius(p)!
 				}
-			} else if p is packets_1001.SubChunkRequestPacket {
+			} else if p is packets.SubChunkRequestPacket {
 				s.handle_sub_chunk_request(p)!
-			} else if p is packets_662.SetLocalPlayerAsInitializedPacket {
+			} else if p is packets.SetLocalPlayerAsInitializedPacket {
 				s.handle_player_initialized(p)!
-			} else if p is packets_924.TextPacket {
+			} else if p is packets.TextPacket {
 				s.handle_text(p)!
-			} else if p is packets_2168.MovePlayerPacket {
-				s.update_movement(proto.vec3_from_array(p.position), p.rotation[0], p.rotation[1], p.y_head_rotation, p.on_ground)
-			} else if p is packets_2192.PlayerAuthInputPacket {
+			} else if p is packets.MovePlayerPacket {
+				s.update_movement(protocol.vec3_from_array(p.position), p.rotation[0], p.rotation[1], p.y_head_rotation, p.on_ground)
+			} else if p is packets.PlayerAuthInputPacket {
 				s.handle_player_auth_input(p)!
-			} else if p is packets_898.InteractPacket {
+			} else if p is packets.InteractPacket {
 				s.handle_interact(p)!
-			} else if p is packets_685.ContainerClosePacket {
+			} else if p is packets.ContainerClosePacket {
 				s.handle_container_close(p)!
-			} else if p is packets_2168.ItemStackRequestPacket {
+			} else if p is packets.ItemStackRequestPacket {
 				s.handle_item_stack_request(p)!
-			} else if p is packets_898.CommandRequestPacket {
+			} else if p is packets.CommandRequestPacket {
 				s.handle_command_request(p)!
-			} else if p is packets_2192.InventoryTransactionPacket {
+			} else if p is packets.InventoryTransactionPacket {
 				s.handle_inventory_transaction(p)!
-			} else if p is packets_944.PlayerActionPacket {
+			} else if p is packets.PlayerActionPacket {
 				s.handle_player_action(p)!
-			} else if p is packets_662.BlockPickRequestPacket {
+			} else if p is packets.BlockPickRequestPacket {
 				s.handle_block_pick_request(p)!
-			} else if p is packets_2168.MobEquipmentPacket {
+			} else if p is packets.MobEquipmentPacket {
 				s.handle_mob_equipment(p)!
-			} else if p is packets_662.RespawnPacket {
+			} else if p is packets.RespawnPacket {
 				s.handle_respawn(p)!
-			} else if p is packets_662.ModalFormResponsePacket {
+			} else if p is packets.ModalFormResponsePacket {
 				s.handle_modal_form_response(p)!
-			} else if p is packets_924.BookEditPacket {
+			} else if p is packets.BookEditPacket {
 				s.handle_book_edit(p)!
-			} else if p is packets_944.BlockActorDataPacket {
+			} else if p is packets.BlockActorDataPacket {
 				s.handle_block_actor_data(p)!
 			}
 		}

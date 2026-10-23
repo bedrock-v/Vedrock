@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 import server.internal.auth
 import server.internal.gamedata
@@ -160,19 +160,19 @@ fn test_apply_hurt_void_death_message() {
 
 fn test_player_apply_movement_reports_fall_distance_only_on_landing() {
 	mut pl := player.new_player()
-	pl.reset_position(types.Vector3{0, 10, 0})
+	pl.reset_position(model.Vector3{0, 10, 0})
 
-	landed_1 := pl.apply_movement(types.Vector3{0, 9, 0}, 0, 0, 0, false)
+	landed_1 := pl.apply_movement(model.Vector3{0, 9, 0}, 0, 0, 0, false)
 	assert landed_1 == 0
-	landed_2 := pl.apply_movement(types.Vector3{0, 3, 0}, 0, 0, 0, false)
+	landed_2 := pl.apply_movement(model.Vector3{0, 3, 0}, 0, 0, 0, false)
 	assert landed_2 == 0
-	landed_3 := pl.apply_movement(types.Vector3{0, 3, 0}, 0, 0, 0, true)
+	landed_3 := pl.apply_movement(model.Vector3{0, 3, 0}, 0, 0, 0, true)
 	assert landed_3 == 7
 
 	// fall_distance resets after landing
-	landed_4 := pl.apply_movement(types.Vector3{0, 1, 0}, 0, 0, 0, false)
+	landed_4 := pl.apply_movement(model.Vector3{0, 1, 0}, 0, 0, 0, false)
 	assert landed_4 == 0
-	landed_5 := pl.apply_movement(types.Vector3{0, 1, 0}, 0, 0, 0, true)
+	landed_5 := pl.apply_movement(model.Vector3{0, 1, 0}, 0, 0, 0, true)
 	assert landed_5 == 2
 }
 
@@ -300,7 +300,7 @@ fn test_tick_effects_applies_damage_when_wired_throu_world_tx() {
 		hub.close_worlds()
 	}
 	mut s := damage_source_test_session(mut hub, mut wr, 'Steve', 20)
-	s.player.reset_position(types.Vector3{0, void_damage_y - 1, 0})
+	s.player.reset_position(model.Vector3{0, void_damage_y - 1, 0})
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}

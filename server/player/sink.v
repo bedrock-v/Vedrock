@@ -1,6 +1,6 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 // Sink is whatever is driving a player: the one client that is *this* player,
 // as opposed to the viewers who merely see them.
@@ -29,8 +29,8 @@ mut:
 	show_translation(key string, parameters []string)
 	// send_slot_update and send_armor_slot_update correct the client's view of
 	// one slot after the server changed what is in it.
-	send_slot_update(slot int, wrapped types.ItemStackWrapper)
-	send_armor_slot_update(index int, wrapped types.ItemStackWrapper)
+	send_slot_update(slot int, wrapped model.ItemStackWrapper)
+	send_armor_slot_update(index int, wrapped model.ItemStackWrapper)
 	// send_inventory_cleared shows an empty carried inventory. The worn pieces
 	// are separate and are cleared slot by slot.
 	send_inventory_cleared()
@@ -44,7 +44,7 @@ mut:
 	send_abilities()
 	// expect_teleport_ack records a position the server sent unilaterally.
 	// Reported movement is discarded until the client confirms it.
-	expect_teleport_ack(pos types.Vector3)
+	expect_teleport_ack(pos model.Vector3)
 	// disconnect closes whatever is driving this player, showing message as
 	// the reason where there is somewhere to show it.
 	disconnect(message string)
@@ -66,9 +66,9 @@ pub fn (mut s NopSink) show_message(message string) {}
 
 pub fn (mut s NopSink) show_translation(key string, parameters []string) {}
 
-pub fn (mut s NopSink) send_slot_update(slot int, wrapped types.ItemStackWrapper) {}
+pub fn (mut s NopSink) send_slot_update(slot int, wrapped model.ItemStackWrapper) {}
 
-pub fn (mut s NopSink) send_armor_slot_update(index int, wrapped types.ItemStackWrapper) {}
+pub fn (mut s NopSink) send_armor_slot_update(index int, wrapped model.ItemStackWrapper) {}
 
 pub fn (mut s NopSink) send_inventory_cleared() {}
 
@@ -80,6 +80,6 @@ pub fn (mut s NopSink) send_experience() {}
 
 pub fn (mut s NopSink) send_abilities() {}
 
-pub fn (mut s NopSink) expect_teleport_ack(pos types.Vector3) {}
+pub fn (mut s NopSink) expect_teleport_ack(pos model.Vector3) {}
 
 pub fn (mut s NopSink) disconnect(message string) {}

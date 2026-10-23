@@ -1,6 +1,6 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.gamedata
 import server.player
 import server.internal.auth
@@ -23,7 +23,7 @@ fn placed_break_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt
 		world:         wr.world
 		generator:     world.FlatGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, f32(world.overworld.min_y + 5) + 0.62, 2.5})
+	s.player.reset_position(model.Vector3{0.5, f32(world.overworld.min_y + 5) + 0.62, 2.5})
 	hub.add(s)
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
 		register_player(mut tx, s)
@@ -51,7 +51,7 @@ fn test_survival_placed_block_can_be_broken() {
 		hub.close_worlds()
 	}
 
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:               5
 		count:            2
 		block_runtime_id: world.cobblestone.network_id
@@ -60,8 +60,8 @@ fn test_survival_placed_block_can_be_broken() {
 	s.player.set_slot(s.player.held_slot(), net_id)
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 
-	ground := types.BlockPosition{0, world.overworld.min_y + 3, 0}
-	placed_pos := types.BlockPosition{0, world.overworld.min_y + 4, 0}
+	ground := model.BlockPosition{0, world.overworld.min_y + 3, 0}
+	placed_pos := model.BlockPosition{0, world.overworld.min_y + 4, 0}
 	assert s.block_at(ground.x, ground.y, ground.z) == world.grass_block.network_id
 	assert s.block_at(placed_pos.x, placed_pos.y, placed_pos.z) == world.air.network_id
 
@@ -100,8 +100,8 @@ fn test_survival_mined_drop_can_be_replaced_and_broken() {
 		hub.close_worlds()
 	}
 
-	ground := types.BlockPosition{0, world.overworld.min_y + 3, 0}
-	placed_pos := types.BlockPosition{0, world.overworld.min_y + 4, 0}
+	ground := model.BlockPosition{0, world.overworld.min_y + 3, 0}
+	placed_pos := model.BlockPosition{0, world.overworld.min_y + 4, 0}
 	mined_id := s.block_at(0, world.overworld.min_y + 2, 0)
 	assert mined_id == world.dirt.network_id
 
@@ -109,7 +109,7 @@ fn test_survival_mined_drop_can_be_replaced_and_broken() {
 	assert drop_name != ''
 	assert drop_count > 0
 
-	picked := types.ItemStack{
+	picked := model.ItemStack{
 		id:    hub.data.item_id(drop_name)
 		count: drop_count
 	}
@@ -144,7 +144,7 @@ fn test_survival_placed_block_can_be_broken_with_real_palette() {
 		hub.close_worlds()
 	}
 
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:               5
 		count:            2
 		block_runtime_id: world.cobblestone.network_id
@@ -153,8 +153,8 @@ fn test_survival_placed_block_can_be_broken_with_real_palette() {
 	s.player.set_slot(s.player.held_slot(), net_id)
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 
-	ground := types.BlockPosition{0, world.overworld.min_y + 3, 0}
-	placed_pos := types.BlockPosition{0, world.overworld.min_y + 4, 0}
+	ground := model.BlockPosition{0, world.overworld.min_y + 3, 0}
+	placed_pos := model.BlockPosition{0, world.overworld.min_y + 4, 0}
 
 	s.handle_place_click(ground, 1, 0.5)
 

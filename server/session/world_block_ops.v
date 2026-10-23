@@ -2,11 +2,11 @@ module session
 
 import bedrock_v.nbt
 import server.entity
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world
 import server.world.particle
 import server.world.sound
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
 
 // block_at returns this transaction's authoritative block ID, preferring a
@@ -20,7 +20,7 @@ fn block_at(tx &worldrt.WorldTx, x int, y int, z int) int {
 	return wr.generated_block(x, y, z)
 }
 
-fn neighbor_ids(tx &worldrt.WorldTx, pos types.BlockPosition) world.NeighborBlockIDs {
+fn neighbor_ids(tx &worldrt.WorldTx, pos model.BlockPosition) world.NeighborBlockIDs {
 	return world.NeighborBlockIDs{
 		north: block_at(tx, pos.x, pos.y, pos.z - 1)
 		east:  block_at(tx, pos.x + 1, pos.y, pos.z)
@@ -34,7 +34,7 @@ fn neighbor_ids(tx &worldrt.WorldTx, pos types.BlockPosition) world.NeighborBloc
 // recompute_neighbor_blocks updates the connected block state at pos and its
 // horizontal neighbors using this transaction's world view. It is safe to call
 // from within an already running worldrt.WorldTx task.
-fn recompute_neighbor_blocks(mut tx worldrt.WorldTx, pos types.BlockPosition) {
+fn recompute_neighbor_blocks(mut tx worldrt.WorldTx, pos model.BlockPosition) {
 	if isnil(tx.wr.services.block_palette()) {
 		return
 	}
@@ -67,7 +67,7 @@ fn broadcast_swing(mut tx worldrt.WorldTx, s &NetworkSession) {
 // broadcast_destroy_particles sends the block break particle effect to every
 // session in this transaction's world.
 fn broadcast_destroy_particles(mut tx worldrt.WorldTx, x int, y int, z int, runtime_id int) {
-	add_particle(mut tx, types.Vector3{
+	add_particle(mut tx, model.Vector3{
 		x: f32(x) + 0.5
 		y: f32(y) + 0.5
 		z: f32(z) + 0.5
@@ -79,8 +79,8 @@ fn broadcast_destroy_particles(mut tx worldrt.WorldTx, x int, y int, z int, runt
 // broadcast_cracking sends one block cracking level event to every session in
 // this transaction's world. The start, update and stop events differ only in
 // their id and payload, so they all go through here.
-fn broadcast_cracking(mut tx worldrt.WorldTx, event_id int, pos types.BlockPosition, data int) {
-	add_particle(mut tx, types.Vector3{
+fn broadcast_cracking(mut tx worldrt.WorldTx, event_id int, pos model.BlockPosition, data int) {
+	add_particle(mut tx, model.Vector3{
 		x: f32(pos.x)
 		y: f32(pos.y)
 		z: f32(pos.z)
@@ -94,7 +94,7 @@ fn broadcast_cracking(mut tx worldrt.WorldTx, event_id int, pos types.BlockPosit
 // the data attached to a block. Vedrock keeps that data beside the block rather
 // than inside its runtime id, so it travels on its own rather than riding along
 // with the block change.
-fn broadcast_block_entity(mut tx worldrt.WorldTx, pos types.BlockPosition, tags nbt.RootTag) {
+fn broadcast_block_entity(mut tx worldrt.WorldTx, pos model.BlockPosition, tags nbt.RootTag) {
 	for mut v in tx.wr.viewers() {
 		v.view_block_entity(pos, tags)
 	}
@@ -102,14 +102,14 @@ fn broadcast_block_entity(mut tx worldrt.WorldTx, pos types.BlockPosition, tags 
 
 // broadcast_crack_speed updates the crack animation speed for a block that is
 // already being mined, for every session in this transaction's world.
-fn broadcast_crack_speed(mut tx worldrt.WorldTx, pos types.BlockPosition, data int) {
-	broadcast_cracking(mut tx, proto.level_event_update_block_cracking, pos, data)
+fn broadcast_crack_speed(mut tx worldrt.WorldTx, pos model.BlockPosition, data int) {
+	broadcast_cracking(mut tx, protocol.level_event_update_block_cracking, pos, data)
 }
 
 // broadcast_punch_particle sends the periodic mining particle for the face
 // being hit, to every session in this transaction's world.
-fn broadcast_punch_particle(mut tx worldrt.WorldTx, pos types.BlockPosition, runtime_id int, face int) {
-	add_particle(mut tx, types.Vector3{
+fn broadcast_punch_particle(mut tx worldrt.WorldTx, pos model.BlockPosition, runtime_id int, face int) {
+	add_particle(mut tx, model.Vector3{
 		x: f32(pos.x)
 		y: f32(pos.y)
 		z: f32(pos.z)
@@ -120,7 +120,7 @@ fn broadcast_punch_particle(mut tx worldrt.WorldTx, pos types.BlockPosition, run
 }
 
 fn broadcast_stop_cracking(mut tx worldrt.WorldTx, x int, y int, z int) {
-	broadcast_cracking(mut tx, proto.level_event_stop_block_cracking, types.BlockPosition{x, y, z}, 0)
+	broadcast_cracking(mut tx, protocol.level_event_stop_block_cracking, model.BlockPosition{x, y, z}, 0)
 }
 
 // broadcast_place_sound sends the block placement sound to every session in
@@ -129,7 +129,7 @@ fn broadcast_place_sound(mut tx worldrt.WorldTx, s &NetworkSession, x int, y int
 	snd := sound.BlockPlace{
 		block_runtime_id: runtime_id
 	}
-	play_actor_sound(mut tx, types.Vector3{
+	play_actor_sound(mut tx, model.Vector3{
 		x: f32(x) + 0.5
 		y: f32(y) + 0.5
 		z: f32(z) + 0.5
@@ -142,7 +142,7 @@ fn broadcast_place_sound(mut tx worldrt.WorldTx, s &NetworkSession, x int, y int
 // notify_block_changed re-evaluates liquid flow and connected block state
 // (walls, fence gates, etc.) at pos after a mutation, mirroring the old
 // session level after_block_changed.
-fn notify_block_changed(mut tx worldrt.WorldTx, pos types.BlockPosition) {
+fn notify_block_changed(mut tx worldrt.WorldTx, pos model.BlockPosition) {
 	tx.on_block_changed(pos.x, pos.y, pos.z)
 	recompute_neighbor_blocks(mut tx, pos)
 }

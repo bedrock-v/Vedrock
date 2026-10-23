@@ -2,6 +2,7 @@ module session
 
 import time
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
 import server.internal.gamedata
 import server.player
@@ -10,13 +11,10 @@ import server.world
 import server.world.db
 import server.item
 import server.block
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import server.worldrt
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v1001.packets as packets_1001
-import bedrock_v.protocol.current.packets as packets_2192
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.current.types as types_2192
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 	mut remaining := timeout_ms * time.millisecond
@@ -39,7 +37,7 @@ fn wait_for_sent_len(transport &FakeTransport, want int, timeout_ms int) bool {
 
 fn sent_place_sound(transport &FakeTransport, runtime_id int) bool {
 	for p in transport.sent {
-		if p is packets_1001.LevelSoundEventPacket {
+		if p is packets.LevelSoundEventPacket {
 			if p.event_name == 'place' && p.data == runtime_id {
 				return true
 			}
@@ -109,7 +107,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 		world:         wr.world
 		generator:     world.VoidGenerator{}
 	}
-	s.player.reset_position(types.Vector3{0.5, 1.62, 0.5})
+	s.player.reset_position(model.Vector3{0.5, 1.62, 0.5})
 	hub.add(s)
 	// PlayerPlaceBlockTask requires world membership.
 	worldrt.world_call[bool]('test', mut wr, fn [s] (mut tx worldrt.WorldTx) bool {
@@ -120,7 +118,7 @@ fn place_test_session(mut hub Hub, mut transport FakeTransport, mut wr worldrt.W
 }
 
 fn give_held_stack(mut s NetworkSession, item_id int, count int) {
-	stack := types.ItemStack{
+	stack := model.ItemStack{
 		id:    item_id
 		count: count
 	}
@@ -129,14 +127,14 @@ fn give_held_stack(mut s NetworkSession, item_id int, count int) {
 	s.player.set_held(s.player.held_slot(), wrap_stack_id(stack, net_id))
 }
 
-fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, held_id int) packets_2192.PlayerAuthInputPacket {
-	mut tx := types_2192.PackedItemUseLegacyInventoryTransaction{
-		action_type:      enums_662.ItemUseInventoryTransactionType.place
+fn place_click_packet(clicked_pos model.BlockPosition, click_pos model.Vector3, held_id int) packets.PlayerAuthInputPacket {
+	mut tx := types.PackedItemUseLegacyInventoryTransaction{
+		action_type:      enums.ItemUseInventoryTransactionType.place
 		trigger_type:     .player_input
-		position:         proto.block_pos(clicked_pos)
+		position:         protocol.block_pos(clicked_pos)
 		face:             1
 		slot:             0
-		item:             proto.item_descriptor(types.ItemStack{
+		item:             protocol.item_descriptor(model.ItemStack{
 			id:               held_id
 			count:            64
 			block_runtime_id: 0
@@ -150,7 +148,7 @@ fn place_click_packet(clicked_pos types.BlockPosition, click_pos types.Vector3, 
 	tx.click_position[0] = 0.5
 	tx.click_position[1] = 1.0
 	tx.click_position[2] = 0.5
-	return packets_2192.PlayerAuthInputPacket{
+	return packets.PlayerAuthInputPacket{
 		item_use_transaction: tx
 	}
 }
@@ -168,7 +166,7 @@ fn test_place_block_writes_and_consumes_item_once() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	s.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -188,7 +186,7 @@ fn test_inventory_transaction_packet_is_a_safe_no_op() {
 		hub.close_worlds()
 	}
 
-	s.handle_inventory_transaction(packets_2192.InventoryTransactionPacket{})!
+	s.handle_inventory_transaction(packets.InventoryTransactionPacket{})!
 
 	assert target.block_override(0, 1, 1) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -208,7 +206,7 @@ fn test_place_block_broadcasts_place_sound() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	s.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 
 	assert wait_for_place_sound(transport, world.bedrock.network_id, 5000)
 }
@@ -236,7 +234,7 @@ fn test_place_block_cancelled_leaves_block_and_item_unchanged() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	s.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 
 	assert target.block_override(0, 1, 1) == none
 	stack, _ := s.inventory_stack_at(s.player.held_slot())
@@ -264,11 +262,11 @@ fn test_place_block_observer_in_another_world_receives_no_packet() {
 	mut observer_transport := &FakeTransport{}
 	mut observer := place_test_session(mut hub, mut observer_transport, mut other_wr)
 
-	placer.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	placer.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	for p in observer_transport.sent {
-		assert p !is packets_944.UpdateBlockPacket
+		assert p !is packets.UpdateBlockPacket
 	}
 }
 
@@ -291,9 +289,9 @@ fn test_place_block_ignores_player_in_another_world_for_obstruction() {
 
 	mut blocker_transport := &FakeTransport{}
 	mut blocker := place_test_session(mut hub, mut blocker_transport, mut other_wr)
-	blocker.player.reset_position(types.Vector3{0.5, 1.0 + player_eye_height, 1.5})
+	blocker.player.reset_position(model.Vector3{0.5, 1.0 + player_eye_height, 1.5})
 
-	placer.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	placer.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 
 	assert target.block_override(0, 1, 1) or { -1 } == world.bedrock.network_id
 	stack, _ := placer.inventory_stack_at(placer.player.held_slot())
@@ -339,7 +337,7 @@ fn test_place_block_event_isolated_to_owning_world() {
 	other.handle(handler_b)
 	give_held_stack(mut s, 500, 1)
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	s.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 
 	assert handler_a.hits == 1
 	assert handler_b.hits == 0
@@ -358,17 +356,17 @@ fn test_sign_tile_broadcasts_before_block_update() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 501))!
+	s.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 501))!
 	assert wait_for_sent_len(transport, 2, 5000)
 
 	mut tile_index := -1
 	mut block_index := -1
 	for i, p in transport.sent {
-		if tile_index == -1 && p is packets_944.BlockActorDataPacket {
+		if tile_index == -1 && p is packets.BlockActorDataPacket {
 			tile_index = i
 		}
-		if block_index == -1 && p is packets_944.UpdateBlockPacket {
-			if p.block_position == proto.block_pos(types.BlockPosition{0, 1, 1}) {
+		if block_index == -1 && p is packets.UpdateBlockPacket {
+			if p.block_position == protocol.block_pos(model.BlockPosition{0, 1, 1}) {
 				block_index = i
 			}
 		}
@@ -394,15 +392,15 @@ fn test_handled_interaction_does_not_consume_or_place_held_item() {
 		hub.close_worlds()
 	}
 
-	s.handle_player_auth_input(place_click_packet(types.BlockPosition{0, 0, 1}, types.Vector3{0.5, 1.62, 0.5}, 500))!
+	s.handle_player_auth_input(place_click_packet(model.BlockPosition{0, 0, 1}, model.Vector3{0.5, 1.62, 0.5}, 500))!
 	assert wait_for_sent_len(transport, 1, 5000)
 
 	mut opened_editor := false
 	for p in transport.sent {
-		if p is packets_944.OpenSignPacket {
+		if p is packets.OpenSignPacket {
 			opened_editor = true
 		}
-		assert p !is packets_944.UpdateBlockPacket
+		assert p !is packets.UpdateBlockPacket
 	}
 	assert opened_editor
 	assert target.block_override(0, 1, 1) == none
@@ -417,20 +415,20 @@ fn test_door_placement_upper_blocked_leaves_both_untouched() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr)
-	s.player.reset_position(types.Vector3{10.5, 1.62, 10.5})
+	s.player.reset_position(model.Vector3{10.5, 1.62, 10.5})
 	defer {
 		hub.close_worlds()
 	}
 
 	mut blocker_transport := &FakeTransport{}
 	mut blocker := place_test_session(mut hub, mut blocker_transport, mut wr)
-	blocker.player.reset_position(types.Vector3{0.5, 1.0 + player_eye_height, 0.5})
+	blocker.player.reset_position(model.Vector3{0.5, 1.0 + player_eye_height, 0.5})
 
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
-	pos := types.BlockPosition{0, 0, 0}
-	above := types.BlockPosition{0, 1, 0}
+	pos := model.BlockPosition{0, 0, 0}
+	above := model.BlockPosition{0, 1, 0}
 	parts := world.DoorPlacement{
 		lower: 1001
 		upper: 1002
@@ -450,7 +448,7 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 	mut s := place_test_session(mut hub, mut transport, mut wr)
 	// block_place is dispatched on the placing player's own handler.
 	s.handle(&CancelBlockPlaceHandler{})
-	s.player.reset_position(types.Vector3{10.5, 1.62, 10.5})
+	s.player.reset_position(model.Vector3{10.5, 1.62, 10.5})
 	defer {
 		hub.close_worlds()
 	}
@@ -458,8 +456,8 @@ fn test_door_placement_cancelled_leaves_both_untouched() {
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
-	pos := types.BlockPosition{0, 0, 0}
-	above := types.BlockPosition{0, 1, 0}
+	pos := model.BlockPosition{0, 0, 0}
+	above := model.BlockPosition{0, 1, 0}
 	parts := world.DoorPlacement{
 		lower: 1001
 		upper: 1002
@@ -477,7 +475,7 @@ fn test_door_placement_writes_both_halves_atomically_in_same_world() {
 	mut wr := hub.world_runtime('world') or { panic('expected world runtime') }
 	mut transport := &FakeTransport{}
 	mut s := place_test_session(mut hub, mut transport, mut wr)
-	s.player.reset_position(types.Vector3{10.5, 1.62, 10.5})
+	s.player.reset_position(model.Vector3{10.5, 1.62, 10.5})
 	defer {
 		hub.close_worlds()
 	}
@@ -485,8 +483,8 @@ fn test_door_placement_writes_both_halves_atomically_in_same_world() {
 	mut tx := &worldrt.WorldTx{
 		wr: wr
 	}
-	pos := types.BlockPosition{0, 0, 0}
-	above := types.BlockPosition{0, 1, 0}
+	pos := model.BlockPosition{0, 0, 0}
+	above := model.BlockPosition{0, 1, 0}
 	parts := world.DoorPlacement{
 		lower: 1001
 		upper: 1002

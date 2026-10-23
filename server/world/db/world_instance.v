@@ -5,7 +5,7 @@ import sync.stdatomic
 import time
 import bedrock_v.nbt
 import server.world
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.internal.logger
 
 const persist_shutdown_timeout = 30 * time.second
@@ -119,7 +119,7 @@ mut:
 	// the caller identifies a player by. It belongs to the world because the
 	// coordinates only mean anything in this one and it goes when the world
 	// does.
-	player_spawns map[string]types.BlockPosition
+	player_spawns map[string]model.BlockPosition
 	open_holders  map[string]u64
 	// furnace_states is the burn and cook progress of every furnace that is
 	// doing something. It is in memory only: a furnace goes out across a
@@ -233,7 +233,7 @@ pub fn (mut w World) load() {
 	store := w.store or { return }
 	w.store_mutex.lock()
 	store.each_player_spawn(fn [mut w] (key string, x int, y int, z int) {
-		w.player_spawns[key] = types.BlockPosition{x, y, z}
+		w.player_spawns[key] = model.BlockPosition{x, y, z}
 	})
 	w.store_mutex.unlock()
 }
@@ -381,7 +381,7 @@ fn mark_column_dirty(mut col Column) bool {
 // player_spawn is the bed the named player is bound to in this world or none
 // when they have never used one here. A world only knows its own: the same
 // player has an unrelated answer, or none, in every other world.
-pub fn (w &World) player_spawn(key string) ?types.BlockPosition {
+pub fn (w &World) player_spawn(key string) ?model.BlockPosition {
 	mut m := w.mutex
 	m.lock()
 	defer {
@@ -390,7 +390,7 @@ pub fn (w &World) player_spawn(key string) ?types.BlockPosition {
 	return w.player_spawns[key] or { return none }
 }
 
-pub fn (mut w World) set_player_spawn(key string, pos types.BlockPosition) {
+pub fn (mut w World) set_player_spawn(key string, pos model.BlockPosition) {
 	w.mutex.lock()
 	w.player_spawns[key] = pos
 	w.mutex.unlock()
@@ -921,11 +921,11 @@ pub fn (mut w World) container_items(x int, y int, z int) []ContainerSlotItem {
 
 // container_slots resolves a container's contents into slot-indexed
 // ItemStacks, empty ItemStack{} for any slot with nothing stored.
-pub fn (mut w World) container_slots(x int, y int, z int) []types.ItemStack {
-	mut out := []types.ItemStack{len: container_slot_count}
+pub fn (mut w World) container_slots(x int, y int, z int) []model.ItemStack {
+	mut out := []model.ItemStack{len: container_slot_count}
 	for item in w.container_items(x, y, z) {
 		if item.slot >= 0 && item.slot < container_slot_count && item.count > 0 {
-			out[item.slot] = types.ItemStack{
+			out[item.slot] = model.ItemStack{
 				id:               item.id
 				meta:             item.meta
 				count:            item.count
@@ -937,7 +937,7 @@ pub fn (mut w World) container_slots(x int, y int, z int) []types.ItemStack {
 	return out
 }
 
-pub fn (mut w World) set_container_slot(x int, y int, z int, slot int, stack types.ItemStack) {
+pub fn (mut w World) set_container_slot(x int, y int, z int, slot int, stack model.ItemStack) {
 	mut items := w.container_items(x, y, z).filter(it.slot != slot)
 	if stack.count > 0 && stack.id != 0 {
 		items << ContainerSlotItem{

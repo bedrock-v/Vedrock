@@ -1,6 +1,6 @@
 module cmd
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
 import server.form
 import server.player
@@ -30,7 +30,7 @@ mut:
 	set_gamemode(mode player.Gamemode)
 	kill()
 	disconnect(message string)
-	position() types.Vector3
+	position() model.Vector3
 	teleport(x f32, y f32, z f32)
 	clear_inventory()
 	give_item(id string, count int) bool

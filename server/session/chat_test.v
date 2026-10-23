@@ -5,8 +5,8 @@ import server.internal.gamedata
 import server.player
 import server.internal.auth
 import server.internal.logger
-import bedrock_v.protocol.version.v924.enums as enums_924
-import bedrock_v.protocol.version.v924.packets as packets_924
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 
 struct RecordingChatHandler {
 	player.NopHandler
@@ -37,8 +37,8 @@ fn test_handle_text_dispatches_to_per_session_handler() {
 	mut per_session := &RecordingChatHandler{}
 	s.handle(per_session)
 
-	s.handle_text(packets_924.TextPacket{
-		message_type: enums_924.TextChat{
+	s.handle_text(packets.TextPacket{
+		message_type: enums.TextChat{
 			player_name: 'Alex'
 			message:     'hello'
 		}
@@ -69,8 +69,8 @@ fn test_handle_text_rejects_an_oversized_message() {
 	}
 	hub.add(s)
 
-	s.handle_text(packets_924.TextPacket{
-		message_type: enums_924.TextChat{
+	s.handle_text(packets.TextPacket{
+		message_type: enums.TextChat{
 			player_name: 'Alex'
 			message:     'a'.repeat(max_chat_message_bytes + 1)
 		}

@@ -2,26 +2,23 @@ module session
 
 import rand
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.block
 import server.entity
-import bedrock_v.protocol.current as proto
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v944.enums as enums_944
-import bedrock_v.protocol.version.v944.packets as packets_944
-import bedrock_v.protocol.version.v944.types as types_944
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v2168.types as types_2168
+import bedrock_v.protocol
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
 import server.worldrt
 
 fn chest_dynamic_container_id() int {
-	return int(enums_662.ContainerID.first)
+	return int(enums.ContainerID.first)
 }
 
 // OpenContainer is the container a session currently has open: which kind it
 // is and the block it was opened from.
 struct OpenContainer {
 	kind block.ContainerKind
-	pos  types.BlockPosition
+	pos  model.BlockPosition
 }
 
 fn (s &NetworkSession) open_container() ?OpenContainer {
@@ -35,7 +32,7 @@ fn (s &NetworkSession) open_container() ?OpenContainer {
 
 // open_container_position is the block a session opened its container from,
 // which is what the world's per-position hold is keyed by.
-fn (s &NetworkSession) open_container_position() ?types.BlockPosition {
+fn (s &NetworkSession) open_container_position() ?model.BlockPosition {
 	container := s.open_container() or { return none }
 	return container.pos
 }
@@ -80,7 +77,7 @@ fn (mut s NetworkSession) set_open_container_slot_net_id(slot int, net_id int) {
 }
 
 // open_container_block opens whatever container the block at pos is.
-fn open_container_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.BlockPosition, kind block.ContainerKind) {
+fn open_container_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos model.BlockPosition, kind block.ContainerKind) {
 	s.close_open_container(mut tx)
 	if !s.hold_container(mut tx, kind, pos) {
 		return
@@ -97,7 +94,7 @@ fn open_container_block(mut tx worldrt.WorldTx, mut s NetworkSession, pos types.
 // set_barrel_open keeps the barrel's visible block state in sync with its
 // container screen. Other containers either animate through packets or do not
 // have an open_bit state.
-fn set_barrel_open(mut tx worldrt.WorldTx, pos types.BlockPosition, kind block.ContainerKind, opened bool) {
+fn set_barrel_open(mut tx worldrt.WorldTx, pos model.BlockPosition, kind block.ContainerKind, opened bool) {
 	if kind.identifier != 'minecraft:barrel' || isnil(tx.wr.services.block_palette()) {
 		return
 	}
@@ -122,7 +119,7 @@ fn set_barrel_open(mut tx worldrt.WorldTx, pos types.BlockPosition, kind block.C
 
 // hold_container claims the block for this session, so nobody else can open it
 // while it is in use. A player scoped container is nobody else's to claim.
-fn (mut s NetworkSession) hold_container(mut tx worldrt.WorldTx, kind block.ContainerKind, pos types.BlockPosition) bool {
+fn (mut s NetworkSession) hold_container(mut tx worldrt.WorldTx, kind block.ContainerKind, pos model.BlockPosition) bool {
 	if kind.player_scoped {
 		return true
 	}
@@ -130,7 +127,7 @@ fn (mut s NetworkSession) hold_container(mut tx worldrt.WorldTx, kind block.Cont
 }
 
 // container_stacks reads the container's contents in slot order.
-fn (s &NetworkSession) container_stacks(mut tx worldrt.WorldTx, container OpenContainer) []types.ItemStack {
+fn (s &NetworkSession) container_stacks(mut tx worldrt.WorldTx, container OpenContainer) []model.ItemStack {
 	if container.kind.player_scoped {
 		return s.player.ender_slots()
 	}
@@ -139,38 +136,38 @@ fn (s &NetworkSession) container_stacks(mut tx worldrt.WorldTx, container OpenCo
 
 fn (mut s NetworkSession) send_container_contents(mut tx worldrt.WorldTx, container OpenContainer) {
 	stacks := s.container_stacks(mut tx, container)
-	mut descriptors := []types_2168.NetworkItemStackDescriptorV2{cap: stacks.len}
+	mut descriptors := []types.NetworkItemStackDescriptorV2{cap: stacks.len}
 	mut slot_net_ids := map[int]int{}
 	for slot, stack in stacks {
 		if stack.count > 0 && stack.id != 0 {
 			net_id := s.player.track_stack(stack)
 			slot_net_ids[slot] = net_id
-			descriptors << proto.item_descriptor_v2_tracked(stack, net_id)
+			descriptors << protocol.item_descriptor_v2_tracked(stack, net_id)
 		} else {
-			descriptors << proto.item_descriptor_v2(stack)
+			descriptors << protocol.item_descriptor_v2(stack)
 		}
 	}
 	s.set_open_container_slots(slot_net_ids)
-	s.deliver(&packets_944.ContainerOpenPacket{
-		container_id:    enums_662.ContainerID.first
-		container_type:  enums_662.ContainerType.container
-		position:        proto.block_pos(container.pos)
-		target_actor_id: proto.actor_unique_id(-1)
+	s.deliver(&packets.ContainerOpenPacket{
+		container_id:    enums.ContainerID.first
+		container_type:  enums.ContainerType.container
+		position:        protocol.block_pos(container.pos)
+		target_actor_id: protocol.actor_unique_id(-1)
 	})
-	s.deliver(&packets_2168.InventoryContentPacket{
+	s.deliver(&packets.InventoryContentPacket{
 		inventory_id:        u32(chest_dynamic_container_id())
 		slots:               descriptors
-		container_name_data: types_944.FullContainerName{
-			container:  enums_944.ContainerEnumName.dynamic_container
+		container_name_data: types.FullContainerName{
+			container:  enums.ContainerEnumName.dynamic_container
 			dynamic_id: i32(chest_dynamic_container_id())
 		}
-		storage_item:        proto.item_descriptor_v2(types.ItemStack{})
+		storage_item:        protocol.item_descriptor_v2(model.ItemStack{})
 	})
 }
 
 // store_container_slot writes one slot back to wherever that container keeps
 // its contents.
-fn (mut s NetworkSession) store_container_slot(mut tx worldrt.WorldTx, container OpenContainer, slot int, stack types.ItemStack) {
+fn (mut s NetworkSession) store_container_slot(mut tx worldrt.WorldTx, container OpenContainer, slot int, stack model.ItemStack) {
 	if slot < 0 || slot >= container.kind.slots {
 		return
 	}
@@ -199,13 +196,13 @@ fn (mut s NetworkSession) close_open_container(mut tx worldrt.WorldTx) {
 // what it shows belongs to the player, not to the block.
 fn drop_container_contents(mut tx worldrt.WorldTx, mut s NetworkSession, x int, y int, z int) {
 	stacks := tx.wr.world.container_slots(x, y, z)
-	center := types.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
+	center := model.Vector3{f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5}
 	for stack in stacks {
 		if stack.count <= 0 || stack.id == 0 {
 			continue
 		}
 		max_stack := s.max_stack_size_for_numeric(stack.id)
-		velocity := types.Vector3{
+		velocity := model.Vector3{
 			x: (rand.f32() * 0.2) - 0.1
 			y: 0.2
 			z: (rand.f32() * 0.2) - 0.1

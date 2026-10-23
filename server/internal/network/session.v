@@ -7,7 +7,6 @@ import bedrock_v.protocol
 import bedrock_v.protocol.serializer
 import server.internal.logger
 import server.internal.encryption
-import bedrock_v.protocol.current as proto
 
 pub const default_compression_threshold = 256
 
@@ -65,7 +64,7 @@ pub mut:
 pub fn new_session(mut conn nethernet.Conn, log &logger.Logger) &Session {
 	return &Session{
 		conn:         conn
-		pool:         proto.new_pool()
+		pool:         protocol.new_pool()
 		write_mutex:  sync.new_mutex()
 		window_start: time.now()
 		log:          log

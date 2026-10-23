@@ -1,7 +1,7 @@
 module session
 
 import time
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.event
 import server.internal.gamedata
 import server.internal.logger
@@ -10,10 +10,9 @@ import server.player
 import server.world
 import server.world.db
 import server.worldrt
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.packets
 
-fn movement_isolation_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, pos types.Vector3) &NetworkSession {
+fn movement_isolation_test_session(mut hub Hub, mut wr worldrt.WorldRuntime, pos model.Vector3) &NetworkSession {
 	mut s := &NetworkSession{
 		player:        player.new_player()
 		hub:           hub
@@ -59,7 +58,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 		hub.close_worlds()
 	}
 
-	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
+	mut s := movement_isolation_test_session(mut hub, mut wr_a, model.Vector3{0, 0, 0})
 
 	started := chan bool{ cap: 1 }
 	release := chan bool{ cap: 1 }
@@ -69,7 +68,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	})
 	_ := <-started
 
-	stale_pos := types.Vector3{50.0, 0.0, 0.0}
+	stale_pos := model.Vector3{50.0, 0.0, 0.0}
 	s.update_movement(stale_pos, 0.0, 0.0, 0.0, false)
 	assert s.movement_scheduled == true
 
@@ -95,7 +94,7 @@ fn test_stale_movement_task_dropped_after_world_switch() {
 	assert s.movement_scheduled == false
 	assert s.player.position() != stale_pos
 
-	fresh_pos := types.Vector3{1.0, 2.0, 3.0}
+	fresh_pos := model.Vector3{1.0, 2.0, 3.0}
 	s.update_movement(fresh_pos, 0.0, 0.0, 0.0, false)
 	deadline2 := time.now().add(2 * time.second)
 	for time.now() < deadline2 && s.player.position() != fresh_pos {
@@ -130,12 +129,12 @@ fn test_player_move_event_reaches_only_the_moving_player() {
 	mut handler_a := &CountingMoveHandler{}
 	mut handler_b := &CountingMoveHandler{}
 
-	mut s := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
+	mut s := movement_isolation_test_session(mut hub, mut wr_a, model.Vector3{0, 0, 0})
 	s.handle(handler_a)
-	mut other := movement_isolation_test_session(mut hub, mut wr_b, types.Vector3{0, 0, 0})
+	mut other := movement_isolation_test_session(mut hub, mut wr_b, model.Vector3{0, 0, 0})
 	other.handle(handler_b)
 
-	s.update_movement(types.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
+	s.update_movement(model.Vector3{5.0, 0.0, 0.0}, 0.0, 0.0, 0.0, false)
 
 	deadline := time.now().add(2 * time.second)
 	for time.now() < deadline && s.movement_scheduled {
@@ -157,7 +156,7 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 		hub.close_worlds()
 	}
 
-	target_pos := types.Vector3{5.0, 0.0, 0.0}
+	target_pos := model.Vector3{5.0, 0.0, 0.0}
 	mut observer_a := movement_isolation_test_session(mut hub, mut wr_a, target_pos)
 	mut observer_b := movement_isolation_test_session(mut hub, mut wr_b, target_pos)
 	mut a_transport := &FakeTransport{}
@@ -165,7 +164,7 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 	observer_a.conn.transport = a_transport
 	observer_b.conn.transport = b_transport
 
-	mut mover := movement_isolation_test_session(mut hub, mut wr_a, types.Vector3{0, 0, 0})
+	mut mover := movement_isolation_test_session(mut hub, mut wr_a, model.Vector3{0, 0, 0})
 	mover.update_movement(target_pos, 0.0, 0.0, 0.0, false)
 
 	deadline := time.now().add(2 * time.second)
@@ -191,14 +190,14 @@ fn test_movement_broadcast_isolated_to_owning_world() {
 
 	mut a_saw_move := false
 	for p in a_transport.sent {
-		if p is packets_662.MoveActorAbsolutePacket {
+		if p is packets.MoveActorAbsolutePacket {
 			a_saw_move = true
 		}
 	}
 	assert a_saw_move
 
 	for p in b_transport.sent {
-		assert p !is packets_662.MoveActorAbsolutePacket
+		assert p !is packets.MoveActorAbsolutePacket
 	}
 }
 
@@ -257,7 +256,7 @@ fn test_teleport_snaps_its_client_and_moves_body_for_others() {
 	epoch := mover.world_binding().epoch
 	moved := worldrt.world_call[bool]('test', mut wr, fn [rid, epoch] (mut tx worldrt.WorldTx) bool {
 		mut s := player_for_id(mut tx, entity.new_actor_id(rid, epoch)) or { return false }
-		s.player.teleport(mut tx, types.Vector3{12.0, 70.0, -4.0})
+		s.player.teleport(mut tx, model.Vector3{12.0, 70.0, -4.0})
 		return true
 	}) or { panic('world unexpectedly stopped') }
 	assert moved
@@ -267,8 +266,8 @@ fn test_teleport_snaps_its_client_and_moves_body_for_others() {
 
 	mut mover_snapped := false
 	for p in mover_transport.sent {
-		assert p !is packets_662.MoveActorAbsolutePacket
-		if p is packets_2168.MovePlayerPacket {
+		assert p !is packets.MoveActorAbsolutePacket
+		if p is packets.MovePlayerPacket {
 			mover_snapped = true
 		}
 	}
@@ -276,8 +275,8 @@ fn test_teleport_snaps_its_client_and_moves_body_for_others() {
 
 	mut observer_saw_move := false
 	for p in observer_transport.sent {
-		assert p !is packets_2168.MovePlayerPacket
-		if p is packets_662.MoveActorAbsolutePacket {
+		assert p !is packets.MovePlayerPacket
+		if p is packets.MoveActorAbsolutePacket {
 			observer_saw_move = true
 		}
 	}

@@ -2,10 +2,9 @@ module session
 
 import bedrock_v.protocol
 import server.player.scoreboard
-import bedrock_v.protocol.version.v662.enums as enums_662
-import bedrock_v.protocol.version.v2168.packets as packets_2168
-import bedrock_v.protocol.version.v662.packets as packets_662
-import bedrock_v.protocol.version.v662.types as types_662
+import bedrock_v.protocol.enums
+import bedrock_v.protocol.packets
+import bedrock_v.protocol.types
 
 // Only setdisplay and a new viewer redraw a whole slot. A score change sends
 // the one line that changed, and only for the slots showing its objective.
@@ -24,11 +23,11 @@ fn display_objective_name(slot scoreboard.DisplaySlot) string {
 
 // score_entry is how one entry of a slot reads to viewer, or none when the
 // viewer has nothing to show it against.
-fn (mut h Hub) score_entry(mut viewer NetworkSession, slot scoreboard.DisplaySlot, entry string, value int) ?packets_2168.ScorePacketEntry {
+fn (mut h Hub) score_entry(mut viewer NetworkSession, slot scoreboard.DisplaySlot, entry string, value int) ?packets.ScorePacketEntry {
 	id := h.scoreboards.entry_id(entry) or { return none }
 	if slot == .sidebar {
-		return packets_2168.ScoreEntryChangeFakePlayer{
-			scoreboard_id:    types_662.ScoreboardId{
+		return packets.ScoreEntryChangeFakePlayer{
+			scoreboard_id:    types.ScoreboardId{
 				id: id
 			}
 			objective_name:   display_objective_name(slot)
@@ -38,8 +37,8 @@ fn (mut h Hub) score_entry(mut viewer NetworkSession, slot scoreboard.DisplaySlo
 	}
 	target := h.session_by_name(entry) or { return none }
 	wire_id := viewer.known_wire_id(target.runtime_id) or { return none }
-	return packets_2168.ScoreEntryChangePlayer{
-		scoreboard_id:    types_662.ScoreboardId{
+	return packets.ScoreEntryChangePlayer{
+		scoreboard_id:    types.ScoreboardId{
 			id: id
 		}
 		objective_name:   display_objective_name(slot)
@@ -53,38 +52,38 @@ fn (mut h Hub) score_entry(mut viewer NetworkSession, slot scoreboard.DisplaySlo
 fn (mut h Hub) slot_packets(mut viewer NetworkSession, slot scoreboard.DisplaySlot, objective scoreboard.Objective) []protocol.Packet {
 	scores := h.scoreboards.scores(objective.name)
 	name := display_objective_name(slot)
-	mut packets := []protocol.Packet{cap: 3}
-	packets << &packets_662.RemoveObjectivePacket{
+	mut batch := []protocol.Packet{cap: 3}
+	batch << &packets.RemoveObjectivePacket{
 		objective_name: name
 	}
-	packets << &packets_662.SetDisplayObjectivePacket{
+	batch << &packets.SetDisplayObjectivePacket{
 		display_slot_name:      slot.wire_name()
 		objective_name:         name
 		objective_display_name: objective.display_title()
 		criteria_name:          'dummy'
 		sort_order:             if objective.descending {
-			enums_662.ObjectiveSortOrder.descending
+			enums.ObjectiveSortOrder.descending
 		} else {
-			enums_662.ObjectiveSortOrder.ascending
+			enums.ObjectiveSortOrder.ascending
 		}
 	}
-	mut entries := []packets_2168.ScorePacketEntry{cap: scores.len}
+	mut entries := []packets.ScorePacketEntry{cap: scores.len}
 	for entry, value in scores {
 		entries << h.score_entry(mut viewer, slot, entry, value) or { continue }
 	}
 	if entries.len > 0 {
-		packets << &packets_2168.SetScorePacket{
+		batch << &packets.SetScorePacket{
 			score_info: entries
 		}
 	}
-	return packets
+	return batch
 }
 
 // draw_slot sends viewer whatever a slot is showing, or clears it when the
 // slot shows nothing.
 fn (mut h Hub) draw_slot(mut viewer NetworkSession, slot scoreboard.DisplaySlot) {
 	objective_name := h.scoreboards.display(slot) or {
-		viewer.deliver(&packets_662.RemoveObjectivePacket{
+		viewer.deliver(&packets.RemoveObjectivePacket{
 			objective_name: display_objective_name(slot)
 		})
 		return
@@ -111,7 +110,7 @@ fn (mut h Hub) clear_slots(slots []scoreboard.DisplaySlot) {
 	}
 	for mut viewer in h.snapshot() {
 		for slot in slots {
-			viewer.deliver(&packets_662.RemoveObjectivePacket{
+			viewer.deliver(&packets.RemoveObjectivePacket{
 				objective_name: display_objective_name(slot)
 			})
 		}
@@ -126,12 +125,12 @@ fn (mut h Hub) send_score_change(objective string, entry string, value int) {
 		return
 	}
 	for mut viewer in h.snapshot() {
-		mut entries := []packets_2168.ScorePacketEntry{cap: slots.len}
+		mut entries := []packets.ScorePacketEntry{cap: slots.len}
 		for slot in slots {
 			entries << h.score_entry(mut viewer, slot, entry, value) or { continue }
 		}
 		if entries.len > 0 {
-			viewer.deliver(&packets_2168.SetScorePacket{
+			viewer.deliver(&packets.SetScorePacket{
 				score_info: entries
 			})
 		}
@@ -142,11 +141,11 @@ fn (mut h Hub) send_score_change(objective string, entry string, value int) {
 // viewer never had is a noop on the client, so this does not bother checking.
 fn (mut h Hub) send_score_reset(entry string) {
 	id := h.scoreboards.entry_id(entry) or { return }
-	mut entries := []packets_2168.ScorePacketEntry{}
+	mut entries := []packets.ScorePacketEntry{}
 	for slot in scoreboard.all_display_slots {
 		if _ := h.scoreboards.display(slot) {
-			entries << packets_2168.ScoreEntryRemove{
-				scoreboard_id:  types_662.ScoreboardId{
+			entries << packets.ScoreEntryRemove{
+				scoreboard_id:  types.ScoreboardId{
 					id: id
 				}
 				objective_name: display_objective_name(slot)
@@ -158,7 +157,7 @@ fn (mut h Hub) send_score_reset(entry string) {
 	}
 	// hmm, a remove names no actor, so unlike the other score packets this one
 	// really is the same for every viewer.
-	h.broadcast(&packets_2168.SetScorePacket{
+	h.broadcast(&packets.SetScorePacket{
 		score_info: entries
 	})
 }
@@ -183,7 +182,7 @@ fn (mut h Hub) sync_scoreboard_for(mut s NetworkSession) {
 				continue
 			}
 			entry := h.score_entry(mut viewer, slot, name, value) or { continue }
-			viewer.deliver(&packets_2168.SetScorePacket{
+			viewer.deliver(&packets.SetScorePacket{
 				score_info: [entry]
 			})
 		}

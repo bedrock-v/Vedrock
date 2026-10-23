@@ -42,7 +42,7 @@ fn (mut r BeReader) i32() !int {
 	for _ in 0 .. 4 {
 		value = (value << 8) | u32(r.u8()!)
 	}
-	return int(value)
+	return int(i32(value))
 }
 
 fn (mut r BeReader) read_name() !string {

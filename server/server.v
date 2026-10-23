@@ -24,10 +24,10 @@ import server.worldrt
 import server.player.playerdb
 import sync
 import sync.stdatomic
-import bedrock_v.protocol.current as proto
+import bedrock_v.protocol
 import bedrock_v.webrtc.logging
 import bedrock_v.webrtc.ice
-import bedrock_v.protocol.version.v662.packets as packets_662
+import bedrock_v.protocol.packets
 
 // nethernet_identity_domain names the issuer of the server's identity token
 // when the config leaves it blank and there is no MOTD to fall back on. Bedrock
@@ -353,7 +353,7 @@ fn (s &Server) transport_log_level() logging.Level {
 // error if the network identity or a listener fails to bind.
 pub fn (mut s Server) start() ! {
 	s.log.info(s.lang.tf('server.supported_version', {
-		'Version': proto.proto_version.minecraft_version()
+		'Version': protocol.minecraft_version
 	}))
 	net_log := logging.new('nethernet', s.transport_log_level(), &TransportLogSink{
 		log: s.log
@@ -498,7 +498,7 @@ fn (mut s Server) tick_loop() {
 		logger.unname_thread()
 		s.loop_wg.done()
 	}
-	interval := time.second / ticks_per_second
+	interval := time.Duration(time.second / ticks_per_second)
 	loop_start := time.now()
 	mut tick := u64(0)
 	mut window_start := time.now()
@@ -514,7 +514,7 @@ fn (mut s Server) tick_loop() {
 		tick++
 		world_time := int(tick % day_length_ticks)
 		if tick % u64(ticks_per_second) == 0 {
-			s.hub.broadcast(&packets_662.SetTimePacket{
+			s.hub.broadcast(&packets.SetTimePacket{
 				time: world_time
 			})
 			pong := s.pong_data(s.hub.count()).bytes()
@@ -640,8 +640,8 @@ fn (mut s Server) handle(mut conn nethernet.Conn) {
 // one for each address family.
 fn (s &Server) pong_data(online int) string {
 	gamemode, gamemode_num := normalize_gamemode(s.cfg.gamemode)
-	return ['MCPE', s.cfg.motd, int(proto.proto_version.protocol_id()).str(),
-		proto.proto_version.minecraft_version(), online.str(), s.cfg.max_players.str(), s.guid.str(),
+	return ['MCPE', s.cfg.motd, int(protocol.protocol_id).str(),
+		protocol.minecraft_version, online.str(), s.cfg.max_players.str(), s.guid.str(),
 		s.cfg.sub_motd, gamemode, gamemode_num.str(), s.cfg.port.str(), s.cfg.port.str()].join(';') + ';'
 }
 

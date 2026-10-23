@@ -17,6 +17,9 @@ pub interface Block {
 
 // Interactable is implemented by blocks with a behaviour on right click.
 pub interface Interactable {
+	// Block is embedded so `b is Interactable` works on a Block value, newer
+	// V refuses that check between unrelated interfaces. Same for the rest.
+	Block
 	// interact runs this block's right click behaviour at (x, y, z).
 	// Returns whether it did anything, false means fall through, letting
 	// the session layer treat the click as an ordinary placement attempt.
@@ -28,6 +31,7 @@ pub interface Interactable {
 // right click behaviour and from anything that happens once the break
 // actually completes.
 pub interface Punchable {
+	Block
 	// punch runs this block's left click behaviour at (x, y, z). Unlike
 	// interact() there's no fall through decision to make, punching a
 	// block always proceeds to the normal start break animation regardless.
@@ -37,6 +41,7 @@ pub interface Punchable {
 // Replaceable is implemented by blocks that get silently overwritten by a
 // placement instead of blocking it.
 pub interface Replaceable {
+	Block
 	replaceable() bool
 }
 

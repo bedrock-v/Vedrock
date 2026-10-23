@@ -48,7 +48,14 @@ pub fn (l &LevelDB) put_all(records []KeyValue) ! {
 
 pub fn (l &LevelDB) get(key []u8) ?[]u8 {
 	mut ldb := unsafe { l.db }
-	return ldb.get(key, leveldb.ReadOptions{})
+	// hmm, leveldb now fails a read it can't complete instead of reporting the
+	// key as missing. Callers only know "found or not" for now, so a failed
+	// read still comes back as none.
+	lookup := ldb.get(key, leveldb.ReadOptions{}) or { return none }
+	if !lookup.found {
+		return none
+	}
+	return lookup.value
 }
 
 pub fn (l &LevelDB) delete(key []u8) ! {

@@ -1,7 +1,7 @@
 module session
 
 import math
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.event
 import server.world
@@ -106,7 +106,7 @@ fn (mut h WorldEntityHost) neighbor_models(x int, y int, z int) map[int]world.Bl
 // entity_position is the unified lookup. Any registered actor, mob or
 // player, resolved through Manager's storage. current_position() is one of
 // entity.Actor's own methods, so no narrowing is needed here at all.
-fn (mut h WorldEntityHost) entity_position(runtime_id u64) ?types.Vector3 {
+fn (mut h WorldEntityHost) entity_position(runtime_id u64) ?model.Vector3 {
 	a := h.wr.entities.actor_by_runtime_id(runtime_id) or { return none }
 	return a.current_position()
 }
@@ -114,7 +114,7 @@ fn (mut h WorldEntityHost) entity_position(runtime_id u64) ?types.Vector3 {
 // entity_hit_test checks every registered actor using its own feet position
 // and dimensions. Players and non-player entities share the same path
 // through the Actor interface.
-fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64) ?u64 {
+fn (mut h WorldEntityHost) entity_hit_test(pos model.Vector3, exclude_runtime_ids []u64) ?u64 {
 	for a in h.wr.entities.all_actors() {
 		if a.runtime_id() in exclude_runtime_ids || a.is_dead() {
 			continue
@@ -131,7 +131,7 @@ fn (mut h WorldEntityHost) entity_hit_test(pos types.Vector3, exclude_runtime_id
 	return none
 }
 
-fn damage_actor(mut tx worldrt.WorldTx, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from types.Vector3, knockback_force f32, knockback_height f32) {
+fn damage_actor(mut tx worldrt.WorldTx, runtime_id u64, amount f32, source DamageSource, source_runtime_id u64, knockback_from model.Vector3, knockback_force f32, knockback_height f32) {
 	mut a := tx.wr.entities.actor_by_runtime_id(runtime_id) or { return }
 	if mut a is NetworkSession {
 		a.apply_knockback(knockback_from, knockback_force, knockback_height)
@@ -150,21 +150,21 @@ fn damage_actor(mut tx worldrt.WorldTx, runtime_id u64, amount f32, source Damag
 // session damage sources without creating an import cycle.
 //
 // Melee damage uses PlayerAttackTask and doesn't pass through this path.
-fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+fn (mut h WorldEntityHost) damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from model.Vector3) {
 	mut tx := h.tx()
 	damage_actor(mut tx, runtime_id, amount, ProjectileDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }
 
-fn (mut h WorldEntityHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3) {
+fn (mut h WorldEntityHost) mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from model.Vector3) {
 	mut tx := h.tx()
 	damage_actor(mut tx, runtime_id, amount, MobAttackDamageSource{
 		attacker_name: source_name
 	}, source_runtime_id, knockback_from, knockback_horizontal, knockback_vertical)
 }
 
-fn (mut h WorldEntityHost) has_line_of_sight(from types.Vector3, to types.Vector3) bool {
+fn (mut h WorldEntityHost) has_line_of_sight(from model.Vector3, to model.Vector3) bool {
 	dx := to.x - from.x
 	dy := to.y - from.y
 	dz := to.z - from.z
@@ -186,7 +186,7 @@ fn (mut h WorldEntityHost) has_line_of_sight(from types.Vector3, to types.Vector
 }
 
 // nearest_player scans only registered player actors.
-fn (mut h WorldEntityHost) nearest_player(pos types.Vector3, radius f32) ?u64 {
+fn (mut h WorldEntityHost) nearest_player(pos model.Vector3, radius f32) ?u64 {
 	mut best_rid := u64(0)
 	mut best_dist_sq := radius * radius
 	mut found := false
@@ -248,6 +248,6 @@ fn (t SpawnEntityTask) run(mut tx worldrt.WorldTx) {
 	if ctx.is_cancelled() {
 		return
 	}
-	tx.wr.entities.spawn(t.behaviour, types.Vector3{t.x, t.y, t.z})
+	tx.wr.entities.spawn(t.behaviour, model.Vector3{t.x, t.y, t.z})
 	spawned = true
 }

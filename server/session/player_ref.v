@@ -1,6 +1,6 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.player
 import server.worldrt
@@ -98,7 +98,7 @@ fn stale_error() IError {
 
 // position is the player's current position. Fails if the player has
 // disconnected or left the world membership this PlayerRef was created for.
-pub fn (p PlayerRef) position() !types.Vector3 {
+pub fn (p PlayerRef) position() !model.Vector3 {
 	mut s := p.resolve()!
 	return s.position()
 }
@@ -114,7 +114,7 @@ pub fn (p PlayerRef) send_message(message string) ! {
 // teleport moves the player within their current world. Same failure mode as
 // position. It is exec plus Player.teleport, kept because moving a player is
 // common enough to be worth one call.
-pub fn (p PlayerRef) teleport(pos types.Vector3) ! {
+pub fn (p PlayerRef) teleport(pos model.Vector3) ! {
 	p.exec('PlayerRef.teleport', fn [pos] (mut tx worldrt.WorldTx, mut pl player.Player) {
 		pl.teleport(mut tx, pos)
 	})!
@@ -122,7 +122,7 @@ pub fn (p PlayerRef) teleport(pos types.Vector3) ! {
 
 // teleport_to moves the player into world w at pos, transferring world
 // membership. Same failure mode as position.
-pub fn (p PlayerRef) teleport_to(w World, pos types.Vector3) ! {
+pub fn (p PlayerRef) teleport_to(w World, pos model.Vector3) ! {
 	mut s := p.resolve()!
 	s.teleport_to_world(w.name(), pos.x, pos.y, pos.z)
 }

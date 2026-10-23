@@ -170,7 +170,7 @@ fn block_state_hash(name string, states []BlockState) int {
 	if name == 'minecraft:unknown' {
 		return -2
 	}
-	return int(fnv1a_32(le_nbt_block_state(name, states)))
+	return int(i32(fnv1a_32(le_nbt_block_state(name, states))))
 }
 
 fn sorted_states(states []BlockState) []BlockState {

@@ -2,6 +2,7 @@ module session
 
 import time
 import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 import server.event
 import server.internal.gamedata
@@ -11,8 +12,6 @@ import server.internal.auth
 import server.world
 import server.world.db
 import server.worldrt
-import bedrock_v.protocol.version.v2168.types as types_2168
-import bedrock_v.protocol.version.v944.types as types_944
 
 fn make_effects_test_player(name string, health f32) &player.Player {
 	mut pl := player.new_player()
@@ -153,7 +152,7 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 		hub:        hub
 	}
 	hub.add(sess)
-	potion := types.ItemStack{
+	potion := model.ItemStack{
 		id:               100
 		meta:             21
 		count:            1
@@ -163,8 +162,8 @@ fn test_consuming_healing_potion_applies_effect_and_returns_bottle() {
 	net_id := sess.player.track_stack(potion)
 	sess.player.set_slot(0, net_id)
 
-	changes := sess.apply_consume(mut tx, types_2168.ItemStackRequestSlotInfo{
-		container_name: types_944.FullContainerName{
+	changes := sess.apply_consume(mut tx, types.ItemStackRequestSlotInfo{
+		container_name: types.FullContainerName{
 			container: .hotbar_container
 		}
 		slot:           0

@@ -2,7 +2,7 @@ module entity
 
 import os
 import json2
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.effect
 
 // SaveData contains the persistent state needed to recreate an entity.
@@ -106,9 +106,9 @@ pub fn (mut m Manager) restore_from_save(reg &Registry, saved []SaveData) {
 			runtime_id: rid
 			identifier: behaviour.identifier()
 			dimensions: behaviour.dimensions()
-			pos:        types.Vector3{data.x, data.y, data.z}
+			pos:        model.Vector3{data.x, data.y, data.z}
 			floor_y:    data.y
-			velocity:   types.Vector3{data.velocity_x, data.velocity_y, data.velocity_z}
+			velocity:   model.Vector3{data.velocity_x, data.velocity_y, data.velocity_z}
 			pitch:      data.pitch
 			yaw:        data.yaw
 			head_yaw:   data.head_yaw

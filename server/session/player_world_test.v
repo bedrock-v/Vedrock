@@ -1,7 +1,7 @@
 module session
 
 import os
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.conf
 import server.internal.auth
 import server.internal.gamedata
@@ -50,11 +50,11 @@ fn resume_session(mut hub Hub, name string) &NetworkSession {
 // standing_position is somewhere the flat generator agrees a player can be,
 // a rejected saved position is rejected for the world it names rather than for
 // being unsafe.
-fn standing_position(mut hub Hub) types.Vector3 {
+fn standing_position(mut hub Hub) model.Vector3 {
 	mut wr := hub.default_world_runtime() or { panic('expected a default world') }
 	target := wr.world
 	gen := target.make_generator(hub.build_generator(target))
-	return types.Vector3{18.5, f32(gen.spawn_point().y) + player_eye_height, -6.5}
+	return model.Vector3{18.5, f32(gen.spawn_point().y) + player_eye_height, -6.5}
 }
 
 fn resume_dir(tag string) string {

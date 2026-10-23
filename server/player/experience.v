@@ -2,7 +2,7 @@ module player
 
 import math
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.entity
 import server.worldrt
 
@@ -144,7 +144,7 @@ pub fn (mut p Player) drop_experience(mut tx worldrt.WorldTx) {
 	for value in entity.split_experience(dropped) {
 		behaviour := entity.new_experience_orb_behaviour(value, entity.orb_pickup_delay_ticks)
 		mut e := tx.wr.entities.spawn(behaviour, pos)
-		e.set_velocity(types.Vector3{
+		e.set_velocity(model.Vector3{
 			x: (rand.f32() * 0.2) - 0.1
 			y: 0.2
 			z: (rand.f32() * 0.2) - 0.1

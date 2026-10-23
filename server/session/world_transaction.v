@@ -3,7 +3,7 @@ module session
 import server.event
 import server.world
 import server.entity
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.worldrt
 
 // WorldTransaction is the public transaction surface passed to World.exec.
@@ -23,7 +23,7 @@ mut:
 pub struct EntityConfig {
 pub:
 	type_name string
-	pos       types.Vector3
+	pos       model.Vector3
 }
 
 // WorldTxHandle adapts the internal worldrt.WorldTx to the public

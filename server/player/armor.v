@@ -1,6 +1,6 @@
 module player
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 
 // armor_slot_count is how many pieces a player wears, ordered helmet,
 // chestplate, leggings, boots - the order the client sends them in.
@@ -33,14 +33,14 @@ pub fn is_armor_slot(slot int) bool {
 
 // armor_stack returns the piece worn at index, or none when that slot is
 // empty.
-pub fn (p &Player) armor_stack(index int) ?types.ItemStack {
+pub fn (p &Player) armor_stack(index int) ?model.ItemStack {
 	net := p.inv_slot(armor_slot(index)) or { return none }
 	return p.inv_stack(net)
 }
 
 // send_armor_slot_update keeps the client's view of one worn piece in sync
 // after the server changed it.
-pub fn (mut p Player) send_armor_slot_update(index int, wrapped types.ItemStackWrapper) {
+pub fn (mut p Player) send_armor_slot_update(index int, wrapped model.ItemStackWrapper) {
 	mut sink := p.sink
 	sink.send_armor_slot_update(index, wrapped)
 }

@@ -1,13 +1,13 @@
 module session
 
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.worldrt
 
 // EntityRefSnapshot captures the entity state needed by EntityRef reads.
 // It is collected on the owning world thread.
 struct EntityRefSnapshot {
 	found bool
-	pos   types.Vector3
+	pos   model.Vector3
 }
 
 // EntityRef is a stale checked reference to a non-player entity. Its
@@ -55,7 +55,7 @@ pub fn (e EntityRef) valid() bool {
 
 // position is the entity's current position. Fails if the entity has
 // despawned or its world is shutting down.
-pub fn (e EntityRef) position() !types.Vector3 {
+pub fn (e EntityRef) position() !model.Vector3 {
 	mut w := e.world_
 	snap := worldrt.world_call[EntityRefSnapshot]('EntityRef.position', mut w.runtime, fn [e] (mut tx worldrt.WorldTx) EntityRefSnapshot {
 		target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return EntityRefSnapshot{} }
@@ -72,7 +72,7 @@ pub fn (e EntityRef) position() !types.Vector3 {
 
 // teleport moves the entity within its world and broadcasts the move to
 // observers. Same failure mode as position.
-pub fn (e EntityRef) teleport(pos types.Vector3) ! {
+pub fn (e EntityRef) teleport(pos model.Vector3) ! {
 	mut w := e.world_
 	applied := worldrt.world_call[bool]('EntityRef.teleport', mut w.runtime, fn [e, pos] (mut tx worldrt.WorldTx) bool {
 		mut target := tx.wr.entities.by_runtime_id(e.runtime_id) or { return false }

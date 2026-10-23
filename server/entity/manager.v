@@ -2,7 +2,7 @@ module entity
 
 import sync
 import rand
-import bedrock_v.protocol.types
+import bedrock_v.protocol.model
 import server.world
 import server.effect
 
@@ -28,38 +28,38 @@ mut:
 	// longer exists. Lets a Behaviour target something outside the entity
 	// Manager's own bookkeeping without the entity package
 	// importing session.
-	entity_position(runtime_id u64) ?types.Vector3
+	entity_position(runtime_id u64) ?model.Vector3
 	// entity_hit_test returns the runtime id of the first live actor other
 	// than any id in exclude_runtime_ids whose box contains pos or none.
 	// Used for projectile vs entity/player collision.
-	entity_hit_test(pos types.Vector3, exclude_runtime_ids []u64) ?u64
+	entity_hit_test(pos model.Vector3, exclude_runtime_ids []u64) ?u64
 	// damage_entity applies damage to the actor at runtime_id (player or
 	// entity), attributed to source_name/source_runtime_id, with
 	// knockback_from as the origin used to compute knockback direction.
-	damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
+	damage_entity(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from model.Vector3)
 	// mob_attack applies a hostile mob's own melee attack to the actor at
 	// runtime_id, attributed to source_name/source_runtime_id the same way
 	// as damage_entity.
-	mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from types.Vector3)
+	mob_attack(runtime_id u64, amount f32, source_name string, source_runtime_id u64, knockback_from model.Vector3)
 	// nearest_player returns the runtime id of the closest connected player
 	// within radius of pos or none if nobody is that close. Used for
 	// proactive mob targeting (HostileBehaviour scanning for a target it
 	// hasn't been hit by yet).
-	nearest_player(pos types.Vector3, radius f32) ?u64
+	nearest_player(pos model.Vector3, radius f32) ?u64
 	// has_line_of_sight reports whether no solid block obstructs the segment
 	// between from and to. It uses sampled points rather than exact voxel
 	// traversal and currently treats all blocks with collision boxes as opaque.
-	has_line_of_sight(from types.Vector3, to types.Vector3) bool
+	has_line_of_sight(from model.Vector3, to model.Vector3) bool
 	// notify_entity_despawn lets the entity package announce a despawn.
 	notify_entity_despawn(identifier string, x f32, y f32, z f32)
 	// spawn_dropped_item spawns count units of a registered item at pos.
 	// Unknown items and non-positive counts are ignored; name to ID resolution
 	// remains in the session item registry.
-	spawn_dropped_item(item_name string, count int, pos types.Vector3)
+	spawn_dropped_item(item_name string, count int, pos model.Vector3)
 	// collect_item adds as much of stack as possible to the player identified
 	// by runtime_id and returns the number of units accepted. It returns 0 if
 	// no live player is registered there or the inventory cannot take any.
-	collect_item(runtime_id u64, stack types.ItemStack) int
+	collect_item(runtime_id u64, stack model.ItemStack) int
 	// notify_item_taken lets viewers see the pickup animation.
 	notify_item_taken(item_runtime_id u64, taker_runtime_id u64)
 	// grant_experience awards amount to the player at runtime_id and reports
@@ -67,7 +67,7 @@ mut:
 	grant_experience(runtime_id u64, amount int) bool
 	// spawn_experience_orbs drops amount of experience at pos, split across as
 	// many orbs as it takes.
-	spawn_experience_orbs(amount int, pos types.Vector3)
+	spawn_experience_orbs(amount int, pos model.Vector3)
 }
 
 // Manager stores every live actor in a world, keyed by runtime ID.
@@ -91,7 +91,7 @@ pub fn new_manager(host Host) &Manager {
 
 // spawn creates an entity driven by behaviour at pos, registers it and
 // broadcasts its appearance to all viewers. Returns the live Entity.
-pub fn (mut m Manager) spawn(behaviour Behaviour, pos types.Vector3) &Entity {
+pub fn (mut m Manager) spawn(behaviour Behaviour, pos model.Vector3) &Entity {
 	rid := m.host.allocate_runtime_id()
 	mut e := &Entity{
 		unique_id:  i64(rid)
@@ -417,7 +417,7 @@ fn (mut m Manager) merge_items() {
 }
 
 // moved reports whether two positions differ enough to be worth a broadcast.
-fn moved(a types.Vector3, b types.Vector3) bool {
+fn moved(a model.Vector3, b model.Vector3) bool {
 	eps := f32(0.0001)
 	return abs_f32(a.x - b.x) > eps || abs_f32(a.y - b.y) > eps || abs_f32(a.z - b.z) > eps
 }

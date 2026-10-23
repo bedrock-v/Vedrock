@@ -16,6 +16,8 @@ mut:
 //
 // Examples include crop growth and leaf decay.
 pub interface RandomTicker {
+	// see Interactable for why Block is embedded
+	Block
 	random_tick(x int, y int, z int, mut w TickWorld)
 }
 
@@ -25,6 +27,7 @@ pub interface RandomTicker {
 //
 // Examples include liquid spreading and delayed redstone propagation.
 pub interface ScheduledTicker {
+	Block
 	scheduled_tick(x int, y int, z int, mut w TickWorld)
 }
 
