@@ -1,5 +1,6 @@
 module server
 
+import rand
 import sync
 import sync.stdatomic
 import time
@@ -51,7 +52,13 @@ pub fn new(cfg Config) !&Server {
 	if cfg.listeners.len == 0 {
 		return error('a server with no listeners would accept nobody')
 	}
-	status := cfg.status()
+	mut status := cfg.status()
+	if status.network_id == 0 {
+		status = network.Status{
+			...status
+			network_id: rand.u64()
+		}
+	}
 	mut listeners := []network.Listener{cap: cfg.listeners.len}
 	for build in cfg.listeners {
 		listeners << build(status) or {
