@@ -498,7 +498,7 @@ fn (mut s Server) tick_loop() {
 		logger.unname_thread()
 		s.loop_wg.done()
 	}
-	interval := time.second / ticks_per_second
+	interval := time.Duration(time.second / ticks_per_second)
 	loop_start := time.now()
 	mut tick := u64(0)
 	mut window_start := time.now()
