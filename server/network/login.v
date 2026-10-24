@@ -20,9 +20,7 @@ pub const default_compression_threshold = 256
 
 // Identity is who the client is. xbox_authenticated is true only when it comes
 // from a login token a LoginVerifier verified on a connection that proved it
-// holds the key the token names. A verified token on a connection that proved no
-// key still names the player but it could have been replayed from another
-// server the player joined. Without a verifier the client could have put
+// holds the key the token names. Without a verifier the client could have put
 // anything here.
 pub struct Identity {
 pub:
@@ -240,8 +238,8 @@ fn check_identity(identity Identity) ! {
 //
 // A connection that proved a key while it was opened has to log in with a
 // token naming that key. A token captured from another connection names
-// another key and is refused. Only such a bound login can be
-// xbox_authenticated.
+// another key and is refused. With a verifier the connection has to have proved
+// one: a verified token alone could have been replayed.
 fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa.PublicKey) !Identity {
 	mut r := serializer.new_reader(connection_request)
 	length := int(r.le_u32()!)
@@ -253,6 +251,9 @@ fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa
 		if token == '' {
 			return error('login request carries no token to verify')
 		}
+		if proven == none {
+			return error('connection proved no key, its login could be replayed')
+		}
 		claims = v.verify(token)!
 		verified = true
 	} else if token != '' {
@@ -260,7 +261,6 @@ fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa
 	} else {
 		return chain_identity(request)!
 	}
-	mut bound := false
 	if key := proven {
 		named := nn.claim_public_key(token, false) or {
 			return error('login token names no usable key: ${err}')
@@ -268,9 +268,8 @@ fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa
 		if !key.equal(named) {
 			return error('login token names another key than the one this connection proved')
 		}
-		bound = true
 	}
-	return token_identity(claims, verified && bound)
+	return token_identity(claims, verified)
 }
 
 // chain_identity reads the player out of the older chain of JWTs whose last
@@ -298,13 +297,13 @@ fn chain_identity(request map[string]json2.Any) !Identity {
 // token_identity reads the player out of a token's claims: the gamertag under
 // xname and the XUID under xid. proven says whether the token was verified and
 // bound to the connection.
-fn token_identity(claims map[string]json2.Any, proven bool) Identity {
+fn token_identity(claims map[string]json2.Any, verified bool) Identity {
 	xuid := field(claims, 'xid')
 	return Identity{
 		display_name:       field(claims, 'xname')
 		xuid:               xuid
 		uuid:               token_uuid(field(claims, 'leguuid'), xuid)
-		xbox_authenticated: proven && xuid != ''
+		xbox_authenticated: verified && xuid != ''
 	}
 }
 

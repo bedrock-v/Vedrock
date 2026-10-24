@@ -177,8 +177,7 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 	} else {
 		'not xbox authenticated'
 	}
-	bound := if _ := conn.public_key() { 'bound to its connection' } else { 'unbound' }
-	eprintln('vedrock: ${client.identity.display_name} joined, ${authenticated}, ${bound}')
+	eprintln('vedrock: ${client.identity.display_name} joined, ${authenticated}')
 	h := world.new_handle(id, session.new_player(id, client.identity.display_name))
 	world.call[bool](mut s.overworld, 'server.join', fn [h] (mut tx world.Tx) !bool {
 		tx.add(h)
