@@ -137,6 +137,14 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 		handlers.done()
 	}
 	id := s.next_id.add(1)
+	network.start_game(mut conn, network.GameData{
+		entity_id:  id
+		world_name: s.cfg.world_name
+	}) or {
+		// TODO There's no logger in the rewrite yet.
+		eprintln('vedrock: ${client.identity.display_name} did not spawn: ${err}')
+		return
+	}
 	h := world.new_handle(id, session.new_player(id, client.identity.display_name))
 	world.call[bool](mut s.overworld, 'server.join', fn [h] (mut tx world.Tx) !bool {
 		tx.add(h)
