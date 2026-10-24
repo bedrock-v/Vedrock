@@ -3,6 +3,7 @@ module network
 import time
 import bedrock_v.protocol
 import bedrock_v.nethernet as nn
+import bedrock_v.webrtc.ice
 import bedrock_v.nethernet.endpoint
 
 // NetherNetConfig is what the NetherNet listener needs to bind.
@@ -26,8 +27,8 @@ pub:
 
 // nethernet builds a NetherNet listener for a server's Config.listeners.
 pub fn nethernet(cfg NetherNetConfig) ListenerFn {
-	return fn [cfg] (status Status) !Listener {
-		return listen(cfg, status)!
+	return fn [cfg] (mut ctx ListenerContext) !Listener {
+		return listen(cfg, mut ctx)!
 	}
 }
 
@@ -41,8 +42,13 @@ mut:
 }
 
 // listen binds the signalling endpoint and the connection listener over it.
-pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
+pub fn listen(cfg NetherNetConfig, mut ctx ListenerContext) !&NetherNetListener {
+	status := ctx.status
 	identity := load_identity(cfg.identity_file, identity_domain(cfg.identity_domain, status))!
+	mut mux := ?&ice.UdpMux(none)
+	if ctx.media_port != 0 {
+		mux = ctx.media()!
+	}
 	mut signalling := endpoint.listen(
 		address:    '${cfg.address}:${cfg.port}'
 		network_id: status.network_id.str()
@@ -51,6 +57,7 @@ pub fn listen(cfg NetherNetConfig, status Status) !&NetherNetListener {
 	mut inner := nn.listen(mut signalling,
 		identity:        identity
 		allow_anonymous: cfg.allow_anonymous
+		udp_mux:         mux
 	) or {
 		signalling.close()
 		return err

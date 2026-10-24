@@ -1,6 +1,7 @@
 module network
 
 import os
+import net
 import crypto.ecdsa
 import bedrock_v.nethernet as nn
 
@@ -31,11 +32,31 @@ fn test_key_on_another_curve_is_refused() {
 }
 
 fn test_lan_listener_binds_and_closes() {
+	mut ctx := ListenerContext{
+		status: Status{
+			network_id: 7
+		}
+	}
 	mut l := listen_lan(LanConfig{
 		address:       '127.0.0.1'
 		port:          0
 		identity_file: key_path('lan.pem')
-	}, Status{ network_id: 7 }) or { panic(err) }
+	}, mut ctx) or { panic(err) }
 	assert l.signalling.id() == 7
 	l.close()
+}
+
+fn test_taken_media_port_is_refused() {
+	mut held := net.listen_udp('0.0.0.0:0') or { panic(err) }
+	defer {
+		held.close() or {}
+	}
+	port := held.sock.address() or { panic(err) }.port() or { panic(err) }
+	mut ctx := ListenerContext{
+		media_port: port
+	}
+	if _ := ctx.media() {
+		ctx.close()
+		assert false, 'the media port was bound while somebody held it'
+	}
 }

@@ -1,5 +1,7 @@
 module server
 
+import net
+import os
 import sync
 import time
 import server.network
@@ -33,7 +35,7 @@ fn (mut l FakeListener) close() {
 }
 
 fn binds(closes &CloseCount) network.ListenerFn {
-	return fn [closes] (status network.Status) !network.Listener {
+	return fn [closes] (mut ctx network.ListenerContext) !network.Listener {
 		return &FakeListener{
 			closes: unsafe { closes }
 		}
@@ -41,7 +43,7 @@ fn binds(closes &CloseCount) network.ListenerFn {
 }
 
 fn refuses_to_bind() network.ListenerFn {
-	return fn (status network.Status) !network.Listener {
+	return fn (mut ctx network.ListenerContext) !network.Listener {
 		return error('this transport could not bind')
 	}
 }
@@ -143,7 +145,7 @@ fn (l &OneClientListener) addr() string {
 fn (mut l OneClientListener) close() {}
 
 fn gives(wire &BlockingWire) network.ListenerFn {
-	return fn [wire] (status network.Status) !network.Listener {
+	return fn [wire] (mut ctx network.ListenerContext) !network.Listener {
 		return &OneClientListener{
 			wire: unsafe { wire }
 		}
@@ -196,7 +198,7 @@ fn (l &ManyClientListener) addr() string {
 fn (mut l ManyClientListener) close() {}
 
 fn gives_all(wires []&BlockingWire) network.ListenerFn {
-	return fn [wires] (status network.Status) !network.Listener {
+	return fn [wires] (mut ctx network.ListenerContext) !network.Listener {
 		return &ManyClientListener{
 			wires: wires
 		}
@@ -278,4 +280,30 @@ fn test_timed_out_login_cannot_join() {
 	srv.drop_slow_logins()
 	assert wire.is_closed()
 	assert !srv.finished_login(cid)
+}
+
+fn test_failed_start_frees_the_media_port() {
+	mut probe := net.listen_udp('127.0.0.1:0') or { panic(err) }
+	port := probe.sock.address() or { panic(err) }.port() or { panic(err) }
+	probe.close() or {}
+	if _ := new(Config{
+		listeners:  [network.nethernet(network.NetherNetConfig{
+			address:       '127.0.0.1'
+			port:          0
+			identity_file: os.join_path(os.vtmp_dir(), 'vedrock_media_test.pem')
+		}), refuses_to_bind()]
+		media_port: port
+	})
+	{
+		assert false, 'a server started with a listener that could not bind'
+	}
+
+	mut ctx := network.ListenerContext{
+		media_port: port
+	}
+	ctx.media() or {
+		assert false, 'the media port was left bound: ${err}'
+		return
+	}
+	ctx.close()
 }

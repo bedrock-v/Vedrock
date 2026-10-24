@@ -26,6 +26,10 @@ pub:
 	login_timeout time.Duration = 30 * time.second
 	// network_id is the id NetherNet signalling knows this server by.
 	network_id u64
+	// media_port is the UDP port every player's connection runs over, the one a
+	// firewall has to let through. The server fails to start when it is taken.
+	// Zero gives each connection a port the kernel picks.
+	media_port u16 = 19133
 	// world_name names the world players join.
 	world_name string = 'world'
 	login      network.LoginConfig

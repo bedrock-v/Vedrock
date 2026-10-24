@@ -21,7 +21,10 @@ pub struct Server {
 	cfg Config
 mut:
 	listeners []network.Listener
-	overworld &world.Runtime
+	// listener_context holds what the listeners share, the media port's mux
+	// among it.
+	listener_context &network.ListenerContext
+	overworld        &world.Runtime
 	// loops is held by the accept loop of each listener. An accept loop waits for
 	// the clients it accepted before it lets go and this covers every thread the
 	// server started.
@@ -59,21 +62,27 @@ pub fn new(cfg Config) !&Server {
 			network_id: rand.u64()
 		}
 	}
+	mut ctx := &network.ListenerContext{
+		status:     status
+		media_port: cfg.media_port
+	}
 	mut listeners := []network.Listener{cap: cfg.listeners.len}
 	for build in cfg.listeners {
-		listeners << build(status) or {
+		listeners << build(mut ctx) or {
 			// The ones already bound hold ports and a server that failed to
 			// start must not keep them.
 			for mut bound in listeners {
 				bound.close()
 			}
+			ctx.close()
 			return err
 		}
 	}
 	return &Server{
-		cfg:       cfg
-		listeners: listeners
-		overworld: world.start(cfg.world_name)
+		cfg:              cfg
+		listeners:        listeners
+		listener_context: ctx
+		overworld:        world.start(cfg.world_name)
 	}
 }
 
@@ -190,6 +199,7 @@ pub fn (mut s Server) close() {
 	}
 	s.live_mutex.unlock()
 	s.loops.wait()
+	s.listener_context.close()
 	s.overworld.close()
 	s.stopped.close()
 }
