@@ -1,5 +1,6 @@
 module network
 
+import sync
 import time
 import bedrock_v.webrtc.ice
 
@@ -34,6 +35,10 @@ mut:
 // The server owns it, so anything listeners share is opened once and closed
 // once, by the server. A listener that never asks for the media port leaves it
 // unbound.
+//
+// It also holds who is admitted. A client takes a player slot when it arrives,
+// on whichever listener, thus, the count every listener tells clients and checks
+// against max_players is one count.
 @[heap]
 pub struct ListenerContext {
 pub:
@@ -44,6 +49,13 @@ pub:
 	media_port u16
 mut:
 	mux ?&ice.UdpMux
+	// listeners are told the player count whenever it changes.
+	listeners []Listener
+	players   int
+	mu        &sync.Mutex = sync.new_mutex()
+	// announcing orders what listeners are told. The count is read inside it
+	// and the last announcement to run is the one that read the current count.
+	announcing &sync.Mutex = sync.new_mutex()
 }
 
 // media returns the mux on media_port, binding it the first time a listener
@@ -64,6 +76,60 @@ pub fn (mut c ListenerContext) media() !&ice.UdpMux {
 pub fn (mut c ListenerContext) close() {
 	if mut mux := c.mux {
 		mux.close()
+	}
+}
+
+// reserve_slot takes one of the player slots or reports that there is none
+// left. Taking it under the same lock that holds the count is what keeps two
+// clients arriving together from both getting the last one.
+pub fn (mut c ListenerContext) reserve_slot() bool {
+	c.mu.lock()
+	if c.status.max_players > 0 && c.players >= c.status.max_players {
+		c.mu.unlock()
+		return false
+	}
+	c.players++
+	c.mu.unlock()
+	c.announce()
+	return true
+}
+
+// free_slot gives back a slot reserve_slot took.
+pub fn (mut c ListenerContext) free_slot() {
+	c.mu.lock()
+	c.players--
+	c.mu.unlock()
+	c.announce()
+}
+
+// player_count is how many slots are taken by players and by clients still
+// logging in.
+pub fn (mut c ListenerContext) player_count() int {
+	c.mu.lock()
+	defer {
+		c.mu.unlock()
+	}
+	return c.players
+}
+
+fn (mut c ListenerContext) add_listener(listener Listener) {
+	c.mu.lock()
+	c.listeners << listener
+	c.mu.unlock()
+}
+
+// announce tells every listener how many slots are taken.
+fn (mut c ListenerContext) announce() {
+	c.announcing.lock()
+	defer {
+		c.announcing.unlock()
+	}
+	c.mu.lock()
+	online := c.players
+	mut listeners := c.listeners.clone()
+	c.mu.unlock()
+	for mut listener in listeners {
+		listener.announce(online)
 	}
 }
 

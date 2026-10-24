@@ -14,19 +14,37 @@ endpoint a client uses when it joins by address and hands out each connection
 as a `Wire`. `Wire` and `Listener` are interfaces so the tests can stand in for
 the network: over a list of messages and over a client that answers as it goes.
 
-A `ListenerFn` builds a listener from the `Status` the server describes itself
-with. `nethernet` returns one for a `NetherNetConfig`.
+A `ListenerFn` builds a listener from the `ListenerContext` the server shares
+with every listener: the `Status` it describes itself with, the media port's mux
+and the player slots. `nethernet` and `lan` return one.
+
+A `LoginHandler` takes one listener's connections through the login sequence and
+hands out only the clients that finish it, as a `Client` holding the `Conn` and
+the `Identity`. It works on any `Listener`. A transport only has to yield
+wires.
 
 ```v
+import time
 import vedrock.server.network
 
-mut listener := network.listen(network.NetherNetConfig{}, network.Status{ motd: 'Vedrock' })!
-mut wire := listener.accept(500 * time.millisecond)!
-mut conn := network.new_conn(mut wire)
-
-identity := network.handshake(mut conn, network.LoginConfig{})!
-println('${identity.display_name} logged in from ${conn.remote()}')
+mut ctx := &network.ListenerContext{
+	status: network.Status{
+		motd: 'Vedrock'
+	}
+}
+listener := network.listen(network.NetherNetConfig{}, mut ctx)!
+mut logins := network.LoginHandler.new(listener, mut ctx, network.LoginConfig{})
+client := logins.accept(500 * time.millisecond)!
+println('${client.identity.display_name} logged in')
+// and once the client leaves:
+ctx.free_slot()
 ```
+
+A client takes a player slot when it arrives, before any login work. A full
+server tells it so and closes it. The count is shared by every listener on the
+context. A client that fails, runs past `LoginConfig.timeout` or is still logging
+in when the handler closes gives its slot back. A client handed out keeps it and
+whoever accepted the client frees it.
 
 `handshake` runs the server side of the login sequence: network settings,
 compression, the login itself and resource pack negotiation. It returns the
