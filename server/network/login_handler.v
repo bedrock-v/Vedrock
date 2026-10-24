@@ -35,7 +35,9 @@ mut:
 	done chan bool  = chan bool{}
 	mu   &sync.Mutex = sync.new_mutex()
 	// logins holds the connections still logging in. Close can end them.
-	logins  map[u64]&Conn
+	logins map[u64]&Conn
+	// active counts the logins whose threads are running, handover included.
+	active  int
 	next_id u64
 	closed  bool
 	threads &sync.WaitGroup = sync.new_waitgroup()
@@ -108,6 +110,10 @@ fn (mut h LoginHandler) accept_loop() {
 	for !h.is_closed() {
 		mut wire := h.listener.accept(accept_poll) or { continue }
 		mut conn := new_conn(mut wire)
+		if h.at_capacity() {
+			conn.close()
+			continue
+		}
 		if !h.ctx.reserve_slot() {
 			conn.write(&packets.PlayStatusPacket{
 				status: .login_failed_server_full_sub_client
@@ -125,15 +131,33 @@ fn (mut h LoginHandler) accept_loop() {
 		h.next_id++
 		id := h.next_id
 		h.logins[id] = conn
+		h.active++
 		h.threads.add(1)
 		h.mu.unlock()
 		spawn h.login(id, mut conn)
 	}
 }
 
+// at_capacity reports whether as many logins as max_concurrent are running.
+// Only accept_loop starts one and nothing can start another between this check
+// and the start.
+fn (mut h LoginHandler) at_capacity() bool {
+	if h.cfg.max_concurrent <= 0 {
+		return false
+	}
+	h.mu.lock()
+	defer {
+		h.mu.unlock()
+	}
+	return h.active >= h.cfg.max_concurrent
+}
+
 // login takes one client through the sequence and hands it out.
 fn (mut h LoginHandler) login(id u64, mut conn Conn) {
 	defer {
+		h.mu.lock()
+		h.active--
+		h.mu.unlock()
 		h.threads.done()
 	}
 	remote := conn.remote()
@@ -182,7 +206,8 @@ fn (mut h LoginHandler) forget(id u64) bool {
 
 // attempt runs the sequence on its own thread and closes the connection if the
 // deadline passes first which ends any read it is blocked on. Only this thread
-// decides whether the client made it in time.
+// decides whether the client made it in time. One finishing just as the deadline
+// fires may still be refused since select can pick either.
 fn (mut h LoginHandler) attempt(mut conn Conn) !Identity {
 	if h.cfg.timeout <= 0 {
 		return handshake(mut conn, h.cfg)!

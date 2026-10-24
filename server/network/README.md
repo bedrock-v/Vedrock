@@ -41,7 +41,9 @@ ctx.free_slot()
 ```
 
 A client takes a player slot when it arrives, before any login work. A full
-server tells it so and closes it. The count is shared by every listener on the
+server tells it so and closes it. Each login holds two threads.
+`LoginConfig.max_concurrent` also bounds how many run at once per listener. A
+client over it is closed before it takes a slot. The count is shared by every listener on the
 context. A client that fails, runs past `LoginConfig.timeout` or is still logging
 in when the handler closes gives its slot back. A client handed out keeps it and
 whoever accepted the client frees it.

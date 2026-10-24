@@ -501,3 +501,30 @@ fn test_a_failed_login_gives_its_slot_back() {
 	assert w.closed, 'a client that failed to log in was left connected'
 	assert ctx.player_count() == 0, 'a failed login kept its slot'
 }
+
+fn test_logins_at_once_are_bounded_without_a_player_limit() {
+	mut wires := []&BlockingWire{}
+	mut given := []Wire{}
+	for _ in 0 .. 6 {
+		wire := &BlockingWire{}
+		wires << wire
+		given << wire
+	}
+	mut h, mut ctx := logins_from(given, 0, LoginConfig{
+		max_concurrent: 2
+	})
+	defer {
+		h.close()
+	}
+	mut settled := 0
+	for _ in 0 .. 400 {
+		settled = reading(wires)
+		if settled + closed(wires) == wires.len {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	assert settled == 2, 'the listener ran ${settled} logins at once'
+	assert closed(wires) == 4, 'the clients over the limit were not closed'
+	assert ctx.player_count() == 2, 'a client over the limit took a player slot'
+}

@@ -38,6 +38,7 @@ pub:
 	// sequence, resource packs included. It is one deadline and nothing the
 	// client sends extends it. Zero means no deadline.
 	timeout time.Duration = 30 * time.second
+	max_concurrent int = 64
 }
 
 // VersionMismatch is a client refused for speaking another protocol version. It
