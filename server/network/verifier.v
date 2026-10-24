@@ -2,6 +2,7 @@ module network
 
 import encoding.base64
 import net.http
+import os
 import sync
 import time
 import x.json2
@@ -30,7 +31,26 @@ pub:
 	min_forced_refresh time.Duration = time.minute
 	// http_timeout bounds each request to the authorization service.
 	http_timeout time.Duration = 10 * time.second
+	// ca_file is a PEM bundle of the certificate authorities the authorization
+	// service's certificate has to chain to.
+	ca_file string
 }
+
+// system_ca_files are where systems keep their bundle of trusted certificate
+// authorities, the first one found is used.
+//
+// This search stands in for V's default TLS backend. With mbedTLS, net.http
+// loads no trusted authorities unless given a file, while its OpenSSL backend
+// loads the system's. Once mbedTLS does the same, validate alone is enough and
+// this list and find_ca_file can go.
+const system_ca_files = [
+	'/etc/ssl/certs/ca-certificates.crt', // Debian, Ubuntu, Arch, Alpine, Gentoo
+	'/etc/pki/tls/certs/ca-bundle.crt', // Fedora, RHEL
+	'/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem', // Fedora, RHEL
+	'/etc/ssl/ca-bundle.pem', // openSUSE
+	'/etc/ssl/cert.pem', // macOS, OpenBSD, FreeBSD
+	'/usr/local/share/certs/ca-root-nss.crt', // FreeBSD
+]
 
 struct RsaKey {
 	modulus  []u8
@@ -47,6 +67,8 @@ struct RsaKey {
 @[heap]
 pub struct OidcVerifier {
 	cfg OidcVerifierConfig
+	// ca_file is the bundle every request's certificate is checked against.
+	ca_file string
 mut:
 	// mu guards issuer, keys and refreshed_at.
 	mu           &sync.Mutex = sync.new_mutex()
@@ -64,7 +86,8 @@ mut:
 // when it can't. It refreshes them on its own thread until it is closed.
 pub fn OidcVerifier.new(cfg OidcVerifierConfig) !&OidcVerifier {
 	mut v := &OidcVerifier{
-		cfg: cfg
+		cfg:     cfg
+		ca_file: find_ca_file(cfg.ca_file, system_ca_files)!
 	}
 	v.refresh(0)!
 	v.refresher = spawn v.refresh_loop()
@@ -181,15 +204,39 @@ fn (mut v OidcVerifier) refresh(since time.Duration) ! {
 	v.mu.unlock()
 }
 
+// get_json fetches a JSON object over https. The server's certificate has to
+// chain to ca_file and name the host: anyone who could answer for these hosts
+// otherwise could serve their own keys and sign anyone in.
 fn (v &OidcVerifier) get_json(url string) !map[string]json2.Any {
 	timeout := i64(v.cfg.http_timeout)
-	response := http.fetch(url: url, read_timeout: timeout, write_timeout: timeout) or {
-		return error('GET ${url}: ${err}')
-	}
+	response := http.fetch(
+		url:           url
+		read_timeout:  timeout
+		write_timeout: timeout
+		validate:      true
+		verify:        v.ca_file
+	) or { return error('GET ${url}: ${err}') }
 	if response.status_code != 200 {
 		return error('GET ${url}: status ${response.status_code}')
 	}
 	return json2.decode[json2.Any](response.body)!.as_map()
+}
+
+// find_ca_file is the configured bundle or the first of candidates that exists.
+// There's no falling back to trusting any certificate.
+fn find_ca_file(configured string, candidates []string) !string {
+	if configured != '' {
+		if !os.is_file(configured) {
+			return error('the CA bundle "${configured}" does not exist')
+		}
+		return configured
+	}
+	for path in candidates {
+		if os.is_file(path) {
+			return path
+		}
+	}
+	return error('found no CA bundle to check the authorization service against; set OidcVerifierConfig.ca_file')
 }
 
 // discovered_issuer reads the authorization service's issuer out of Minecraft's
