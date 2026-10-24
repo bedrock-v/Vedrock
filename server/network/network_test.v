@@ -2,6 +2,8 @@ module network
 
 import compress.deflate
 import encoding.base64
+import sync
+import time
 import x.json2
 import bedrock_v.protocol
 import bedrock_v.protocol.packets
@@ -304,4 +306,225 @@ fn test_a_login_survives_junk_within_the_budget() {
 	mut c := new_conn(mut w)
 	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
 	assert identity.display_name == 'Scher'
+}
+
+// BlockingWire is a client that connects and then says nothing.
+struct BlockingWire {
+mut:
+	unblock chan bool   = chan bool{}
+	guard   &sync.Mutex = sync.new_mutex()
+	reading bool
+	closed  bool
+}
+
+fn (mut w BlockingWire) read_message() ![]u8 {
+	w.guard.lock()
+	w.reading = true
+	w.guard.unlock()
+	_ := <-w.unblock or { return error('the connection was closed') }
+	return error('the connection was closed')
+}
+
+fn (mut w BlockingWire) write_message(b []u8) ! {
+	if w.is_closed() {
+		return error('the connection was closed')
+	}
+}
+
+fn (mut w BlockingWire) remote() string {
+	return 'blocking'
+}
+
+fn (mut w BlockingWire) close() {
+	w.guard.lock()
+	defer {
+		w.guard.unlock()
+	}
+	if w.closed {
+		return
+	}
+	w.closed = true
+	w.unblock.close()
+}
+
+fn (mut w BlockingWire) is_closed() bool {
+	w.guard.lock()
+	defer {
+		w.guard.unlock()
+	}
+	return w.closed
+}
+
+fn (mut w BlockingWire) is_reading() bool {
+	w.guard.lock()
+	defer {
+		w.guard.unlock()
+	}
+	return w.reading
+}
+
+// WiresListener hands out the wires it was given, one per accept.
+struct WiresListener {
+mut:
+	wires []Wire
+	next  int
+}
+
+fn (mut l WiresListener) accept(timeout time.Duration) !Wire {
+	if l.next >= l.wires.len {
+		time.sleep(5 * time.millisecond)
+		return error('no client arrived')
+	}
+	l.next++
+	return l.wires[l.next - 1]
+}
+
+fn (mut l WiresListener) announce(online int) {}
+
+fn (l &WiresListener) addr() string {
+	return 'wires'
+}
+
+fn (mut l WiresListener) close() {}
+
+fn logins_from(wires []Wire, max_players int, cfg LoginConfig) (&LoginHandler, &ListenerContext) {
+	mut ctx := &ListenerContext{
+		status: Status{
+			max_players: max_players
+		}
+	}
+	h := LoginHandler.new(&WiresListener{
+		wires: wires
+	}, mut ctx, cfg)
+	return h, ctx
+}
+
+fn reading(wires []&BlockingWire) int {
+	mut n := 0
+	for w in wires {
+		mut wire := unsafe { w }
+		if wire.is_reading() {
+			n++
+		}
+	}
+	return n
+}
+
+fn closed(wires []&BlockingWire) int {
+	mut n := 0
+	for w in wires {
+		mut wire := unsafe { w }
+		if wire.is_closed() {
+			n++
+		}
+	}
+	return n
+}
+
+fn test_a_client_that_logs_in_is_handed_over_holding_its_slot() {
+	mut w := logging_in_client('Scher')
+	mut h, mut ctx := logins_from([Wire(w)], 20, LoginConfig{})
+	defer {
+		h.close()
+	}
+	client := h.accept(5 * time.second) or { panic(err) }
+	assert client.identity.display_name == 'Scher'
+	assert ctx.player_count() == 1, 'the client gave its slot back on the way in'
+}
+
+fn test_only_so_many_clients_may_be_logging_in_at_once() {
+	mut wires := []&BlockingWire{}
+	mut given := []Wire{}
+	for _ in 0 .. 6 {
+		wire := &BlockingWire{}
+		wires << wire
+		given << wire
+	}
+	mut h, mut ctx := logins_from(given, 2, LoginConfig{})
+	mut settled := 0
+	for _ in 0 .. 400 {
+		settled = reading(wires)
+		if settled + closed(wires) == wires.len {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	assert settled == 2, 'the server took ${settled} logins at once'
+	assert closed(wires) == 4, 'the clients over the limit were not refused'
+	assert ctx.player_count() == 2
+	h.close()
+	assert closed(wires) == wires.len, 'close left a login open'
+	assert ctx.player_count() == 0, 'close kept the slots of the logins it ended'
+}
+
+fn test_a_client_that_never_finishes_logging_in_is_dropped() {
+	mut wire := &BlockingWire{}
+	mut h, mut ctx := logins_from([Wire(wire)], 20, LoginConfig{
+		timeout: 50 * time.millisecond
+	})
+	defer {
+		h.close()
+	}
+	for _ in 0 .. 400 {
+		if wire.is_closed() && ctx.player_count() == 0 {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	assert wire.is_closed(), 'a client that never logged in was left connected'
+	assert ctx.player_count() == 0, 'a client dropped at the deadline kept its slot'
+	if _ := h.accept(100 * time.millisecond) {
+		assert false, 'a client that ran out of time was handed over'
+	}
+}
+
+fn test_a_failed_login_gives_its_slot_back() {
+	mut w := &ScriptWire{
+		inbound: [client_message([request_settings(protocol.protocol_id - 1)], false)]
+	}
+	mut h, mut ctx := logins_from([Wire(w)], 20, LoginConfig{})
+	defer {
+		h.close()
+	}
+	for _ in 0 .. 400 {
+		if w.closed {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	for _ in 0 .. 400 {
+		if ctx.player_count() == 0 {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	assert w.closed, 'a client that failed to log in was left connected'
+	assert ctx.player_count() == 0, 'a failed login kept its slot'
+}
+
+fn test_logins_at_once_are_bounded_without_a_player_limit() {
+	mut wires := []&BlockingWire{}
+	mut given := []Wire{}
+	for _ in 0 .. 6 {
+		wire := &BlockingWire{}
+		wires << wire
+		given << wire
+	}
+	mut h, mut ctx := logins_from(given, 0, LoginConfig{
+		max_concurrent: 2
+	})
+	defer {
+		h.close()
+	}
+	mut settled := 0
+	for _ in 0 .. 400 {
+		settled = reading(wires)
+		if settled + closed(wires) == wires.len {
+			break
+		}
+		time.sleep(5 * time.millisecond)
+	}
+	assert settled == 2, 'the listener ran ${settled} logins at once'
+	assert closed(wires) == 4, 'the clients over the limit were not closed'
+	assert ctx.player_count() == 2, 'a client over the limit took a player slot'
 }

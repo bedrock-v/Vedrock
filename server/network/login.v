@@ -1,5 +1,6 @@
 module network
 
+import time
 import x.json2
 import encoding.base64
 import bedrock_v.protocol
@@ -33,6 +34,11 @@ pub:
 	// max_login_messages bounds what a client that has not logged in can make
 	// the server do. The sequence itself is a handful of messages.
 	max_login_messages int = 64
+	// timeout is how long a client has from arriving to finishing the whole
+	// sequence, resource packs included. It is one deadline and nothing the
+	// client sends extends it. Zero means no deadline.
+	timeout time.Duration = 30 * time.second
+	max_concurrent int = 64
 }
 
 // VersionMismatch is a client refused for speaking another protocol version. It
