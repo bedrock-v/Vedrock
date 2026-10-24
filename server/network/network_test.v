@@ -1,5 +1,6 @@
 module network
 
+import crypto.ecdsa
 import compress.deflate
 import encoding.base64
 import sync
@@ -33,6 +34,10 @@ fn (mut w ScriptWire) write_message(b []u8) ! {
 
 fn (mut w ScriptWire) remote() string {
 	return 'script'
+}
+
+fn (mut w ScriptWire) public_key() ?ecdsa.PublicKey {
+	return none
 }
 
 fn (mut w ScriptWire) close() {
@@ -144,7 +149,7 @@ fn test_an_unknown_compression_algorithm_is_refused() {
 fn test_a_client_logs_in_and_both_ends_compress() {
 	mut w := logging_in_client('Scher')
 	mut c := new_conn(mut w)
-	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
+	identity := handshake(mut c, LoginConfig{ allow_unverified: true }, none) or { panic(err) }
 
 	assert identity.display_name == 'Scher'
 	assert identity.xuid == '2535000000000000'
@@ -166,7 +171,7 @@ fn test_a_client_on_another_protocol_version_is_refused() {
 		inbound: [client_message([request_settings(protocol.protocol_id - 1)], false)]
 	}
 	mut c := new_conn(mut w)
-	if _ := handshake(mut c, LoginConfig{}) {
+	if _ := handshake(mut c, LoginConfig{ allow_unverified: true }, none) {
 		assert false, 'a client on the wrong protocol version logged in'
 	} else {
 		assert err is VersionMismatch, 'the refusal does not say it was the version: ${err}'
@@ -187,7 +192,7 @@ fn test_a_client_that_will_not_finish_logging_in_is_refused() {
 		inbound: inbound
 	}
 	mut c := new_conn(mut w)
-	if _ := handshake(mut c, LoginConfig{}) {
+	if _ := handshake(mut c, LoginConfig{ allow_unverified: true }, none) {
 		assert false, 'a client that never logged in got through the handshake'
 	}
 	assert w.next < w.inbound.len
@@ -201,7 +206,7 @@ fn test_a_client_refusing_required_packs_is_refused() {
 		}),
 	], true)
 	mut c := new_conn(mut w)
-	if _ := handshake(mut c, LoginConfig{ packs_required: true }) {
+	if _ := handshake(mut c, LoginConfig{ packs_required: true, allow_unverified: true }, none) {
 		assert false, 'a client that refused required packs logged in'
 	}
 }
@@ -230,7 +235,7 @@ fn test_an_unexpected_packet_does_not_stop_the_login() {
 	], true)
 	w.inbound.insert(2, radius)
 	mut c := new_conn(mut w)
-	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
+	identity := handshake(mut c, LoginConfig{ allow_unverified: true }, none) or { panic(err) }
 	assert identity.display_name == 'Scher'
 }
 
@@ -265,6 +270,10 @@ fn (mut w JunkWire) remote() string {
 	return 'junk'
 }
 
+fn (mut w JunkWire) public_key() ?ecdsa.PublicKey {
+	return none
+}
+
 fn (mut w JunkWire) close() {}
 
 fn test_a_read_gives_up_on_messages_that_carry_no_packet() {
@@ -290,7 +299,7 @@ fn test_messages_that_carry_no_packet_still_spend_the_login_budget() {
 	mut w := logging_in_client('Scher')
 	w.inbound.prepend(junk)
 	mut c := new_conn(mut w)
-	if _ := handshake(mut c, LoginConfig{ max_login_messages: 8 }) {
+	if _ := handshake(mut c, LoginConfig{ max_login_messages: 8, allow_unverified: true }, none) {
 		assert false, 'a client logged in on a budget its junk should have spent'
 	} else {
 		assert err.msg().contains('messages'), 'refused for another reason: ${err}'
@@ -305,7 +314,7 @@ fn test_a_login_survives_junk_within_the_budget() {
 	mut w := logging_in_client('Scher')
 	w.inbound.prepend(junk)
 	mut c := new_conn(mut w)
-	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
+	identity := handshake(mut c, LoginConfig{ allow_unverified: true }, none) or { panic(err) }
 	assert identity.display_name == 'Scher'
 }
 
@@ -334,6 +343,10 @@ fn (mut w BlockingWire) write_message(b []u8) ! {
 
 fn (mut w BlockingWire) remote() string {
 	return 'blocking'
+}
+
+fn (mut w BlockingWire) public_key() ?ecdsa.PublicKey {
+	return none
 }
 
 fn (mut w BlockingWire) close() {
@@ -424,7 +437,7 @@ fn closed(wires []&BlockingWire) int {
 
 fn test_a_client_that_logs_in_is_handed_over_holding_its_slot() {
 	mut w := logging_in_client('Scher')
-	mut h, mut ctx := logins_from([Wire(w)], 20, LoginConfig{})
+	mut h, mut ctx := logins_from([Wire(w)], 20, LoginConfig{ allow_unverified: true })
 	defer {
 		h.close()
 	}
@@ -441,7 +454,7 @@ fn test_only_so_many_clients_may_be_logging_in_at_once() {
 		wires << wire
 		given << wire
 	}
-	mut h, mut ctx := logins_from(given, 2, LoginConfig{})
+	mut h, mut ctx := logins_from(given, 2, LoginConfig{ allow_unverified: true })
 	mut settled := 0
 	for _ in 0 .. 400 {
 		settled = reading(wires)
@@ -461,7 +474,8 @@ fn test_only_so_many_clients_may_be_logging_in_at_once() {
 fn test_a_client_that_never_finishes_logging_in_is_dropped() {
 	mut wire := &BlockingWire{}
 	mut h, mut ctx := logins_from([Wire(wire)], 20, LoginConfig{
-		timeout: 50 * time.millisecond
+		allow_unverified: true
+		timeout:          50 * time.millisecond
 	})
 	defer {
 		h.close()
@@ -483,7 +497,7 @@ fn test_a_failed_login_gives_its_slot_back() {
 	mut w := &ScriptWire{
 		inbound: [client_message([request_settings(protocol.protocol_id - 1)], false)]
 	}
-	mut h, mut ctx := logins_from([Wire(w)], 20, LoginConfig{})
+	mut h, mut ctx := logins_from([Wire(w)], 20, LoginConfig{ allow_unverified: true })
 	defer {
 		h.close()
 	}
@@ -512,7 +526,8 @@ fn test_logins_at_once_are_bounded_without_a_player_limit() {
 		given << wire
 	}
 	mut h, mut ctx := logins_from(given, 0, LoginConfig{
-		max_concurrent: 2
+		allow_unverified: true
+		max_concurrent:   2
 	})
 	defer {
 		h.close()
@@ -636,7 +651,7 @@ fn test_a_client_logging_in_with_a_token_gets_its_identity_from_it() {
 		}),
 	], true)
 	mut c := new_conn(mut w)
-	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
+	identity := handshake(mut c, LoginConfig{ allow_unverified: true }, none) or { panic(err) }
 	assert identity.display_name == 'Scher'
 	assert identity.xuid == '2535000000000000'
 	// The version 3 UUID of "pocket-auth-1-xuid:2535000000000000".
@@ -663,6 +678,10 @@ fn (mut w ChattyWire) write_message(b []u8) ! {}
 
 fn (mut w ChattyWire) remote() string {
 	return 'chatty'
+}
+
+fn (mut w ChattyWire) public_key() ?ecdsa.PublicKey {
+	return none
 }
 
 fn (mut w ChattyWire) close() {

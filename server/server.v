@@ -25,7 +25,10 @@ mut:
 	// listener_context holds what the listeners share: the media port's mux and
 	// the player slots.
 	listener_context &network.ListenerContext
-	overworld        &world.Runtime
+	// verifier is the login verifier the server built itself, which it closes.
+	// One passed in Config is the caller's.
+	verifier  ?&network.OidcVerifier
+	overworld &world.Runtime
 	// loops is held by the accept loop of each listener. An accept loop waits for
 	// the clients it accepted before it lets go and this covers every thread the
 	// server started.
@@ -38,7 +41,10 @@ mut:
 	next_conn &stdatomic.AtomicVal[u64] = stdatomic.new_atomic[u64](1)
 	// conns holds every client handed over by a login. Shutting down ends them
 	// instead of leaving their threads on a socket nobody reads.
-	conns      map[u64]&network.Conn
+	conns map[u64]&network.Conn
+	// online holds the UUID of every player that has spawned and not left, hence
+	// one account is in once.
+	online     map[string]bool
 	live_mutex &sync.Mutex = sync.new_mutex()
 }
 
@@ -54,9 +60,19 @@ pub fn new(cfg Config) !&Server {
 			network_id: rand.u64()
 		}
 	}
+	mut verifier := cfg.verifier
+	mut owned := ?&network.OidcVerifier(none)
+	if verifier == none && !cfg.login.allow_unverified {
+		built := network.OidcVerifier.new() or {
+			return error('logins can not be verified: ${err}')
+		}
+		owned = built
+		verifier = built
+	}
 	mut ctx := &network.ListenerContext{
 		status:     status
 		media_port: cfg.media_port
+		verifier:   verifier
 	}
 	mut listeners := []network.Listener{cap: cfg.listeners.len}
 	for build in cfg.listeners {
@@ -67,6 +83,9 @@ pub fn new(cfg Config) !&Server {
 				bound.close()
 			}
 			ctx.close()
+			if mut built := owned {
+				built.close()
+			}
 			return err
 		}
 	}
@@ -78,6 +97,7 @@ pub fn new(cfg Config) !&Server {
 		cfg:              cfg
 		logins:           logins
 		listener_context: ctx
+		verifier:         owned
 		overworld:        world.start(cfg.world_name)
 	}
 }
@@ -145,6 +165,16 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 		eprintln('vedrock: ${client.identity.display_name} did not spawn: ${err}')
 		return
 	}
+	if !s.claim_player(client.identity.uuid) {
+		network.disconnect(mut conn, 'Already logged in.')
+		return
+	}
+	defer {
+		s.release_player(client.identity.uuid)
+	}
+	verified := if client.identity.xbox_authenticated { 'verified' } else { 'unverified' }
+	bound := if _ := conn.public_key() { 'bound to its connection' } else { 'unbound' }
+	eprintln('vedrock: ${client.identity.display_name} joined, ${verified}, ${bound}')
 	h := world.new_handle(id, session.new_player(id, client.identity.display_name))
 	world.call[bool](mut s.overworld, 'server.join', fn [h] (mut tx world.Tx) !bool {
 		tx.add(h)
@@ -186,6 +216,9 @@ pub fn (mut s Server) close() {
 	s.live_mutex.unlock()
 	s.loops.wait()
 	s.listener_context.close()
+	if mut verifier := s.verifier {
+		verifier.close()
+	}
 	s.overworld.close()
 	s.stopped.close()
 }
@@ -214,5 +247,26 @@ fn (mut s Server) add_conn(mut conn network.Conn) ?u64 {
 fn (mut s Server) remove_conn(cid u64) {
 	s.live_mutex.lock()
 	s.conns.delete(cid)
+	s.live_mutex.unlock()
+}
+
+// claim_player marks a player as in or reports that it already is. Checking
+// and marking under one lock is what keeps two logins of one account arriving
+// together from both getting in.
+fn (mut s Server) claim_player(uuid string) bool {
+	s.live_mutex.lock()
+	defer {
+		s.live_mutex.unlock()
+	}
+	if uuid in s.online {
+		return false
+	}
+	s.online[uuid] = true
+	return true
+}
+
+fn (mut s Server) release_player(uuid string) {
+	s.live_mutex.lock()
+	s.online.delete(uuid)
 	s.live_mutex.unlock()
 }

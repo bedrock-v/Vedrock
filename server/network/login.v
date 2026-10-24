@@ -2,10 +2,12 @@ module network
 
 import time
 import x.json2
+import crypto.ecdsa
 import crypto.md5
 import encoding.base64
 import encoding.hex
 import rand
+import bedrock_v.nethernet as nn
 import bedrock_v.protocol
 import bedrock_v.protocol.packets
 import bedrock_v.protocol.enums
@@ -16,9 +18,9 @@ import bedrock_v.protocol.serializer
 // compressed. The client is told this number and uses it too.
 pub const default_compression_threshold = 256
 
-// Identity is who the client says it is.
-//
-// The login chain's signatures are not checked yet.
+// Identity is who the client is. xbox_authenticated is true only when it comes
+// from a login token a LoginVerifier verified. Otherwise the client could have
+// put anything here.
 pub struct Identity {
 pub:
 	display_name       string
@@ -41,6 +43,9 @@ pub:
 	// sequence, resource packs included. It is one deadline and nothing the
 	// client sends extends it. Zero means no deadline.
 	timeout time.Duration = 30 * time.second
+	// allow_unverified lets clients in on a login nothing verified for offline
+	// servers and tests.
+	allow_unverified bool
 	max_concurrent int = 64
 }
 
@@ -58,11 +63,16 @@ pub fn (e VersionMismatch) msg() string {
 }
 
 // handshake runs the server side of the login sequence and returns once the
-// client is through it.
-pub fn handshake(mut c Conn, cfg LoginConfig) !Identity {
+// client is through it. The login is verified by verifier which can be left out
+// only when cfg allows unverified logins.
+pub fn handshake(mut c Conn, cfg LoginConfig, verifier ?LoginVerifier) !Identity {
+	if verifier == none && !cfg.allow_unverified {
+		return error('logins have to be verified and there is no verifier')
+	}
 	mut h := Handshake{
-		conn:   c
-		budget: cfg.max_login_messages
+		conn:     c
+		budget:   cfg.max_login_messages
+		verifier: verifier
 	}
 	h.network_settings(cfg)!
 	identity := h.login()!
@@ -74,9 +84,10 @@ pub fn handshake(mut c Conn, cfg LoginConfig) !Identity {
 // is left of the client's packet budget.
 struct Handshake {
 mut:
-	conn   &Conn
-	budget int
-	spent  int
+	conn     &Conn
+	budget   int
+	spent    int
+	verifier ?LoginVerifier
 }
 
 // read takes the next packet and refuses a client that keeps sending without
@@ -125,7 +136,7 @@ fn (mut h Handshake) login() !Identity {
 	for {
 		p := h.read()!
 		if p is packets.LoginPacket {
-			identity := read_identity(p.connection_request)!
+			identity := read_identity(p.connection_request, h.verifier, h.conn.public_key())!
 			check_identity(identity)!
 			h.conn.write(&packets.PlayStatusPacket{
 				status: .login_success
@@ -216,20 +227,47 @@ fn check_identity(identity Identity) ! {
 	}
 }
 
-// read_identity reads the client's claimed identity out of the login request.
+// read_identity reads who the client is out of the login request.
 //
-// A current client sends one token from Microsoft under "Token" and no chain.
-// Without one the request holds the older chain of JWTs whose last link carries
-// the player under extraData.
-// Signatures are not checked here. See Identity.
-fn read_identity(connection_request []u8) !Identity {
+// A current client sends one token from Microsoft under "Token". With a
+// verifier, the identity comes only from the claims it verified, and a request
+// with no token is refused: the older chain of JWTs isn't verified here. Without
+// one the token's claims are read as they are or the chain's when there is no
+// token.
+//
+// A connection that proved a key while it was opened has to log in with a
+// token naming that key. A token captured from another connection names
+// another key and is refused.
+fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa.PublicKey) !Identity {
 	mut r := serializer.new_reader(connection_request)
 	length := int(r.le_u32()!)
 	request := json2.decode[json2.Any](r.read_raw(length)!.bytestr())!.as_map()
 	token := field(request, 'Token')
-	if token != '' {
-		return token_identity(token)!
+	mut identity := Identity{}
+	if mut v := verifier {
+		if token == '' {
+			return error('login request carries no token to verify')
+		}
+		identity = token_identity(v.verify(token)!, true)
+	} else if token != '' {
+		identity = token_identity(jwt_payload(token)!, false)
+	} else {
+		return chain_identity(request)!
 	}
+	if key := proven {
+		named := nn.claim_public_key(token, false) or {
+			return error('login token names no usable key: ${err}')
+		}
+		if !key.equal(named) {
+			return error('login token names another key than the one this connection proved')
+		}
+	}
+	return identity
+}
+
+// chain_identity reads the player out of the older chain of JWTs whose last
+// link carries it under extraData.
+fn chain_identity(request map[string]json2.Any) !Identity {
 	chain := chain_tokens(request)!
 	if chain.len == 0 {
 		return error('login request carried neither a token nor a certificate chain')
@@ -241,28 +279,27 @@ fn read_identity(connection_request []u8) !Identity {
 			extra = (payload['extraData'] or { json2.Any('') }).as_map()
 		}
 	}
+	xuid := field(extra, 'XUID')
 	return Identity{
 		display_name: field(extra, 'displayName')
-		xuid:         field(extra, 'XUID')
-		uuid:         field(extra, 'identity')
+		xuid:         xuid
+		uuid:         token_uuid(field(extra, 'identity'), xuid)
 	}
 }
 
-// token_identity reads the player out of the token's claims: the gamertag under
+// token_identity reads the player out of a token's claims: the gamertag under
 // xname and the XUID under xid.
-fn token_identity(token string) !Identity {
-	claims := jwt_payload(token)!
+fn token_identity(claims map[string]json2.Any, verified bool) Identity {
 	xuid := field(claims, 'xid')
 	return Identity{
-		display_name: field(claims, 'xname')
-		xuid:         xuid
-		uuid:         token_uuid(field(claims, 'leguuid'), xuid)
+		display_name:       field(claims, 'xname')
+		xuid:               xuid
+		uuid:               token_uuid(field(claims, 'leguuid'), xuid)
+		xbox_authenticated: verified && xuid != ''
 	}
 }
 
-// token_uuid is the player's UUID. The token carries one only for an offline
-// login. Otherwise it is a version 3 UUID hashed from the XUID, so the same
-// account always gets the same UUID.
+// token_uuid is the player's UUID.
 fn token_uuid(claimed string, xuid string) string {
 	if claimed != '' {
 		return claimed

@@ -25,6 +25,7 @@ pub:
 	// world_name names the world players join.
 	world_name string = 'world'
 	login      network.LoginConfig
+	verifier ?network.LoginVerifier
 }
 
 // status is what every listener tells a client before it joins. One server

@@ -1,5 +1,6 @@
 module network
 
+import crypto.ecdsa
 import bedrock_v.protocol
 import bedrock_v.protocol.serializer
 
@@ -11,6 +12,9 @@ mut:
 	write_message(b []u8) !
 	// remote names the peer for logs and messages.
 	remote() string
+	// public_key is the key the peer proved it holds while the connection was
+	// opened if the transport made it prove one.
+	public_key() ?ecdsa.PublicKey
 	close()
 }
 
@@ -114,6 +118,11 @@ pub fn (mut c Conn) enable_compression(threshold int) {
 
 pub fn (mut c Conn) remote() string {
 	return c.wire.remote()
+}
+
+// public_key is the key the peer proved it holds if it proved one.
+pub fn (mut c Conn) public_key() ?ecdsa.PublicKey {
+	return c.wire.public_key()
 }
 
 // dropped is how many packets this server had no type for.

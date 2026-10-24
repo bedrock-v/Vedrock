@@ -210,10 +210,10 @@ fn (mut h LoginHandler) forget(id u64) bool {
 // fires may still be refused since select can pick either.
 fn (mut h LoginHandler) attempt(mut conn Conn) !Identity {
 	if h.cfg.timeout <= 0 {
-		return handshake(mut conn, h.cfg)!
+		return handshake(mut conn, h.cfg, h.ctx.verifier)!
 	}
 	finished := chan bool{cap: 1}
-	sequence := spawn run_handshake(mut conn, h.cfg, finished)
+	sequence := spawn run_handshake(mut conn, h.cfg, h.ctx.verifier, finished)
 	deadline := h.cfg.timeout
 	select {
 		_ := <-finished {}
@@ -227,9 +227,9 @@ fn (mut h LoginHandler) attempt(mut conn Conn) !Identity {
 	return identity
 }
 
-fn run_handshake(mut conn Conn, cfg LoginConfig, finished chan bool) !Identity {
+fn run_handshake(mut conn Conn, cfg LoginConfig, verifier ?LoginVerifier, finished chan bool) !Identity {
 	defer {
 		finished <- true
 	}
-	return handshake(mut conn, cfg)!
+	return handshake(mut conn, cfg, verifier)!
 }

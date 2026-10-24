@@ -27,10 +27,15 @@ wires.
 import time
 import vedrock.server.network
 
+mut verifier := network.OidcVerifier.new()!
+defer {
+	verifier.close()
+}
 mut ctx := &network.ListenerContext{
-	status: network.Status{
+	status:   network.Status{
 		motd: 'Vedrock'
 	}
+	verifier: verifier
 }
 listener := network.listen(network.NetherNetConfig{}, mut ctx)!
 mut logins := network.LoginHandler.new(listener, mut ctx, network.LoginConfig{})
@@ -53,10 +58,25 @@ compression, the login itself and resource pack negotiation. It returns the
 identity the client claims. A client that gets through it is waiting for
 `StartGame`, which needs game data the caller owns and is sent from there.
 
-One thing the sequence deliberately does not do is **verify the login chain**.
-The chain's signatures are not checked. `Identity.xbox_authenticated` is false
-for every login and the name is self-declared. Until verification exists, a
-caller must not treat the name or the account ids as proof of who the player is.
+A login is **verified** by a `LoginVerifier`. A current client logs in with one
+token from Microsoft. `OidcVerifier` checks its RS256 signature against the keys
+Minecraft's authorization service publishes, and checks its issuer, its audience
+and its times. The player's name, XUID and UUID then come only from the verified
+claims and `Identity.xbox_authenticated` is true. A token that fails any check,
+or a login with no token, is refused. Nothing falls back to an unverified login.
+
+`OidcVerifier.new` finds the service through Minecraft's discovery document and
+fetches its keys, failing when it can't. It fetches them again every 30 minutes,
+and when a token names a key it doesn't know at most once a minute. A server
+builds one when it starts unless it is given its own `LoginVerifier`.
+`LoginConfig.allow_unverified` lets clients in without one, for offline servers
+and tests. Their identity is whatever they claim and is never
+`xbox_authenticated`.
+
+A connection that proved a key while it was opened, by signing its NetherNet
+offer, has to log in with a token naming that key. A token captured from another
+connection is refused. An anonymous offer proves no key and its login can't be
+bound this way.
 
 The game's own encryption is not in the sequence at all. NetherNet runs over
 DTLS, which already encrypts every byte, so the client skips it and so does the

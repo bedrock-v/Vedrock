@@ -1,5 +1,6 @@
 module server
 
+import crypto.ecdsa
 import net
 import os
 import sync
@@ -49,6 +50,12 @@ fn refuses_to_bind() network.ListenerFn {
 	}
 }
 
+// unverified keeps these tests from asking Minecraft's authorization service
+// for anything.
+const unverified = network.LoginConfig{
+	allow_unverified: true
+}
+
 fn test_a_server_with_no_listeners_is_refused() {
 	if _ := new(Config{}) {
 		assert false, 'a server that can accept nobody was started'
@@ -59,6 +66,7 @@ fn test_a_listener_that_cant_bind_closes_ones_already_bound() {
 	mut closes := &CloseCount{}
 	if _ := new(Config{
 		listeners: [binds(closes), refuses_to_bind(), binds(closes)]
+		login:     unverified
 	})
 	{
 		assert false, 'a server started with a listener that could not bind'
@@ -92,6 +100,10 @@ fn (mut w BlockingWire) write_message(b []u8) ! {
 
 fn (mut w BlockingWire) remote() string {
 	return 'blocking'
+}
+
+fn (mut w BlockingWire) public_key() ?ecdsa.PublicKey {
+	return none
 }
 
 fn (mut w BlockingWire) close() {
@@ -158,6 +170,7 @@ fn test_closing_ends_a_connection_that_is_still_logging_in() {
 	mut wire := &BlockingWire{}
 	mut srv := new(Config{
 		listeners: [gives(wire)]
+		login:     unverified
 	}) or { panic(err) }
 	mut running := spawn srv.run()
 	for _ in 0 .. 400 {
@@ -187,6 +200,7 @@ fn test_failed_start_frees_the_media_port() {
 			identity_file: os.join_path(os.vtmp_dir(), 'vedrock_media_test.pem')
 		}), refuses_to_bind()]
 		media_port: port
+		login:      unverified
 	})
 	{
 		assert false, 'a server started with a listener that could not bind'
@@ -200,4 +214,34 @@ fn test_failed_start_frees_the_media_port() {
 		return
 	}
 	ctx.close()
+}
+
+fn test_one_account_is_in_once() {
+	mut srv := new(Config{
+		listeners: [binds(&CloseCount{})]
+		login:     unverified
+	}) or { panic(err) }
+	defer {
+		srv.close()
+	}
+	assert srv.claim_player('00000000-0000-0000-0000-000000000001')
+	assert !srv.claim_player('00000000-0000-0000-0000-000000000001'), 'a second login of an account that is in got in'
+	assert srv.claim_player('00000000-0000-0000-0000-000000000002'), 'another account was refused'
+	srv.release_player('00000000-0000-0000-0000-000000000001')
+	assert srv.claim_player('00000000-0000-0000-0000-000000000001'), 'an account that left could not come back'
+}
+
+fn test_logins_of_one_account_arriving_together_get_in_once() {
+	mut srv := new(Config{
+		listeners: [binds(&CloseCount{})]
+		login:     unverified
+	}) or { panic(err) }
+	defer {
+		srv.close()
+	}
+	mut claims := []thread bool{}
+	for _ in 0 .. 8 {
+		claims << spawn srv.claim_player('00000000-0000-0000-0000-000000000001')
+	}
+	assert claims.wait().filter(it).len == 1
 }
