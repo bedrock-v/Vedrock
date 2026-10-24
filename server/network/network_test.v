@@ -8,6 +8,7 @@ import x.json2
 import bedrock_v.protocol
 import bedrock_v.protocol.packets
 import bedrock_v.protocol.serializer
+import bedrock_v.protocol.types
 
 struct ScriptWire {
 mut:
@@ -527,4 +528,169 @@ fn test_logins_at_once_are_bounded_without_a_player_limit() {
 	assert settled == 2, 'the listener ran ${settled} logins at once'
 	assert closed(wires) == 4, 'the clients over the limit were not closed'
 	assert ctx.player_count() == 2, 'a client over the limit took a player slot'
+}
+
+fn spawning_client(radius int, entity u64) &ScriptWire {
+	return &ScriptWire{
+		inbound: [
+			client_message([
+				protocol.Packet(&packets.RequestChunkRadiusPacket{
+					chunk_radius:     i32(radius)
+					max_chunk_radius: i8(radius)
+				}),
+			], true),
+			client_message([
+				protocol.Packet(&packets.SetLocalPlayerAsInitializedPacket{
+					player_id: types.ActorRuntimeID{
+						value: entity
+					}
+				}),
+			], true),
+		]
+	}
+}
+
+fn test_a_client_is_spawned_into_an_empty_world() {
+	mut w := spawning_client(32, 7)
+	mut c := new_conn(mut w)
+	c.enable_compression(default_compression_threshold)
+	start_game(mut c, GameData{
+		entity_id:  7
+		world_name: 'world'
+	}) or { panic(err) }
+
+	level := sent(w, 0, true)
+	start := level[2]
+	assert start is packets.StartGamePacket
+	if start is packets.StartGamePacket {
+		assert start.target_runtime_id.value == 7
+		assert start.level_name == 'world'
+	}
+	spawned := sent(w, 1, true)
+	radius := spawned[0]
+	assert radius is packets.ChunkRadiusUpdatedPacket
+	if radius is packets.ChunkRadiusUpdatedPacket {
+		assert radius.chunk_radius == max_chunk_radius, 'the radius the client asked for was not capped'
+	}
+	status := spawned[2]
+	assert status is packets.PlayStatusPacket
+	if status is packets.PlayStatusPacket {
+		assert status.status == .player_spawn
+	}
+	mut chunks := 0
+	for i in 2 .. w.outbound.len {
+		for p in sent(w, i, true) {
+			assert p is packets.LevelChunkPacket
+			chunks++
+		}
+	}
+	mut expected := 0
+	for x in -max_chunk_radius .. max_chunk_radius + 1 {
+		for z in -max_chunk_radius .. max_chunk_radius + 1 {
+			if x * x + z * z <= max_chunk_radius * max_chunk_radius {
+				expected++
+			}
+		}
+	}
+	assert chunks == expected
+}
+
+fn test_a_client_spawning_as_another_entity_is_refused() {
+	mut w := spawning_client(4, 8)
+	mut c := new_conn(mut w)
+	c.enable_compression(default_compression_threshold)
+	if _ := start_game(mut c, GameData{
+		entity_id: 7
+	})
+	{
+		assert false, 'a client that spawned as another entity was let in'
+	}
+}
+
+// token_login_request is what a current client sends: one token from Microsoft
+// under "Token" and no chain.
+fn token_login_request(name string, xuid string) []u8 {
+	claims := json2.encode({
+		'xname': json2.Any(name)
+		'xid':   json2.Any(xuid)
+		'cpk':   json2.Any('CLIENTKEY')
+	})
+	token := '${base64.url_encode('{"alg":"RS256"}'.bytes())}.${base64.url_encode(claims.bytes())}.signature'
+	request := json2.encode({
+		'AuthenticationType': json2.Any(0)
+		'Certificate':        json2.Any('')
+		'Token':              json2.Any(token)
+	})
+	mut w := serializer.new_writer()
+	w.le_u32(u32(request.len))
+	w.write_raw(request.bytes())
+	return w.bytes()
+}
+
+fn test_a_client_logging_in_with_a_token_gets_its_identity_from_it() {
+	mut w := logging_in_client('Scher')
+	w.inbound[1] = client_message([
+		protocol.Packet(&packets.LoginPacket{
+			client_network_version: i32(protocol.protocol_id)
+			connection_request:     token_login_request('Scher', '2535000000000000')
+		}),
+	], true)
+	mut c := new_conn(mut w)
+	identity := handshake(mut c, LoginConfig{}) or { panic(err) }
+	assert identity.display_name == 'Scher'
+	assert identity.xuid == '2535000000000000'
+	// The version 3 UUID of "pocket-auth-1-xuid:2535000000000000".
+	assert identity.uuid == 'd9b3ec0f-ac76-39e9-91f6-a017a05ccebc'
+}
+
+// ChattyWire keeps sending a packet the spawn sequence isn't waiting for until
+// it is closed.
+struct ChattyWire {
+mut:
+	guard  &sync.Mutex = sync.new_mutex()
+	closed bool
+}
+
+fn (mut w ChattyWire) read_message() ![]u8 {
+	if w.is_closed() {
+		return error('the connection was closed')
+	}
+	time.sleep(time.millisecond)
+	return client_message([request_settings(protocol.protocol_id)], true)
+}
+
+fn (mut w ChattyWire) write_message(b []u8) ! {}
+
+fn (mut w ChattyWire) remote() string {
+	return 'chatty'
+}
+
+fn (mut w ChattyWire) close() {
+	w.guard.lock()
+	w.closed = true
+	w.guard.unlock()
+}
+
+fn (mut w ChattyWire) is_closed() bool {
+	w.guard.lock()
+	defer {
+		w.guard.unlock()
+	}
+	return w.closed
+}
+
+fn test_a_client_that_never_spawns_is_dropped() {
+	mut w := &ChattyWire{}
+	mut c := new_conn(mut w)
+	c.enable_compression(default_compression_threshold)
+	started := time.now()
+	if _ := start_game(mut c, GameData{
+		entity_id: 7
+		timeout:   50 * time.millisecond
+	})
+	{
+		assert false, 'a client that never spawned got in'
+	}
+	assert w.is_closed(), 'a client that never spawned was left connected'
+	assert time.since(started) < 2 * time.second, 'the deadline did not end the spawn'
 }
