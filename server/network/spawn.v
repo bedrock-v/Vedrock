@@ -1,5 +1,6 @@
 module network
 
+import time
 import bedrock_v.nbt
 import bedrock_v.protocol
 import bedrock_v.protocol.enums
@@ -14,14 +15,40 @@ pub:
 	// id. The client names it back when it has spawned.
 	entity_id  u64
 	world_name string
+	timeout time.Duration = 30 * time.second
 }
 
 // start_game spawns a client that has logged in and returns once the client
-// says it is in the world.
-//
-// The order is: the level first, then the client asks for a chunk radius and
-// is told to spawn.
+// says it is in the world. It closes the connection when the deadline passes
+// first which ends any read the sequence is blocked on.
 pub fn start_game(mut c Conn, data GameData) ! {
+	if data.timeout <= 0 {
+		return spawn_sequence(mut c, data)
+	}
+	finished := chan bool{cap: 1}
+	sequence := spawn run_spawn_sequence(mut c, data, finished)
+	deadline := data.timeout
+	select {
+		_ := <-finished {}
+		deadline {
+			c.close()
+			sequence.wait() or {}
+			return error('did not spawn within ${deadline}')
+		}
+	}
+	sequence.wait()!
+}
+
+fn run_spawn_sequence(mut c Conn, data GameData, finished chan bool) ! {
+	defer {
+		finished <- true
+	}
+	spawn_sequence(mut c, data)!
+}
+
+// spawn_sequence sends the level, then waits for the client to ask for a chunk
+// radius, tells it to spawn and waits for it to say it has.
+fn spawn_sequence(mut c Conn, data GameData) ! {
 	c.write_batch([
 		protocol.Packet(jigsaw_structure_data()),
 		// Empty: the client keeps its own copy of the vanilla shapes.
