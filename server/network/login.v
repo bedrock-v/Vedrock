@@ -2,7 +2,10 @@ module network
 
 import time
 import x.json2
+import crypto.md5
 import encoding.base64
+import encoding.hex
+import rand
 import bedrock_v.protocol
 import bedrock_v.protocol.packets
 import bedrock_v.protocol.enums
@@ -215,20 +218,25 @@ fn check_identity(identity Identity) ! {
 
 // read_identity reads the client's claimed identity out of the login request.
 //
-// The request holds a chain of JWTs. The last link carries the player's name
-// and account ids under extraData. Signatures are not checked here. See
-// Identity.
+// A current client sends one token from Microsoft under "Token" and no chain.
+// Without one the request holds the older chain of JWTs whose last link carries
+// the player under extraData.
+// Signatures are not checked here. See Identity.
 fn read_identity(connection_request []u8) !Identity {
 	mut r := serializer.new_reader(connection_request)
 	length := int(r.le_u32()!)
-	chain_json := r.read_raw(length)!.bytestr()
-	chain := chain_tokens(chain_json)!
+	request := json2.decode[json2.Any](r.read_raw(length)!.bytestr())!.as_map()
+	token := field(request, 'Token')
+	if token != '' {
+		return token_identity(token)!
+	}
+	chain := chain_tokens(request)!
 	if chain.len == 0 {
-		return error('login request carried no certificate chain')
+		return error('login request carried neither a token nor a certificate chain')
 	}
 	mut extra := map[string]json2.Any{}
-	for token in chain {
-		payload := jwt_payload(token)!
+	for link in chain {
+		payload := jwt_payload(link)!
 		if 'extraData' in payload {
 			extra = (payload['extraData'] or { json2.Any('') }).as_map()
 		}
@@ -240,11 +248,39 @@ fn read_identity(connection_request []u8) !Identity {
 	}
 }
 
+// token_identity reads the player out of the token's claims: the gamertag under
+// xname and the XUID under xid.
+fn token_identity(token string) !Identity {
+	claims := jwt_payload(token)!
+	xuid := field(claims, 'xid')
+	return Identity{
+		display_name: field(claims, 'xname')
+		xuid:         xuid
+		uuid:         token_uuid(field(claims, 'leguuid'), xuid)
+	}
+}
+
+// token_uuid is the player's UUID. The token carries one only for an offline
+// login. Otherwise it is a version 3 UUID hashed from the XUID, so the same
+// account always gets the same UUID.
+fn token_uuid(claimed string, xuid string) string {
+	if claimed != '' {
+		return claimed
+	}
+	if xuid == '' {
+		return rand.uuid_v4()
+	}
+	mut id := md5.sum('pocket-auth-1-xuid:${xuid}'.bytes())
+	id[6] = (id[6] & 0x0f) | 0x30
+	id[8] = (id[8] & 0x3f) | 0x80
+	h := hex.encode(id)
+	return '${h[..8]}-${h[8..12]}-${h[12..16]}-${h[16..20]}-${h[20..]}'
+}
+
 // chain_tokens pulls the chain out of the login request's JSON. The game has
 // sent it both as a "chain" array and as a "Certificate" string holding that
 // same object.
-fn chain_tokens(chain_json string) ![]string {
-	root := json2.decode[json2.Any](chain_json)!.as_map()
+fn chain_tokens(root map[string]json2.Any) ![]string {
 	if 'chain' in root {
 		return strings_of(root['chain'] or { json2.Any('') })
 	}
@@ -272,7 +308,7 @@ fn strings_of(value json2.Any) []string {
 fn jwt_payload(token string) !map[string]json2.Any {
 	parts := token.split('.')
 	if parts.len != 3 {
-		return error('chain token is not a JWT')
+		return error('login token is not a JWT')
 	}
 	return json2.decode[json2.Any](base64.url_decode(parts[1]).bytestr())!.as_map()
 }
