@@ -11,7 +11,10 @@ pub:
 	// A server with none accepts nobody and there is no default.
 	listeners []network.ListenerFn
 	motd      string = 'Vedrock'
-	sub_motd  string = 'Vedrock'
+	// sub_motd is the second line of the server's entry in the game's list.
+	// When you unset, it is world_name, as Bedrock Dedicated Server shows its level
+	// name there.
+	sub_motd  string
 	// max_players is how many players are admitted at once, and what a client is
 	// told before it joins. A client takes a slot when it arrives. This also
 	// bounds how many can be logging in. Zero admits any number.
@@ -33,7 +36,7 @@ pub:
 fn (cfg &Config) status() network.Status {
 	return network.Status{
 		motd:        cfg.motd
-		sub_motd:    cfg.sub_motd
+		sub_motd:    if cfg.sub_motd != '' { cfg.sub_motd } else { cfg.world_name }
 		max_players: cfg.max_players
 		network_id:  cfg.network_id
 	}
