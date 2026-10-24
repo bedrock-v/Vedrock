@@ -19,8 +19,11 @@ import bedrock_v.protocol.serializer
 pub const default_compression_threshold = 256
 
 // Identity is who the client is. xbox_authenticated is true only when it comes
-// from a login token a LoginVerifier verified. Otherwise the client could have
-// put anything here.
+// from a login token a LoginVerifier verified on a connection that proved it
+// holds the key the token names. A verified token on a connection that proved no
+// key still names the player but it could have been replayed from another
+// server the player joined. Without a verifier the client could have put
+// anything here.
 pub struct Identity {
 pub:
 	display_name       string
@@ -237,23 +240,27 @@ fn check_identity(identity Identity) ! {
 //
 // A connection that proved a key while it was opened has to log in with a
 // token naming that key. A token captured from another connection names
-// another key and is refused.
+// another key and is refused. Only such a bound login can be
+// xbox_authenticated.
 fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa.PublicKey) !Identity {
 	mut r := serializer.new_reader(connection_request)
 	length := int(r.le_u32()!)
 	request := json2.decode[json2.Any](r.read_raw(length)!.bytestr())!.as_map()
 	token := field(request, 'Token')
-	mut identity := Identity{}
+	mut claims := map[string]json2.Any{}
+	mut verified := false
 	if mut v := verifier {
 		if token == '' {
 			return error('login request carries no token to verify')
 		}
-		identity = token_identity(v.verify(token)!, true)
+		claims = v.verify(token)!
+		verified = true
 	} else if token != '' {
-		identity = token_identity(jwt_payload(token)!, false)
+		claims = jwt_payload(token)!
 	} else {
 		return chain_identity(request)!
 	}
+	mut bound := false
 	if key := proven {
 		named := nn.claim_public_key(token, false) or {
 			return error('login token names no usable key: ${err}')
@@ -261,8 +268,9 @@ fn read_identity(connection_request []u8, verifier ?LoginVerifier, proven ?ecdsa
 		if !key.equal(named) {
 			return error('login token names another key than the one this connection proved')
 		}
+		bound = true
 	}
-	return identity
+	return token_identity(claims, verified && bound)
 }
 
 // chain_identity reads the player out of the older chain of JWTs whose last
@@ -288,14 +296,15 @@ fn chain_identity(request map[string]json2.Any) !Identity {
 }
 
 // token_identity reads the player out of a token's claims: the gamertag under
-// xname and the XUID under xid.
-fn token_identity(claims map[string]json2.Any, verified bool) Identity {
+// xname and the XUID under xid. proven says whether the token was verified and
+// bound to the connection.
+fn token_identity(claims map[string]json2.Any, proven bool) Identity {
 	xuid := field(claims, 'xid')
 	return Identity{
 		display_name:       field(claims, 'xname')
 		xuid:               xuid
 		uuid:               token_uuid(field(claims, 'leguuid'), xuid)
-		xbox_authenticated: verified && xuid != ''
+		xbox_authenticated: proven && xuid != ''
 	}
 }
 
