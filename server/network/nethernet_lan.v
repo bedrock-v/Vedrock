@@ -14,10 +14,6 @@ pub:
 	port            int    = discovery.default_port
 	identity_file   string = 'keys/server_identity_key.pem'
 	identity_domain string
-	// allow_anonymous accepts an offer carrying no identity assertion. The game
-	// never signs the offers it broadcasts on the LAN and refusing them would
-	// refuse every LAN client.
-	allow_anonymous bool = true
 }
 
 // lan builds a listener that shows the server in the game's list of LAN games
@@ -53,7 +49,7 @@ pub fn listen_lan(cfg LanConfig, mut ctx ListenerContext) !&LanListener {
 	signalling.pong_data(pong_data(status, cfg.port, 0).bytes())
 	mut inner := nn.listen(mut signalling,
 		identity:        identity
-		allow_anonymous: cfg.allow_anonymous
+		allow_anonymous: ctx.verifier == none
 		udp_mux:         mux
 	) or {
 		signalling.close()

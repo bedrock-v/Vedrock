@@ -20,10 +20,6 @@ pub:
 	// identity_domain is the domain the server's identity token names which a
 	// client shows when asked to trust this server. Unset and the MOTD stands in.
 	identity_domain string
-	// allow_anonymous accepts an offer carrying no identity assertion. The game
-	// leaves the assertion out of most of its offers and refusing those would
-	// refuse most clients.
-	allow_anonymous bool = true
 }
 
 // nethernet builds a NetherNet listener for a server's Config.listeners.
@@ -57,7 +53,7 @@ pub fn listen(cfg NetherNetConfig, mut ctx ListenerContext) !&NetherNetListener 
 	signalling.pong_data(pong_data(status, cfg.port, 0).bytes())
 	mut inner := nn.listen(mut signalling,
 		identity:        identity
-		allow_anonymous: cfg.allow_anonymous
+		allow_anonymous: ctx.verifier == none
 		udp_mux:         mux
 	) or {
 		signalling.close()
