@@ -47,6 +47,8 @@ pub:
 	// mux whatever the number of listeners. Zero lets each connection take a
 	// port the kernel picks.
 	media_port u16
+	// verifier checks every listener's logins. Whoever built it closes it.
+	verifier ?LoginVerifier
 mut:
 	mux ?&ice.UdpMux
 	// listeners are told the player count whenever it changes.

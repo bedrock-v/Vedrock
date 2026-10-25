@@ -9,6 +9,9 @@ import server.network
 fn main() {
 	mut srv := server.new(
 		listeners: [network.nethernet(network.NetherNetConfig{}), network.lan(network.LanConfig{})]
+		login:     network.LoginConfig{
+			allow_unverified: true
+		}
 	) or {
 		eprintln('vedrock: ${err}')
 		exit(1)
