@@ -177,7 +177,9 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 	} else {
 		'not xbox authenticated'
 	}
-	eprintln('vedrock: ${client.identity.display_name} joined, ${authenticated}')
+	offer := if _ := conn.public_key() { 'signed offer' } else { 'unsigned offer' }
+	// TODO Yeah, I know what to do... A LOGGEEEEEEEEEEEER
+	eprintln('vedrock: ${client.identity.display_name} joined, ${authenticated}, ${offer}')
 	h := world.new_handle(id, session.new_player(id, client.identity.display_name))
 	world.call[bool](mut s.overworld, 'server.join', fn [h] (mut tx world.Tx) !bool {
 		tx.add(h)
