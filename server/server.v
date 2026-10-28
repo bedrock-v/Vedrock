@@ -7,6 +7,7 @@ import time
 import server.network
 import server.session
 import server.world
+import server.world.chunk
 
 // accept_poll is how long a wait for a logged-in client lasts before the
 // accept loop looks at whether the server is still running.
@@ -98,7 +99,7 @@ pub fn new(cfg Config) !&Server {
 		logins:           logins
 		listener_context: ctx
 		verifier:         owned
-		overworld:        world.start(cfg.world_name)
+		overworld:        world.start(cfg.world_name, generator: cfg.generator)
 	}
 }
 
@@ -157,9 +158,23 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 		handlers.done()
 	}
 	id := s.next_id.add(1)
+	mut overworld := s.overworld
+	arrival := world.call[world.BlockPos](mut overworld, 'server.spawn', fn (mut tx world.Tx) !world.BlockPos {
+		return tx.spawn()
+	}) or {
+		network.disconnect(mut conn, 'The world could not take you.')
+		return
+	}
 	network.start_game(mut conn, network.GameData{
 		entity_id:  id
 		world_name: s.cfg.world_name
+		spawn:      [arrival.x, arrival.y, arrival.z]!
+		game_type:  s.cfg.game_type
+		chunks:     fn [mut overworld] (positions []chunk.Pos) ![][]u8 {
+			return world.call[[][]u8](mut overworld, 'server.spawn_chunks', fn [positions] (mut tx world.Tx) ![][]u8 {
+				return positions.map(tx.encoded_chunk(it))
+			})
+		}
 	}) or {
 		// TODO There's no logger in the rewrite yet.
 		eprintln('vedrock: ${client.identity.display_name} did not spawn: ${err}')

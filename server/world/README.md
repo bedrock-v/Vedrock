@@ -54,6 +54,18 @@ println(health)
 overworld.close()
 ```
 
+A world also holds its chunks. A chunk the world has never had is filled by the
+`Generator` it was started with, on the world's own thread, and kept. Its encoded
+form is made the first time it is asked for and every caller gets the same
+bytes. The generator also says where new players spawn.
+
+```v
+mut overworld := world.start('overworld', generator: world.NopGenerator{})
+bytes := world.call[[]u8](mut overworld, 'chunk', fn (mut tx world.Tx) ![]u8 {
+	return tx.encoded_chunk(chunk.Pos{0, 0})
+})!
+```
+
 Work that has to happen once the current callback returns goes through
 `Tx.defer`, which runs it on the same world in the order it was queued. Work on
 *another* world goes through that world's own transaction: a transaction never

@@ -1,6 +1,8 @@
 module server
 
+import bedrock_v.protocol.enums
 import server.network
+import server.world
 
 // Config is a server's settings.
 pub struct Config {
@@ -14,7 +16,7 @@ pub:
 	// sub_motd is the second line of the server's entry in the game's list.
 	// When you unset, it is world_name, as Bedrock Dedicated Server shows its level
 	// name there.
-	sub_motd  string
+	sub_motd string
 	// max_players is how many players are admitted at once, and what a client is
 	// told before it joins. A client takes a slot when it arrives. This also
 	// bounds how many can be logging in. Zero admits any number.
@@ -27,8 +29,13 @@ pub:
 	media_port u16 = 19133
 	// world_name names the world players join.
 	world_name string = 'world'
-	login      network.LoginConfig
-	verifier ?network.LoginVerifier
+	// generator fills the chunks the world has never had. The default leaves
+	// the world empty.
+	generator world.Generator = world.NopGenerator{}
+	// game_type is the game mode players join in.
+	game_type enums.GameType = .creative
+	login     network.LoginConfig
+	verifier  ?network.LoginVerifier
 }
 
 // status is what every listener tells a client before it joins. One server
