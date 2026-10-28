@@ -125,7 +125,7 @@ fn start_game_packet(data GameData) &packets.StartGamePacket {
 			value: data.entity_id
 		}
 		actor_game_type:               data.game_type
-		position:                      [f32(data.spawn[0]) + 0.5, f32(data.spawn[1]),
+		position:                      [f32(data.spawn[0]) + 0.5, f32(data.spawn[1]) + eye_height,
 			f32(data.spawn[2]) + 0.5]!
 		settings:                      types.LevelSettings{
 			generator_type:               .overworld
@@ -195,6 +195,10 @@ fn empty_compound() nbt.RootTag {
 		tag: nbt.Tag(nbt.new_compound())
 	}
 }
+
+// eye_height is how far above a player's feet the position the client is told
+// is: a player's position on the wire is its eyes.
+const eye_height = f32(1.62)
 
 // max_chunk_radius is the most chunks around the player sent in each direction.
 const max_chunk_radius = 8

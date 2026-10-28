@@ -590,7 +590,7 @@ fn test_a_client_is_spawned_into_the_world_it_is_given() {
 	if start is packets.StartGamePacket {
 		assert start.target_runtime_id.value == 7
 		assert start.level_name == 'world'
-		assert start.position == [f32(40.5), 70, -19.5]!
+		assert start.position == [f32(40.5), 70 + eye_height, -19.5]!
 		assert start.settings.default_spawn_block_position.y == 70
 	}
 	spawned := sent(w, 1, true)
