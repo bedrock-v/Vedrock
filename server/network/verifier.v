@@ -26,8 +26,8 @@ mut:
 @[params]
 pub struct OidcVerifierConfig {
 pub:
-	discovery_url string = 'https://client.discovery.minecraft-services.net/api/v1.0/discovery/MinecraftPE/builds/${protocol.minecraft_version}'
-	refresh_interval time.Duration = 30 * time.minute
+	discovery_url      string        = 'https://client.discovery.minecraft-services.net/api/v1.0/discovery/MinecraftPE/builds/${protocol.minecraft_version}'
+	refresh_interval   time.Duration = 30 * time.minute
 	min_forced_refresh time.Duration = time.minute
 	// http_timeout bounds each request to the authorization service.
 	http_timeout time.Duration = 10 * time.second

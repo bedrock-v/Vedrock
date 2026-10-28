@@ -47,7 +47,7 @@ pub:
 	// allow_unverified lets clients in on a login nothing verified for offline
 	// servers and tests.
 	allow_unverified bool
-	max_concurrent int = 64
+	max_concurrent   int = 64
 }
 
 // VersionMismatch is a client refused for speaking another protocol version. It

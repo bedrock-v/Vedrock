@@ -28,6 +28,11 @@ mut:
 	name_    string
 	tasks    chan Task
 	entities map[u64]&Handle
+	// chunks holds every chunk the world has loaded by column_key. Only the
+	// actor touches it.
+	chunks    map[u64]&Column
+	generator Generator
+	spawn     BlockPos
 	// current_tick counts the ticks this world has run. Only the actor
 	// touches it.
 	current_tick i64
@@ -47,9 +52,17 @@ struct Task {
 	run  fn (mut tx Tx) = unsafe { nil }
 }
 
+// Config is what a world is started with.
+@[params]
+pub struct Config {
+pub:
+	// generator fills the chunks the world has never had.
+	generator Generator = NopGenerator{}
+}
+
 // start brings up a world, its actor thread and its tick loop.
-pub fn start(name string) &Runtime {
-	mut wr := start_manual(name)
+pub fn start(name string, cfg Config) &Runtime {
+	mut wr := start_manual(name, cfg)
 	spawn wr.tick_loop()
 	return wr
 }
@@ -57,12 +70,15 @@ pub fn start(name string) &Runtime {
 // start_manual brings up a world that does not tick on its own. It ticks when
 // advance_tick is called, which is what a caller wants when the number of ticks
 // has to be exactly the number it asked for.
-pub fn start_manual(name string) &Runtime {
+pub fn start_manual(name string, cfg Config) &Runtime {
 	mut wr := &Runtime{
-		name_:    name
-		tasks:    chan Task{cap: queue_cap}
-		entities: map[u64]&Handle{}
-		done:     chan bool{cap: 1}
+		name_:     name
+		tasks:     chan Task{cap: queue_cap}
+		entities:  map[u64]&Handle{}
+		chunks:    map[u64]&Column{}
+		generator: cfg.generator
+		spawn:     cfg.generator.default_spawn()
+		done:      chan bool{cap: 1}
 	}
 	spawn wr.run()
 	return wr

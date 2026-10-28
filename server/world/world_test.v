@@ -1,7 +1,9 @@
 module world
 
 import sync
+import sync.stdatomic
 import time
+import server.world.chunk
 
 // A test entity. Nothing about it is guarded.
 struct Dummy {
@@ -528,4 +530,46 @@ fn test_an_entity_removed_during_a_tick_is_not_ticked() {
 	{
 		assert false, 'the removed entity is still in the world'
 	}
+}
+
+// CountingGenerator counts the chunks it was asked to fill and spawns players
+// somewhere a default generator wouldn't.
+struct CountingGenerator {
+	generated &stdatomic.AtomicVal[int] = stdatomic.new_atomic[int](0)
+}
+
+fn (g CountingGenerator) generate_chunk(pos chunk.Pos, mut c chunk.Chunk) {
+	mut generated := g.generated
+	generated.add(1)
+}
+
+fn (g CountingGenerator) default_spawn() BlockPos {
+	return BlockPos{8, 64, -8}
+}
+
+fn test_a_chunk_is_generated_once_and_its_bytes_are_shared() {
+	g := CountingGenerator{}
+	mut wr := start('overworld', generator: g)
+	defer {
+		wr.close()
+	}
+	same := call[bool](mut wr, 'chunks', fn (mut tx Tx) !bool {
+		first := tx.encoded_chunk(chunk.Pos{1, 2})
+		again := tx.encoded_chunk(chunk.Pos{1, 2})
+		tx.encoded_chunk(chunk.Pos{2, 1})
+		return first.data == again.data
+	})!
+	assert same, 'one chunk was encoded twice'
+	assert g.generated.load() == 2, 'the generator was asked ${g.generated.load()} times for 2 chunks'
+}
+
+fn test_a_world_spawns_players_where_its_generator_says() {
+	mut wr := start('overworld', generator: CountingGenerator{})
+	defer {
+		wr.close()
+	}
+	spawn_pos := call[BlockPos](mut wr, 'spawn', fn (mut tx Tx) !BlockPos {
+		return tx.spawn()
+	})!
+	assert spawn_pos == BlockPos{8, 64, -8}
 }

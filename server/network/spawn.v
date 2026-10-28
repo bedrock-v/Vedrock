@@ -5,8 +5,8 @@ import bedrock_v.nbt
 import bedrock_v.protocol
 import bedrock_v.protocol.enums
 import bedrock_v.protocol.packets
-import bedrock_v.protocol.serializer
 import bedrock_v.protocol.types
+import server.world.chunk
 
 // GameData is what a client is told about itself and the world it joins.
 pub struct GameData {
@@ -15,6 +15,12 @@ pub:
 	// id. The client names it back when it has spawned.
 	entity_id  u64
 	world_name string
+	// spawn is the block the player arrives in.
+	spawn     [3]int
+	game_type enums.GameType = .creative
+	// chunks gives the chunks at positions, encoded, in the order asked. It runs
+	// on the spawn sequence's thread.
+	chunks  fn (positions []chunk.Pos) ![][]u8 @[required]
 	timeout time.Duration = 30 * time.second
 }
 
@@ -29,7 +35,8 @@ pub fn start_game(mut c Conn, data GameData) ! {
 	sequence := spawn run_spawn_sequence(mut c, data, finished)
 	deadline := data.timeout
 	select {
-		_ := <-finished {}
+		_ := <-finished {
+		}
 		deadline {
 			c.close()
 			sequence.wait() or {}
@@ -73,9 +80,9 @@ fn spawn_sequence(mut c Conn, data GameData) ! {
 		}),
 		protocol.Packet(&packets.NetworkChunkPublisherUpdatePacket{
 			new_view_position: types.BlockPos{
-				x: i32(empty_world_spawn[0])
-				y: i32(empty_world_spawn[1])
-				z: i32(empty_world_spawn[2])
+				x: i32(data.spawn[0])
+				y: i32(data.spawn[1])
+				z: i32(data.spawn[2])
 			}
 			new_view_radius:   u32(radius * 16)
 		}),
@@ -84,7 +91,7 @@ fn spawn_sequence(mut c Conn, data GameData) ! {
 		}),
 		protocol.Packet(&packets.CreativeContentPacket{}),
 	])!
-	send_empty_chunks(mut c, radius)!
+	send_chunks(mut c, data, radius)!
 
 	for {
 		p := c.read()!
@@ -117,16 +124,17 @@ fn start_game_packet(data GameData) &packets.StartGamePacket {
 		target_runtime_id:             types.ActorRuntimeID{
 			value: data.entity_id
 		}
-		actor_game_type:               empty_world_game_type
-		position:                      empty_world_spawn
+		actor_game_type:               data.game_type
+		position:                      [f32(data.spawn[0]) + 0.5, f32(data.spawn[1]),
+			f32(data.spawn[2]) + 0.5]!
 		settings:                      types.LevelSettings{
 			generator_type:               .overworld
-			game_type:                    empty_world_game_type
+			game_type:                    data.game_type
 			game_difficulty:              .normal
 			default_spawn_block_position: types.NetworkBlockPosition{
-				x: i32(empty_world_spawn[0])
-				y: i32(empty_world_spawn[1])
-				z: i32(empty_world_spawn[2])
+				x: i32(data.spawn[0])
+				y: i32(data.spawn[1])
+				z: i32(data.spawn[2])
 			}
 			multiplayer_enabled:          true
 			commands_enabled:             true
@@ -191,45 +199,34 @@ fn empty_compound() nbt.RootTag {
 // max_chunk_radius is the most chunks around the player sent in each direction.
 const max_chunk_radius = 8
 
-// Everything from here down stands in for a world until the world owns its
-// chunks.
-const empty_world_spawn = [f32(0.5), 100, 0.5]!
-const empty_world_game_type = enums.GameType.creative
-
-// empty_chunk is an overworld chunk with no sub chunks.
-fn empty_chunk() []u8 {
-	mut w := serializer.new_writer()
-	w.u8(0 << 1 | 1)
-	w.write_varint32(0)
-	for _ in 1 .. 24 {
-		w.u8(0x7f << 1 | 1)
-	}
-	w.u8(0)
-	return w.bytes()
-}
-
-// send_empty_chunks sends every chunk within radius of the spawn.
-fn send_empty_chunks(mut c Conn, radius int) ! {
-	cx := int(empty_world_spawn[0]) >> 4
-	cz := int(empty_world_spawn[2]) >> 4
-	payload := empty_chunk()
-	mut batch := []protocol.Packet{}
+// send_chunks sends every chunk within radius of the spawn.
+fn send_chunks(mut c Conn, data GameData, radius int) ! {
+	cx := data.spawn[0] >> 4
+	cz := data.spawn[2] >> 4
+	mut positions := []chunk.Pos{}
 	for x in cx - radius .. cx + radius + 1 {
 		for z in cz - radius .. cz + radius + 1 {
-			if (x - cx) * (x - cx) + (z - cz) * (z - cz) > radius * radius {
-				continue
+			if (x - cx) * (x - cx) + (z - cz) * (z - cz) <= radius * radius {
+				positions << chunk.Pos{x, z}
 			}
-			batch << &packets.LevelChunkPacket{
-				chunk_position:        types.ChunkPos{
-					x: i32(x)
-					z: i32(z)
-				}
-				serialized_chunk_data: payload
+		}
+	}
+	payloads := data.chunks(positions)!
+	if payloads.len != positions.len {
+		return error('asked for ${positions.len} chunks and got ${payloads.len}')
+	}
+	mut batch := []protocol.Packet{}
+	for i, pos in positions {
+		batch << &packets.LevelChunkPacket{
+			chunk_position:        types.ChunkPos{
+				x: i32(pos.x)
+				z: i32(pos.z)
 			}
-			if batch.len == 64 {
-				c.write_batch(batch)!
-				batch = []protocol.Packet{}
-			}
+			serialized_chunk_data: payloads[i]
+		}
+		if batch.len == 64 {
+			c.write_batch(batch)!
+			batch = []protocol.Packet{}
 		}
 	}
 	if batch.len > 0 {

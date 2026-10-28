@@ -32,7 +32,7 @@ mut:
 	// takes it.
 	logged_in chan Client = chan Client{}
 	// done is closed by close, waking whatever waits on the handler.
-	done chan bool  = chan bool{}
+	done chan bool   = chan bool{}
 	mu   &sync.Mutex = sync.new_mutex()
 	// logins holds the connections still logging in. Close can end them.
 	logins map[u64]&Conn
@@ -185,7 +185,8 @@ fn (mut h LoginHandler) login(id u64, mut conn Conn) {
 		h.logged_in <- Client{
 			identity: identity
 			conn:     conn
-		} {}
+		} {
+		}
 		_ := <-h.done {
 			conn.close()
 			h.ctx.free_slot()
@@ -216,7 +217,8 @@ fn (mut h LoginHandler) attempt(mut conn Conn) !Identity {
 	sequence := spawn run_handshake(mut conn, h.cfg, h.ctx.verifier, finished)
 	deadline := h.cfg.timeout
 	select {
-		_ := <-finished {}
+		_ := <-finished {
+		}
 		deadline {
 			conn.close()
 			sequence.wait() or {}
