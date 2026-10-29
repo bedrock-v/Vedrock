@@ -66,6 +66,19 @@ bytes := world.call[[]u8](mut overworld, 'chunk', fn (mut tx world.Tx) ![]u8 {
 })!
 ```
 
+What a player sees is a `Loader`: the chunks within a radius of where it is.
+Moving it queues what came into view, nearest first, and stops viewing what
+left it. `load` hands out a few at a time. A chunk nobody views is dropped by a
+sweep every `chunk_unload_interval`, two minutes unless configured.
+
+```v
+mut l := world.new_loader(8)
+fresh := world.call[[]world.LoadedChunk](mut overworld, 'view', fn [mut l] (mut tx world.Tx) ![]world.LoadedChunk {
+	l.move(mut tx, 0.5, 0.5)
+	return l.load(mut tx, 4)
+})!
+```
+
 Work that has to happen once the current callback returns goes through
 `Tx.defer`, which runs it on the same world in the order it was queued. Work on
 *another* world goes through that world's own transaction: a transaction never

@@ -7,7 +7,6 @@ import time
 import server.network
 import server.session
 import server.world
-import server.world.chunk
 
 // accept_poll is how long a wait for a logged-in client lasts before the
 // accept loop looks at whether the server is still running.
@@ -165,16 +164,11 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 		network.disconnect(mut conn, 'The world could not take you.')
 		return
 	}
-	network.start_game(mut conn, network.GameData{
+	radius := network.start_game(mut conn, network.GameData{
 		entity_id:  id
 		world_name: s.cfg.world_name
 		spawn:      [arrival.x, arrival.y, arrival.z]!
 		game_type:  s.cfg.game_type
-		chunks:     fn [mut overworld] (positions []chunk.Pos) ![][]u8 {
-			return world.call[[][]u8](mut overworld, 'server.spawn_chunks', fn [positions] (mut tx world.Tx) ![][]u8 {
-				return positions.map(tx.encoded_chunk(it))
-			})
-		}
 	}) or {
 		// TODO There's no logger in the rewrite yet.
 		eprintln('vedrock: ${client.identity.display_name} did not spawn: ${err}')
@@ -195,7 +189,9 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 	offer := if _ := conn.public_key() { 'signed offer' } else { 'unsigned offer' }
 	// TODO Yeah, I know what to do... A LOGGEEEEEEEEEEEER
 	eprintln('vedrock: ${client.identity.display_name} joined, ${authenticated}, ${offer}')
-	h := world.new_handle(id, session.new_player(id, client.identity.display_name))
+	mut player := session.new_player(id, client.identity.display_name)
+	player.position = [f32(arrival.x) + 0.5, f32(arrival.y), f32(arrival.z) + 0.5]!
+	h := world.new_handle(id, player)
 	world.call[bool](mut s.overworld, 'server.join', fn [h] (mut tx world.Tx) !bool {
 		tx.add(h)
 		return true
@@ -203,7 +199,7 @@ fn (mut s Server) admit(cid u64, client network.Client, mut handlers sync.WaitGr
 		network.disconnect(mut conn, 'The world could not take you.')
 		return
 	}
-	mut sess := session.new_session(mut conn, h)
+	mut sess := session.new_session(mut conn, h, radius)
 	sess.run()
 	// The client is gone or the session gave up on it.
 	world.call[bool](mut s.overworld, 'server.quit', fn [id] (mut tx world.Tx) !bool {

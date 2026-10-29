@@ -573,3 +573,56 @@ fn test_a_world_spawns_players_where_its_generator_says() {
 	})!
 	assert spawn_pos == BlockPos{8, 64, -8}
 }
+
+fn chunk_count(mut wr Runtime) int {
+	return call[int](mut wr, 'chunks', fn (mut tx Tx) !int {
+		return tx.world.chunks.len
+	}) or { panic(err) }
+}
+
+fn test_a_chunk_nobody_views_is_kept_until_the_sweep() {
+	mut wr := start_manual('overworld', chunk_unload_interval: 3 * tick_interval)
+	defer {
+		wr.close()
+	}
+	mut viewer := new_loader(0)
+	mut walker := new_loader(0)
+	call[bool](mut wr, 'view', fn [mut viewer, mut walker] (mut tx Tx) !bool {
+		viewer.move(mut tx, 0, 0)
+		viewer.load(mut tx, 1)
+		walker.move(mut tx, 100, 0)
+		walker.load(mut tx, 1)
+		walker.move(mut tx, 200, 0)
+		return true
+	})!
+	assert chunk_count(mut wr) == 2
+
+	wr.advance_tick()!
+	wr.advance_tick()!
+	assert chunk_count(mut wr) == 2, 'a chunk was dropped before the sweep'
+	wr.advance_tick()!
+	assert chunk_count(mut wr) == 1, 'the sweep kept a chunk nobody views or dropped a viewed one'
+	kept := call[bool](mut wr, 'kept', fn (mut tx Tx) !bool {
+		return column_key(chunk.Pos{0, 0}) in tx.world.chunks
+	})!
+	assert kept, 'the sweep dropped the chunk still in view'
+}
+
+fn test_a_closed_loader_stops_viewing() {
+	mut wr := start_manual('overworld', chunk_unload_interval: tick_interval)
+	defer {
+		wr.close()
+	}
+	mut l := new_loader(1)
+	loaded := call[int](mut wr, 'view', fn [mut l] (mut tx Tx) !int {
+		l.move(mut tx, 0, 0)
+		return l.load(mut tx, 100).len
+	})!
+	assert loaded == 5
+	call[bool](mut wr, 'close', fn [mut l] (mut tx Tx) !bool {
+		l.close(mut tx)
+		return true
+	})!
+	wr.advance_tick()!
+	assert chunk_count(mut wr) == 0
+}

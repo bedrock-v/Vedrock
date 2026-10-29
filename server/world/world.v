@@ -2,6 +2,7 @@ module world
 
 import sync
 import sync.stdatomic
+import time
 
 // queue_cap is how many tasks may wait for the actor before a caller has to
 // wait too. A queue that grows without limit turns a world that can't keep up
@@ -33,6 +34,8 @@ mut:
 	chunks    map[u64]&Column
 	generator Generator
 	spawn     BlockPos
+	// sweep_every is how many ticks apart chunks nobody views are dropped.
+	sweep_every i64
 	// current_tick counts the ticks this world has run. Only the actor
 	// touches it.
 	current_tick i64
@@ -58,6 +61,10 @@ pub struct Config {
 pub:
 	// generator fills the chunks the world has never had.
 	generator Generator = NopGenerator{}
+	// chunk_unload_interval is how often chunks nobody views are dropped. A
+	// chunk is kept that long after its last viewer leaves and a player walking
+	// back and forth over a border doesn't make it generate again each time.
+	chunk_unload_interval time.Duration = 2 * time.minute
 }
 
 // start brings up a world, its actor thread and its tick loop.
@@ -78,6 +85,7 @@ pub fn start_manual(name string, cfg Config) &Runtime {
 		chunks:    map[u64]&Column{}
 		generator: cfg.generator
 		spawn:     cfg.generator.default_spawn()
+		sweep_every: i64(cfg.chunk_unload_interval / tick_interval)
 		done:      chan bool{cap: 1}
 	}
 	spawn wr.run()
