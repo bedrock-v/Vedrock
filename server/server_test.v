@@ -106,6 +106,10 @@ fn (mut w BlockingWire) public_key() ?ecdsa.PublicKey {
 	return none
 }
 
+fn (mut w BlockingWire) buffered_amount() u64 {
+	return 0
+}
+
 fn (mut w BlockingWire) close() {
 	w.guard.lock()
 	defer {

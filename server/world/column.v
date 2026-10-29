@@ -10,6 +10,9 @@ mut:
 	// encoded is the chunk as it is sent, made when it is first asked for and
 	// shared by everyone it is sent to. Empty until then.
 	encoded []u8
+	// viewers are the loaders that have the chunk. A chunk nobody has is
+	// dropped by the next sweep.
+	viewers []&Loader
 }
 
 // spawn is where the world puts new players.
@@ -45,6 +48,19 @@ fn (mut tx Tx) column(pos chunk.Pos) &Column {
 	}
 	tx.world.chunks[key] = col
 	return col
+}
+
+// sweep_chunks drops every chunk no loader has.
+fn (mut tx Tx) sweep_chunks() {
+	mut unused := []u64{}
+	for key, col in tx.world.chunks {
+		if col.viewers.len == 0 {
+			unused << key
+		}
+	}
+	for key in unused {
+		tx.world.chunks.delete(key)
+	}
 }
 
 // column_key packs a position into one map key.

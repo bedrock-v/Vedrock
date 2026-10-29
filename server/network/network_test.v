@@ -10,7 +10,6 @@ import bedrock_v.protocol
 import bedrock_v.protocol.packets
 import bedrock_v.protocol.serializer
 import bedrock_v.protocol.types
-import server.world.chunk
 
 struct ScriptWire {
 mut:
@@ -39,6 +38,10 @@ fn (mut w ScriptWire) remote() string {
 
 fn (mut w ScriptWire) public_key() ?ecdsa.PublicKey {
 	return none
+}
+
+fn (mut w ScriptWire) buffered_amount() u64 {
+	return 0
 }
 
 fn (mut w ScriptWire) close() {
@@ -275,6 +278,10 @@ fn (mut w JunkWire) public_key() ?ecdsa.PublicKey {
 	return none
 }
 
+fn (mut w JunkWire) buffered_amount() u64 {
+	return 0
+}
+
 fn (mut w JunkWire) close() {}
 
 fn test_a_read_gives_up_on_messages_that_carry_no_packet() {
@@ -348,6 +355,10 @@ fn (mut w BlockingWire) remote() string {
 
 fn (mut w BlockingWire) public_key() ?ecdsa.PublicKey {
 	return none
+}
+
+fn (mut w BlockingWire) buffered_amount() u64 {
+	return 0
 }
 
 fn (mut w BlockingWire) close() {
@@ -566,23 +577,16 @@ fn spawning_client(radius int, entity u64) &ScriptWire {
 	}
 }
 
-// air_chunks hands out an air chunk wherever it is asked to.
-fn air_chunks(positions []chunk.Pos) ![][]u8 {
-	return positions.map(chunk.new().encode())
-}
-
 fn test_a_client_is_spawned_into_the_world_it_is_given() {
 	mut w := spawning_client(32, 7)
 	mut c := new_conn(mut w)
 	c.enable_compression(default_compression_threshold)
-	start_game(mut c, GameData{
+	radius := start_game(mut c, GameData{
 		entity_id:  7
 		world_name: 'world'
 		spawn:      [40, 70, -20]!
-		chunks:     fn (positions []chunk.Pos) ![][]u8 {
-			return positions.map('${it.x},${it.z}'.bytes())
-		}
 	}) or { panic(err) }
+	assert radius == max_chunk_radius, 'the radius the client asked for was not capped'
 
 	level := sent(w, 0, true)
 	start := level[2]
@@ -594,38 +598,17 @@ fn test_a_client_is_spawned_into_the_world_it_is_given() {
 		assert start.settings.default_spawn_block_position.y == 70
 	}
 	spawned := sent(w, 1, true)
-	radius := spawned[0]
-	assert radius is packets.ChunkRadiusUpdatedPacket
-	if radius is packets.ChunkRadiusUpdatedPacket {
-		assert radius.chunk_radius == max_chunk_radius, 'the radius the client asked for was not capped'
+	told := spawned[0]
+	assert told is packets.ChunkRadiusUpdatedPacket
+	if told is packets.ChunkRadiusUpdatedPacket {
+		assert told.chunk_radius == max_chunk_radius
 	}
-	status := spawned[2]
+	status := spawned[1]
 	assert status is packets.PlayStatusPacket
 	if status is packets.PlayStatusPacket {
 		assert status.status == .player_spawn
 	}
-	mut chunks := 0
-	for i in 2 .. w.outbound.len {
-		for p in sent(w, i, true) {
-			assert p is packets.LevelChunkPacket
-			if p is packets.LevelChunkPacket {
-				x := p.chunk_position.x
-				z := p.chunk_position.z
-				assert p.serialized_chunk_data.bytestr() == '${x},${z}', 'chunk (${x}, ${z}) was sent with the payload of another'
-				assert (x - 2) * (x - 2) + (z + 2) * (z + 2) <= max_chunk_radius * max_chunk_radius
-			}
-			chunks++
-		}
-	}
-	mut expected := 0
-	for x in -max_chunk_radius .. max_chunk_radius + 1 {
-		for z in -max_chunk_radius .. max_chunk_radius + 1 {
-			if x * x + z * z <= max_chunk_radius * max_chunk_radius {
-				expected++
-			}
-		}
-	}
-	assert chunks == expected
+	assert w.outbound.len == 2, 'the spawn sequence sent more than the level and the spawn'
 }
 
 fn test_a_client_spawning_as_another_entity_is_refused() {
@@ -634,7 +617,6 @@ fn test_a_client_spawning_as_another_entity_is_refused() {
 	c.enable_compression(default_compression_threshold)
 	if _ := start_game(mut c, GameData{
 		entity_id: 7
-		chunks:    air_chunks
 	})
 	{
 		assert false, 'a client that spawned as another entity was let in'
@@ -703,6 +685,10 @@ fn (mut w ChattyWire) public_key() ?ecdsa.PublicKey {
 	return none
 }
 
+fn (mut w ChattyWire) buffered_amount() u64 {
+	return 0
+}
+
 fn (mut w ChattyWire) close() {
 	w.guard.lock()
 	w.closed = true
@@ -724,7 +710,6 @@ fn test_a_client_that_never_spawns_is_dropped() {
 	started := time.now()
 	if _ := start_game(mut c, GameData{
 		entity_id: 7
-		chunks:    air_chunks
 		timeout:   50 * time.millisecond
 	})
 	{

@@ -6,7 +6,6 @@ import bedrock_v.protocol
 import bedrock_v.protocol.enums
 import bedrock_v.protocol.packets
 import bedrock_v.protocol.types
-import server.world.chunk
 
 // GameData is what a client is told about itself and the world it joins.
 pub struct GameData {
@@ -18,16 +17,17 @@ pub:
 	// spawn is the block the player arrives in.
 	spawn     [3]int
 	game_type enums.GameType = .creative
-	// chunks gives the chunks at positions, encoded, in the order asked. It runs
-	// on the spawn sequence's thread.
-	chunks  fn (positions []chunk.Pos) ![][]u8 @[required]
-	timeout time.Duration = 30 * time.second
+	timeout   time.Duration  = 30 * time.second
 }
 
-// start_game spawns a client that has logged in and returns once the client
-// says it is in the world. It closes the connection when the deadline passes
-// first which ends any read the sequence is blocked on.
-pub fn start_game(mut c Conn, data GameData) ! {
+// start_game spawns a client that has logged in and returns, once the client
+// says it is in the world, the chunk radius it was given. It closes the
+// connection when the deadline passes first which ends any read the sequence is
+// blocked on.
+//
+// No chunks are sent: the client says it is in the world without any and they
+// come after.
+pub fn start_game(mut c Conn, data GameData) !int {
 	if data.timeout <= 0 {
 		return spawn_sequence(mut c, data)
 	}
@@ -43,19 +43,19 @@ pub fn start_game(mut c Conn, data GameData) ! {
 			return error('did not spawn within ${deadline}')
 		}
 	}
-	sequence.wait()!
+	return sequence.wait()!
 }
 
-fn run_spawn_sequence(mut c Conn, data GameData, finished chan bool) ! {
+fn run_spawn_sequence(mut c Conn, data GameData, finished chan bool) !int {
 	defer {
 		finished <- true
 	}
-	spawn_sequence(mut c, data)!
+	return spawn_sequence(mut c, data)!
 }
 
 // spawn_sequence sends the level, then waits for the client to ask for a chunk
 // radius, tells it to spawn and waits for it to say it has.
-fn spawn_sequence(mut c Conn, data GameData) ! {
+fn spawn_sequence(mut c Conn, data GameData) !int {
 	c.write_batch([
 		protocol.Packet(jigsaw_structure_data()),
 		// Empty: the client keeps its own copy of the vanilla shapes.
@@ -68,30 +68,16 @@ fn spawn_sequence(mut c Conn, data GameData) ! {
 		}),
 	])!
 
-	requested := c.read_until_chunk_radius()!
-	radius := if requested < 1 || requested > max_chunk_radius {
-		max_chunk_radius
-	} else {
-		requested
-	}
+	radius := chunk_radius(c.read_until_chunk_radius()!)
 	c.write_batch([
 		protocol.Packet(&packets.ChunkRadiusUpdatedPacket{
 			chunk_radius: radius
-		}),
-		protocol.Packet(&packets.NetworkChunkPublisherUpdatePacket{
-			new_view_position: types.BlockPos{
-				x: i32(data.spawn[0])
-				y: i32(data.spawn[1])
-				z: i32(data.spawn[2])
-			}
-			new_view_radius:   u32(radius * 16)
 		}),
 		protocol.Packet(&packets.PlayStatusPacket{
 			status: .player_spawn
 		}),
 		protocol.Packet(&packets.CreativeContentPacket{}),
 	])!
-	send_chunks(mut c, data, radius)!
 
 	for {
 		p := c.read()!
@@ -99,9 +85,10 @@ fn spawn_sequence(mut c Conn, data GameData) ! {
 			if p.player_id.value != data.entity_id {
 				return error('client spawned as entity ${p.player_id.value}, not ${data.entity_id}')
 			}
-			return
+			return radius
 		}
 	}
+	return radius
 }
 
 // read_until_chunk_radius reads up to the client's RequestChunkRadius and
@@ -198,42 +185,15 @@ fn empty_compound() nbt.RootTag {
 
 // eye_height is how far above a player's feet the position the client is told
 // is: a player's position on the wire is its eyes.
-const eye_height = f32(1.62)
+pub const eye_height = f32(1.62)
 
 // max_chunk_radius is the most chunks around the player sent in each direction.
-const max_chunk_radius = 8
+pub const max_chunk_radius = 8
 
-// send_chunks sends every chunk within radius of the spawn.
-fn send_chunks(mut c Conn, data GameData, radius int) ! {
-	cx := data.spawn[0] >> 4
-	cz := data.spawn[2] >> 4
-	mut positions := []chunk.Pos{}
-	for x in cx - radius .. cx + radius + 1 {
-		for z in cz - radius .. cz + radius + 1 {
-			if (x - cx) * (x - cx) + (z - cz) * (z - cz) <= radius * radius {
-				positions << chunk.Pos{x, z}
-			}
-		}
+// chunk_radius is the radius a client gets for the one it asked for.
+pub fn chunk_radius(requested int) int {
+	if requested < 1 || requested > max_chunk_radius {
+		return max_chunk_radius
 	}
-	payloads := data.chunks(positions)!
-	if payloads.len != positions.len {
-		return error('asked for ${positions.len} chunks and got ${payloads.len}')
-	}
-	mut batch := []protocol.Packet{}
-	for i, pos in positions {
-		batch << &packets.LevelChunkPacket{
-			chunk_position:        types.ChunkPos{
-				x: i32(pos.x)
-				z: i32(pos.z)
-			}
-			serialized_chunk_data: payloads[i]
-		}
-		if batch.len == 64 {
-			c.write_batch(batch)!
-			batch = []protocol.Packet{}
-		}
-	}
-	if batch.len > 0 {
-		c.write_batch(batch)!
-	}
+	return requested
 }

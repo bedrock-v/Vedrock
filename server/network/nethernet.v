@@ -133,6 +133,10 @@ pub fn (mut w NetherNetWire) public_key() ?ecdsa.PublicKey {
 	return w.conn.public_key()
 }
 
+pub fn (mut w NetherNetWire) buffered_amount() u64 {
+	return w.conn.buffered_amount()
+}
+
 pub fn (mut w NetherNetWire) close() {
 	w.conn.close()
 }

@@ -15,6 +15,9 @@ mut:
 	// public_key is the key the peer proved it holds while the connection was
 	// opened if the transport made it prove one.
 	public_key() ?ecdsa.PublicKey
+	// buffered_amount is how many bytes written have not gone out yet. Writes
+	// don't wait for the peer, this is where a peer that stops reading shows.
+	buffered_amount() u64
 	close()
 }
 
@@ -123,6 +126,12 @@ pub fn (mut c Conn) remote() string {
 // public_key is the key the peer proved it holds if it proved one.
 pub fn (mut c Conn) public_key() ?ecdsa.PublicKey {
 	return c.wire.public_key()
+}
+
+// buffered_amount is how many bytes written to the client have not gone out
+// yet.
+pub fn (mut c Conn) buffered_amount() u64 {
+	return c.wire.buffered_amount()
 }
 
 // dropped is how many packets this server had no type for.

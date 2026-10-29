@@ -51,6 +51,9 @@ pub fn (mut wr Runtime) advance_tick() ! {
 fn (mut tx Tx) tick() {
 	tx.world.current_tick++
 	current := tx.world.current_tick
+	if tx.world.sweep_every > 0 && current % tx.world.sweep_every == 0 {
+		tx.sweep_chunks()
+	}
 	mut handles := []&Handle{cap: tx.world.entities.len}
 	for _, h in tx.world.entities {
 		handles << h
