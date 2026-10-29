@@ -193,9 +193,9 @@ fn (mut s Session) handle_packet(p protocol.Packet) ! {
 fn dispatch(mut tx world.Tx, mut pl Player, mut loader world.Loader, p protocol.Packet) ! {
 	if p is packets.PlayerAuthInputPacket {
 		pl.position = [
-			finite_or(p.player_position[0], pl.position[0]),
-			finite_or(p.player_position[1] - network.eye_height, pl.position[1]),
-			finite_or(p.player_position[2], pl.position[2]),
+			coordinate_or(p.player_position[0], pl.position[0]),
+			coordinate_or(p.player_position[1] - network.eye_height, pl.position[1]),
+			coordinate_or(p.player_position[2], pl.position[2]),
 		]!
 		pl.rotation = [
 			finite_or(p.player_rotation[0], pl.rotation[0]),
@@ -209,6 +209,22 @@ fn dispatch(mut tx world.Tx, mut pl Player, mut loader world.Loader, p protocol.
 		return
 	}
 	return error('no handler for ${p.name()} in world "${tx.world_name()}"')
+}
+
+// max_coordinate bounds a position the client sends in blocks.
+const max_coordinate = f32(30_000_000)
+
+// coordinate_or is a position the client sent, held to max_coordinate, or
+// fallback when it is NaN or infinite.
+fn coordinate_or(v f32, fallback f32) f32 {
+	c := finite_or(v, fallback)
+	if c > max_coordinate {
+		return max_coordinate
+	}
+	if c < -max_coordinate {
+		return -max_coordinate
+	}
+	return c
 }
 
 // finite_or is v or fallback when v is NaN or infinite.
