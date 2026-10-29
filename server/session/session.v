@@ -1,5 +1,6 @@
 module session
 
+import math
 import sync.stdatomic
 import time
 import bedrock_v.protocol
@@ -191,9 +192,15 @@ fn (mut s Session) handle_packet(p protocol.Packet) ! {
 // the transaction it is given.
 fn dispatch(mut tx world.Tx, mut pl Player, mut loader world.Loader, p protocol.Packet) ! {
 	if p is packets.PlayerAuthInputPacket {
-		pl.position = [p.player_position[0], p.player_position[1] - network.eye_height,
-			p.player_position[2]]!
-		pl.rotation = p.player_rotation
+		pl.position = [
+			finite_or(p.player_position[0], pl.position[0]),
+			finite_or(p.player_position[1] - network.eye_height, pl.position[1]),
+			finite_or(p.player_position[2], pl.position[2]),
+		]!
+		pl.rotation = [
+			finite_or(p.player_rotation[0], pl.rotation[0]),
+			finite_or(p.player_rotation[1], pl.rotation[1]),
+		]!
 		pl.moves++
 		return
 	}
@@ -202,4 +209,12 @@ fn dispatch(mut tx world.Tx, mut pl Player, mut loader world.Loader, p protocol.
 		return
 	}
 	return error('no handler for ${p.name()} in world "${tx.world_name()}"')
+}
+
+// finite_or is v or fallback when v is NaN or infinite.
+fn finite_or(v f32, fallback f32) f32 {
+	if math.is_nan(f64(v)) || math.is_inf(f64(v), 0) {
+		return fallback
+	}
+	return v
 }
