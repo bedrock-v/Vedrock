@@ -17,6 +17,8 @@ pub:
 // delays only the chunks it is filling. There is one worker unless
 // Config.chunk_workers says otherwise. With more, generate_chunk is called
 // from several threads at once and has to be safe for that.
+//
+// A generator that panics takes the whole process down with it.
 pub interface Generator {
 	// generate_chunk fills a new chunk at a position.
 	generate_chunk(pos chunk.Pos, mut c chunk.Chunk)

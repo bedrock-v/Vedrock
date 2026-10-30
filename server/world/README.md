@@ -63,7 +63,8 @@ new players spawn.
 
 What a player sees is a `Loader`: the chunks within a radius of where it is.
 Moving it queues what came into view, nearest first, and stops viewing what
-left it. `load` hands out what is ready. A chunk the world has goes out at once.
+left it. `load` hands out what is ready and chunks are asked for nearest first
+but go out in the order they are generated. A chunk the world has goes out at once.
 One it doesn't is asked for and comes out of a later `load`, once a worker has
 filled it. Several loaders asking for one chunk share one generation. A chunk
 nobody views is dropped by a sweep every `chunk_unload_interval`, two minutes

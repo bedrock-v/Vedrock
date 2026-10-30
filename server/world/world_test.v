@@ -547,20 +547,120 @@ fn (g CountingGenerator) default_spawn() BlockPos {
 	return BlockPos{8, 64, -8}
 }
 
-fn test_a_chunk_is_generated_once_and_its_bytes_are_shared() {
+fn collect(mut wr Runtime, mut l Loader, want int) []LoadedChunk {
+	mut got := []LoadedChunk{}
+	for _ in 0 .. 200 {
+		got << call[[]LoadedChunk](mut wr, 'load', fn [mut l] (mut tx Tx) ![]LoadedChunk {
+			return l.load(mut tx, 100)
+		}) or { panic(err) }
+		if got.len >= want {
+			break
+		}
+		time.sleep(10 * time.millisecond)
+	}
+	return got
+}
+
+fn test_chunk_two_loaders_ask_for_is_generated_once_and_shared() {
 	g := CountingGenerator{}
-	mut wr := start('overworld', generator: g)
+	mut wr := start_manual('overworld', generator: g)
 	defer {
 		wr.close()
 	}
-	same := call[bool](mut wr, 'chunks', fn (mut tx Tx) !bool {
-		first := tx.encoded_chunk(chunk.Pos{1, 2})
-		again := tx.encoded_chunk(chunk.Pos{1, 2})
-		tx.encoded_chunk(chunk.Pos{2, 1})
-		return first.data == again.data
+	mut a := new_loader(0)
+	mut b := new_loader(0)
+	call[bool](mut wr, 'ask', fn [mut a, mut b] (mut tx Tx) !bool {
+		a.move(mut tx, 16, 32)
+		b.move(mut tx, 16, 32)
+		a.load(mut tx, 1)
+		b.load(mut tx, 1)
+		return true
 	})!
-	assert same, 'one chunk was encoded twice'
-	assert g.generated.load() == 2, 'the generator was asked ${g.generated.load()} times for 2 chunks'
+	got_a := collect(mut wr, mut a, 1)
+	got_b := collect(mut wr, mut b, 1)
+	assert got_a.len == 1 && got_b.len == 1, 'a loader never got its chunk'
+	assert got_a[0].pos == chunk.Pos{1, 2}
+	assert got_a[0].encoded.data == got_b[0].encoded.data, 'the two loaders got separate copies'
+	assert g.generated.load() == 1, 'the generator was asked ${g.generated.load()} times for one chunk'
+}
+
+// GatedGenerator holds every chunk until the test opens the gate.
+struct GatedGenerator {
+	gate chan bool = chan bool{}
+}
+
+fn (g GatedGenerator) generate_chunk(pos chunk.Pos, mut c chunk.Chunk) {
+	_ := <-g.gate or { false }
+}
+
+fn (g GatedGenerator) default_spawn() BlockPos {
+	return BlockPos{}
+}
+
+fn test_a_slow_generator_does_not_hold_up_the_world() {
+	g := GatedGenerator{}
+	mut wr := start_manual('overworld', generator: g)
+	defer {
+		g.gate.close()
+		wr.close()
+	}
+	mut l := new_loader(0)
+	call[bool](mut wr, 'ask', fn [mut l] (mut tx Tx) !bool {
+		l.move(mut tx, 0, 0)
+		l.load(mut tx, 1)
+		return true
+	})!
+	started := time.now()
+	for _ in 0 .. 5 {
+		wr.advance_tick()!
+	}
+	assert time.since(started) < time.second, 'the world waited for the generator'
+
+	g.gate.close()
+	assert collect(mut wr, mut l, 1).len == 1, 'the chunk never arrived'
+}
+
+fn test_a_chunk_the_full_queue_turns_down_is_asked_for_again() {
+	g := GatedGenerator{}
+	mut wr := start_runtime('overworld', Config{
+		generator: g
+	}, 1)
+	defer {
+		g.gate.close()
+		wr.close()
+	}
+	mut l := new_loader(1)
+	counts := call[[]int](mut wr, 'ask', fn [mut l] (mut tx Tx) ![]int {
+		l.move(mut tx, 0, 0)
+		l.load(mut tx, 5)
+		return [l.pending.len, l.queue.len]
+	})!
+	pending, queued := counts[0], counts[1]
+	assert pending < 5, 'a queue with room for one took ${pending} chunks'
+	assert pending + queued == 5, 'a chunk turned down was lost'
+
+	g.gate.close()
+	assert collect(mut wr, mut l, 5).len == 5, 'the chunks turned down were never asked for again'
+}
+
+fn test_a_chunk_that_left_the_radius_frees_its_request() {
+	g := GatedGenerator{}
+	mut wr := start_manual('overworld', generator: g)
+	defer {
+		g.gate.close()
+		wr.close()
+	}
+	mut l := new_loader(0)
+	asked := call[bool](mut wr, 'teleport', fn [mut l] (mut tx Tx) !bool {
+		l.move(mut tx, 0, 0)
+		l.load(mut tx, 1)
+		// The first chunk is held at the gate. Far away, the one request the
+		// loader has must go to the chunk it is in now.
+		l.move(mut tx, 1600, 1600)
+		l.load(mut tx, 1)
+		return column_key(chunk.Pos{100, 100}) in l.pending
+	})!
+	assert asked, 'a chunk out of the radius held the only request'
 }
 
 fn test_a_world_spawns_players_where_its_generator_says() {
@@ -589,9 +689,12 @@ fn test_a_chunk_nobody_views_is_kept_until_the_sweep() {
 	mut walker := new_loader(0)
 	call[bool](mut wr, 'view', fn [mut viewer, mut walker] (mut tx Tx) !bool {
 		viewer.move(mut tx, 0, 0)
-		viewer.load(mut tx, 1)
 		walker.move(mut tx, 100, 0)
-		walker.load(mut tx, 1)
+		return true
+	})!
+	assert collect(mut wr, mut viewer, 1).len == 1
+	assert collect(mut wr, mut walker, 1).len == 1
+	call[bool](mut wr, 'walk', fn [mut walker] (mut tx Tx) !bool {
 		walker.move(mut tx, 200, 0)
 		return true
 	})!
@@ -614,11 +717,11 @@ fn test_a_closed_loader_stops_viewing() {
 		wr.close()
 	}
 	mut l := new_loader(1)
-	loaded := call[int](mut wr, 'view', fn [mut l] (mut tx Tx) !int {
+	call[bool](mut wr, 'view', fn [mut l] (mut tx Tx) !bool {
 		l.move(mut tx, 0, 0)
-		return l.load(mut tx, 100).len
+		return true
 	})!
-	assert loaded == 5
+	assert collect(mut wr, mut l, 5).len == 5
 	call[bool](mut wr, 'close', fn [mut l] (mut tx Tx) !bool {
 		l.close(mut tx)
 		return true
