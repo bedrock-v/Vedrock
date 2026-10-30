@@ -55,25 +55,25 @@ overworld.close()
 ```
 
 A world also holds its chunks. A chunk the world has never had is filled by the
-`Generator` it was started with, on the world's own thread, and kept. Its encoded
-form is made the first time it is asked for and every caller gets the same
-bytes. The generator also says where new players spawn.
-
-```v
-mut overworld := world.start('overworld', generator: world.NopGenerator{})
-bytes := world.call[[]u8](mut overworld, 'chunk', fn (mut tx world.Tx) ![]u8 {
-	return tx.encoded_chunk(chunk.Pos{0, 0})
-})!
-```
+`Generator` it was started with and kept. Generation runs on worker threads, one
+unless `chunk_workers` says otherwise, so a slow generator delays only the
+chunks it is filling, never the world. A worker encodes what it generated and
+everyone the chunk is sent to shares those bytes. The generator also says where
+new players spawn.
 
 What a player sees is a `Loader`: the chunks within a radius of where it is.
 Moving it queues what came into view, nearest first, and stops viewing what
-left it. `load` hands out a few at a time. A chunk nobody views is dropped by a
-sweep every `chunk_unload_interval`, two minutes unless configured.
+left it. `load` hands out what is ready. A chunk the world has goes out at once.
+One it doesn't is asked for and comes out of a later `load`, once a worker has
+filled it. Several loaders asking for one chunk share one generation. A chunk
+nobody views is dropped by a sweep every `chunk_unload_interval`, two minutes
+unless configured.
 
 ```v
+mut overworld := world.start('overworld', generator: world.NopGenerator{})
 mut l := world.new_loader(8)
-fresh := world.call[[]world.LoadedChunk](mut overworld, 'view', fn [mut l] (mut tx world.Tx) ![]world.LoadedChunk {
+// Called every tick: what was generated since the last tick comes out here.
+ready := world.call[[]world.LoadedChunk](mut overworld, 'view', fn [mut l] (mut tx world.Tx) ![]world.LoadedChunk {
 	l.move(mut tx, 0.5, 0.5)
 	return l.load(mut tx, 4)
 })!

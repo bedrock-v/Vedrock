@@ -3,6 +3,7 @@ module world
 import sync
 import sync.stdatomic
 import time
+import server.world.chunk
 
 // queue_cap is how many tasks may wait for the actor before a caller has to
 // wait too. A queue that grows without limit turns a world that can't keep up
@@ -36,6 +37,12 @@ mut:
 	spawn     BlockPos
 	// sweep_every is how many ticks apart chunks nobody views are dropped.
 	sweep_every i64
+	// requests are the chunks being generated, each with the loaders waiting
+	// for it, by column_key. Only the actor touches it.
+	requests map[u64][]&Loader
+	// jobs carries chunks to the generation workers.
+	jobs    chan chunk.Pos
+	workers []thread
 	// current_tick counts the ticks this world has run. Only the actor
 	// touches it.
 	current_tick i64
@@ -65,6 +72,9 @@ pub:
 	// chunk is kept that long after its last viewer leaves and a player walking
 	// back and forth over a border doesn't make it generate again each time.
 	chunk_unload_interval time.Duration = 2 * time.minute
+	// chunk_workers is how many threads generate chunks. More than one calls the
+	// generator from several threads at once which it then has to be safe for.
+	chunk_workers int = 1
 }
 
 // start brings up a world, its actor thread and its tick loop.
@@ -78,6 +88,10 @@ pub fn start(name string, cfg Config) &Runtime {
 // advance_tick is called, which is what a caller wants when the number of ticks
 // has to be exactly the number it asked for.
 pub fn start_manual(name string, cfg Config) &Runtime {
+	return start_runtime(name, cfg, generation_queue)
+}
+
+fn start_runtime(name string, cfg Config, queue int) &Runtime {
 	mut wr := &Runtime{
 		name_:     name
 		tasks:     chan Task{cap: queue_cap}
@@ -86,9 +100,14 @@ pub fn start_manual(name string, cfg Config) &Runtime {
 		generator: cfg.generator
 		spawn:     cfg.generator.default_spawn()
 		sweep_every: i64(cfg.chunk_unload_interval / tick_interval)
+		requests:  map[u64][]&Loader{}
+		jobs:      chan chunk.Pos{cap: queue}
 		done:      chan bool{cap: 1}
 	}
 	spawn wr.run()
+	for _ in 0 .. if cfg.chunk_workers > 0 { cfg.chunk_workers } else { 1 } {
+		wr.workers << spawn wr.generate_loop()
+	}
 	return wr
 }
 
@@ -217,6 +236,10 @@ pub fn (mut wr Runtime) close() {
 	wr.tasks.close()
 	wr.queueing.unlock()
 	_ := <-wr.done or { false }
+	wr.jobs.close()
+	for worker in wr.workers {
+		worker.wait()
+	}
 }
 
 // defer queues work to run on this world after the current callback returns and

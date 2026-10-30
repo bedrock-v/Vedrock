@@ -13,8 +13,10 @@ pub:
 // Generator fills the chunks a world has never had. A world has one and asks it
 // once for every chunk it needs.
 //
-// It runs on the world's thread. A generator that takes long holds up the
-// whole world.
+// It runs on the world's generation workers, not its thread, so a slow one
+// delays only the chunks it is filling. There is one worker unless
+// Config.chunk_workers says otherwise. With more, generate_chunk is called
+// from several threads at once and has to be safe for that.
 pub interface Generator {
 	// generate_chunk fills a new chunk at a position.
 	generate_chunk(pos chunk.Pos, mut c chunk.Chunk)
