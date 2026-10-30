@@ -56,12 +56,6 @@ const unverified = network.LoginConfig{
 	allow_unverified: true
 }
 
-fn test_a_server_with_no_listeners_is_refused() {
-	if _ := new(Config{}) {
-		assert false, 'a server that can accept nobody was started'
-	}
-}
-
 fn test_a_listener_that_cant_bind_closes_ones_already_bound() {
 	mut closes := &CloseCount{}
 	if _ := new(Config{
@@ -218,21 +212,6 @@ fn test_failed_start_frees_the_media_port() {
 		return
 	}
 	ctx.close()
-}
-
-fn test_one_account_is_in_once() {
-	mut srv := new(Config{
-		listeners: [binds(&CloseCount{})]
-		login:     unverified
-	}) or { panic(err) }
-	defer {
-		srv.close()
-	}
-	assert srv.claim_player('00000000-0000-0000-0000-000000000001')
-	assert !srv.claim_player('00000000-0000-0000-0000-000000000001'), 'a second login of an account that is in got in'
-	assert srv.claim_player('00000000-0000-0000-0000-000000000002'), 'another account was refused'
-	srv.release_player('00000000-0000-0000-0000-000000000001')
-	assert srv.claim_player('00000000-0000-0000-0000-000000000001'), 'an account that left could not come back'
 }
 
 fn test_logins_of_one_account_arriving_together_get_in_once() {

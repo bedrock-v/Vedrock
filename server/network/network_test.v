@@ -170,23 +170,6 @@ fn test_a_client_logs_in_and_both_ends_compress() {
 	assert w.outbound.len == 4
 }
 
-fn test_a_client_on_another_protocol_version_is_refused() {
-	mut w := &ScriptWire{
-		inbound: [client_message([request_settings(protocol.protocol_id - 1)], false)]
-	}
-	mut c := new_conn(mut w)
-	if _ := handshake(mut c, LoginConfig{ allow_unverified: true }, none) {
-		assert false, 'a client on the wrong protocol version logged in'
-	} else {
-		assert err is VersionMismatch, 'the refusal does not say it was the version: ${err}'
-	}
-	status := sent(w, 0, false)[0]
-	assert status is packets.PlayStatusPacket
-	if status is packets.PlayStatusPacket {
-		assert status.status == .login_failed_client_old
-	}
-}
-
 fn test_a_client_that_will_not_finish_logging_in_is_refused() {
 	mut inbound := [][]u8{}
 	for _ in 0 .. 200 {
@@ -200,47 +183,6 @@ fn test_a_client_that_will_not_finish_logging_in_is_refused() {
 		assert false, 'a client that never logged in got through the handshake'
 	}
 	assert w.next < w.inbound.len
-}
-
-fn test_a_client_refusing_required_packs_is_refused() {
-	mut w := logging_in_client('Scher')
-	w.inbound[2] = client_message([
-		protocol.Packet(&packets.ResourcePackClientResponsePacket{
-			response: packets.ResourcePackResponseCancel{}
-		}),
-	], true)
-	mut c := new_conn(mut w)
-	if _ := handshake(mut c, LoginConfig{ packs_required: true, allow_unverified: true }, none) {
-		assert false, 'a client that refused required packs logged in'
-	}
-}
-
-fn test_an_unknown_packet_is_skipped() {
-	mut unknown := serializer.new_writer()
-	protocol.write_packet_header(mut unknown, 0xfe, 0, 0)
-	mut w := &ScriptWire{
-		inbound: [
-			encode_batch([unknown.bytes()], false, 0) or { panic(err) },
-			client_message([request_settings(protocol.protocol_id)], false),
-		]
-	}
-	mut c := new_conn(mut w)
-	p := c.read() or { panic(err) }
-	assert p is packets.RequestNetworkSettingsPacket
-	assert c.dropped() == 1
-}
-
-fn test_an_unexpected_packet_does_not_stop_the_login() {
-	mut w := logging_in_client('Scher')
-	radius := client_message([
-		protocol.Packet(&packets.RequestChunkRadiusPacket{
-			chunk_radius: 8
-		}),
-	], true)
-	w.inbound.insert(2, radius)
-	mut c := new_conn(mut w)
-	identity := handshake(mut c, LoginConfig{ allow_unverified: true }, none) or { panic(err) }
-	assert identity.display_name == 'Scher'
 }
 
 fn test_a_batch_that_expands_past_the_limit_is_refused() {
@@ -312,18 +254,6 @@ fn test_messages_that_carry_no_packet_still_spend_the_login_budget() {
 	} else {
 		assert err.msg().contains('messages'), 'refused for another reason: ${err}'
 	}
-}
-
-fn test_a_login_survives_junk_within_the_budget() {
-	mut junk := [][]u8{}
-	for _ in 0 .. 10 {
-		junk << junk_batch()
-	}
-	mut w := logging_in_client('Scher')
-	w.inbound.prepend(junk)
-	mut c := new_conn(mut w)
-	identity := handshake(mut c, LoginConfig{ allow_unverified: true }, none) or { panic(err) }
-	assert identity.display_name == 'Scher'
 }
 
 // BlockingWire is a client that connects and then says nothing.

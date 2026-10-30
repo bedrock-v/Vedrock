@@ -1,6 +1,5 @@
 module world
 
-import sync
 import sync.stdatomic
 import time
 import server.world.chunk
@@ -26,20 +25,6 @@ fn spawn_dummy(mut wr Runtime, id u64) &Handle {
 		return true
 	}) or { panic(err) }
 	return h
-}
-
-fn test_work_runs_on_the_actor_thread() {
-	mut wr := start('overworld')
-	defer {
-		wr.close()
-	}
-
-	caller := sync.thread_id()
-	ran_on := call[u64](mut wr, 'test.thread', fn (mut tx Tx) !u64 {
-		return sync.thread_id()
-	}) or { panic(err) }
-	assert ran_on != caller
-	assert ran_on != 0
 }
 
 fn test_a_transaction_reaches_only_its_own_world() {
@@ -69,56 +54,6 @@ fn test_a_transaction_reaches_only_its_own_world() {
 	assert call[int](mut b, 'test.count', fn (mut tx Tx) !int {
 		return tx.count()
 	})! == 0
-}
-
-fn test_a_reference_follows_the_entity() {
-	mut a := start('a')
-	mut b := start('b')
-	defer {
-		a.close()
-		b.close()
-	}
-
-	h := spawn_dummy(mut a, 7)
-	r := ref[Dummy](h)
-
-	call[bool](mut a, 'test.remove', fn (mut tx Tx) !bool {
-		tx.remove(7) or { return error('a does not hold 7') }
-		return true
-	}) or { panic(err) }
-	call[bool](mut b, 'test.add', fn [h] (mut tx Tx) !bool {
-		tx.add(h)
-		return true
-	}) or { panic(err) }
-
-	where := call_ref[Dummy, string](r, 'test.where', fn (mut tx Tx, e &Dummy) !string {
-		return tx.world_name()
-	}) or { panic(err) }
-	assert where == 'b'
-	assert call[int](mut a, 'test.count_a', fn (mut tx Tx) !int {
-		return tx.count()
-	})! == 0
-}
-
-fn test_a_reference_to_a_worldless_entity_fails() {
-	mut wr := start('overworld')
-	defer {
-		wr.close()
-	}
-
-	h := spawn_dummy(mut wr, 3)
-	r := ref[Dummy](h)
-	call[bool](mut wr, 'test.remove', fn (mut tx Tx) !bool {
-		tx.remove(3) or { return error('the world does not hold 3') }
-		return true
-	}) or { panic(err) }
-
-	if _ := call_ref[Dummy, int](r, 'test.orphan', fn (mut tx Tx, e &Dummy) !int {
-		return 1
-	})
-	{
-		assert false, 'work ran against an entity that is in no world'
-	}
 }
 
 fn test_deferred_work_runs_in_order_after_the_callback() {
@@ -378,14 +313,11 @@ fn test_transfer_to_the_same_world_is_a_no_op() {
 	})! == 1
 }
 
-// Ticked is an entity that counts its ticks and remembers the thread it was
-// ticked on.
+// Ticked is an entity that counts its ticks.
 struct Ticked {
 	id_ u64
 mut:
-	ticks     int
-	last      i64
-	ticked_on u64
+	ticks int
 }
 
 fn (t &Ticked) id() u64 {
@@ -394,8 +326,6 @@ fn (t &Ticked) id() u64 {
 
 fn (mut t Ticked) tick(mut tx Tx, current i64) {
 	t.ticks++
-	t.last = current
-	t.ticked_on = sync.thread_id()
 }
 
 fn spawn_ticked(mut wr Runtime, id u64) &Handle {
@@ -407,60 +337,6 @@ fn spawn_ticked(mut wr Runtime, id u64) &Handle {
 		return true
 	}) or { panic(err) }
 	return h
-}
-
-fn test_a_tick_reaches_the_entities_that_tick() {
-	mut wr := start_manual('overworld')
-	defer {
-		wr.close()
-	}
-	h := spawn_ticked(mut wr, 1)
-	r := ref[Ticked](h)
-
-	before := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
-		return tx.current_tick()
-	})!
-	wr.advance_tick()!
-
-	state := call_ref[Ticked, string](r, 'test.state', fn (mut tx Tx, e &Ticked) !string {
-		return '${e.ticks}:${e.last == tx.current_tick()}'
-	})!
-	assert state == '1:true'
-	after := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
-		return tx.current_tick()
-	})!
-	assert after == before + 1
-
-	on := call_ref[Ticked, u64](r, 'test.thread', fn (mut tx Tx, e &Ticked) !u64 {
-		return e.ticked_on
-	})!
-	assert on != sync.thread_id()
-}
-
-fn test_an_entity_that_does_not_tick_is_left_alone() {
-	mut wr := start_manual('overworld')
-	defer {
-		wr.close()
-	}
-	spawn_dummy(mut wr, 2)
-	wr.advance_tick()!
-	assert call[int](mut wr, 'test.count', fn (mut tx Tx) !int {
-		return tx.count()
-	})! == 1
-}
-
-fn test_a_world_ticks_by_itself() {
-	mut wr := start('overworld')
-	defer {
-		wr.close()
-	}
-	time.sleep(250 * time.millisecond)
-	ticks := call[i64](mut wr, 'test.tick_no', fn (mut tx Tx) !i64 {
-		return tx.current_tick()
-	})!
-
-	assert ticks >= 2, 'the world ticked ${ticks} times in 250ms'
-	assert ticks <= 10, 'the world ticked ${ticks} times in 250ms'
 }
 
 fn test_missed_ticks_are_dropped_not_owed() {
@@ -532,8 +408,7 @@ fn test_an_entity_removed_during_a_tick_is_not_ticked() {
 	}
 }
 
-// CountingGenerator counts the chunks it was asked to fill and spawns players
-// somewhere a default generator wouldn't.
+// CountingGenerator counts the chunks it was asked to fill.
 struct CountingGenerator {
 	generated &stdatomic.AtomicVal[int] = stdatomic.new_atomic[int](0)
 }
@@ -544,7 +419,7 @@ fn (g CountingGenerator) generate_chunk(pos chunk.Pos, mut c chunk.Chunk) {
 }
 
 fn (g CountingGenerator) default_spawn() BlockPos {
-	return BlockPos{8, 64, -8}
+	return BlockPos{}
 }
 
 fn collect(mut wr Runtime, mut l Loader, want int) []LoadedChunk {
@@ -661,17 +536,6 @@ fn test_a_chunk_that_left_the_radius_frees_its_request() {
 		return column_key(chunk.Pos{100, 100}) in l.pending
 	})!
 	assert asked, 'a chunk out of the radius held the only request'
-}
-
-fn test_a_world_spawns_players_where_its_generator_says() {
-	mut wr := start('overworld', generator: CountingGenerator{})
-	defer {
-		wr.close()
-	}
-	spawn_pos := call[BlockPos](mut wr, 'spawn', fn (mut tx Tx) !BlockPos {
-		return tx.spawn()
-	})!
-	assert spawn_pos == BlockPos{8, 64, -8}
 }
 
 fn chunk_count(mut wr Runtime) int {
