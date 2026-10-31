@@ -20,7 +20,8 @@ pub:
 //
 // A generator that panics takes the whole process down with it.
 pub interface Generator {
-	// generate_chunk fills a new chunk at a position.
+	// generate_chunk fills a new chunk at a position. The chunk starts as air in
+	// the plains and its blocks are IDs from block.vanilla().
 	generate_chunk(pos chunk.Pos, mut c chunk.Chunk)
 	// default_spawn is where a world using this generator puts new players.
 	default_spawn() BlockPos

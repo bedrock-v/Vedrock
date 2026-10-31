@@ -12,11 +12,11 @@ fn (mut wr Runtime) generate_loop() {
 		if wr.closed.load() != 0 {
 			continue
 		}
-		mut c := chunk.new()
+		mut c := chunk.new(wr.blocks)
 		wr.generator.generate_chunk(pos, mut c)
-		encoded := c.encode()
-		wr.submit('world.chunk_generated', fn [pos, c, encoded] (mut tx Tx) {
-			tx.chunk_generated(pos, c, encoded)
+		encoded, sub_chunks := c.encode()
+		wr.submit('world.chunk_generated', fn [pos, c, encoded, sub_chunks] (mut tx Tx) {
+			tx.chunk_generated(pos, c, encoded, sub_chunks)
 		}) or {}
 	}
 }
@@ -42,14 +42,15 @@ fn (mut tx Tx) request_chunk(pos chunk.Pos, l &Loader) bool {
 
 // chunk_generated stores a chunk a worker filled and hands it to every loader
 // that asked for it.
-fn (mut tx Tx) chunk_generated(pos chunk.Pos, c chunk.Chunk, encoded []u8) {
+fn (mut tx Tx) chunk_generated(pos chunk.Pos, c chunk.Chunk, encoded []u8, sub_chunks int) {
 	key := column_key(pos)
 	waiters := tx.world.requests[key] or { []&Loader{} }
 	tx.world.requests.delete(key)
 	mut col := tx.world.chunks[key] or {
 		fresh := &Column{
-			chunk:   c
-			encoded: encoded
+			chunk:      c
+			encoded:    encoded
+			sub_chunks: sub_chunks
 		}
 		tx.world.chunks[key] = fresh
 		fresh

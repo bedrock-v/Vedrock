@@ -165,6 +165,7 @@ fn (mut s Session) send_chunks() ! {
 				x: i32(c.pos.x)
 				z: i32(c.pos.z)
 			}
+			sub_chunk_count:       u32(c.sub_chunks)
 			serialized_chunk_data: c.encoded
 		})!
 	}
