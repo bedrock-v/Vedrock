@@ -53,3 +53,24 @@ fn test_the_bottom_and_top_blocks_are_in_the_first_and_last_sections() {
 	last := (overworld_sections - 1) * 3
 	assert data[last..last + 3] == [u8(9), 1, u8(max_y >> 4)]
 }
+
+fn test_a_compacted_chunk_drops_blocks_that_are_gone() {
+	reg := block.vanilla()
+	mut c := new(reg)
+	for i in 0 .. 300 {
+		c.set_block(i % 16, min_y + 16 + i / 256, i / 16 % 16, 0, u32(i))
+	}
+	// Set before the stone. Dropping it moves the stone's palette index.
+	c.set_block(5, min_y, 6, 0, u32(7))
+	c.set_block(3, min_y, 4, 0, stone())
+	for i in 0 .. 300 {
+		c.set_block(i % 16, min_y + 16 + i / 256, i / 16 % 16, 0, reg.air)
+	}
+	c.set_block(5, min_y, 6, 0, reg.air)
+	c.compact()
+	_, count := c.encode()
+	assert count == 1, 'a section cleared back to air still went out'
+	assert c.block(3, min_y, 4, 0) == stone(), 'compacting lost a block that is still there'
+	assert c.sections[0].layers[0].palette.len == 2, 'a block that is gone kept its palette entry'
+	assert c.sections[0].layers[0].bits == 1
+}

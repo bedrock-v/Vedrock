@@ -14,6 +14,7 @@ fn (mut wr Runtime) generate_loop() {
 		}
 		mut c := chunk.new(wr.blocks)
 		wr.generator.generate_chunk(pos, mut c)
+		c.compact()
 		encoded, sub_chunks := c.encode()
 		wr.submit('world.chunk_generated', fn [pos, c, encoded, sub_chunks] (mut tx Tx) {
 			tx.chunk_generated(pos, c, encoded, sub_chunks)

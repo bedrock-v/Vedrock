@@ -96,6 +96,19 @@ fn locate(x int, y int, z int) (int, int) {
 	return (y - min_y) >> 4, block_index(x, (y - min_y) & 15, z)
 }
 
+// compact makes every storage as small as the blocks and biomes in it allow.
+// Call it before encode on a chunk that had blocks set and replaced.
+pub fn (mut c Chunk) compact() {
+	for mut sub in c.sections {
+		for mut layer in sub.layers {
+			layer.compact()
+		}
+	}
+	for mut biomes in c.biomes {
+		biomes.compact()
+	}
+}
+
 // encode is the chunk as a LevelChunk packet carries it and how many sub
 // chunks that is: the sub chunks up to the highest one holding anything, the
 // biomes of every section and the border blocks.

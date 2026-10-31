@@ -64,15 +64,48 @@ fn (mut s Storage) put(i int, index int) {
 // grow moves to the smallest size that holds the palette, keeping the index of
 // every block.
 fn (mut s Storage) grow() {
-	mut indices := []int{len: 4096}
-	for i in 0 .. indices.len {
-		indices[i] = s.index(i)
+	s.pack(s.indices())
+}
+
+// compact drops the palette values no block uses and packs what is left at the
+// smallest size. A palette only grows as blocks are set. A section filled and
+// then cleared would otherwise go out at the width it once needed.
+fn (mut s Storage) compact() {
+	indices := s.indices()
+	mut remap := []int{len: s.palette.len, init: -1}
+	mut palette := []u32{}
+	for index in indices {
+		if remap[index] < 0 {
+			remap[index] = palette.len
+			palette << s.palette[index]
+		}
 	}
+	if palette.len == s.palette.len {
+		return
+	}
+	s.palette = palette
+	s.pack(indices.map(remap[it]))
+}
+
+fn (s &Storage) indices() []int {
+	mut out := []int{len: 4096}
+	for i in 0 .. out.len {
+		out[i] = s.index(i)
+	}
+	return out
+}
+
+// pack lays the indices out at the smallest size that holds the palette.
+fn (mut s Storage) pack(indices []int) {
 	for size in sizes {
 		if s.palette.len <= 1 << size {
 			s.bits = size
 			break
 		}
+	}
+	if s.bits == 0 {
+		s.words = []u32{}
+		return
 	}
 	per_word := 32 / s.bits
 	s.words = []u32{len: (4096 + per_word - 1) / per_word}
