@@ -17,13 +17,16 @@ pub:
 	// spawn is the block the player arrives in.
 	spawn     [3]int
 	game_type enums.GameType = .creative
-	timeout   time.Duration  = 30 * time.second
+	// timeout is how long the client has to spawn. Zero, the default, waits as
+	// long as it takes. A limit such as a minute bounds how long a client that
+	// never spawns holds its connection.
+	timeout time.Duration
 }
 
 // start_game spawns a client that has logged in and returns, once the client
-// says it is in the world, the chunk radius it was given. It closes the
-// connection when the deadline passes first which ends any read the sequence is
-// blocked on.
+// says it is in the world, the chunk radius it was given. With a timeout it
+// closes the connection when the deadline passes first which ends any read the
+// sequence is blocked on.
 //
 // No chunks are sent: the client says it is in the world without any and they
 // come after.
@@ -66,6 +69,7 @@ fn spawn_sequence(mut c Conn, data GameData) !int {
 		protocol.Packet(&packets.AvailableActorIdentifiersPacket{
 			actor_info_list: actor_identifiers(['minecraft:player'])
 		}),
+		protocol.Packet(vanilla_biomes),
 	])!
 
 	radius := chunk_radius(c.read_until_chunk_radius()!)
@@ -138,6 +142,7 @@ fn start_game_packet(data GameData) &packets.StartGamePacket {
 		}
 		multiplayer_correlation_id:    '00000000-0000-0000-0000-000000000000'
 		enable_item_stack_net_manager: true
+		block_properties:              unsafe { vanilla_block_properties }
 		server_version:                protocol.minecraft_version
 		player_property_data:          empty_compound()
 		block_network_ids_are_hashes:  true

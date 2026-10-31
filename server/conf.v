@@ -3,6 +3,9 @@ module server
 import bedrock_v.protocol.enums
 import server.network
 import server.world
+import server.world.block
+import server.world.chunk
+import server.world.generator
 
 // Config is a server's settings.
 pub struct Config {
@@ -29,9 +32,9 @@ pub:
 	media_port u16 = 19133
 	// world_name names the world players join.
 	world_name string = 'world'
-	// generator fills the chunks the world has never had. The default leaves
-	// the world empty.
-	generator world.Generator = world.NopGenerator{}
+	// generator fills the chunks the world has never had. The default is a flat
+	// world of grass, dirt and bedrock.
+	generator world.Generator = default_generator()
 	// game_type is the game mode players join in.
 	game_type enums.GameType = .creative
 	login     network.LoginConfig
@@ -47,4 +50,24 @@ fn (cfg &Config) status() network.Status {
 		max_players: cfg.max_players
 		network_id:  cfg.network_id
 	}
+}
+
+// default_generator is a flat world of grass on two layers of dirt on bedrock,
+// in the plains.
+fn default_generator() world.Generator {
+	return generator.new_flat(chunk.plains_biome, [
+		block.State{
+			name:       'minecraft:bedrock'
+			properties: [block.Property{'infiniburn_bit', block.Value(u8(0))}]
+		},
+		block.State{
+			name: 'minecraft:dirt'
+		},
+		block.State{
+			name: 'minecraft:dirt'
+		},
+		block.State{
+			name: 'minecraft:grass_block'
+		},
+	]) or { panic(err) }
 }
