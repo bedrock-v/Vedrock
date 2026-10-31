@@ -648,3 +648,14 @@ fn test_a_client_that_never_spawns_is_dropped() {
 	assert w.is_closed(), 'a client that never spawned was left connected'
 	assert time.since(started) < 2 * time.second, 'the deadline did not end the spawn'
 }
+
+fn test_the_vanilla_definitions_hold_together() {
+	assert vanilla_block_properties.len > 0
+	biomes := vanilla_biomes
+	assert biomes.biomes.len > 0
+	mut names := []string{}
+	for b in biomes.biomes {
+		names << biomes.strings[b.name_index]
+	}
+	assert 'minecraft:plains' in names, 'the biome every chunk is in is not defined'
+}
