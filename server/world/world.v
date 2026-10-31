@@ -3,6 +3,7 @@ module world
 import sync
 import sync.stdatomic
 import time
+import server.world.block
 import server.world.chunk
 
 // queue_cap is how many tasks may wait for the actor before a caller has to
@@ -33,6 +34,8 @@ mut:
 	// chunks holds every chunk the world has loaded by column_key. Only the
 	// actor touches it.
 	chunks    map[u64]&Column
+	// blocks are the block states the world's chunks are made of.
+	blocks    &block.Registry
 	generator Generator
 	spawn     BlockPos
 	// sweep_every is how many ticks apart chunks nobody views are dropped.
@@ -97,6 +100,7 @@ fn start_runtime(name string, cfg Config, queue int) &Runtime {
 		tasks:     chan Task{cap: queue_cap}
 		entities:  map[u64]&Handle{}
 		chunks:    map[u64]&Column{}
+		blocks:    block.vanilla()
 		generator: cfg.generator
 		spawn:     cfg.generator.default_spawn()
 		sweep_every: i64(cfg.chunk_unload_interval / tick_interval)

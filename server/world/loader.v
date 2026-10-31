@@ -35,6 +35,8 @@ pub struct LoadedChunk {
 pub:
 	pos     chunk.Pos
 	encoded []u8
+	// sub_chunks is how many sub chunks encoded holds.
+	sub_chunks int
 }
 
 // new_loader is a loader that sees radius chunks around it. It sees nothing
@@ -140,8 +142,9 @@ fn (mut l Loader) view(pos chunk.Pos, mut col Column) LoadedChunk {
 	col.viewers << l
 	l.loaded[column_key(pos)] = pos
 	return LoadedChunk{
-		pos:     pos
-		encoded: col.encoded
+		pos:        pos
+		encoded:    col.encoded
+		sub_chunks: col.sub_chunks
 	}
 }
 
