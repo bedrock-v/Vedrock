@@ -7,8 +7,9 @@ import server.world.chunk
 pub struct Column {
 mut:
 	chunk chunk.Chunk
-	// encoded is the chunk as it is sent, made when it is first asked for and
-	// shared by everyone it is sent to. Empty until then.
+	// encoded is the chunk as it is sent, shared by everyone it is sent to. A
+	// block change empties it and the next loader to take the chunk makes it
+	// again.
 	encoded []u8
 	// sub_chunks is how many sub chunks encoded holds which LevelChunk says.
 	sub_chunks int

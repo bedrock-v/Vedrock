@@ -84,6 +84,9 @@ struct ChunkView {
 	// moved is set when the player is in another chunk than last tick.
 	moved  bool
 	chunks []world.LoadedChunk
+	// blocks changed in chunks the client already has. They go out after
+	// chunks which may be the ones they change.
+	blocks []world.BlockUpdate
 }
 
 // new_session builds a session for a player that is already in a world and was
@@ -136,12 +139,14 @@ fn (mut s Session) send_chunks() ! {
 	view := world.call_ref[Player, ChunkView](s.player, 'session.chunks', fn [mut loader] (mut tx world.Tx, e &Player) !ChunkView {
 		moved := loader.move(mut tx, e.position[0], e.position[2])
 		changed := if _ := loader.take_radius_change() { true } else { false }
+		chunks := loader.load(mut tx, chunks_per_tick)
 		return ChunkView{
 			position:       e.position
 			radius:         loader.radius()
 			radius_changed: changed
 			moved:          moved
-			chunks:         loader.load(mut tx, chunks_per_tick)
+			chunks:         chunks
+			blocks:         loader.take_block_updates(tx)
 		}
 	})!
 	if view.radius_changed {
@@ -167,6 +172,18 @@ fn (mut s Session) send_chunks() ! {
 			}
 			sub_chunk_count:       u32(c.sub_chunks)
 			serialized_chunk_data: c.encoded
+		})!
+	}
+	for b in view.blocks {
+		s.transport.write(&packets.UpdateBlockPacket{
+			block_position:   types.NetworkBlockPosition{
+				x: i32(b.pos.x)
+				y: i32(b.pos.y)
+				z: i32(b.pos.z)
+			}
+			block_runtime_id: b.hash
+			flags:            update_block_network
+			layer:            u32(b.layer)
 		})!
 	}
 	buffered := s.transport.buffered_amount()
@@ -211,6 +228,10 @@ fn dispatch(mut tx world.Tx, mut pl Player, mut loader world.Loader, p protocol.
 	}
 	return error('no handler for ${p.name()} in world "${tx.world_name()}"')
 }
+
+// update_block_network is the UpdateBlock flag that tells the client to show
+// the block; the others are for the server's own neighbour updates.
+const update_block_network = u32(2)
 
 // max_coordinate bounds a position the client sends in blocks.
 const max_coordinate = f32(30_000_000)
