@@ -2,6 +2,7 @@ module world
 
 import sync.stdatomic
 import time
+import server.world.block
 import server.world.chunk
 
 // A test entity. Nothing about it is guarded.
@@ -593,3 +594,140 @@ fn test_a_closed_loader_stops_viewing() {
 	wr.advance_tick()!
 	assert chunk_count(mut wr) == 0
 }
+
+fn stone() u32 {
+	return block.vanilla().id(block.State{ name: 'minecraft:stone' }) or { panic('no stone') }
+}
+
+fn dirt() u32 {
+	return block.vanilla().id(block.State{ name: 'minecraft:dirt' }) or { panic('no dirt') }
+}
+
+// viewing is a loader that has taken the chunk a block position is in and the
+// chunk it took.
+fn viewing(mut wr Runtime, x f32, z f32) (&Loader, LoadedChunk) {
+	mut l := new_loader(0)
+	call[bool](mut wr, 'view', fn [mut l, x, z] (mut tx Tx) !bool {
+		l.move(mut tx, x, z)
+		return true
+	}) or { panic(err) }
+	got := collect(mut wr, mut l, 1)
+	assert got.len == 1
+	return l, got[0]
+}
+
+fn updates(mut wr Runtime, mut l Loader) []BlockUpdate {
+	return call[[]BlockUpdate](mut wr, 'updates', fn [mut l] (mut tx Tx) ![]BlockUpdate {
+		return l.take_block_updates(tx)
+	}) or { panic(err) }
+}
+
+fn set(mut wr Runtime, pos BlockPos, id u32) {
+	call[bool](mut wr, 'set', fn [pos, id] (mut tx Tx) !bool {
+		tx.set_block(pos, 0, id)!
+		return true
+	}) or { panic(err) }
+}
+
+fn test_a_block_change_reaches_everyone_with_its_chunk_and_no_one_else() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	mut a, _ := viewing(mut wr, 0, 0)
+	mut b, _ := viewing(mut wr, 8, 8)
+	mut far, _ := viewing(mut wr, 100, 0)
+	set(mut wr, BlockPos{1, 70, 2}, stone())
+
+	for viewer in [a, b] {
+		mut l := unsafe { viewer }
+		got := updates(mut wr, mut l)
+		assert got.len == 1, 'a loader with the chunk was told ${got.len} times'
+		assert got[0].pos == BlockPos{1, 70, 2}
+		assert got[0].hash == block.vanilla().hash(stone())
+	}
+	assert updates(mut wr, mut far).len == 0, 'a loader without the chunk was told'
+}
+
+fn test_a_chunk_taken_after_a_change_has_the_new_block() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	_, before := viewing(mut wr, -3, -5)
+	set(mut wr, BlockPos{-3, -64, -5}, stone())
+
+	mut late, after := viewing(mut wr, -3, -5)
+	assert after.encoded != before.encoded, 'the chunk went out as it was before the change'
+	assert after.sub_chunks == 1
+	assert updates(mut wr, mut late).len == 0, 'a loader that took the new chunk was told again'
+}
+
+fn test_changes_to_one_block_go_out_once_with_the_last() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	mut l, _ := viewing(mut wr, 0, 0)
+	set(mut wr, BlockPos{4, 10, 4}, stone())
+	set(mut wr, BlockPos{4, 10, 4}, dirt())
+	got := updates(mut wr, mut l)
+	assert got.len == 1
+	assert got[0].hash == block.vanilla().hash(dirt())
+}
+
+fn test_a_flood_of_changes_sends_the_chunk_again() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	mut l, before := viewing(mut wr, 0, 0)
+	call[bool](mut wr, 'flood', fn (mut tx Tx) !bool {
+		for i in 0 .. max_block_updates + 1 {
+			tx.set_block(BlockPos{i & 15, i >> 8, i >> 4 & 15}, 0, stone())!
+		}
+		return true
+	})!
+	assert updates(mut wr, mut l).len == 0, 'the loader held more changes than its bound'
+	again := collect(mut wr, mut l, 1)
+	assert again.len == 1, 'the chunk was not sent again'
+	assert again[0].encoded != before.encoded
+}
+
+fn test_a_block_the_world_cannot_hold_is_refused() {
+	mut wr := start_manual('overworld')
+	defer {
+		wr.close()
+	}
+	viewing(mut wr, 0, 0)
+	refused := call[[]string](mut wr, 'refused', fn (mut tx Tx) ![]string {
+		mut out := []string{}
+		tx.set_block(BlockPos{0, 320, 0}, 0, stone()) or { out << 'above' }
+		tx.set_block(BlockPos{0, -65, 0}, 0, stone()) or { out << 'below' }
+		tx.set_block(BlockPos{0, 0, 0}, 2, stone()) or { out << 'layer' }
+		tx.set_block(BlockPos{0, 0, 0}, 0, u32(block.vanilla().len())) or { out << 'id' }
+		tx.set_block(BlockPos{1000, 0, 0}, 0, stone()) or { out << 'unloaded' }
+		return out
+	})!
+	assert refused == ['above', 'below', 'layer', 'id', 'unloaded']
+}
+
+fn test_a_changed_chunk_survives_the_sweep() {
+	mut wr := start_manual('overworld', chunk_unload_interval: tick_interval)
+	defer {
+		wr.close()
+	}
+	mut l, _ := viewing(mut wr, 0, 0)
+	set(mut wr, BlockPos{1, 70, 2}, stone())
+	call[bool](mut wr, 'leave', fn [mut l] (mut tx Tx) !bool {
+		l.close(mut tx)
+		return true
+	})!
+	wr.advance_tick()!
+	assert chunk_count(mut wr) == 1, 'the sweep dropped a changed chunk'
+	kept := call[u32](mut wr, 'kept', fn (mut tx Tx) !u32 {
+		return tx.block(BlockPos{1, 70, 2}, 0) or { 0 }
+	})!
+	assert kept == stone()
+}
+
