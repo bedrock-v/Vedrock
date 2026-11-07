@@ -26,7 +26,11 @@ mut:
 	// arrived holds chunks that were generated for this loader and not handed
 	// out yet.
 	arrived []LoadedChunk
-	closed  bool
+	// updates are the blocks changed in chunks the loader has and not sent yet
+	// by column_key. update_count is how many there are in all.
+	updates      map[u64]&ChunkChanges
+	update_count int
+	closed       bool
 }
 
 // LoadedChunk is a chunk ready to send. Its bytes are shared and must
@@ -46,6 +50,7 @@ pub fn new_loader(radius int) &Loader {
 		radius:  radius
 		loaded:  map[u64]chunk.Pos{}
 		pending: map[u64]chunk.Pos{}
+		updates: map[u64]&ChunkChanges{}
 	}
 }
 
@@ -139,6 +144,11 @@ fn (mut l Loader) receive(pos chunk.Pos, mut col Column) {
 
 // view starts viewing a chunk and is what is handed out for it.
 fn (mut l Loader) view(pos chunk.Pos, mut col Column) LoadedChunk {
+	// A block changed since the chunk was last made into bytes.
+	if col.encoded.len == 0 {
+		col.chunk.compact()
+		col.encoded, col.sub_chunks = col.chunk.encode()
+	}
 	col.viewers << l
 	l.loaded[column_key(pos)] = pos
 	return LoadedChunk{
@@ -158,6 +168,8 @@ pub fn (mut l Loader) close(mut tx Tx) {
 	l.loaded.clear()
 	l.queue.clear()
 	l.arrived.clear()
+	l.updates.clear()
+	l.update_count = 0
 	l.centre = none
 	// A chunk still being generated for it is dropped when it arrives.
 	l.closed = true
@@ -200,6 +212,10 @@ fn (mut l Loader) refresh(mut tx Tx) {
 }
 
 fn (mut l Loader) stop_viewing(mut tx Tx, key u64) {
+	if changes := l.updates[key] {
+		l.update_count -= changes.blocks.len
+		l.updates.delete(key)
+	}
 	mut col := tx.world.chunks[key] or { return }
 	for i, v in col.viewers {
 		if voidptr(v) == voidptr(l) {

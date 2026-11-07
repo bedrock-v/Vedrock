@@ -66,13 +66,21 @@ IDs from `block.vanilla()`, the registry of every vanilla block state, which is
 built into the server. On the wire a block is the hash of its state instead,
 which the client works out the same way, the IDs never leave the server.
 
+`tx.set_block(pos, layer, id)` changes a block in a chunk the world holds and
+fails for one it doesn't: chunks are generated on the workers, never while a
+transaction waits. Everyone who has the chunk is told through their `Loader`:
+`take_block_updates` hands out what changed since the last call, after the
+chunks taken in the same transaction. A loader that piles up too many changes
+gets the chunks again instead. A changed chunk is never swept: nothing can
+store it yet and generating it again would bring back the old blocks.
+
 What a player sees is a `Loader`: the chunks within a radius of where it is.
 Moving it queues what came into view, nearest first, and stops viewing what
 left it. `load` hands out what is ready and chunks are asked for nearest first
 but go out in the order they are generated. A chunk the world has goes out at once.
 One it doesn't is asked for and comes out of a later `load`, once a worker has
 filled it. Several loaders asking for one chunk share one generation. A chunk
-nobody views is dropped by a sweep every `chunk_unload_interval`, two minutes
+nobody views and nothing changed is dropped by a sweep every `chunk_unload_interval`, two minutes
 unless configured.
 
 ```v

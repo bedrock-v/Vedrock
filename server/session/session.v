@@ -14,7 +14,8 @@ import server.world
 pub interface Transport {
 mut:
 	read() !protocol.Packet
-	write(p protocol.Packet) !
+	// write_batch sends packets in order as one message.
+	write_batch(ps []protocol.Packet) !
 	// buffered_amount is how many bytes written have not gone out yet.
 	buffered_amount() u64
 	close()
@@ -84,6 +85,9 @@ struct ChunkView {
 	// moved is set when the player is in another chunk than last tick.
 	moved  bool
 	chunks []world.LoadedChunk
+	// blocks changed in chunks the client already has. They go out after
+	// chunks which may be the ones they change.
+	blocks []world.BlockUpdate
 }
 
 // new_session builds a session for a player that is already in a world and was
@@ -136,38 +140,56 @@ fn (mut s Session) send_chunks() ! {
 	view := world.call_ref[Player, ChunkView](s.player, 'session.chunks', fn [mut loader] (mut tx world.Tx, e &Player) !ChunkView {
 		moved := loader.move(mut tx, e.position[0], e.position[2])
 		changed := if _ := loader.take_radius_change() { true } else { false }
+		chunks := loader.load(mut tx, chunks_per_tick)
 		return ChunkView{
 			position:       e.position
 			radius:         loader.radius()
 			radius_changed: changed
 			moved:          moved
-			chunks:         loader.load(mut tx, chunks_per_tick)
+			chunks:         chunks
+			blocks:         loader.take_block_updates(tx)
 		}
 	})!
+	mut out := []protocol.Packet{cap: 2 + view.chunks.len + view.blocks.len}
 	if view.radius_changed {
-		s.transport.write(&packets.ChunkRadiusUpdatedPacket{
+		out << &packets.ChunkRadiusUpdatedPacket{
 			chunk_radius: view.radius
-		})!
+		}
 	}
 	if view.moved || view.radius_changed {
-		s.transport.write(&packets.NetworkChunkPublisherUpdatePacket{
+		out << &packets.NetworkChunkPublisherUpdatePacket{
 			new_view_position: types.BlockPos{
 				x: i32(view.position[0])
 				y: i32(view.position[1])
 				z: i32(view.position[2])
 			}
 			new_view_radius:   u32(view.radius * 16)
-		})!
+		}
 	}
 	for c in view.chunks {
-		s.transport.write(&packets.LevelChunkPacket{
+		out << &packets.LevelChunkPacket{
 			chunk_position:        types.ChunkPos{
 				x: i32(c.pos.x)
 				z: i32(c.pos.z)
 			}
 			sub_chunk_count:       u32(c.sub_chunks)
 			serialized_chunk_data: c.encoded
-		})!
+		}
+	}
+	for b in view.blocks {
+		out << &packets.UpdateBlockPacket{
+			block_position:   types.NetworkBlockPosition{
+				x: i32(b.pos.x)
+				y: i32(b.pos.y)
+				z: i32(b.pos.z)
+			}
+			block_runtime_id: b.hash
+			flags:            update_block_network
+			layer:            u32(b.layer)
+		}
+	}
+	if out.len > 0 {
+		s.transport.write_batch(out)!
 	}
 	buffered := s.transport.buffered_amount()
 	if buffered > max_buffered {
@@ -211,6 +233,10 @@ fn dispatch(mut tx world.Tx, mut pl Player, mut loader world.Loader, p protocol.
 	}
 	return error('no handler for ${p.name()} in world "${tx.world_name()}"')
 }
+
+// update_block_network is the UpdateBlock flag that tells the client to show
+// the block; the others are for the server's own neighbour updates.
+const update_block_network = u32(2)
 
 // max_coordinate bounds a position the client sends in blocks.
 const max_coordinate = f32(30_000_000)
