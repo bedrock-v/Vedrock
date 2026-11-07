@@ -14,7 +14,8 @@ import server.world
 pub interface Transport {
 mut:
 	read() !protocol.Packet
-	write(p protocol.Packet) !
+	// write_batch sends packets in order as one message.
+	write_batch(ps []protocol.Packet) !
 	// buffered_amount is how many bytes written have not gone out yet.
 	buffered_amount() u64
 	close()
@@ -149,33 +150,34 @@ fn (mut s Session) send_chunks() ! {
 			blocks:         loader.take_block_updates(tx)
 		}
 	})!
+	mut out := []protocol.Packet{cap: 2 + view.chunks.len + view.blocks.len}
 	if view.radius_changed {
-		s.transport.write(&packets.ChunkRadiusUpdatedPacket{
+		out << &packets.ChunkRadiusUpdatedPacket{
 			chunk_radius: view.radius
-		})!
+		}
 	}
 	if view.moved || view.radius_changed {
-		s.transport.write(&packets.NetworkChunkPublisherUpdatePacket{
+		out << &packets.NetworkChunkPublisherUpdatePacket{
 			new_view_position: types.BlockPos{
 				x: i32(view.position[0])
 				y: i32(view.position[1])
 				z: i32(view.position[2])
 			}
 			new_view_radius:   u32(view.radius * 16)
-		})!
+		}
 	}
 	for c in view.chunks {
-		s.transport.write(&packets.LevelChunkPacket{
+		out << &packets.LevelChunkPacket{
 			chunk_position:        types.ChunkPos{
 				x: i32(c.pos.x)
 				z: i32(c.pos.z)
 			}
 			sub_chunk_count:       u32(c.sub_chunks)
 			serialized_chunk_data: c.encoded
-		})!
+		}
 	}
 	for b in view.blocks {
-		s.transport.write(&packets.UpdateBlockPacket{
+		out << &packets.UpdateBlockPacket{
 			block_position:   types.NetworkBlockPosition{
 				x: i32(b.pos.x)
 				y: i32(b.pos.y)
@@ -184,7 +186,10 @@ fn (mut s Session) send_chunks() ! {
 			block_runtime_id: b.hash
 			flags:            update_block_network
 			layer:            u32(b.layer)
-		})!
+		}
+	}
+	if out.len > 0 {
+		s.transport.write_batch(out)!
 	}
 	buffered := s.transport.buffered_amount()
 	if buffered > max_buffered {

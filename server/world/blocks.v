@@ -62,6 +62,7 @@ pub fn (mut tx Tx) set_block(pos BlockPos, layer int, id u32) ! {
 		return
 	}
 	col.chunk.set_block(x, pos.y, z, layer, id)
+	col.modified = true
 	// Made again, compacted, by the next loader that takes the chunk.
 	col.encoded = []u8{}
 	for viewer in col.viewers.clone() {
